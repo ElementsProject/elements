@@ -214,10 +214,16 @@ int ParseSighashString(const UniValue& sighash)
         static std::map<std::string, int> map_sighash_values = {
             {std::string("ALL"), int(SIGHASH_ALL)},
             {std::string("ALL|ANYONECANPAY"), int(SIGHASH_ALL|SIGHASH_ANYONECANPAY)},
+            {std::string("ALL|RANGEPROOF"), int(SIGHASH_ALL|SIGHASH_RANGEPROOF)},
+            {std::string("ALL|ANYONECANPAY|RANGEPROOF"), int(SIGHASH_ALL|SIGHASH_ANYONECANPAY|SIGHASH_RANGEPROOF)},
             {std::string("NONE"), int(SIGHASH_NONE)},
             {std::string("NONE|ANYONECANPAY"), int(SIGHASH_NONE|SIGHASH_ANYONECANPAY)},
+            {std::string("NONE|RANGEPROOF"), int(SIGHASH_NONE|SIGHASH_RANGEPROOF)},
+            {std::string("NONE|ANYONECANPAY|RANGEPROOF"), int(SIGHASH_NONE|SIGHASH_ANYONECANPAY|SIGHASH_RANGEPROOF)},
             {std::string("SINGLE"), int(SIGHASH_SINGLE)},
             {std::string("SINGLE|ANYONECANPAY"), int(SIGHASH_SINGLE|SIGHASH_ANYONECANPAY)},
+            {std::string("SINGLE|RANGEPROOF"), int(SIGHASH_SINGLE|SIGHASH_RANGEPROOF)},
+            {std::string("SINGLE|ANYONECANPAY|RANGEPROOF"), int(SIGHASH_SINGLE|SIGHASH_ANYONECANPAY|SIGHASH_RANGEPROOF)},
         };
         std::string strHashType = sighash.get_str();
         const auto& it = map_sighash_values.find(strHashType);
