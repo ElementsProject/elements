@@ -218,10 +218,10 @@ struct PSBTInput
     std::map<CPubKey, KeyOriginInfo> hd_keypaths;
     std::map<CKeyID, SigPair> partial_sigs;
     uint256 prev_txid;
-    Optional<uint32_t> prev_out;
-    Optional<uint32_t> sequence;
-    Optional<uint32_t> time_locktime;
-    Optional<uint32_t> height_locktime;
+    Optional<uint32_t> prev_out{nullopt};
+    Optional<uint32_t> sequence{nullopt};
+    Optional<uint32_t> time_locktime{nullopt};
+    Optional<uint32_t> height_locktime{nullopt};
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
     std::set<PSBTProprietary> m_proprietary;
     int sighash_type = 0;
@@ -230,11 +230,11 @@ struct PSBTInput
 
     // Elements proprietary fields
     // Issuances
-    Optional<CAmount> m_issuance_value;
+    Optional<CAmount> m_issuance_value{nullopt};
     CConfidentialValue m_issuance_value_commitment;
     std::vector<unsigned char> m_issuance_rangeproof;
     std::vector<unsigned char> m_issuance_inflation_keys_rangeproof;
-    Optional<CAmount> m_issuance_inflation_keys_amount;
+    Optional<CAmount> m_issuance_inflation_keys_amount{nullopt};
     CConfidentialValue m_issuance_inflation_keys_commitment;
     uint256 m_issuance_blinding_nonce;
     uint256 m_issuance_asset_entropy;
@@ -244,7 +244,7 @@ struct PSBTInput
     boost::variant<boost::blank, Sidechain::Bitcoin::CMerkleBlock, CMerkleBlock> m_peg_in_txout_proof;
     CScript m_peg_in_claim_script;
     uint256 m_peg_in_genesis_hash;
-    Optional<CAmount> m_peg_in_value;
+    Optional<CAmount> m_peg_in_value{nullopt};
     CScriptWitness m_peg_in_witness;
 
     // Auxiliary elements stuff
@@ -903,8 +903,8 @@ struct PSBTOutput
     CScript redeem_script;
     CScript witness_script;
     std::map<CPubKey, KeyOriginInfo> hd_keypaths;
-    Optional<CAmount> amount;
-    Optional<CScript> script;
+    Optional<CAmount> amount{nullopt};
+    Optional<CScript> script{nullopt};
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
     std::set<PSBTProprietary> m_proprietary;
 
@@ -918,7 +918,7 @@ struct PSBTOutput
     std::vector<unsigned char> m_asset_surjection_proof;
     CPubKey m_ecdh_pubkey;
     CPubKey m_blinding_pubkey;
-    Optional<uint32_t> m_blinder_index;
+    Optional<uint32_t> m_blinder_index{nullopt};
 
     bool IsNull() const;
     void FillSignatureData(SignatureData& sigdata) const;
@@ -1242,17 +1242,17 @@ struct PSBTOutput
 /** A version of CTransaction with the PSBT format*/
 struct PartiallySignedTransaction
 {
-    Optional<CMutableTransaction> tx;
+    Optional<CMutableTransaction> tx{nullopt};
     // We use a set of CExtPubKey in the event that there happens to be the same KeyOriginInfos for different CExtPubKeys
     // Note that this map swaps the key and values from the serialization
     std::map<KeyOriginInfo, std::set<CExtPubKey>> m_xpubs;
-    Optional<int32_t> tx_version;
-    Optional<uint32_t> fallback_locktime;
-    Optional<std::bitset<8>> m_tx_modifiable;
+    Optional<int32_t> tx_version{nullopt};
+    Optional<uint32_t> fallback_locktime{nullopt};
+    Optional<std::bitset<8>> m_tx_modifiable{nullopt};
     std::vector<PSBTInput> inputs;
     std::vector<PSBTOutput> outputs;
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
-    Optional<uint32_t> m_version;
+    Optional<uint32_t> m_version{nullopt};
     std::set<PSBTProprietary> m_proprietary;
 
     // Elements proprietary fields
