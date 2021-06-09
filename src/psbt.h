@@ -888,6 +888,18 @@ struct PSBTInput
             if (prev_out == nullopt) {
                 throw std::ios_base::failure("Previous output's index is required in PSBTv2");
             }
+            if (m_issuance_value != nullopt && !m_issuance_value_commitment.IsNull()) {
+                throw std::ios_base::failure("Both issuance value and issuance value commitment cannot be provided at the same time");
+            }
+            if (m_issuance_inflation_keys_amount != nullopt && !m_issuance_inflation_keys_commitment.IsNull()) {
+                throw std::ios_base::failure("Both issuance inflations keys amount and issuance inflations keys commitment cannot be provided at the same time");
+            }
+            if (!m_issuance_value_commitment.IsNull() && m_issuance_rangeproof.empty()) {
+                throw std::ios_base::failure("Issuance value commitment provided without value rangeproof");
+            }
+            if (!m_issuance_inflation_keys_commitment.IsNull() && m_issuance_inflation_keys_rangeproof.empty()) {
+                throw std::ios_base::failure("Issuance inflatio nkeys commitment provided without inflation keys rangeproof");
+            }
         }
     }
 
@@ -1229,6 +1241,21 @@ struct PSBTOutput
             }
             if (script == nullopt) {
                 throw std::ios_base::failure("Output script is required in PSBTv2");
+            }
+            if (amount != nullopt && !m_value_commitment.IsNull()) {
+                throw std::ios_base::failure("Both output amount and output value commitment cannot be specified at the same time");
+            }
+            if (m_asset.IsNull() && m_asset_commitment.IsNull()) {
+                throw std::ios_base::failure("Output asset is required in PSET");
+            }
+            if (!m_asset.IsNull() && !m_asset_commitment.IsNull()) {
+                throw std::ios_base::failure("Both output asset and output asset commitment cannot be specified at the same time");
+            }
+            if (m_blinding_pubkey.IsValid() && m_blinder_index == nullopt) {
+                throw std::ios_base::failure("Output is blinded but does not have a blinder index");
+            }
+            if (IsBlinded() && IsPartiallyBlinded() && !IsFullyBlinded()) {
+                throw std::ios_base::failure("Blinded output contains some blinding data but not all, this is an invalid state");
             }
         }
     }
