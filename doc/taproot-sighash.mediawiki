@@ -10,14 +10,16 @@ In addition to the changes in this document, the four tagged hash tags ''TapLeaf
 The function ''SigMsg(hash_type, ext_flag)'' computes the message being signed as a byte array. It is implicitly also a function of the spending transaction and the outputs it spends, but these are not listed to keep notation simple.
 
 The parameter ''hash_type'' is an 8-bit unsigned value. The <code>SIGHASH</code> encodings from the legacy script system are reused, including <code>SIGHASH_ALL</code>, <code>SIGHASH_NONE</code>, <code>SIGHASH_SINGLE</code>, and <code>SIGHASH_ANYONECANPAY</code>, plus the default ''hash_type'' value ''0x00'' which results in signing over the whole transaction just as for <code>SIGHASH_ALL</code>. The following restrictions apply, which cause validation failure if violated:
-* Using any undefined ''hash_type'' (not ''0x00'', ''0x01'', ''0x02'', ''0x03'', ''0x81'', ''0x82'', or ''0x83''<ref>'''Why reject unknown ''hash_type'' values?''' By doing so, it is easier to reason about the worst case amount of signature hashing an implementation with adequate caching must perform.</ref>).
+* Using any undefined ''hash_type'' (not ''0x00'', ''0x01'', ''0x02'', ''0x03'', ''0x81'', ''0x82'', or ''0x83'').
 * Using <code>SIGHASH_SINGLE</code> without a "corresponding output" (an output with the same index as the input being verified).
 
 '''''NEW''''' If the input under consideration is a pegin input, the fields ''nAsset'', ''nValue'' and ''scriptPubKey'', where they appear, are taken from the pegin witness data. The asset used is the asset ID on the sidechain, not that on the parent chain (if any).
-'''''NEW''''' The epoch field prepended before signature hash is completely dropped. If there are new updates to the taproot signature hashes in elements, they will use new tagged hashes instead of incrementing epochs
-'''''NEW''''' The fields ''nNonce'', ''nAsset'' and ''nValue'' are serialized in a fixed-length format, which consists of their ordinary 1/9/33 byte encoding followed by sufficiently many 0 to pad the length out to 33. When we refer to ''extended <code>CTxOut</code> format'' below, we mean the fields ''nAsset'', ''nValue'', ''nNonce'' serialized in that order in fixed-length format, followed by the ordinary length-prefixed ''scriptPubKey''.
 
-The parameter ''ext_flag'' is an integer in range 0-127, and is used for indicating (in the message) that extensions are added at the end of the message<ref>'''What extensions use the ''ext_flag'' mechanism?''' [https://github.com/bitcoin/bips/blob/master/bip-0342.mediawiki BIP-0342] reuses the same common signature message algorithm, but adds BIP-0342-specific data at the end, which is indicated using ''ext_flag = 1''.</ref>.
+'''''NEW''''' The epoch field prepended before signature hash is completely dropped. If there are new updates to the taproot signature hashes in elements, they will use new tagged hashes instead of incrementing epochs
+
+'''''NEW''''' The fields ''nNonce'', ''nAsset'' and ''nValue'' are serialized in a fixed-length format, which consists of their ordinary 1/9/33 byte encoding followed by sufficiently many 0 to pad the length out to 33. When we refer to ''padded <code>CTxOut</code> format'' below, we mean the fields ''nAsset'', ''nValue'', ''nNonce'' serialized in that order in fixed-length format, followed by the ordinary length-prefixed ''scriptPubKey''.
+
+The parameter ''ext_flag'' is an integer in range 0-127, and is used for indicating (in the message) that extensions are added at the end of the message.
 
 If the parameters take acceptable values, the message is the concatenation of the following data, in order (with byte size of each item listed in parentheses). Numerical values in 2, 4, or 8-byte are encoded in little-endian.
 
@@ -32,19 +34,19 @@ If the parameters take acceptable values, the message is the concatenation of th
 ** ''nLockTime'' (4): the ''nLockTime'' of the transaction.
 ** If the ''hash_type & 0x80'' does not equal <code>SIGHASH_ANYONECANPAY</code>:
 *** '''''NEW''''' ''sha_outpoint_flags'' (32): the SHA256 of the serialization of the concatenation of one byte per input of the input's outpoint flags shifted right by 24 bits. (The byte for an pegin input would be 0x40. The byte for an issuance input would be 0x80. The byte for both a pegin and issuance would be 0xc0.)
-*** ''sha_prevouts'' (32): the SHA256 of the serialization of all input outpoints. Each prevout output index is the masked version containing outpoint flags
+*** ''sha_prevouts'' (32): the SHA256 of the serialization of all input outpoints. Each prevout output index is the masked version excluding outpoint flags
 *** '''''NEW''''' ''sha_asset_amounts'' (32): the SHA256 of the serialization of ''nAsset||nValue'' for each output
 *** ''sha_scriptpubkeys'' (32): the SHA256 of the serialization of all spent output ''scriptPubKey''s.
 *** ''sha_sequences'' (32): the SHA256 of the serialization of all input ''nSequence''.
 *** '''''NEW''''' ''sha_issuances'' (32): the SHA256 of the serialization of the concatenation of all input ''assetIssuance'' or 130 '0x00' bytes for inputs with no issuance
 ** If ''hash_type & 3'' does not equal <code>SIGHASH_NONE</code> or <code>SIGHASH_SINGLE</code>:
-*** ''sha_outputs'' (32): the SHA256 of the serialization of all outputs in extended <code>CTxOut</code> format.
+*** ''sha_outputs'' (32): the SHA256 of the serialization of all outputs in '''NEW''' padded <code>CTxOut</code> format.
 *** '''''NEW''''' ''sha_output_witnesses'' (32): the SHA256 of the serialization of all output witnesses (rangeproof and surjection proof) in <code>CTxOutWitness</code> format.
 * Data about this input:
 ** ''spend_type'' (1): equal to ''(ext_flag * 2) + annex_present'', where ''annex_present'' is 0 if no annex is present, or 1 otherwise (the original witness stack has two or more witness elements, and the first byte of the last element is ''0x50'')
 ** If ''hash_type & 0x80'' equals <code>SIGHASH_ANYONECANPAY</code>:
 *** '''''NEW''''' ''outpoint_flag'' (1): the input's outpoint flags shifted right by 24 bits. (Compare ''sha_outpoint_flags'' above.)
-*** ''outpoint'' (36): the <code>COutPoint</code> of this input (32-byte hash + 4-byte little-endian) where the output index includes the outpoint flags.
+*** ''outpoint'' (36): the <code>COutPoint</code> of this input (32-byte hash + 4-byte little-endian) where the output index excludes the outpoint flags.
 *** '''''NEW''''' ''nAsset'' (33): (possibly confidential) assetID of the previous output spent by this input, in fixed-length format
 *** '''''NEW''''' ''nValue'' (33): (possibly confidential) amount of the previous output spent by this input, in fixed-length format
 *** ''scriptPubKey'' (35): ''scriptPubKey'' of the previous output spent by this input, serialized as script inside <code>CTxOut</code>. Its size is always 35 bytes.
@@ -56,7 +58,7 @@ If the parameters take acceptable values, the message is the concatenation of th
 *** ''sha_annex'' (32): the SHA256 of ''(compact_size(size of annex) || annex)'', where ''annex'' includes the mandatory ''0x50'' prefix.
 * Data about this output:
 ** If ''hash_type & 3'' equals <code>SIGHASH_SINGLE</code>:
-*** ''sha_single_output'' (32): the SHA256 of the corresponding output in extended <code>CTxOut</code> format.
+*** ''sha_single_output'' (32): the SHA256 of the corresponding output in '''NEW''' padded <code>CTxOut</code> format.
 *** '''''NEW''''' ''sha_single_output_witness'' (32): the SHA256 of the serialization of the corresponding output witnesses (rangeproof and surjection proof) in <code>CTxOutWitness</code> format.
 
 The total length of ''SigMsg()'' is ''443'' bytes for <code>ANYONECANPAY</code> sighashes, ''366'' bytes for non-<code>ANYONECANPAY</code> sighashes, and both numbers are reduced by 64 bytes for <code>SIGHASH_NONE</code> sighashes. Note that this does not include the size of sub-hashes such as ''sha_prevouts'', which may be cached across signatures of the same transaction.
