@@ -45,7 +45,6 @@ class CChainParams;
 class CInv;
 class CConnman;
 class CScriptCheck;
-class CBlockPolicyEstimator;
 class CTxMemPool;
 class ChainstateManager;
 class TxValidationState;
@@ -120,7 +119,6 @@ enum class SynchronizationState {
 };
 
 extern RecursiveMutex cs_main;
-extern CBlockPolicyEstimator feeEstimator;
 typedef std::unordered_map<uint256, CBlockIndex*, BlockHasher> BlockMap;
 extern Mutex g_best_block_mutex;
 extern std::condition_variable g_best_block_cv;
