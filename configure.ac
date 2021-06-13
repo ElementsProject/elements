@@ -24,6 +24,9 @@ BITCOIN_GUI_NAME=elements-qt
 BITCOIN_CLI_NAME=elements-cli
 BITCOIN_TX_NAME=elements-tx
 BITCOIN_WALLET_TOOL_NAME=elements-wallet
+dnl Multi Process
+BITCOIN_MP_NODE_NAME=elements-node
+BITCOIN_MP_GUI_NAME=elements-gui
 
 dnl Unless the user specified ARFLAGS, force it to be cr
 AC_ARG_VAR(ARFLAGS, [Flags for the archiver, defaults to <cr> if not set])
@@ -1665,6 +1668,8 @@ AC_SUBST(BITCOIN_GUI_NAME)
 AC_SUBST(BITCOIN_CLI_NAME)
 AC_SUBST(BITCOIN_TX_NAME)
 AC_SUBST(BITCOIN_WALLET_TOOL_NAME)
+AC_SUBST(BITCOIN_MP_NODE_NAME)
+AC_SUBST(BITCOIN_MP_GUI_NAME)
 
 AC_SUBST(RELDFLAGS)
 AC_SUBST(DEBUG_CPPFLAGS)
