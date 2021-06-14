@@ -5868,8 +5868,8 @@ static RPCHelpMan sendtomainchain()
 extern UniValue signrawtransaction(const JSONRPCRequest& request);
 extern UniValue sendrawtransaction(const JSONRPCRequest& request);
 
-template<typename T_tx_ref, typename T_tx, typename T_merkle_block>
-static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef, T_tx& tx_aux, T_merkle_block& merkleBlock)
+template<typename T_tx_ref, typename T_merkle_block>
+static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef, T_merkle_block& merkleBlock)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     if (!wallet) return NullUniValue;
@@ -5990,17 +5990,15 @@ static RPCHelpMan createrawpegin()
     UniValue ret(UniValue::VOBJ);
     if (Params().GetConsensus().ParentChainHasPow()) {
         Sidechain::Bitcoin::CTransactionRef txBTCRef;
-        Sidechain::Bitcoin::CTransaction tx_aux;
         Sidechain::Bitcoin::CMerkleBlock merkleBlock;
-        ret = createrawpegin(request, txBTCRef, tx_aux, merkleBlock);
+        ret = createrawpegin(request, txBTCRef, merkleBlock);
         if (!CheckParentProofOfWork(merkleBlock.header.GetHash(), merkleBlock.header.nBits, Params().GetConsensus())) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
         }
     } else {
         CTransactionRef txBTCRef;
-        CTransaction tx_aux;
         CMerkleBlock merkleBlock;
-        ret = createrawpegin(request, txBTCRef, tx_aux, merkleBlock);
+        ret = createrawpegin(request, txBTCRef, merkleBlock);
         if (!CheckProofSignedParent(merkleBlock.header, Params().GetConsensus())) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
         }
@@ -6455,7 +6453,7 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
     FeeCalculation fee_calc_out;
     CCoinControl dummy_control;
     BlindDetails blind_details;
-    CTransactionRef tx_ref(MakeTransactionRef());
+    CTransactionRef tx_ref;
     if (!pwallet->CreateTransaction(vecSend, tx_ref, nFeeRequired, nChangePosRet, error, dummy_control, fee_calc_out, true, &blind_details, issuance_details)) {
         throw JSONRPCError(RPC_WALLET_ERROR, error.original);
     }
