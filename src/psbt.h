@@ -90,7 +90,7 @@ struct PSBTInput
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
     int sighash_type = 0;
 
-    boost::optional<CAmount> value;
+    Optional<CAmount> value;
     uint256 value_blinding_factor;
     CAsset asset;
     uint256 asset_blinding_factor;
@@ -370,7 +370,7 @@ struct PSBTInput
                     switch(subtype) {
                         case PSBT_IN_VALUE:
                         {
-                            if (value != boost::none) {
+                            if (value != nullopt) {
                                 throw std::ios_base::failure("Duplicate Key, input value already provided");
                             } else if (subkey_len != 1) {
                                 throw std::ios_base::failure("Final value key is more than one byte type");
