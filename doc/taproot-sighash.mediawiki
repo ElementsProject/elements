@@ -32,8 +32,8 @@ If the parameters take acceptable values, the message is the concatenation of th
 ** ''nLockTime'' (4): the ''nLockTime'' of the transaction.
 ** If the ''hash_type & 0x80'' does not equal <code>SIGHASH_ANYONECANPAY</code>:
 *** '''''NEW''''' ''sha_outpoint_flags'' (32): the SHA256 of the serialization of the concatenation of one byte per input of the input's outpoint flags shifted right by 24 bits. (The byte for an pegin input would be 0x40. The byte for an issuance input would be 0x80. The byte for both a pegin and issuance would be 0xc0.)
-*** ''sha_prevouts'' (32): the SHA256 of the serialization of all input outpoints. Each prevout output index is the masked version excluding outpoint flags
-*** '''''NEW''''' ''sha_asset_amounts'' (32): the SHA256 of the serialization of ''nAsset||nValue'' for each output
+*** ''sha_prevouts'' (32): the SHA256 of the serialization of all input outpoints. Each prevout output index is the masked version excluding outpoint flags. As mentioned above, for pegin inputs these will be prevouts on the parent chain.
+*** '''''NEW''''' ''sha_asset_amounts'' (32): the SHA256 of the serialization of ''nAsset||nValue'' for each output. As mentioned above, for pegin inputs an explicit value (from the parent chain) and asset (the peg asset) will be used.
 *** ''sha_scriptpubkeys'' (32): the SHA256 of the serialization of all spent output ''scriptPubKey''s.
 *** ''sha_sequences'' (32): the SHA256 of the serialization of all input ''nSequence''.
 *** '''''NEW''''' ''sha_issuances'' (32): the SHA256 of the serialization of the concatenation of all input ''assetIssuance'' or 130 '0x00' bytes for inputs with no issuance
