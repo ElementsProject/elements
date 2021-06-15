@@ -17,8 +17,6 @@ The parameter ''hash_type'' is an 8-bit unsigned value. The <code>SIGHASH</code>
 
 '''''NEW''''' The epoch field prepended before signature hash is completely dropped. If there are new updates to the taproot signature hashes in elements, they will use new tagged hashes instead of incrementing epochs
 
-'''''NEW''''' The fields ''nNonce'', ''nAsset'' and ''nValue'' are serialized in a fixed-length format, which consists of their ordinary 1/9/33 byte encoding followed by sufficiently many 0 to pad the length out to 33. When we refer to ''padded <code>CTxOut</code> format'' below, we mean the fields ''nAsset'', ''nValue'', ''nNonce'' serialized in that order in fixed-length format, followed by the ordinary length-prefixed ''scriptPubKey''.
-
 The parameter ''ext_flag'' is an integer in range 0-127, and is used for indicating (in the message) that extensions are added at the end of the message.
 
 If the parameters take acceptable values, the message is the concatenation of the following data, in order (with byte size of each item listed in parentheses). Numerical values in 2, 4, or 8-byte are encoded in little-endian.
@@ -40,7 +38,7 @@ If the parameters take acceptable values, the message is the concatenation of th
 *** ''sha_sequences'' (32): the SHA256 of the serialization of all input ''nSequence''.
 *** '''''NEW''''' ''sha_issuances'' (32): the SHA256 of the serialization of the concatenation of all input ''assetIssuance'' or 130 '0x00' bytes for inputs with no issuance
 ** If ''hash_type & 3'' does not equal <code>SIGHASH_NONE</code> or <code>SIGHASH_SINGLE</code>:
-*** ''sha_outputs'' (32): the SHA256 of the serialization of all outputs in '''NEW''' padded <code>CTxOut</code> format.
+*** ''sha_outputs'' (32): the SHA256 of the serialization of all outputs in <code>CTxOut</code> format.
 *** '''''NEW''''' ''sha_output_witnesses'' (32): the SHA256 of the serialization of all output witnesses (rangeproof and surjection proof) in <code>CTxOutWitness</code> format.
 * Data about this input:
 ** ''spend_type'' (1): equal to ''(ext_flag * 2) + annex_present'', where ''annex_present'' is 0 if no annex is present, or 1 otherwise (the original witness stack has two or more witness elements, and the first byte of the last element is ''0x50'')
@@ -58,7 +56,7 @@ If the parameters take acceptable values, the message is the concatenation of th
 *** ''sha_annex'' (32): the SHA256 of ''(compact_size(size of annex) || annex)'', where ''annex'' includes the mandatory ''0x50'' prefix.
 * Data about this output:
 ** If ''hash_type & 3'' equals <code>SIGHASH_SINGLE</code>:
-*** ''sha_single_output'' (32): the SHA256 of the corresponding output in '''NEW''' padded <code>CTxOut</code> format.
+*** ''sha_single_output'' (32): the SHA256 of the corresponding output in <code>CTxOut</code> format.
 *** '''''NEW''''' ''sha_single_output_witness'' (32): the SHA256 of the serialization of the corresponding output witnesses (rangeproof and surjection proof) in <code>CTxOutWitness</code> format.
 
 The total length of ''SigMsg()'' is ''443'' bytes for <code>ANYONECANPAY</code> sighashes, ''366'' bytes for non-<code>ANYONECANPAY</code> sighashes, and both numbers are reduced by 64 bytes for <code>SIGHASH_NONE</code> sighashes. Note that this does not include the size of sub-hashes such as ''sha_prevouts'', which may be cached across signatures of the same transaction.
