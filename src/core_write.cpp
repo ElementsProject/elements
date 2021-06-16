@@ -13,7 +13,9 @@
 #include <script/standard.h>
 #include <serialize.h>
 #include <streams.h>
+#include <undo.h>
 #include <univalue.h>
+#include <util/check.h>
 #include <util/system.h>
 #include <util/strencodings.h>
 
@@ -225,7 +227,7 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
     }
 }
 
-void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags)
+void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags, const CTxUndo* txundo)
 {
     entry.pushKV("txid", tx.GetHash().GetHex());
     entry.pushKV("hash", tx.GetWitnessHash().GetHex());
@@ -241,13 +243,14 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
     entry.pushKV("weight", GetTransactionWeight(tx));
     entry.pushKV("locktime", (int64_t)tx.nLockTime);
 
-    UniValue vin(UniValue::VARR);
+    UniValue vin{UniValue::VARR};
+
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         const CTxIn& txin = tx.vin[i];
         UniValue in(UniValue::VOBJ);
-        if (tx.IsCoinBase())
+        if (tx.IsCoinBase()) {
             in.pushKV("coinbase", HexStr(txin.scriptSig));
-        else {
+        } else {
             in.pushKV("txid", txin.prevout.hash.GetHex());
             in.pushKV("vout", (int64_t)txin.prevout.n);
             UniValue o(UniValue::VOBJ);
@@ -317,6 +320,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
     }
     entry.pushKV("vin", vin);
 
+    CAmountMap fee_map{};
     UniValue vout(UniValue::VARR);
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
         const CTxOut& txout = tx.vout[i];
@@ -350,6 +354,10 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             out.pushKV("valuecommitment", txout.nValue.GetHex());
         }
         if (g_con_elementsmode) {
+            if (txout.IsFee()) {
+                fee_map[txout.nAsset.GetAsset()] += txout.nValue.GetAmount();
+            }
+
             if (txout.nAsset.IsExplicit()) {
                 out.pushKV("asset", txout.nAsset.GetAsset().GetHex());
             } else {
@@ -368,6 +376,19 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         vout.push_back(out);
     }
     entry.pushKV("vout", vout);
+
+    // ELEMENTS: add fee map rather than single fee. Unlike other areas of the RPC,
+    //  we do not look up labels here and will always use the asset hex (contrast
+    //  `AmountMapToUniv` in rpc/util.cpp. This is because this is a pure function
+    //  so we do not have access to `policyAsset` or `gAssetsDir`. (We will get link
+    //  errors if we try to use these.)
+    if (g_con_elementsmode) {
+        UniValue fee_obj(UniValue::VOBJ);
+        for(std::map<CAsset, CAmount>::const_iterator it = fee_map.begin(); it != fee_map.end(); ++it) {
+            fee_obj.pushKV(it->first.GetHex(), ValueFromAmount(it->second));
+        }
+        entry.pushKV("fee", fee_obj);
+    }
 
     if (!hashBlock.IsNull())
         entry.pushKV("blockhash", hashBlock.GetHex());
