@@ -9,6 +9,7 @@
 #include <fs.h>
 #include <qt/bitcoinunits.h>
 #include <asset.h>
+#include <netaddress.h>
 
 #include <QEvent>
 #include <QHeaderView>
@@ -220,10 +221,10 @@ namespace GUIUtil
     bool GetStartOnSystemStartup();
     bool SetStartOnSystemStartup(bool fAutoStart);
 
-    /* Convert QString to OS specific boost path through UTF-8 */
+    /** Convert QString to OS specific boost path through UTF-8 */
     fs::path qstringToBoostPath(const QString &path);
 
-    /* Convert OS specific boost path to QString through UTF-8 */
+    /** Convert OS specific boost path to QString through UTF-8 */
     QString boostPathToQString(const fs::path &path);
 
     /* Format an amount of assets in a user-friendly style */
@@ -235,16 +236,19 @@ namespace GUIUtil
     /* Parse an amount of a given asset from text */
     bool parseAssetAmount(const CAsset&, const QString& text, int bitcoin_unit, CAmount *val_out);
 
+    /** Convert enum Network to QString */
+    QString NetworkToQString(Network net);
+
     /* Convert seconds into a QString with days, hours, mins, secs */
     QString formatDurationStr(int secs);
 
-    /* Format CNodeStats.nServices bitmask into a user-readable string */
+    /** Format CNodeStats.nServices bitmask into a user-readable string */
     QString formatServicesStr(quint64 mask);
 
-    /* Format a CNodeStats.m_ping_usec into a user-readable string or display N/A, if 0*/
+    /** Format a CNodeStats.m_ping_usec into a user-readable string or display N/A, if 0 */
     QString formatPingTime(int64_t ping_usec);
 
-    /* Format a CNodeCombinedStats.nTimeOffset into a user-readable string. */
+    /** Format a CNodeCombinedStats.nTimeOffset into a user-readable string */
     QString formatTimeOffset(int64_t nTimeOffset);
 
     QString formatNiceTimeOffset(qint64 secs);
