@@ -116,7 +116,7 @@ public:
                     int64_t _nTime, unsigned int _entryHeight,
                     bool spendsCoinbase,
                     int64_t nSigOpsCost, LockPoints lp,
-                    std::set<std::pair<uint256, COutPoint>>& setPeginsSpent);
+                    const std::set<std::pair<uint256, COutPoint>>& setPeginsSpent);
 
     const CTransaction& GetTx() const { return *this->tx; }
     CTransactionRef GetSharedTx() const { return this->tx; }

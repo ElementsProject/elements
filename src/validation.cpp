@@ -681,7 +681,7 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
     // Used when checking peg-ins
     std::vector<std::pair<CScript, CScript>> fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), chainparams.GetConsensus(), true /* nextblock_validation */);
 
-    CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
+    const CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
     // do all inputs exist?
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         const CTxIn& txin = tx.vin[i];
