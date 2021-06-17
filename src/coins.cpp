@@ -35,8 +35,6 @@ size_t CCoinsViewBacked::EstimateSize() const { return base->EstimateSize(); }
 // ELEMENTS:
 bool CCoinsViewBacked::IsPeginSpent(const std::pair<uint256, COutPoint> &outpoint) const { return base->IsPeginSpent(outpoint); }
 
-SaltedOutpointHasher::SaltedOutpointHasher() : k0(GetRand(std::numeric_limits<uint64_t>::max())), k1(GetRand(std::numeric_limits<uint64_t>::max())) {}
-
 CCoinsViewCache::CCoinsViewCache(CCoinsView *baseIn) : CCoinsViewBacked(baseIn), cachedCoinsUsage(0) {}
 
 size_t CCoinsViewCache::DynamicMemoryUsage() const {

@@ -24,6 +24,7 @@
 #include <txdb.h>
 #include <versionbits.h>
 #include <serialize.h>
+#include <util/hasher.h>
 
 #include <atomic>
 #include <map>
@@ -102,14 +103,6 @@ static const uint64_t MIN_DISK_SPACE_FOR_BLOCK_FILES = 550 * 1024 * 1024;
  *  Note that Elements-based parent chains may not have fixes based on this
  *  version check! */
 static const int MIN_MAINCHAIN_NODE_VERSION = 160300; // 0.16.3
-
-struct BlockHasher
-{
-    // this used to call `GetCheapHash()` in uint256, which was later moved; the
-    // cheap hash function simply calls ReadLE64() however, so the end result is
-    // identical
-    size_t operator()(const uint256& hash) const { return ReadLE64(hash.begin()); }
-};
 
 /** Current sync state passed to tip changed callbacks. */
 enum class SynchronizationState {
