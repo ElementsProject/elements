@@ -92,13 +92,19 @@ endif
 if BUILD_BITCOIN_CLI
   bin_PROGRAMS += elements-cli
 endif
+
 if BUILD_BITCOIN_TX
   bin_PROGRAMS += elements-tx
 endif
+
 if ENABLE_WALLET
 if BUILD_BITCOIN_WALLET
   bin_PROGRAMS += elements-wallet
 endif
+endif
+
+if BUILD_BITCOIN_UTIL
+  bin_PROGRAMS += bitcoin-util
 endif
 
 .PHONY: FORCE check-symbols check-security
@@ -705,6 +711,27 @@ elements_wallet_LDADD = $(LIBBITCOIN_WALLET_TOOL) $(elements_bin_ldadd)
 if TARGET_WINDOWS
 elements_wallet_SOURCES += bitcoin-wallet-res.rc
 endif
+#
+
+# bitcoin-util binary #
+bitcoin_util_SOURCES = bitcoin-util.cpp
+bitcoin_util_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+bitcoin_util_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+bitcoin_util_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+
+if TARGET_WINDOWS
+bitcoin_util_SOURCES += bitcoin-util-res.rc
+endif
+
+bitcoin_util_LDADD = \
+  $(LIBBITCOIN_COMMON) \
+  $(LIBBITCOIN_UTIL) \
+  $(LIBUNIVALUE) \
+  $(LIBBITCOIN_CONSENSUS) \
+  $(LIBBITCOIN_CRYPTO) \
+  $(LIBSECP256K1)
+
+bitcoin_util_LDADD += $(BOOST_LIBS)
 #
 
 # bitcoinconsensus library #

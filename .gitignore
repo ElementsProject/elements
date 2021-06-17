@@ -8,6 +8,7 @@ src/elements-cli
 src/elements-gui
 src/elements-node
 src/elements-tx
+src/elements-util
 src/elements-wallet
 src/test/fuzz/*
 !src/test/fuzz/*.*
