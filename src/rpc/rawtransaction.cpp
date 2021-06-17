@@ -1433,36 +1433,36 @@ static RPCHelpMan decodepsbt()
 
         // Peg-in stuff
         if (Params().GetConsensus().ParentChainHasPow()) {
-            if (input.peg_in_tx.which() > 0) {
-                const Sidechain::Bitcoin::CTransactionRef& btc_peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(input.peg_in_tx);
+            if (input.peg_in_tx.index() > 0) {
+                const auto btc_peg_in_tx = std::get_if<Sidechain::Bitcoin::CTransactionRef>(&input.peg_in_tx);
                 if (btc_peg_in_tx) {
                     CDataStream ss_tx(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    ss_tx << btc_peg_in_tx;
+                    ss_tx << *btc_peg_in_tx;
                     in.pushKV("pegin_bitcoin_tx", HexStr(ss_tx));
                 }
             }
-            if (input.txout_proof.which() > 0) {
-                const Sidechain::Bitcoin::CMerkleBlock& btc_txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(input.txout_proof);
-                if (!btc_txout_proof.header.IsNull()) {
+            if (input.txout_proof.index() > 0) {
+                const auto btc_txout_proof = std::get_if<Sidechain::Bitcoin::CMerkleBlock>(&input.txout_proof);
+                if (btc_txout_proof) {
                     CDataStream ss_mb(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    ss_mb << btc_txout_proof;
+                    ss_mb << *btc_txout_proof;
                     in.pushKV("pegin_txout_proof", HexStr(ss_mb));
                 }
             }
         } else {
-            if (input.peg_in_tx.which() > 0) {
-                const CTransactionRef& elem_peg_in_tx = boost::get<CTransactionRef>(input.peg_in_tx);
+            if (input.peg_in_tx.index() > 0) {
+                const auto elem_peg_in_tx = std::get_if<CTransactionRef>(&input.peg_in_tx);
                 if (elem_peg_in_tx) {
                     CDataStream ss_tx(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    ss_tx << elem_peg_in_tx;
+                    ss_tx << *elem_peg_in_tx;
                     in.pushKV("pegin_bitcoin_tx", HexStr(ss_tx));
                 }
             }
-            if (input.txout_proof.which() > 0) {
-                const CMerkleBlock& elem_txout_proof = boost::get<CMerkleBlock>(input.txout_proof);
-                if (!elem_txout_proof.header.IsNull()) {
+            if (input.txout_proof.index() > 0) {
+                const auto elem_txout_proof = std::get_if<CMerkleBlock>(&input.txout_proof);
+                if (elem_txout_proof) {
                     CDataStream ss_mb(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    ss_mb << elem_txout_proof;
+                    ss_mb << *elem_txout_proof;
                     in.pushKV("pegin_txout_proof", HexStr(ss_mb));
                 }
             }
@@ -2552,7 +2552,7 @@ static RPCHelpMan rawissueasset()
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing corresponding asset_address");
             }
             asset_dest = DecodeDestination(asset_address_uni.get_str());
-            if (boost::get<CNoDestination>(&asset_dest)) {
+            if (std::get_if<CNoDestination>(&asset_dest)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid asset address provided: %s", asset_address_uni.get_str()));
             }
         }
@@ -2569,7 +2569,7 @@ static RPCHelpMan rawissueasset()
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing corresponding token_address");
             }
             token_dest = DecodeDestination(token_address_uni.get_str());
-            if (boost::get<CNoDestination>(&token_dest)) {
+            if (std::get_if<CNoDestination>(&token_dest)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid token address provided: %s", token_address_uni.get_str()));
             }
         }
@@ -2684,7 +2684,7 @@ static RPCHelpMan rawreissueasset()
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Reissuance missing asset_address");
         }
         CTxDestination asset_dest = DecodeDestination(asset_address_uni.get_str());
-        if (boost::get<CNoDestination>(&asset_dest)) {
+        if (std::get_if<CNoDestination>(&asset_dest)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid asset address provided: %s", asset_address_uni.get_str()));
         }
 

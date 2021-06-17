@@ -2850,16 +2850,16 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
     // Stuff in the peg-in data
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
         PSBTInput& input = psbtx.inputs[i];
-        if (input.value && input.peg_in_tx.which() != 0 && input.txout_proof.which() != 0 && !input.claim_script.empty() && !input.genesis_hash.IsNull()) {
+        if (input.value && input.peg_in_tx.index() != 0 && input.txout_proof.index() != 0 && !input.claim_script.empty() && !input.genesis_hash.IsNull()) {
             CScriptWitness pegin_witness;
             if (Params().GetConsensus().ParentChainHasPow()) {
-                const Sidechain::Bitcoin::CTransactionRef& btc_peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(input.peg_in_tx);
-                const Sidechain::Bitcoin::CMerkleBlock& btc_txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(input.txout_proof);
-                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, btc_peg_in_tx, btc_txout_proof);
+                const auto btc_peg_in_tx = std::get_if<Sidechain::Bitcoin::CTransactionRef>(&input.peg_in_tx);
+                const auto btc_txout_proof = std::get_if<Sidechain::Bitcoin::CMerkleBlock>(&input.txout_proof);
+                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, *btc_peg_in_tx, *btc_txout_proof);
             } else {
-                const CTransactionRef& elem_peg_in_tx = boost::get<CTransactionRef>(input.peg_in_tx);
-                const CMerkleBlock& elem_txout_proof = boost::get<CMerkleBlock>(input.txout_proof);
-                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, elem_peg_in_tx, elem_txout_proof);
+                const auto elem_peg_in_tx = std::get_if<CTransactionRef>(&input.peg_in_tx);
+                const auto elem_txout_proof = std::get_if<CMerkleBlock>(&input.txout_proof);
+                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, *elem_peg_in_tx, *elem_txout_proof);
             }
             tx.vin[i].m_is_pegin = true;
             tx.witness.vtxinwit[i].m_pegin_witness = pegin_witness;
@@ -4254,7 +4254,7 @@ bool CWallet::GetNewDestination(const OutputType type, const std::string label, 
         result = spk_man->GetNewDestination(type, dest, error);
         if (add_blinding_key) {
             CPubKey blinding_pubkey = GetBlindingPubKey(GetScriptForDestination(dest));
-            boost::apply_visitor(SetBlindingPubKeyVisitor(blinding_pubkey), dest);
+            std::visit(SetBlindingPubKeyVisitor(blinding_pubkey), dest);
         }
     } else {
         error = strprintf("Error: No %s addresses available.", FormatOutputType(type));
@@ -4482,7 +4482,7 @@ bool ReserveDestination::GetReservedDestination(CTxDestination& dest, bool inter
 
 void ReserveDestination::SetBlindingPubKey(const CPubKey& blinding_pubkey, CTxDestination& dest)
 {
-    boost::apply_visitor(SetBlindingPubKeyVisitor(blinding_pubkey), address);
+    std::visit(SetBlindingPubKeyVisitor(blinding_pubkey), address);
     dest = address;
 }
 
@@ -4660,7 +4660,7 @@ unsigned int CWallet::ComputeTimeSmart(const CWalletTx& wtx) const
 
 bool CWallet::AddDestData(WalletBatch& batch, const CTxDestination &dest, const std::string &key, const std::string &value)
 {
-    if (boost::get<CNoDestination>(&dest))
+    if (std::get_if<CNoDestination>(&dest))
         return false;
 
     m_address_book[dest].destdata.insert(std::make_pair(key, value));

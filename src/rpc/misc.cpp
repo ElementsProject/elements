@@ -874,7 +874,7 @@ static RPCHelpMan dumpassetlabels()
     };
 }
 
-class BlindingPubkeyAdderVisitor : public boost::static_visitor<>
+class BlindingPubkeyAdderVisitor
 {
 public:
     CPubKey blind_key;
@@ -950,7 +950,7 @@ static RPCHelpMan createblindedaddress()
     key.Set(keydata.begin(), keydata.end());
 
     // Append blinding key and return
-    boost::apply_visitor(BlindingPubkeyAdderVisitor(key), address);
+    std::visit(BlindingPubkeyAdderVisitor(key), address);
     return EncodeDestination(address);
 },
     };

@@ -18,7 +18,7 @@
 #include <script/sign.h>
 #include <script/signingprovider.h>
 
-#include <boost/variant.hpp>
+#include <variant>
 
 // Magic bytes
 static constexpr uint8_t PSBT_MAGIC_BYTES[5] = {'p', 's', 'b', 't', 0xff};
@@ -95,8 +95,8 @@ struct PSBTInput
     CAsset asset;
     uint256 asset_blinding_factor;
 
-    boost::variant<boost::blank, CTransactionRef, Sidechain::Bitcoin::CTransactionRef> peg_in_tx;
-    boost::variant<boost::blank, CMerkleBlock, Sidechain::Bitcoin::CMerkleBlock> txout_proof;
+    std::variant<std::monostate, CTransactionRef, Sidechain::Bitcoin::CTransactionRef> peg_in_tx;
+    std::variant<std::monostate, CMerkleBlock, Sidechain::Bitcoin::CMerkleBlock> txout_proof;
     CScript claim_script;
     uint256 genesis_hash;
 
@@ -182,35 +182,35 @@ struct PSBTInput
 
         // Write peg-in data
         if (Params().GetConsensus().ParentChainHasPow()) {
-            if (peg_in_tx.which() > 0) {
-                const Sidechain::Bitcoin::CTransactionRef& btc_peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(peg_in_tx);
+            if (peg_in_tx.index() > 0) {
+                const auto btc_peg_in_tx = std::get_if<Sidechain::Bitcoin::CTransactionRef>(&peg_in_tx);
                 if (btc_peg_in_tx) {
                     SerializeToVector(s, PSBT_IN_PROPRIETARY, PSBT_ELEMENTS_ID, PSBT_IN_PEG_IN_TX);
                     OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    SerializeToVector(os, btc_peg_in_tx);
+                    SerializeToVector(os, *btc_peg_in_tx);
                 }
             }
-            if (txout_proof.which() > 0) {
-                const Sidechain::Bitcoin::CMerkleBlock& btc_txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(txout_proof);
-                if (!btc_txout_proof.header.IsNull()) {
+            if (txout_proof.index() > 0) {
+                const auto btc_txout_proof = std::get_if<Sidechain::Bitcoin::CMerkleBlock>(&txout_proof);
+                if (btc_txout_proof) {
                     SerializeToVector(s, PSBT_IN_PROPRIETARY, PSBT_ELEMENTS_ID, PSBT_IN_TXOUT_PROOF);
-                    SerializeToVector(s, btc_txout_proof);
+                    SerializeToVector(s, *btc_txout_proof);
                 }
             }
         } else {
-            if (peg_in_tx.which() > 0) {
-                const CTransactionRef& elem_peg_in_tx = boost::get<CTransactionRef>(peg_in_tx);
+            if (peg_in_tx.index() > 0) {
+                const auto elem_peg_in_tx = std::get_if<CTransactionRef>(&peg_in_tx);
                 if (elem_peg_in_tx) {
                     SerializeToVector(s, PSBT_IN_PROPRIETARY, PSBT_ELEMENTS_ID, PSBT_IN_PEG_IN_TX);
                     OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    SerializeToVector(os, elem_peg_in_tx);
+                    SerializeToVector(os, *elem_peg_in_tx);
                 }
             }
-            if (txout_proof.which() > 0) {
-                const CMerkleBlock& elem_txout_proof = boost::get<CMerkleBlock>(txout_proof);
-                if (!elem_txout_proof.header.IsNull()) {
+            if (txout_proof.index() > 0) {
+                const auto elem_txout_proof = std::get_if<CMerkleBlock>(&txout_proof);
+                if (elem_txout_proof) {
                     SerializeToVector(s, PSBT_IN_PROPRIETARY, PSBT_ELEMENTS_ID, PSBT_IN_TXOUT_PROOF);
-                    SerializeToVector(s, elem_txout_proof);
+                    SerializeToVector(s, *elem_txout_proof);
                 }
             }
         }
@@ -412,7 +412,7 @@ struct PSBTInput
                         }
                         case PSBT_IN_PEG_IN_TX:
                         {
-                            if (peg_in_tx.which() != 0) {
+                            if (peg_in_tx.index() != 0) {
                                 throw std::ios_base::failure("Duplicate Key, peg-in tx already provided");
                             } else if (subkey_len != 1) {
                                 throw std::ios_base::failure("Peg-in tx key is more than one byte type");
@@ -432,7 +432,7 @@ struct PSBTInput
                         }
                         case PSBT_IN_TXOUT_PROOF:
                         {
-                            if (txout_proof.which() != 0) {
+                            if (txout_proof.index() != 0) {
                                 throw std::ios_base::failure("Duplicate Key, peg-in txout proof already provided");
                             } else if (subkey_len != 1) {
                                 throw std::ios_base::failure("Peg-in txout proof key is more than one byte type");

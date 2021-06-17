@@ -212,7 +212,7 @@ CTxDestination AddAndGetMultisigDestination(const int required, const std::vecto
     return dest;
 }
 
-class DescribeAddressVisitor : public boost::static_visitor<UniValue>
+class DescribeAddressVisitor
 {
 public:
     explicit DescribeAddressVisitor() {}
@@ -278,7 +278,7 @@ public:
 
 UniValue DescribeAddress(const CTxDestination& dest)
 {
-    return boost::apply_visitor(DescribeAddressVisitor(), dest);
+    return std::visit(DescribeAddressVisitor(), dest);
 }
 
 unsigned int ParseConfirmTarget(const UniValue& value, unsigned int max_target)
@@ -889,7 +889,7 @@ UniValue GetServicesNames(ServiceFlags services)
 //
 // ELEMENTS
 
-class BlindingPubkeyVisitor : public boost::static_visitor<CPubKey>
+class BlindingPubkeyVisitor
 {
 public:
     explicit BlindingPubkeyVisitor() {}
@@ -931,14 +931,14 @@ public:
 };
 
 CPubKey GetDestinationBlindingKey(const CTxDestination& dest) {
-    return boost::apply_visitor(BlindingPubkeyVisitor(), dest);
+    return std::visit(BlindingPubkeyVisitor(), dest);
 }
 
 bool IsBlindDestination(const CTxDestination& dest) {
     return GetDestinationBlindingKey(dest).IsFullyValid();
 }
 
-class DescribeBlindAddressVisitor : public boost::static_visitor<UniValue>
+class DescribeBlindAddressVisitor
 {
 public:
 
@@ -1019,7 +1019,7 @@ public:
 UniValue DescribeBlindAddress(const CTxDestination& dest)
 {
     UniValue ret(UniValue::VOBJ);
-    ret.pushKVs(boost::apply_visitor(DescribeBlindAddressVisitor(), dest));
+    ret.pushKVs(std::visit(DescribeBlindAddressVisitor(), dest));
     return ret;
 }
 

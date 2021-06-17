@@ -9,10 +9,8 @@
 #include <script/interpreter.h>
 #include <uint256.h>
 
-#include <boost/variant.hpp>
-
 #include <string>
-
+#include <variant>
 
 #include <pubkey.h> // blinding_pubkey
 
@@ -245,7 +243,7 @@ public:
 };
 
 // ELEMENTS
-class SetBlindingPubKeyVisitor : public boost::static_visitor<>
+class SetBlindingPubKeyVisitor
 {
 public:
     const CPubKey& blinding_pubkey;
@@ -272,7 +270,7 @@ public:
  *  * NullData: TxoutType::NULL_DATA destination (OP_RETURN)
  *  A CTxDestination is the internal data type encoded in a bitcoin address
  */
-typedef boost::variant<CNoDestination, PKHash, ScriptHash, WitnessV0ScriptHash, WitnessV0KeyHash, WitnessUnknown, NullData> CTxDestination;
+using CTxDestination = std::variant<CNoDestination, PKHash, ScriptHash, WitnessV0ScriptHash, WitnessV0KeyHash, WitnessUnknown, NullData>;
 
 /** Check whether a CTxDestination is a CNoDestination. */
 bool IsValidDestination(const CTxDestination& dest);

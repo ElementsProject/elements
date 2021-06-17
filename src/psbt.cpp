@@ -159,8 +159,8 @@ void PSBTInput::Merge(const PSBTInput& input)
     if (asset.IsNull() && !input.asset.IsNull()) asset = input.asset;
     if (asset_blinding_factor.IsNull() && !input.asset_blinding_factor.IsNull()) asset_blinding_factor = input.asset_blinding_factor;
 
-    if (peg_in_tx.which() == 0 && peg_in_tx.which() > 0) peg_in_tx = input.peg_in_tx;
-    if (txout_proof.which() == 0 && peg_in_tx.which() > 0) txout_proof = input.txout_proof;
+    if (peg_in_tx.index() == 0 && peg_in_tx.index() > 0) peg_in_tx = input.peg_in_tx;
+    if (txout_proof.index() == 0 && peg_in_tx.index() > 0) txout_proof = input.txout_proof;
     if (claim_script.empty() && !input.claim_script.empty()) claim_script = input.claim_script;
     if (genesis_hash.IsNull() && !input.genesis_hash.IsNull()) genesis_hash = input.genesis_hash;
 }
@@ -346,16 +346,16 @@ bool FinalizeAndExtractPSBT(PartiallySignedTransaction& psbtx, CMutableTransacti
         result.witness.vtxinwit[i].scriptWitness = psbtx.inputs[i].final_script_witness;
         PSBTInput& input = psbtx.inputs[i];
 
-        if (input.value && input.peg_in_tx.which() != 0 && input.txout_proof.which() != 0 && !input.claim_script.empty() && !input.genesis_hash.IsNull()) {
+        if (input.value && input.peg_in_tx.index() != 0 && input.txout_proof.index() != 0 && !input.claim_script.empty() && !input.genesis_hash.IsNull()) {
             CScriptWitness pegin_witness;
             if (Params().GetConsensus().ParentChainHasPow()) {
-                const Sidechain::Bitcoin::CTransactionRef& btc_peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(input.peg_in_tx);
-                const Sidechain::Bitcoin::CMerkleBlock& btc_txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(input.txout_proof);
-                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, btc_peg_in_tx, btc_txout_proof);
+                const auto btc_peg_in_tx = std::get_if<Sidechain::Bitcoin::CTransactionRef>(&input.peg_in_tx);
+                const auto btc_txout_proof = std::get_if<Sidechain::Bitcoin::CMerkleBlock>(&input.txout_proof);
+                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, *btc_peg_in_tx, *btc_txout_proof);
             } else {
-                const CTransactionRef& elem_peg_in_tx = boost::get<CTransactionRef>(input.peg_in_tx);
-                const CMerkleBlock& elem_txout_proof = boost::get<CMerkleBlock>(input.txout_proof);
-                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, elem_peg_in_tx, elem_txout_proof);
+                const auto elem_peg_in_tx = std::get_if<CTransactionRef>(&input.peg_in_tx);
+                const auto elem_txout_proof = std::get_if<CMerkleBlock>(&input.txout_proof);
+                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, *elem_peg_in_tx, *elem_txout_proof);
             }
             result.vin[i].m_is_pegin = true;
             result.witness.vtxinwit[i].m_pegin_witness = pegin_witness;
