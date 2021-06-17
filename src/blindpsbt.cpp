@@ -38,7 +38,7 @@ bool CreateAssetSurjectionProof(std::vector<unsigned char>& output_proof, const 
 {
     int ret;
     // 1 to 3 targets
-    size_t inputs_to_select = std::min((size_t)3, fixed_input_tags.size());
+    size_t inputs_to_select = std::min(MAX_SURJECTION_TARGETS, fixed_input_tags.size());
     unsigned char randseed[32];
     GetStrongRandBytes(randseed, 32);
     size_t input_index;
