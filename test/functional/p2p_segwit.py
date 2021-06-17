@@ -701,14 +701,36 @@ class SegWitTest(BitcoinTestFramework):
         if not self.segwit_active:
             # Just check mempool acceptance, but don't add the transaction to the mempool, since witness is disallowed
             # in blocks and the tx is impossible to mine right now.
-            assert_equal(self.nodes[0].testmempoolaccept([tx3.serialize_with_witness().hex()]), [{'txid': tx3.hash, 'allowed': True, 'vsize': tx3.get_vsize(), 'fees': { 'base': Decimal('0.00001000')}}])
+            assert_equal(
+                self.nodes[0].testmempoolaccept([tx3.serialize_with_witness().hex()]),
+                [{
+                    'txid': tx3.hash,
+                    'wtxid': tx3.getwtxid(),
+                    'allowed': True,
+                    'vsize': tx3.get_vsize(),
+                    'fees': {
+                        'base': Decimal('0.00001000'),
+                    },
+                }],
+            )
             # Create the same output as tx3, but by replacing tx
             tx3_out = tx3.vout[0]
             tx3 = tx
             tx3.vout = [tx3_out]
             tx3.vout.append(CTxOut(p2sh_tx.vout[0].nValue.getAmount() - tx3.vout[0].nValue.getAmount())) # fee
             tx3.rehash()
-            assert_equal(self.nodes[0].testmempoolaccept([tx3.serialize_with_witness().hex()]), [{'txid': tx3.hash, 'allowed': True, 'vsize': tx3.get_vsize(), 'fees': { 'base': Decimal('0.00011000')}}])
+            assert_equal(
+                self.nodes[0].testmempoolaccept([tx3.serialize_with_witness().hex()]),
+                [{
+                    'txid': tx3.hash,
+                    'wtxid': tx3.getwtxid(),
+                    'allowed': True,
+                    'vsize': tx3.get_vsize(),
+                    'fees': {
+                        'base': Decimal('0.00011000'),
+                    },
+                }],
+            )
         test_transaction_acceptance(self.nodes[0], self.test_node, tx3, with_witness=True, accepted=True)
 
         self.nodes[0].generate(1)

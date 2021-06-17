@@ -837,6 +837,10 @@ class CTransaction:
         else:
             return self.serialize_without_witness()
 
+    def getwtxid(self):
+        return hash256(self.serialize())[::-1].hex()
+
+    # Recalculate the txid (transaction hash without witness)
     def rehash(self):
         self.sha256 = None
         self.calc_sha256()
@@ -851,7 +855,7 @@ class CTransaction:
 
         if self.sha256 is None:
             self.sha256 = uint256_from_str(hash256(self.serialize_without_witness()))
-        self.hash = encode(hash256(self.serialize_without_witness())[::-1], 'hex_codec').decode('ascii')
+        self.hash = hash256(self.serialize_without_witness())[::-1].hex()
 
     def calc_witness_hash(self):
         leaves = []
