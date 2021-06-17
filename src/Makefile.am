@@ -161,6 +161,7 @@ BITCOIN_CORE_H = \
   logging.h \
   logging/timer.h \
   mainchainrpc.h \
+  mapport.h \
   memusage.h \
   merkleblock.h \
   miner.h \
@@ -317,6 +318,7 @@ libbitcoin_server_a_SOURCES = \
   index/txindex.cpp \
   init.cpp \
   mainchainrpc.cpp \
+  mapport.cpp \
   miner.cpp \
   net.cpp \
   net_processing.cpp \
@@ -639,7 +641,7 @@ elements_bin_ldadd = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-elements_bin_ldadd += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(SQLITE_LIBS)
+elements_bin_ldadd += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(NATPMP_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(SQLITE_LIBS)
 
 elementsd_SOURCES = $(elements_daemon_sources)
 elementsd_CPPFLAGS = $(elements_bin_cppflags)

@@ -369,6 +369,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("listenonion=0\n")
         f.write("printtoconsole=0\n")
         f.write("upnp=0\n")
+        f.write("natpmp=0\n")
         f.write("shrinkdebugfile=0\n")
         # Elements:
         f.write("validatepegin=0\n")
