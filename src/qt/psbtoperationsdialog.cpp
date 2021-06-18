@@ -166,7 +166,7 @@ std::string PSBTOperationsDialog::renderTransaction(const PartiallySignedTransac
         ExtractDestination(*out.script, address);
         totalAmount += *out.amount;
         tx_description.append(tr(" * Sends %1 to %2")
-            .arg(BitcoinUnits::formatWithUnit(BitcoinUnits::BTC, *out.amount))
+            .arg(GUIUtil::formatAssetAmount(CAsset(out.m_asset), *out.amount, unit, BitcoinUnits::SeparatorStyle::ALWAYS))
             .arg(QString::fromStdString(EncodeDestination(address))));
         tx_description.append("<br>");
     }
