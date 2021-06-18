@@ -356,9 +356,25 @@ def initialize_datadir(dirname, n, chain):
     datadir = get_datadir_path(dirname, n)
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
-    with open(os.path.join(datadir, "elements.conf"), 'w', encoding='utf8') as f:
-        f.write("chain={}\n".format(chain))
-        f.write("[{}]\n".format(chain))
+    write_config(os.path.join(datadir, "elements.conf"), n=n, chain=chain)
+    os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
+    os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
+    return datadir
+
+
+def write_config(config_path, *, n, chain, extra_config=""):
+    # Translate chain subdirectory name to config name
+    if chain == 'testnet3':
+        chain_name_conf_arg = 'testnet'
+        chain_name_conf_section = 'test'
+    else:
+        chain_name_conf_arg = chain
+        chain_name_conf_section = chain
+    with open(config_path, 'w', encoding='utf8') as f:
+        if chain_name_conf_arg:
+            f.write("chain={}\n".format(chain_name_conf_arg))
+        if chain_name_conf_section:
+            f.write("[{}]\n".format(chain_name_conf_section))
         f.write("port=" + str(p2p_port(n)) + "\n")
         f.write("rpcport=" + str(rpc_port(n)) + "\n")
         f.write("fallbackfee=0.0002\n")
@@ -387,9 +403,7 @@ def initialize_datadir(dirname, n, chain):
         #f.write("pubkeyprefix=111\n")
         #f.write("scriptprefix=196\n")
         #f.write("bech32_hrp=bcrt\n")
-        os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
-        os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
-    return datadir
+        f.write(extra_config)
 
 
 def append_config(datadir, options):

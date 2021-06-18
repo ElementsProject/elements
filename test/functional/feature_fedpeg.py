@@ -92,7 +92,7 @@ class FedPegTest(BitcoinTestFramework):
                     "-signblockscript=51", # OP_TRUE
                 ])
 
-            self.add_nodes(1, [extra_args], chain=[parent_chain], binary=parent_binary, chain_in_args=[not self.options.parent_bitcoin])
+            self.add_nodes(1, [extra_args], chain=[parent_chain], binary=parent_binary)
             self.start_node(n)
             print("Node {} started".format(n))
         # set hard-coded mining keys for non-Elements chains

@@ -413,7 +413,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
     # Public helper methods. These can be accessed by the subclass test scripts.
 
-    def add_nodes(self, num_nodes: int, extra_args=None, *, rpchost=None, chain=None, binary=None, binary_cli=None, versions=None, chain_in_args=None):
+    def add_nodes(self, num_nodes: int, extra_args=None, *, rpchost=None, chain=None, binary=None, binary_cli=None, versions=None):
         """Instantiate TestNode objects.
 
         Should only be called once after the nodes have been specified in
@@ -451,8 +451,6 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             binary_cli = [get_bin_from_version(v, 'elements-cli', self.options.bitcoincli) for v in versions]
         if chain is None:
             chain = [self.chain] * num_nodes
-        if chain_in_args is None:
-            chain_in_args = [True] * num_nodes
         assert_equal(len(extra_confs), num_nodes)
         assert_equal(len(extra_args), num_nodes)
         assert_equal(len(versions), num_nodes)
@@ -477,7 +475,6 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 extra_args=extra_args[i],
                 use_cli=self.options.usecli,
                 start_perf=self.options.perf,
-                chain_in_args=chain_in_args[i],
                 use_valgrind=self.options.valgrind,
                 descriptors=self.options.descriptors,
             )
