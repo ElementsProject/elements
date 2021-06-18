@@ -30,6 +30,7 @@
 #include <rpc/util.h>
 
 #include <stdint.h>
+#include <functional>
 
 #include <QDebug>
 #include <QMessageBox>

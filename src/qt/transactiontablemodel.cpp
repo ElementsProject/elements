@@ -22,6 +22,7 @@
 #include <policy/policy.h>
 
 #include <algorithm>
+#include <functional>
 
 #include <QColor>
 #include <QDateTime>
