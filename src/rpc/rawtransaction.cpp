@@ -2039,15 +2039,11 @@ static RPCHelpMan converttopsbt()
 
     // Make a blank psbt
     PartiallySignedTransaction psbtx(tx, 2 /* version */);
-/*
-        // At this point, if the nonce field is present it should be a smuggled
-        //   pubkey, and not a real nonce. Convert it back to a pubkey and strip
-        //   it out.
-        psbtx.outputs[i].blinding_pubkey = CPubKey(tx.vout[i].nNonce.vchCommitment);
-        tx.vout[i].nNonce.SetNull();
-*/
 
-    psbtx.tx = tx;
+    // Set the blinder index to 0 for all outputs that are blinded
+    for (auto& outputs : psbtx.outputs) {
+        outputs.m_blinder_index = 0;
+    }
 
     // Serialize the PSBT
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
