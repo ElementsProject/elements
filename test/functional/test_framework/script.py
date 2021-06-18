@@ -608,6 +608,15 @@ SIGHASH_ANYONECANPAY = 0x80
 # ELEMENTS:
 SIGHASH_RANGEPROOF = 0x40
 
+# Add the sighash byte to the signature(Taproot sigs only)
+# Nothing is padded if sighash is default
+def taproot_pad_sighash_ty(sig, sighash_ty):
+    if len(sig) != 64:
+        raise "Schnorr sigs must be 64 bytes"
+    if sighash_ty != SIGHASH_DEFAULT:
+        sig = sig + bytes([sighash_ty])
+    return sig
+
 def FindAndDelete(script, sig):
     """Consensus critical, see FindAndDelete() in Satoshi codebase"""
     r = b''
