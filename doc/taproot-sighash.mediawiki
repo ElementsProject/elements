@@ -36,7 +36,8 @@ If the parameters take acceptable values, the message is the concatenation of th
 *** '''''NEW''''' ''sha_asset_amounts'' (32): the SHA256 of the serialization of ''nAsset||nValue'' for each output. As mentioned above, for pegin inputs an explicit value (from the parent chain) and asset (the peg asset) will be used.
 *** ''sha_scriptpubkeys'' (32): the SHA256 of the serialization of all spent output ''scriptPubKey''s.
 *** ''sha_sequences'' (32): the SHA256 of the serialization of all input ''nSequence''.
-*** '''''NEW''''' ''sha_issuances'' (32): the SHA256 of the serialization of the concatenation of all input ''assetIssuance'' or 130 '0x00' bytes for inputs with no issuance
+*** '''''NEW''''' ''sha_issuances'' (32): the SHA256 of the serialization of the concatenation of asset issuance data for inputs with an issuance or ''0x00'' for inputs with no issuance. (This matches the Segwit v0 encoding of this hash.)
+*** '''''NEW''''' ''sha_issuance_rangeproofs'' (32): the SHA256 of the serialization of the concatenation of ''issuanceAmountRangeproof||inflationKeysRangeproof'' for all inputs, where each field is encoded as ''0x00'' if absent (either if there is no issuance, or if there is an explicit issuance)
 ** If ''hash_type & 3'' does not equal <code>SIGHASH_NONE</code> or <code>SIGHASH_SINGLE</code>:
 *** ''sha_outputs'' (32): the SHA256 of the serialization of all outputs in <code>CTxOut</code> format.
 *** '''''NEW''''' ''sha_output_witnesses'' (32): the SHA256 of the serialization of all output witnesses (rangeproof and surjection proof) in <code>CTxOutWitness</code> format.
@@ -45,11 +46,12 @@ If the parameters take acceptable values, the message is the concatenation of th
 ** If ''hash_type & 0x80'' equals <code>SIGHASH_ANYONECANPAY</code>:
 *** '''''NEW''''' ''outpoint_flag'' (1): the input's outpoint flags shifted right by 24 bits. (Compare ''sha_outpoint_flags'' above.)
 *** ''outpoint'' (36): the <code>COutPoint</code> of this input (32-byte hash + 4-byte little-endian) where the output index excludes the outpoint flags.
-*** '''''NEW''''' ''nAsset'' (33): (possibly confidential) assetID of the previous output spent by this input, in fixed-length format
-*** '''''NEW''''' ''nValue'' (33): (possibly confidential) amount of the previous output spent by this input, in fixed-length format
+*** '''''NEW''''' ''nAsset'' (33): (possibly confidential) assetID of the previous output spent by this input
+*** '''''NEW''''' ''nValue'' (9-33): (possibly confidential) amount of the previous output spent by this input
 *** ''scriptPubKey'' (35): ''scriptPubKey'' of the previous output spent by this input, serialized as script inside <code>CTxOut</code>. Its size is always 35 bytes.
 *** ''nSequence'' (4): ''nSequence'' of this input.
-*** '''''NEW''''' ''asset_issuance'' (130): if ''outpoint_flag & 0x80 == 0x80'': asset issuance(fields for ''nInflationKeys'' and ''nAmount'' are serialized in fixed-length format) data of this input; otherwise 130 zero bytes
+*** '''''NEW''''' ''asset_issuance'' (1-130): if ''outpoint_flag & 0x80 == 0x80'': asset issuance data for this input, or ''0x00'' otherwise
+*** '''''NEW''''' ''sha_single_issuance_rangeproofs'' (0-32): if ''outpoint_flag & 0x80 == 0x80'': the SHA256 of the serialization of the concatenation of ''issuanceAmountRangeproof||inflationKeysRangeproof'' for this input, where each field is encoded as ''0x00'' if absent
 ** If ''hash_type & 0x80'' does not equal <code>SIGHASH_ANYONECANPAY</code>:
 *** ''input_index'' (4): index of this input in the transaction input vector. Index of the first input is 0.
 ** If an annex is present (the lowest bit of ''spend_type'' is set):
