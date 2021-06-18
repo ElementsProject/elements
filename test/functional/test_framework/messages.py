@@ -500,10 +500,10 @@ class CTxOutAsset:
         r += self.vchCommitment
         return r
 
-    #def setToAsset(self, val):
-    #    if len(val) != 32:
-    #        raise 'invalid asset hash (expected 32 bytes got %d)' % len(val)
-    #    self.vchCommitment = b'\x01' + val
+    def setToAsset(self, val):
+       if len(val) != 32:
+           raise 'invalid asset hash (expected 32 bytes)'
+       self.vchCommitment = b'\x01' + val
 
     def __repr__(self):
         return "CTxOutAsset(vchCommitment=%s)" % self.vchCommitment
@@ -543,10 +543,15 @@ class CTxOutValue:
         return r
 
     def setToAmount(self, amount):
-        commit = [1]*9
-        for i in range(8): #8 bytes
-            commit[8-i] = ((amount >> (i*8)) & 0xff)
-        self.vchCommitment = bytes(commit)
+        if type(amount) == int:
+            commit = [1]*9
+            for i in range(8): #8 bytes
+                commit[8-i] = ((amount >> (i*8)) & 0xff)
+            self.vchCommitment = bytes(commit)
+        else:
+            if len(amount) != 8:
+                raise 'invalid explicit amount (expected 8 bytes)'
+            self.vchCommitment = b'\x01' + amount[::-1]
 
     def getAmount(self):
         if self.vchCommitment[0] != 1:
@@ -628,6 +633,13 @@ class CTxOut():
         r += self.nNonce.serialize()
         r += ser_string(self.scriptPubKey)
         return r
+
+    def from_pegin_witness_data(self, peg_witness):
+        self.nAsset = CTxOutAsset()
+        self.nAsset.setToAsset(peg_witness.stack[1])
+        self.nValue = CTxOutValue()
+        self.nValue.setToAmount(peg_witness.stack[0])
+        self.scriptPubKey = peg_witness.stack[3]
 
     def __repr__(self):
         return "CTxOut(nAsset=%s nValue=%s nNonce=%s scriptPubKey=%s)" \
