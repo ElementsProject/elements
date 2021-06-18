@@ -395,7 +395,7 @@ class CAssetIssuance():
         self.nAmount = CTxOutValue()
         self.nAmount.deserialize(f)
         self.nInflationKeys = CTxOutValue()
-        self.nInflatoinKeys.deserialize(f)
+        self.nInflationKeys.deserialize(f)
 
     def serialize(self):
         r = b""
