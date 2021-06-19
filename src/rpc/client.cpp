@@ -193,6 +193,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "stop", 0, "wait" },
     //
     // ELEMENTS:
+    { "calcfastmerkleroot", 0, "leaves" },
     { "combineblocksigs", 1, "signatures" },
     { "sendtomainchain", 1, "amount" },
     { "sendtomainchain", 2, "subtractfeefromamount" },
@@ -213,12 +214,10 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "rawblindrawtransaction", 2, "inputamounts" },
     { "rawblindrawtransaction", 3, "inputassets" },
     { "rawblindrawtransaction", 4, "inputassetblinders" },
-    { "rawblindrawtransaction", 5, "totalblinder" },
     { "rawblindrawtransaction", 6, "ignoreblindfail" },
     { "blindrawtransaction", 1, "ignoreblindfail" },
     { "blindrawtransaction", 2, "asset_commitments" },
     { "blindrawtransaction", 3, "blind_issuances" },
-    { "blindrawtransaction", 4, "totalblinder" },
     { "blindpsbt", 1, "ignoreblindfail" },
     { "destroyamount", 1, "amount" },
     { "destroyamount", 3, "verbose"},
@@ -227,6 +226,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "sendtoaddress", 10, "ignoreblindfail" },
     { "createrawtransaction", 4, "output_assets" },
     { "createpsbt", 4, "output_assets" },
+    { "walletsignpsbt", 2, "imbalance_ok" },
 
 };
 // clang-format on
@@ -250,14 +250,9 @@ public:
 
 CRPCConvertTable::CRPCConvertTable()
 {
-    const unsigned int n_elem =
-        (sizeof(vRPCConvertParams) / sizeof(vRPCConvertParams[0]));
-
-    for (unsigned int i = 0; i < n_elem; i++) {
-        members.insert(std::make_pair(vRPCConvertParams[i].methodName,
-                                      vRPCConvertParams[i].paramIdx));
-        membersByName.insert(std::make_pair(vRPCConvertParams[i].methodName,
-                                            vRPCConvertParams[i].paramName));
+    for (const auto& cp : vRPCConvertParams) {
+        members.emplace(cp.methodName, cp.paramIdx);
+        membersByName.emplace(cp.methodName, cp.paramName);
     }
 }
 

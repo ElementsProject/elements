@@ -1737,32 +1737,31 @@ void RegisterMiningRPCCommands(CRPCTable &t)
 // clang-format off
 
 static const CRPCCommand commands[] =
-{ //  category              name                      actor (function)         argNames
-  //  --------------------- ------------------------  -----------------------  ----------
-    { "mining",             "getnetworkhashps",       &getnetworkhashps,       {"nblocks","height"} },
-    { "mining",             "getmininginfo",          &getmininginfo,          {} },
-    { "mining",             "prioritisetransaction",  &prioritisetransaction,  {"txid","dummy","fee_delta"} },
-    { "mining",             "getblocktemplate",       &getblocktemplate,       {"template_request"} },
-    { "generating",         "combineblocksigs",       &combineblocksigs,       {"blockhex","signatures","witnessScript"} },
-    { "mining",             "submitheader",           &submitheader,           {"hexdata"} },
-    { "generating",         "getnewblockhex",         &getnewblockhex,         {"min_tx_age", "proposed_parameters", "commit_data"} },
-    { "generating",         "getcompactsketch",       &getcompactsketch,       {"block_hex"} },
-    { "generating",         "consumecompactsketch",   &consumecompactsketch,   {"sketch"} },
-    { "generating",         "consumegetblocktxn",     &consumegetblocktxn,     {"full_block", "block_tx_req"} },
-    { "generating",         "finalizecompactblock",   &finalizecompactblock,   {"compact_hex","block_transactions","found_transactions"} },
-    { "mining",             "testproposedblock",      &testproposedblock,      {"blockhex", "acceptnonstd"} },
+{ //  category              actor (function)
+  //  --------------------- ------------------------
+    { "mining",             &getnetworkhashps,         },
+    { "mining",             &getmininginfo,            },
+    { "mining",             &prioritisetransaction,    },
+    { "mining",             &getblocktemplate,         },
+    { "generating",         &combineblocksigs,         },
+    { "mining",             &submitheader,             },
+    { "generating",         &getnewblockhex,           },
+    { "generating",         &getcompactsketch,         },
+    { "generating",         &consumecompactsketch,     },
+    { "generating",         &consumegetblocktxn,       },
+    { "generating",         &finalizecompactblock,     },
+    { "mining",             &testproposedblock,        },
 
+    { "mining",             &submitblock,              },
 
-    { "mining",             "submitblock",            &submitblock,            {"hexdata","dummy"} },
+    { "generating",          &generatetoaddress,       },
+    { "generating",          &generatetodescriptor,    },
+    { "generating",          &generateblock,           },
 
-    { "generating",         "generatetoaddress",      &generatetoaddress,      {"nblocks","address","maxtries"} },
-    { "generating",         "generatetodescriptor",   &generatetodescriptor,   {"num_blocks","descriptor","maxtries"} },
-    { "generating",         "generateblock",          &generateblock,          {"output","transactions"} },
+    { "util",                &estimatesmartfee,        },
 
-    { "util",               "estimatesmartfee",       &estimatesmartfee,       {"conf_target", "estimate_mode"} },
-
-    { "hidden",             "estimaterawfee",         &estimaterawfee,         {"conf_target", "threshold"} },
-    { "hidden",             "generate",               &generate,               {} },
+    { "hidden",              &estimaterawfee,          },
+    { "hidden",              &generate,                },
 };
 // clang-format on
     for (const auto& c : commands) {
