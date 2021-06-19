@@ -7021,6 +7021,7 @@ RPCHelpMan importprunedfunds();
 RPCHelpMan removeprunedfunds();
 RPCHelpMan importmulti();
 RPCHelpMan importdescriptors();
+RPCHelpMan listdescriptors();
 RPCHelpMan getwalletpakinfo();
 
 Span<const CRPCCommand> GetWalletRPCCommands()
@@ -7060,6 +7061,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "importwallet",                     &importwallet,                  {"filename"} },
     { "wallet",             "keypoolrefill",                    &keypoolrefill,                 {"newsize"} },
     { "wallet",             "listaddressgroupings",             &listaddressgroupings,          {} },
+    { "wallet",             "listdescriptors",                  &listdescriptors,               {} },
     { "wallet",             "listlabels",                       &listlabels,                    {"purpose"} },
     { "wallet",             "listlockunspent",                  &listlockunspent,               {} },
     { "wallet",             "listreceivedbyaddress",            &listreceivedbyaddress,         {"minconf","include_empty","include_watchonly","address_filter","assetlabel"} },
