@@ -68,6 +68,8 @@
 #include <set>
 #include <stdint.h>
 #include <stdio.h>
+#include <thread>
+#include <vector>
 
 #ifndef WIN32
 #include <attributes.h>
@@ -78,7 +80,6 @@
 
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/signals2/signal.hpp>
-#include <boost/thread/thread.hpp>
 
 #include <assetsdir.h> // InitGlobalAssetDir
 #include <pegins.h>
@@ -162,8 +163,6 @@ static std::unique_ptr<ECCVerifyHandle> globalVerifyHandle;
 
 static std::thread g_load_block;
 
-static boost::thread_group threadGroup;
-
 void Interrupt(NodeContext& node)
 {
     InterruptHTTPServer();
@@ -225,12 +224,10 @@ void Shutdown(NodeContext& node)
     StopTorControl();
 
     // After everything has been shut down, but before things get flushed, stop the
-    // CScheduler/checkqueue, threadGroup and load block thread.
+    // CScheduler/checkqueue, scheduler and load block thread.
     if (node.scheduler) node.scheduler->stop();
     if (node.reverification_scheduler) node.reverification_scheduler->stop();
     if (g_load_block.joinable()) g_load_block.join();
-    threadGroup.interrupt_all();
-    threadGroup.join_all();
     StopScriptCheckWorkerThreads();
 
     // After the threads that potentially access these pointers have been stopped,
@@ -1397,7 +1394,7 @@ bool AppInitMain(const util::Ref& context, NodeContext& node, interfaces::BlockA
     node.reverification_scheduler = MakeUnique<CScheduler>();
 
     // Start the lightweight task scheduler thread
-    threadGroup.create_thread([&] { TraceThread("scheduler", [&] { node.scheduler->serviceQueue(); }); });
+    node.scheduler->m_service_thread = std::thread([&] { TraceThread("scheduler", [&] { node.scheduler->serviceQueue(); }); });
 
     // Gather some entropy once per minute.
     node.scheduler->scheduleEvery([]{
@@ -2079,8 +2076,7 @@ bool AppInitMain(const util::Ref& context, NodeContext& node, interfaces::BlockA
     }
 
     // Start the lightweight block re-evaluation scheduler thread
-    CScheduler::Function reevaluationLoop = [&node]{ node.reverification_scheduler->serviceQueue(); };
-    threadGroup.create_thread(std::bind(&TraceThread<CScheduler::Function>, "reevaluation_scheduler", reevaluationLoop));
+    node.reverification_scheduler->m_service_thread = std::thread([&] { TraceThread( "reevaluation_scheduler", [&] { node.reverification_scheduler->serviceQueue(); }); });
 
     CScheduler::Function f2 = std::bind(&MainchainRPCCheck, false);
     unsigned int check_rpc_every = gArgs.GetArg("-recheckpeginblockinterval", 120);
