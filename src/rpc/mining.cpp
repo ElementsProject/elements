@@ -395,7 +395,7 @@ static RPCHelpMan generateblock()
         LOCK(cs_main);
 
         BlockValidationState state;
-        if (!TestBlockValidity(state, chainparams, block, LookupBlockIndex(block.hashPrevBlock), false, false)) {
+        if (!TestBlockValidity(state, chainparams, ::ChainstateActive(), block, g_chainman.m_blockman.LookupBlockIndex(block.hashPrevBlock), false, false)) {
             throw JSONRPCError(RPC_VERIFY_ERROR, strprintf("TestBlockValidity failed: %s", state.ToString()));
         }
     }
@@ -640,7 +640,7 @@ static RPCHelpMan getblocktemplate()
                 throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
 
             uint256 hash = block.GetHash();
-            const CBlockIndex* pindex = LookupBlockIndex(hash);
+            const CBlockIndex* pindex = g_chainman.m_blockman.LookupBlockIndex(hash);
             if (pindex) {
                 if (pindex->IsValid(BLOCK_VALID_SCRIPTS))
                     return "duplicate";
@@ -654,7 +654,7 @@ static RPCHelpMan getblocktemplate()
             if (block.hashPrevBlock != pindexPrev->GetBlockHash())
                 return "inconclusive-not-best-prevblk";
             BlockValidationState state;
-            TestBlockValidity(state, Params(), block, pindexPrev, false, true);
+            TestBlockValidity(state, Params(), ::ChainstateActive(), block, pindexPrev, false, true);
             return BIP22ValidationResult(state);
         }
 
@@ -988,7 +988,7 @@ static RPCHelpMan submitblock()
     uint256 hash = block.GetHash();
     {
         LOCK(cs_main);
-        const CBlockIndex* pindex = LookupBlockIndex(hash);
+        const CBlockIndex* pindex = g_chainman.m_blockman.LookupBlockIndex(hash);
         if (pindex) {
             if (pindex->IsValid(BLOCK_VALID_SCRIPTS)) {
                 return "duplicate";
@@ -1001,7 +1001,7 @@ static RPCHelpMan submitblock()
 
     {
         LOCK(cs_main);
-        const CBlockIndex* pindex = LookupBlockIndex(block.hashPrevBlock);
+        const CBlockIndex* pindex = g_chainman.m_blockman.LookupBlockIndex(block.hashPrevBlock);
         if (pindex) {
             UpdateUncommittedBlockStructures(block, pindex, Params().GetConsensus());
         }
@@ -1045,7 +1045,7 @@ static RPCHelpMan submitheader()
     }
     {
         LOCK(cs_main);
-        if (!LookupBlockIndex(h.hashPrevBlock)) {
+        if (!g_chainman.m_blockman.LookupBlockIndex(h.hashPrevBlock)) {
             throw JSONRPCError(RPC_VERIFY_ERROR, "Must submit previous header (" + h.hashPrevBlock.GetHex() + ") first");
         }
     }
@@ -1705,7 +1705,7 @@ static RPCHelpMan testproposedblock()
         throw JSONRPCError(RPC_VERIFY_ERROR, "proposal was not based on our best chain");
 
     BlockValidationState state;
-    if (!TestBlockValidity(state, Params(), block, pindexPrev, false, true) || !state.IsValid()) {
+    if (!TestBlockValidity(state, Params(), ::ChainstateActive(), block, pindexPrev, false, true) || !state.IsValid()) {
         std::string strRejectReason = state.GetRejectReason();
         if (strRejectReason.empty())
             throw JSONRPCError(RPC_VERIFY_ERROR, state.IsInvalid() ? "Block proposal was invalid" : "Error checking block proposal");

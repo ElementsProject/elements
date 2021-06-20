@@ -5212,7 +5212,7 @@ static RPCHelpMan signblock()
             throw JSONRPCError(RPC_VERIFY_ERROR, "proposal was not based on our best chain");
 
         BlockValidationState state;
-        if (!TestBlockValidity(state, Params(), block, pindexPrev, false, true) || !state.IsValid()) {
+        if (!TestBlockValidity(state, Params(), ::ChainstateActive(), block, pindexPrev, false, true) || !state.IsValid()) {
             std::string strRejectReason = state.GetRejectReason();
             if (strRejectReason.empty())
                 throw JSONRPCError(RPC_VERIFY_ERROR, state.IsInvalid() ? "Block proposal was invalid" : "Error checking block proposal");
