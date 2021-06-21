@@ -6,13 +6,16 @@
 Interface for low level bindings from secp256k1(zkp)
 to deal with python data structures
 """
+from codecs import encode
+from .messages import ser_uint256, uint256_from_compact
 from .secp256k1_zkp_bind import (
     SECP256K1_GENERATOR_SIZE, SECP256K1_PEDERSEN_COMMITMENT_SIZE, _secp256k1, secp256k1_blind_context)
 import ctypes
 
-from .messages import (COIN, CTxOutAsset, CAsset, CT_BITS, CT_EXPONENT, CTxOutNonce, CTxOutValue, CTxOutWitness)
+from .messages import (CAssetIssuance, COIN, COutPoint, CTxInWitness, CTxOutAsset, CAsset, CT_BITS, CT_EXPONENT, CTxOutNonce, CTxOutValue, CTxOutWitness, hash256)
 from .script import CScript
 from .key import ECKey, ECPubKey
+from .util import calcfastmerkleroot
 
 import os
 import hashlib
@@ -318,6 +321,12 @@ output_pubkeys: The receiver pubkeys with which we do ECDH to get the nonce. In 
     workflow this is set in nNonce field of the Transaction, which is later replaced
     by a fresh ephemeral pk we choose. The nonce derived in used in rangeproofs for
     encyrption.
+issunace_blinding_priv_keys: (List[ECKey]) The keys used for blinding issuances. If provided, the list
+    must contain the key for input at index i at index i, and None at other indices if there is no
+    issuance
+token_blinding_priv_keys: (List[ECKey]) The keys used for blinding reissuances. If provided, the list
+    must contain the key for input at index i at index i, and None at other indices if there is no
+    issuance
 auxillary_generators: (List(secp_generators)) Additional generators for surjection proof
     anonymity set
 
@@ -326,7 +335,7 @@ num_blinded: (int) The number of outputs blinded
 output_value_blind_factors: (List[byte 32]) The List of output value blind factors
 output_asset_blind_factors: (List[byte 32]) The list of output asset blind factors
 """
-def blind_transaction(tx, input_value_blinding_factors, input_asset_blinding_factors, input_assets, input_amounts, output_pubkeys, auxiliary_generators = None):
+def blind_transaction(tx, input_value_blinding_factors, input_asset_blinding_factors, input_assets, input_amounts, output_pubkeys, issuance_blinding_priv_keys = [], token_blinding_priv_keys = [], auxiliary_generators = None ):
     assert(len(tx.vout) >= len(output_pubkeys))
     assert(len(tx.vin) == len(input_value_blinding_factors) == len(input_asset_blinding_factors) == len(input_amounts) == len(input_assets))
     for i in range(len(tx.vin)):
@@ -377,7 +386,44 @@ def blind_transaction(tx, input_value_blinding_factors, input_asset_blinding_fac
         target_asset_blinders.append(input_asset_blinding_factors[i])
         total_targets += 1
 
-        # TODO: issuances
+        if not tx.vin[i].assetIssuance.isNull():
+            if tx.vin[i].assetIssuance.nAmount.isCommitment() or tx.vin[i].assetIssuance.nInflationKeys.isCommitment():
+                raise Exception('cannot blind transaction with already blinded issuances')
+
+            token, entropy = None, None
+            if tx.vin[i].assetIssuance.assetBlindingNonce == 0:
+                # There is no reissuance
+                blind_issuance = (len(token_blinding_priv_keys) > i and token_blinding_priv_keys[i] is not None)
+                # TODO: Check validity of priv key
+                entropy = generate_asset_entropy(tx.vin[i].prevout, ser_uint256(tx.vin[i].assetIssuance.assetEntropy))
+                asset = calculate_asset(entropy)
+                token = calculate_reissuance_token(entropy, blind_issuance)
+            else:
+                asset = calculate_asset(tx.vin[i].assetIssuance.assetEntropy)
+
+            if not tx.vin[i].assetIssuance.nAmount.isNull():
+                surjection_targets[total_targets] = asset
+                buf = ctypes.create_string_buffer(SECP256K1_GENERATOR_SIZE)
+                ret = _secp256k1.secp256k1_generator_generate(secp256k1_blind_context, buf, asset.id)
+                if ret != 1:
+                    raise RuntimeError('secp256k1_generator_generate failed')
+                target_asset_generators[total_targets] = buf.raw
+                # No blinding
+                target_asset_blinders.append(bytes(32))
+                total_targets += 1
+
+            if not tx.vin[i].assetIssuance.nInflationKeys.isNull():
+                assert token is not None
+                surjection_targets[total_targets] = token
+                buf = ctypes.create_string_buffer(SECP256K1_GENERATOR_SIZE)
+                ret = _secp256k1.secp256k1_generator_generate(secp256k1_blind_context, buf, token.id)
+                if ret != 1:
+                    raise RuntimeError('secp256k1_generator_generate failed')
+                target_asset_blinders[total_targets] = buf.raw
+                # No blinding
+                target_asset_blinders.append(bytes(32))
+                total_targets += 1
+
 
     if auxiliary_generators:
         # Add auxiallary gens to the blinding
@@ -415,8 +461,27 @@ def blind_transaction(tx, input_value_blinding_factors, input_asset_blinding_fac
         blinded_amounts.append(input_amounts[i])
         num_known_input_blinds += 1
 
-        #TODO: issuances
-        assert(tx.vin[i].assetIssuance.isNull())
+
+        # Count number of issuance pseudo-inputs to blind
+        issuance = tx.vin[i].assetIssuance
+        if not issuance.isNull():
+            # Marked for blinding
+            if (len(issuance_blinding_priv_keys) > i and issuance_blinding_priv_keys[i] is not None):
+                if not issuance.nAmount.isExplicit():
+                    raise Exception("nAmount must be explicit for blinding")
+
+                if len(tx.wit.vtxinwit) <= i or len(tx.wit.vtxinwit[i].vchIssuanceAmountRangeproof) == 0:
+                    num_to_blind += 1
+                else:
+                    raise Exception("Rangeproof already present, but issuance marked for blinding")
+
+            if len(token_blinding_priv_keys) > i and token_blinding_priv_keys[i] is not None:
+                if not issuance.nInflationKeys.isExplicit():
+                    raise Exception("nInflationKeys must be explicit for blinding")
+                if len(tx.wit.vtxinwit) <= i or len(tx.wit.vtxinwit[i].vchInflationKeysRangeproof) == 0:
+                    num_to_blind += 1
+                else:
+                    raise Exception("Rangeproof already present, but issuance marked for blinding")
 
     # Checks about the transaction outputs
     for n_out, pk in enumerate(output_pubkeys):
@@ -427,12 +492,105 @@ def blind_transaction(tx, input_value_blinding_factors, input_asset_blinding_fac
                     raise Exception("TxOuts must have explicit asset/values while blinding and proofs must be empty")
             num_to_blind += 1
 
+    # First blind all the issuance inputs
+    # Copied from python elements-tx
+    num_issuance_blind_attempts = 0
+    for n_in, txin in enumerate(tx.vin):
+        asset_issuace_valid = len(issuance_blinding_priv_keys) > i and issuance_blinding_priv_keys[i] is not None
+        token_issuance_valid = len(token_blinding_priv_keys) > i and token_blinding_priv_keys[i] is not None
+        for nPseudo in range(2):
+            if nPseudo == 0:
+                iss_valid = asset_issuace_valid
+            else:
+                iss_valid = token_issuance_valid
+
+            if iss_valid:
+                num_blind_attempts += 1
+                num_issuance_blind_attempts += 1
+                issuance = tx.vin[n_in].assetIssuance
+
+                # First iteration does issuance asset, second inflation keys
+                explicitValue = issuance.nInflationKeys if nPseudo else issuance.nAmount
+                if explicitValue.isNull():
+                    continue
+
+                amount = explicitValue.getAmount()
+
+                blinded_amounts.append(amount)
+
+                # Derive the asset of the issuance asset/token
+                if issuance.assetBlindingNonce == 0:
+                    entropy = generate_asset_entropy(tx.vin[n_in].prevout, ser_uint256(issuance.assetEntropy))
+                    if nPseudo == 0:
+                        asset = calculate_asset(entropy)
+                    else:
+                        assert amount
+                        asset = calculate_reissuance_token(entropy, token_issuance_valid)
+                else:
+                    if nPseudo == 0:
+                        asset = calculate_asset(issuance.assetEntropy)
+                    else:
+                        # Re-issuance only has one pseudo-input maximum
+                        continue
+
+                # Fill out the value blinders and blank asset blinder
+                value_blinds.append(os.urandom(32))
+                # Issuances are not asset-blinded
+                asset_blinds.append(bytes(32))
+
+                if num_blind_attempts == num_to_blind:
+                    # All outputs we own are unblinded, we don't support this type of blinding
+                    # though it is possible. No privacy gained here, incompatible with secp api
+                    return (num_blinded, output_value_blinding_factors, output_asset_blinding_factors)
+
+                while len(tx.wit.vtxinwit) <= n_in:
+                    tx.wit.vtxinwit.append(CTxInWitness())
+
+                txinwit = tx.wit.vtxinwit[n_in]
+
+                # TODO Store the blinding factors of issuance
+
+                # Create unblinded generator.
+                (_, gen) = blind_asset(asset, asset_blinds[-1])
+
+                # Create value commitment
+                (confValue, value_commit) = create_value_commitment(amount, value_blinds[-1], gen)
+
+                if nPseudo:
+                    issuance.nInflationKeys=confValue
+                else:
+                    issuance.nAmount=confValue
+
+                tx.vin[n_in].assetIssuance = issuance
+
+                # nonce should just be blinding key
+                if nPseudo == 0:
+                    asset_key = issuance_blinding_priv_keys[n_in]
+                    assert asset_key is not None
+                    nonce = asset_key.get_bytes()
+                else:
+                    token_key = token_blinding_priv_keys[n_in]
+                    assert token_key is not None
+                    nonce = token_key.get_bytes()
+
+                # Generate rangeproof, no script committed for issuances
+                rangeproof = generate_rangeproof(amount, value_blinds[-1], asset, asset_blinds[-1], nonce, CScript(), value_commit, gen)
+
+                if nPseudo == 0:
+                    txinwit.vchIssuanceAmountRangeproof = rangeproof
+                else:
+                    txinwit.vchInflationKeysRangeproof = rangeproof
+
+                # print("hjerer2", tx)
+                # Successfully blinded this issuance
+                num_blinded += 1
+
     tx.wit.vtxoutwit = [CTxOutWitness() for _ in range(len(tx.vout))]
 
     for n_out in range(len(output_pubkeys)):
         if output_pubkeys[n_out].valid:
             out = tx.vout[n_out]
-            num_blind_attempts += 1;
+            num_blind_attempts += 1
             conf_asset = out.nAsset
             conf_value = out.nValue
             amount = conf_value.getAmount()
@@ -468,7 +626,7 @@ def blind_transaction(tx, input_value_blinding_factors, input_asset_blinding_fac
                 ret = _secp256k1.secp256k1_pedersen_blind_generator_blind_sum(
                     secp256k1_blind_context,
                     blinded_amounts_ptr, asset_blind_ptrs, value_blind_ptrs,
-                    num_blind_attempts + num_known_input_blinds, 0 + num_known_input_blinds)
+                    num_blind_attempts + num_known_input_blinds, num_issuance_blind_attempts + num_known_input_blinds)
 
                 if ret != 1:
 
@@ -514,3 +672,42 @@ def blind_transaction(tx, input_value_blinding_factors, input_asset_blinding_fac
 
             num_blinded += 1
     return (num_blinded, output_value_blinding_factors, output_asset_blinding_factors)
+
+def generate_asset_entropy(prevout, contracthash):
+    assert type(prevout) is COutPoint
+    assert type(contracthash) is bytes and len(contracthash) == 32
+
+    leaves = [
+        encode(hash256(prevout.serialize())[::-1], 'hex_codec').decode('ascii'),
+        encode(contracthash[::-1], 'hex_codec').decode('ascii'),
+    ]
+    return bytes.fromhex(calcfastmerkleroot(leaves))[::-1]
+
+def calculate_asset(entropy):
+    if len(entropy) != 32:
+        raise ValueError('entropy must be 32 bytes in length')
+
+    zero_32 = bytes(32)
+    leaves = [
+        encode(entropy[::-1], 'hex_codec').decode('ascii'),
+        encode(zero_32[::-1], 'hex_codec').decode('ascii'),
+    ]
+
+    return CAsset(bytes.fromhex(calcfastmerkleroot(leaves))[::-1])
+
+
+def calculate_reissuance_token(entropy, is_confidential):
+    if len(entropy) != 32:
+        raise ValueError('entropy must be 32 bytes in length')
+    assert type(is_confidential) == bool
+
+    if is_confidential:
+        fConfidential = b'\x02' + bytes(31)
+    else:
+        fConfidential = b'\x01' + bytes(31)
+    leaves = [
+        encode(entropy[::-1], 'hex_codec').decode('ascii'),
+        encode(fConfidential[::-1], 'hex_codec').decode('ascii'),
+    ]
+
+    return CAsset(bytes.fromhex(calcfastmerkleroot(leaves))[::-1])

@@ -598,6 +598,9 @@ class CTxOutValue:
     def isExplicit(self):
         return self.vchCommitment[0] == 1 and len(self.vchCommitment) == 9
 
+    def isCommitment(self):
+        return (self.vchCommitment[0] == 8 or self.vchCommitment[0] == 9) and len(self.vchCommitment) == 33
+
     def __repr__(self):
         return "CTxOutValue(vchCommitment=%s)" % self.vchCommitment
 

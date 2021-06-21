@@ -8,13 +8,25 @@
 # Test listissuances returns a list of all issuances or specific issuances based on asset hex or asset label.
 #
 
-from test_framework.script import CScript, OP_CHECKSIG, SIGHASH_ALL, TaprootSignatureHash, taproot_construct
+from test_framework.script import CScript, OP_CHECKSIG, SIGHASH_ALL, SIGHASH_ANYONECANPAY, SIGHASH_DEFAULT, SIGHASH_NONE, SIGHASH_SINGLE, TaprootSignatureHash, taproot_construct, taproot_pad_sighash_ty
 from test_framework.key import ECKey, ECPubKey, compute_xonly_pubkey, generate_privkey, sign_schnorr, tweak_add_privkey, tweak_add_pubkey, verify_schnorr
-from test_framework.messages import CAsset, COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, CTxOutNonce, FromHex, uint256_from_str
+from test_framework.messages import CAsset, COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, CTxOutNonce, FromHex, ser_uint256, uint256_from_str
 from test_framework.test_framework import BitcoinTestFramework, SkipTest
 from test_framework.blind import blind_transaction
 
 import sys
+
+
+VALID_SIGHASHES_ECDSA = [
+    SIGHASH_ALL,
+    SIGHASH_NONE,
+    SIGHASH_SINGLE,
+    SIGHASH_ANYONECANPAY + SIGHASH_ALL,
+    SIGHASH_ANYONECANPAY + SIGHASH_NONE,
+    SIGHASH_ANYONECANPAY + SIGHASH_SINGLE
+]
+
+VALID_SIGHASHES_TAPROOT = [SIGHASH_DEFAULT] + VALID_SIGHASHES_ECDSA
 
 class BlindTest(BitcoinTestFramework):
     """
@@ -44,14 +56,7 @@ class BlindTest(BitcoinTestFramework):
     def setup_network(self, split=False):
         self.setup_nodes()
 
-    def run_test(self):
-        self.log.info("Check for linux")
-        if not sys.platform.startswith('linux'):
-            raise SkipTest("This test can only be run on linux.")
-
-        self.nodes[0].generate(101)
-        self.wait_until(lambda: self.nodes[0].getblockcount() == 101, timeout=5)
-        self.nodes[0].generate(101)
+    def test_conf_taphash(self, sighash_ty):
 
         addr = self.nodes[0].getnewaddress()
 
@@ -71,7 +76,16 @@ class BlindTest(BitcoinTestFramework):
         raw_hex = tx.serialize().hex()
         fund_tx = self.nodes[0].fundrawtransaction(raw_hex)["hex"]
 
-        spent = self.nodes[0].listunspent()[0]
+        utxos = self.nodes[0].listunspent()
+        funded = FromHex(CTransaction(), fund_tx)
+        spent = None
+        # Coin selection
+        for utxo in utxos:
+            if utxo["txid"] == ser_uint256(funded.vin[0].prevout.hash)[::-1].hex() and utxo["vout"] == funded.vin[0].prevout.n:
+                spent = utxo
+
+        assert(spent is not None)
+        assert(len(funded.vin) == 1)
 
         tx = FromHex(CTransaction(), fund_tx)
 
@@ -83,8 +97,8 @@ class BlindTest(BitcoinTestFramework):
         key.generate()
         output_pk2 = key.get_pubkey()
 
-        in_v_blind = bytes.fromhex(spent['amountblinder'])
-        in_a_blind = bytes.fromhex(spent["assetblinder"])
+        in_v_blind = bytes.fromhex(spent['amountblinder'])[::-1]
+        in_a_blind = bytes.fromhex(spent["assetblinder"])[::-1]
         in_amount = int(spent['amount']*COIN)
         in_asset = CAsset(bytes.fromhex(spent["asset"])[::-1])
 
@@ -134,15 +148,31 @@ class BlindTest(BitcoinTestFramework):
         assert(res == 1)
         genesis_hash = uint256_from_str(bytes.fromhex(self.nodes[0].getblockhash(0))[::-1])
         spent_tx.wit.vtxinwit = [CTxInWitness()]
-        msg = TaprootSignatureHash(spent_tx, [tx.vout[prev_vout]], 0, genesis_hash, 0)
+        msg = TaprootSignatureHash(spent_tx, [tx.vout[prev_vout]], sighash_ty, genesis_hash, 0)
 
         # compute the tweak
         tweak_sk = tweak_add_privkey(sec, tweak)
         sig = sign_schnorr(tweak_sk, msg)
-        spent_tx.wit.vtxinwit[0].scriptWitness.stack = [sig]
+        spent_tx.wit.vtxinwit[0].scriptWitness.stack = [taproot_pad_sighash_ty(sig, sighash_ty)]
         pub_tweak = tweak_add_pubkey(pub, tweak)[0]
         assert(verify_schnorr(pub_tweak, sig, msg))
         self.nodes[0].sendrawtransaction(spent_tx.serialize().hex())
+
+        self.nodes[0].generate(1)
+        last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
+        spent_tx.rehash()
+        assert(spent_tx.hash in last_blk['tx'])
+
+    def run_test(self):
+        self.log.info("Check for linux")
+        if not sys.platform.startswith('linux'):
+            raise SkipTest("This test can only be run on linux.")
+
+        self.nodes[0].generate(101)
+        self.wait_until(lambda: self.nodes[0].getblockcount() == 101, timeout=5)
+
+        for sighash_ty in VALID_SIGHASHES_TAPROOT:
+            self.test_conf_taphash(sighash_ty)
 
 if __name__ == '__main__':
     BlindTest().main()

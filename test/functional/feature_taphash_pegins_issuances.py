@@ -6,10 +6,13 @@
 #
 # Test for taproot sighash algorithm with pegins and issuances
 
+from test_framework.util import BITCOIN_ASSET, BITCOIN_ASSET_BYTES
 from test_framework.key import ECKey, ECPubKey, compute_xonly_pubkey, generate_privkey, sign_schnorr, tweak_add_privkey, tweak_add_pubkey, verify_schnorr
-from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, CTxOutValue, CTxOutWitness, FromHex, uint256_from_str
+from test_framework.messages import CAsset, COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, CTxOutValue, CTxOutWitness, FromHex, uint256_from_str
 from test_framework.test_framework import BitcoinTestFramework, SkipTest
 from test_framework.script import TaprootSignatureHash, taproot_construct, taproot_pad_sighash_ty, SIGHASH_DEFAULT, SIGHASH_ALL, SIGHASH_NONE, SIGHASH_SINGLE, SIGHASH_ANYONECANPAY
+from test_framework.blind import blind_transaction
+from test_framework import util
 
 VALID_SIGHASHES_ECDSA = [
     SIGHASH_ALL,
@@ -36,7 +39,7 @@ class TapHashPeginTest(BitcoinTestFramework):
             "-parentscriptprefix=75",
             "-parent_bech32_hrp=ert",
             "-minrelaytxfee=0",
-            "-maxtxfee=100.0",
+            "-maxtxfee=1000000000.0",
         ]]
 
     def skip_test_if_missing_module(self):
@@ -131,7 +134,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         raw_claim.rehash()
         assert(raw_claim.hash in last_blk['tx'])
 
-    def issuance_test(self, sighash_ty):
+    def issuance_test(self, sighash_ty, blind):
         tx, prev_vout, spk, sec, pub, tweak = self.create_taproot_utxo()
 
         blind_addr = self.nodes[0].getnewaddress()
@@ -142,20 +145,38 @@ class TapHashPeginTest(BitcoinTestFramework):
         # Need to taproot outputs later because fundrawtransaction cannot estimate fees
         # prev out has value 1.2 btc
         in_total = tx.vout[prev_vout].nValue.getAmount()
-        fees = 100
+        fees = 10000
         raw_tx.vin.append(CTxIn(COutPoint(tx.sha256, prev_vout)))
         raw_tx.vout.append(CTxOut(nValue = CTxOutValue(in_total - fees - 10**8), scriptPubKey = spk)) # send back to self
         raw_tx.vout.append(CTxOut(nValue = CTxOutValue(fees)))
 
         # issued_tx = raw_tx.serialize().hex()
         blind_addr = self.nodes[0].getnewaddress()
-        issue_addr = self.nodes[0].validateaddress(blind_addr)['unconfidential']
-        issued_tx = self.nodes[0].rawissueasset(raw_tx.serialize().hex(), [{"asset_amount":2, "asset_address":issue_addr, "blind":False}])[0]["hex"]
+        blind_addr = self.nodes[0].validateaddress(blind_addr)['unconfidential']
+        issued_tx = self.nodes[0].rawissueasset(raw_tx.serialize().hex(), [{"asset_amount":2, "asset_address":blind_addr, "blind":False}])[0]["hex"]
         # blind_tx = self.nodes[0].blindrawtransaction(issued_tx) # This is a no-op
-        genesis_hash = uint256_from_str(bytes.fromhex(self.nodes[0].getblockhash(0))[::-1])
+
+        # Test keys, use repeated keys for testing
+        key = ECKey()
+        key.generate()
+        output_pk = key.get_pubkey()
+
+        # Must have 1 input now.
         issued_tx = FromHex(CTransaction(), issued_tx)
-        issued_tx.wit.vtxoutwit = [CTxOutWitness()] * len(issued_tx.vout)
-        issued_tx.wit.vtxinwit = [CTxInWitness()] * len(issued_tx.vin)
+        if blind:
+            (res, v_blind, a_blind) = blind_transaction (issued_tx, input_value_blinding_factors=[bytes(32)], \
+                input_asset_blinding_factors = [bytes(32)], \
+                input_assets = [CAsset(bytes.fromhex(BITCOIN_ASSET)[::-1])], \
+                input_amounts = [in_total], \
+                output_pubkeys =  [output_pk, output_pk, output_pk], \
+                issuance_blinding_priv_keys = [key],
+                # token_blinding_priv_keys = [key],
+                )
+            assert (res >= 0)
+        else:
+            issued_tx.wit.vtxinwit = [CTxInWitness()]*len(issued_tx.vin)
+            issued_tx.wit.vtxoutwit = [CTxOutWitness()]*len(issued_tx.vout)
+        genesis_hash = uint256_from_str(bytes.fromhex(self.nodes[0].getblockhash(0))[::-1])
         msg = TaprootSignatureHash(issued_tx, [tx.vout[prev_vout]], sighash_ty, genesis_hash, 0)
 
         # compute the tweak
@@ -176,6 +197,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.wait_until(lambda: self.nodes[0].getblockcount() == 101, timeout=5)
         self.log.info("Testing sighash taproot pegins")
+        util.node_fastmerkle = self.nodes[0]
         # Note that this does not test deposit to taproot pegin addresses
         # because there is no support for taproot pegins in rpc. The current rpc assumes
         # to shwsh tweaked address
@@ -183,7 +205,8 @@ class TapHashPeginTest(BitcoinTestFramework):
             self.pegin_test(sighash_ty)
         self.log.info("Testing sighash taproot issuances")
         for sighash_ty in VALID_SIGHASHES_TAPROOT:
-            self.issuance_test(sighash_ty)
+            for blind in [True, False]:
+                self.issuance_test(sighash_ty, blind)
 
 
 if __name__ == '__main__':
