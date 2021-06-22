@@ -57,8 +57,7 @@ WitnessV0ScriptHash::WitnessV0ScriptHash(const CScript& in, const CPubKey& blind
 
 std::string GetTxnOutputType(TxoutType t)
 {
-    switch (t)
-    {
+    switch (t) {
     case TxoutType::NONSTANDARD: return "nonstandard";
     case TxoutType::PUBKEY: return "pubkey";
     case TxoutType::PUBKEYHASH: return "pubkeyhash";
@@ -205,12 +204,8 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
     std::vector<valtype> vSolutions;
     TxoutType whichType = Solver(scriptPubKey, vSolutions);
 
-    if (whichType == TxoutType::NULL_DATA) {
-        // This is data, not addresses
-        return false;
-    }
-
-    if (whichType == TxoutType::PUBKEY) {
+    switch (whichType) {
+    case TxoutType::PUBKEY: {
         CPubKey pubKey(vSolutions[0]);
         if (!pubKey.IsValid())
             return false;
@@ -218,26 +213,28 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
         addressRet = PKHash(pubKey);
         return true;
     }
-    else if (whichType == TxoutType::PUBKEYHASH)
-    {
+    case TxoutType::PUBKEYHASH: {
         addressRet = PKHash(uint160(vSolutions[0]));
         return true;
     }
-    else if (whichType == TxoutType::SCRIPTHASH)
-    {
+    case TxoutType::SCRIPTHASH: {
         addressRet = ScriptHash(uint160(vSolutions[0]));
         return true;
-    } else if (whichType == TxoutType::WITNESS_V0_KEYHASH) {
+    }
+    case TxoutType::WITNESS_V0_KEYHASH: {
         WitnessV0KeyHash hash;
         std::copy(vSolutions[0].begin(), vSolutions[0].end(), hash.begin());
         addressRet = hash;
         return true;
-    } else if (whichType == TxoutType::WITNESS_V0_SCRIPTHASH) {
+    }
+    case TxoutType::WITNESS_V0_SCRIPTHASH: {
         WitnessV0ScriptHash hash;
         std::copy(vSolutions[0].begin(), vSolutions[0].end(), hash.begin());
         addressRet = hash;
         return true;
-    } else if (whichType == TxoutType::WITNESS_UNKNOWN || whichType == TxoutType::WITNESS_V1_TAPROOT) {
+    }
+    case TxoutType::WITNESS_UNKNOWN:
+    case TxoutType::WITNESS_V1_TAPROOT: {
         WitnessUnknown unk;
         unk.version = vSolutions[0][0];
         std::copy(vSolutions[1].begin(), vSolutions[1].end(), unk.program);
@@ -245,8 +242,15 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
         addressRet = unk;
         return true;
     }
-    // Multisig txns have more than one address...
-    return false;
+    case TxoutType::MULTISIG:
+        // Multisig txns have more than one address...
+    case TxoutType::NULL_DATA:
+    case TxoutType::NONSTANDARD:
+    case TxoutType::OP_TRUE: // ELEMENTS (no address type)
+    case TxoutType::FEE: // ELEMENTS (no address type)
+        return false;
+    } // no default case, so the compiler can warn about missing cases
+    assert(false);
 }
 
 bool ExtractDestinations(const CScript& scriptPubKey, TxoutType& typeRet, std::vector<CTxDestination>& addressRet, int& nRequiredRet)
