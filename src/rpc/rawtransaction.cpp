@@ -2145,6 +2145,7 @@ static RPCHelpMan utxoupdatepsbt()
     };
 }
 
+#if 0
 static RPCHelpMan joinpsbts()
 {
     return RPCHelpMan{"joinpsbts",
@@ -2257,6 +2258,7 @@ static RPCHelpMan joinpsbts()
 },
     };
 }
+#endif
 
 static RPCHelpMan analyzepsbt()
 {
@@ -3073,7 +3075,9 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "createpsbt",                   &createpsbt,                {"inputs","outputs","locktime","replaceable","psbt_version"} },
     { "rawtransactions",    "converttopsbt",                &converttopsbt,             {"hexstring","permitsigdata","iswitness"} },
     { "rawtransactions",    "utxoupdatepsbt",               &utxoupdatepsbt,            {"psbt","descriptors"} },
+#if 0
     { "rawtransactions",    "joinpsbts",                    &joinpsbts,                 {"txs"} },
+#endif
     { "rawtransactions",    "analyzepsbt",                  &analyzepsbt,               {"psbt"} },
 
     { "blockchain",         "gettxoutproof",                &gettxoutproof,             {"txids","blockhash"} },
