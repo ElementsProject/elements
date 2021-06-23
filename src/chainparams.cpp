@@ -10,7 +10,6 @@
 #include <hash.h> // for signet block challenge hash
 #include <issuance.h>
 #include <primitives/transaction.h>
-#include <tinyformat.h>
 #include <util/system.h>
 #include <util/strencodings.h>
 #include <crypto/sha256.h>
@@ -207,6 +206,10 @@ public:
             }
         };
 
+        m_assumeutxo_data = MapAssumeutxo{
+         // TODO to be specified in a future patch.
+        };
+
         chainTxData = ChainTxData{
             // Data from RPC: getchaintxstats 4096 0000000000000000000b9d2ec5a352ecba0592946514a92f14319dc2b367fc72
             /* nTime    */ 1603995752,
@@ -308,6 +311,10 @@ public:
             {
                 {546, uint256S("000000002a936ca763904c3c35fce2f3556c559c0214345d31b1bcebf76acb70")},
             }
+        };
+
+        m_assumeutxo_data = MapAssumeutxo{
+            // TODO to be specified in a future patch.
         };
 
         chainTxData = ChainTxData{
@@ -525,6 +532,17 @@ public:
             {
                 {0, uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206")},
             }
+        };
+
+        m_assumeutxo_data = MapAssumeutxo{
+            {
+                110,
+                {uint256S("0x4fa9f2be16670cb097173e6b788974fb9106c2335c074267ca5f7fc297dded32"), 110},
+            },
+            {
+                210,
+                {uint256S("0x9c5ed99ef98544b34f8920b6d1802f72ac28ae6e2bd2bd4c316ff10c230df3f2"), 210},
+            },
         };
 
         chainTxData = ChainTxData{
@@ -1303,4 +1321,10 @@ void SelectParams(const std::string& network)
 {
     SelectBaseParams(network);
     globalChainParams = CreateChainParams(gArgs, network);
+}
+
+std::ostream& operator<<(std::ostream& o, const AssumeutxoData& aud)
+{
+    o << strprintf("AssumeutxoData(%s, %s)", aud.hash_serialized.ToString(), aud.nChainTx);
+    return o;
 }
