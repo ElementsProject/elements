@@ -441,7 +441,7 @@ public:
     bool checkFinalTx(const CTransaction& tx) override
     {
         LOCK(cs_main);
-        return CheckFinalTx(tx);
+        return CheckFinalTx(::ChainActive().Tip(), tx);
     }
     Optional<int> findLocatorFork(const CBlockLocator& locator) override
     {
@@ -661,7 +661,7 @@ public:
 // ELEMENTS
     MempoolAcceptResult testPeginClaimAcceptance(const CTransactionRef tx) override {
         LOCK(::cs_main);
-        return ::AcceptToMemoryPool(*m_node.mempool, tx, false /* bypass_limits */, true /* test_accept */);
+        return ::AcceptToMemoryPool(::ChainstateActive(), *m_node.mempool, tx, false /* bypass_limits */, true /* test_accept */);
     }
 // end ELEMENTS
     NodeContext& m_node;
