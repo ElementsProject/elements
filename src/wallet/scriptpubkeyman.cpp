@@ -2272,6 +2272,19 @@ const std::vector<CScript> DescriptorScriptPubKeyMan::GetScriptPubKeys() const
     return script_pub_keys;
 }
 
+bool DescriptorScriptPubKeyMan::GetDescriptorString(std::string& out, bool priv) const
+{
+    LOCK(cs_desc_man);
+    if (m_storage.IsLocked()) {
+        return false;
+    }
+
+    FlatSigningProvider provider;
+    provider.keys = GetKeys();
+
+    return m_wallet_descriptor.descriptor->ToNormalizedString(provider, out, priv);
+}
+
 /// ELEMENTS: get PAK online key
 bool LegacyScriptPubKeyMan::GetOnlinePakKey(CPubKey& online_pubkey, std::string& error)
 {
@@ -2283,4 +2296,3 @@ bool LegacyScriptPubKeyMan::GetOnlinePakKey(CPubKey& online_pubkey, std::string&
     return true;
 }
 /// end ELEMENTS
-
