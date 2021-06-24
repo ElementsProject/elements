@@ -11,7 +11,6 @@
 #include <issuance.h>
 #include <primitives/transaction.h>
 #include <util/system.h>
-#include <util/strencodings.h>
 #include <crypto/sha256.h>
 #include <versionbitsinfo.h>
 
@@ -181,7 +180,7 @@ public:
         bech32_hrp = "bc";
         blech32_hrp = bech32_hrp;
 
-        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
+        vFixedSeeds = std::vector<SeedSpec6>(std::begin(pnSeed6_main), std::end(pnSeed6_main));
 
         fDefaultConsistencyChecks = false;
         fRequireStandard = true;
@@ -300,7 +299,7 @@ public:
         bech32_hrp = "tb";
         blech32_hrp = bech32_hrp;
 
-        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_test, pnSeed6_test + ARRAYLEN(pnSeed6_test));
+        vFixedSeeds = std::vector<SeedSpec6>(std::begin(pnSeed6_test), std::end(pnSeed6_test));
 
         fDefaultConsistencyChecks = false;
         fRequireStandard = false;
@@ -862,7 +861,7 @@ public:
 
         vSeeds.clear();
         vSeeds.emplace_back("seed.liquidnetwork.io");
-        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_liquidv1, pnSeed6_liquidv1 + ARRAYLEN(pnSeed6_liquidv1));
+        vFixedSeeds = std::vector<SeedSpec6>(std::begin(pnSeed6_liquidv1), std::end(pnSeed6_liquidv1));
 
         //
         // ELEMENTS fields
