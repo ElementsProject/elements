@@ -10,8 +10,7 @@ src/elements-node
 src/elements-tx
 src/elements-util
 src/elements-wallet
-src/test/fuzz/*
-!src/test/fuzz/*.*
+src/test/fuzz/fuzz
 src/test/test_bitcoin
 src/qt/test/test_elements-qt
 
