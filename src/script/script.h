@@ -213,11 +213,16 @@ enum opcodetype
     // Opcode added by BIP 342 (Tapscript)
     OP_CHECKSIGADD = 0xba,
 
+    // Elements: Tapscript (Streaming sha2 opcodes)
+    OP_SHA256INITIALIZE = 0xc4,
+    OP_SHA256UPDATE = 0xc5,
+    OP_SHA256FINALIZE = 0xc6,
+
     OP_INVALIDOPCODE = 0xff,
 };
 
 // Maximum value that an opcode can be
-static const unsigned int MAX_OPCODE = OP_SUBSTR_LAZY; // 0xc3
+static const unsigned int MAX_OPCODE = OP_SHA256FINALIZE; // 0xc6
 
 std::string GetOpName(opcodetype opcode);
 

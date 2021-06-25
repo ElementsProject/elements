@@ -705,6 +705,59 @@ void CSHA256::Midstate(unsigned char hash[OUTPUT_SIZE], uint64_t* len, unsigned 
     }
 }
 
+std::vector<unsigned char> CSHA256::Save() const {
+    size_t buf_size = bytes % 64;
+    std::vector<unsigned char> result(40 + buf_size);
+
+    WriteBE32(&result[ 0], s[0]);
+    WriteBE32(&result[ 4], s[1]);
+    WriteBE32(&result[ 8], s[2]);
+    WriteBE32(&result[12], s[3]);
+    WriteBE32(&result[16], s[4]);
+    WriteBE32(&result[20], s[5]);
+    WriteBE32(&result[24], s[6]);
+    WriteBE32(&result[28], s[7]);
+
+    WriteLE64(&result[32], bytes << 3);
+
+    if (buf_size) memcpy(&result[40], buf, buf_size);
+
+    return result;
+}
+
+bool CSHA256::Load(const std::vector<unsigned char>& vch) {
+    if (vch.size() < 40) return false;
+
+    uint64_t bits = ReadLE64(&vch[32]);
+    size_t buf_size = (bits >> 3) % 64;
+
+    if ((bits & 0x07) != 0 || vch.size() != 40 + buf_size) return false;
+
+    // We want to leave the internal state of the object unchanged if false is returned.
+    // So no member variables can be modified until now.
+
+    s[0] = ReadBE32(&vch[ 0]);
+    s[1] = ReadBE32(&vch[ 4]);
+    s[2] = ReadBE32(&vch[ 8]);
+    s[3] = ReadBE32(&vch[12]);
+    s[4] = ReadBE32(&vch[16]);
+    s[5] = ReadBE32(&vch[20]);
+    s[6] = ReadBE32(&vch[24]);
+    s[7] = ReadBE32(&vch[28]);
+
+    bytes = bits >> 3;
+    if (buf_size) memcpy(buf, &vch[40], buf_size);
+
+    return true;
+}
+
+bool CSHA256::SafeWrite(const unsigned char* data, size_t len) {
+  const uint64_t SHA256_MAX = 0x1FFFFFFFFFFFFFFF; // SHA256's maximum allowed message length in bytes.
+  if (SHA256_MAX < bytes || SHA256_MAX - bytes < len) return false;
+  Write(data, len);
+  return true;
+}
+
 CSHA256& CSHA256::Reset()
 {
     bytes = 0;

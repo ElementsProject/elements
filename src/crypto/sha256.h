@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string>
+#include <vector>
 
 /** A hasher class for SHA-256. */
 class CSHA256
@@ -26,7 +27,10 @@ public:
     //TODO: Midstate is a hack'ish speedup that probably should make way for something
     //akin to the SHA256D64 speedups
     void Midstate(unsigned char hash[OUTPUT_SIZE], uint64_t* len, unsigned char *buffer);
+    std::vector<unsigned char> Save() const;
+    bool Load(const std::vector<unsigned char>& vch);
     CSHA256& Reset();
+    bool SafeWrite(const unsigned char* data, size_t len);
 };
 
 /** Autodetect the best available SHA256 implementation.
