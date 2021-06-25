@@ -255,6 +255,11 @@ OP_NOP10 = CScriptOp(0xb9)
 # BIP 342 opcodes (Tapscript)
 OP_CHECKSIGADD = CScriptOp(0xba)
 
+# Elements Tapscript extension
+OP_SHA256INITIALIZE = CScriptOp(0xc4)
+OP_SHA256UPDATE = CScriptOp(0xc5)
+OP_SHA256FINALIZE = CScriptOp(0xc6)
+
 OP_INVALIDOPCODE = CScriptOp(0xff)
 
 OPCODE_NAMES.update({
@@ -936,4 +941,4 @@ def taproot_construct(pubkey, scripts=None):
     return TaprootInfo(CScript([OP_1, tweaked]), pubkey, negated + 0, tweak, leaves)
 
 def is_op_success(o):
-    return o == 80 or o == 98 or (o >= 137 and o <= 138) or (o >= 141 and o <= 142) or (o >= 149 and o <= 151) or (o >= 187 and o <= 191) or (o >= 196 and o <= 254)
+    return o == 80 or o == 98 or (o >= 137 and o <= 138) or (o >= 141 and o <= 142) or (o >= 149 and o <= 151) or (o >= 187 and o <= 191) or (o >= 223 and o <= 254)
