@@ -9,7 +9,7 @@ Verify that a bitcoind node can use an external signer command
 import os
 import platform
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import BitcoinTestFramework, SkipTest
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
@@ -37,6 +37,7 @@ class SignerTest(BitcoinTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
         self.skip_if_no_external_signer()
+        raise SkipTest("ELEMENTS: see `git blame` on this line of code for more info")
 
     def set_mock_result(self, node, res):
         with open(os.path.join(node.cwd, "mock_result"), "w", encoding="utf8") as f:
@@ -202,10 +203,9 @@ class SignerTest(BitcoinTestFramework):
 
         self.log.info('Test send using hww1')
 
-        # ELEMENTS: these lines are ridiculous. See `git blame` for more detail.
-        #res = hww.send(outputs={dest:0.5},options={"add_to_wallet": False})
-        #assert(res["complete"])
-        #assert_equal(res["hex"], mock_tx)
+        res = hww.send(outputs={dest:0.5},options={"add_to_wallet": False})
+        assert(res["complete"])
+        assert_equal(res["hex"], mock_tx)
 
         # # Handle error thrown by script
         # self.set_mock_result(self.nodes[4], "2")

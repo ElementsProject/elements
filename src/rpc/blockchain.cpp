@@ -850,8 +850,8 @@ static RPCHelpMan getblockheader()
                                     {RPCResult::Type::ELISION, "", "same entries as current"}
                                 }},
                             }},
-                            {RPCResult::Type::STR_HEX, "previousblockhash", "The hash of the previous block"},
-                            {RPCResult::Type::STR_HEX, "nextblockhash", "The hash of the next block"},
+                            {RPCResult::Type::STR_HEX, "previousblockhash", /* optional */ true, "The hash of the previous block (if available)"},
+                            {RPCResult::Type::STR_HEX, "nextblockhash", /* optional */ true, "The hash of the next block (if available)"},
                         }},
                     RPCResult{"for verbose=false",
                         RPCResult::Type::STR_HEX, "", "A string that is serialized, hex-encoded data for block 'hash'"},
@@ -977,8 +977,8 @@ static RPCHelpMan getblock()
                             {RPCResult::Type::ELISION, "", "same entries as current"}
                         }},
                     }},
-                    {RPCResult::Type::STR_HEX, "previousblockhash", "The hash of the previous block"},
-                    {RPCResult::Type::STR_HEX, "nextblockhash", "The hash of the next block"},
+                    {RPCResult::Type::STR_HEX, "previousblockhash", /* optional */ true, "The hash of the previous block (if available)"},
+                    {RPCResult::Type::STR_HEX, "nextblockhash", /* optional */ true, "The hash of the next block (if available)"},
                 }},
                     RPCResult{"for verbosity = 2",
                 RPCResult::Type::OBJ, "", "",
