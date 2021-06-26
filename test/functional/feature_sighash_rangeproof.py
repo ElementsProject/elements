@@ -50,8 +50,15 @@ class SighashRangeproofTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 3
         # We want to test activation of dynafed
-        args = ["-con_dyna_deploy_start=1000", "-blindedaddresses=1", "-initialfreecoins=2100000000000000", "-con_blocksubsidy=0", "-con_connect_genesis_outputs=1", "-txindex=1"]
-        self.extra_args = [args] * self.num_nodes
+        self.extra_args = [[
+            "-con_dyna_deploy_start=1000",
+            "-con_dyna_deploy_signal=1",
+            "-blindedaddresses=1",
+            "-initialfreecoins=2100000000000000",
+            "-con_blocksubsidy=0",
+            "-con_connect_genesis_outputs=1",
+            "-txindex=1",
+        ]] * self.num_nodes
         self.extra_args[0].append("-anyonecanspendaremine=1") # first node gets the coins
 
     def skip_test_if_missing_module(self):

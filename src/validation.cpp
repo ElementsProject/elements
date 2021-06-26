@@ -1951,6 +1951,15 @@ int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Para
         }
     }
 
+    // Undo default signalling behavior for dynafed unless explicitly enabled.
+    if (!gArgs.GetBoolArg("-con_dyna_deploy_signal", false)) {
+        auto dynafed = Consensus::DeploymentPos::DEPLOYMENT_DYNA_FED;
+        int bit = params.vDeployments[dynafed].bit;
+        if (bit > 0 && bit < VERSIONBITS_NUM_BITS) {
+            nVersion &= ~VersionBitsMask(params, dynafed);
+        }
+    }
+
     return nVersion;
 }
 

@@ -66,7 +66,15 @@ class DynaFedTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 2
         # We want to test activation of dynafed
-        self.extra_args = [["-con_dyna_deploy_start=1000", "-enforce_pak=1", "-con_parent_chain_signblockscript=51", "-peginconfirmationdepth=1", "-parentscriptprefix=75", "-parent_bech32_hrp=ert"] for i in range(self.num_nodes)]
+        self.extra_args = [[
+            "-con_dyna_deploy_start=1000",
+            "-enforce_pak=1",
+            "-con_parent_chain_signblockscript=51",
+            "-peginconfirmationdepth=1",
+            "-parentscriptprefix=75",
+            "-parent_bech32_hrp=ert",
+            "-con_dyna_deploy_signal=1",
+        ] for i in range(self.num_nodes)]
         # second node will not mine transactions
         self.extra_args[1].append("-blocksonly=1")
         # Make sure nothing breaks if peers have a different activation.
