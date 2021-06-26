@@ -458,7 +458,7 @@ UniValue SendMoney(CWallet& wallet, const CCoinControl &coin_control, std::vecto
     bilingual_str error;
     CTransactionRef tx;
     FeeCalculation fee_calc_out;
-    auto blind_details = g_con_elementsmode ? MakeUnique<BlindDetails>() : nullptr;
+    auto blind_details = g_con_elementsmode ? std::make_unique<BlindDetails>() : nullptr;
     if (blind_details) blind_details->ignore_blind_failure = ignore_blind_fail;
     const bool fCreated = wallet.CreateTransaction(recipients, tx, nFeeRequired, nChangePosRet, error, coin_control, fee_calc_out, true, blind_details.get());
     if (!fCreated) {

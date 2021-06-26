@@ -7,7 +7,6 @@
 
 #include <tinyformat.h>
 #include <util/system.h>
-#include <util/memory.h>
 
 #include <assert.h>
 
@@ -79,21 +78,21 @@ const CBaseChainParams& BaseParams()
 std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain)
 {
     if (chain == CBaseChainParams::MAIN) {
-        return MakeUnique<CBaseChainParams>("", 8332, 18332, 8334);
+        return std::make_unique<CBaseChainParams>("", 8332, 18332, 8334);
     } else if (chain == CBaseChainParams::TESTNET) {
-        return MakeUnique<CBaseChainParams>("testnet3", 18332, 8332, 18334);
+        return std::make_unique<CBaseChainParams>("testnet3", 18332, 8332, 18334);
     } else if (chain == CBaseChainParams::SIGNET) {
-        return MakeUnique<CBaseChainParams>("signet", 38332, 18332, 38334);
+        return std::make_unique<CBaseChainParams>("signet", 38332, 18332, 38334);
     } else if (chain == CBaseChainParams::REGTEST) {
-        return MakeUnique<CBaseChainParams>("regtest", 18443, 18332, 18445);
+        return std::make_unique<CBaseChainParams>("regtest", 18443, 18332, 18445);
     } else if (chain == CBaseChainParams::LIQUID1) {
-        return MakeUnique<CBaseChainParams>("liquidv1", 7041, 8332, 37041);
+        return std::make_unique<CBaseChainParams>("liquidv1", 7041, 8332, 37041);
     } else if (chain == CBaseChainParams::LIQUID1TEST) {
-        return MakeUnique<CBaseChainParams>("liquidv1test", 7040, 18332, 37040);  // Use same ports as customparams
+        return std::make_unique<CBaseChainParams>("liquidv1test", 7040, 18332, 37040);  // Use same ports as customparams
     }
 
     // ELEMENTS:
-    return MakeUnique<CBaseChainParams>(chain, 7040, 18332, 37040);
+    return std::make_unique<CBaseChainParams>(chain, 7040, 18332, 37040);
 }
 
 void SelectBaseParams(const std::string& chain)

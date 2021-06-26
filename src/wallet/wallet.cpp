@@ -3001,7 +3001,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
 
     CTransactionRef tx_new;
     FeeCalculation fee_calc_out;
-    auto blind_details = g_con_elementsmode ? MakeUnique<BlindDetails>() : nullptr;
+    auto blind_details = g_con_elementsmode ? std::make_unique<BlindDetails>() : nullptr;
     if (!CreateTransaction(vecSend, tx_new, nFeeRet, nChangePosInOut, error, coinControl, fee_calc_out, false, blind_details.get())) {
         return false;
     }
