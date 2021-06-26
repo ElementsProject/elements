@@ -684,7 +684,7 @@ static void CheckInputsAndUpdateCoins(const CTxMemPoolEntry& entry, CCoinsViewCa
     assert(setGlobalPeginsSpent.size() == prevPeginsCount + setPeginsSpent.size());
 }
 
-void CTxMemPool::check(const CCoinsViewCache *pcoins) const
+void CTxMemPool::check(CChainState& active_chainstate) const
 {
     if (m_check_ratio == 0) return;
 
@@ -698,8 +698,11 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     CAmount check_total_fee{0};
     uint64_t innerUsage = 0;
 
-    CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(pcoins));
-    const int64_t spendheight = g_chainman.m_blockman.GetSpendHeight(mempoolDuplicate);
+    CCoinsViewCache& active_coins_tip = active_chainstate.CoinsTip();
+    assert(std::addressof(::ChainstateActive().CoinsTip()) == std::addressof(active_coins_tip)); // TODO: REVIEW-ONLY, REMOVE IN FUTURE COMMIT
+    CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(&active_coins_tip));
+    const int64_t spendheight = active_chainstate.m_chain.Height() + 1;
+    assert(g_chainman.m_blockman.GetSpendHeight(mempoolDuplicate) == spendheight); // TODO: REVIEW-ONLY, REMOVE IN FUTURE COMMIT
 
     std::list<const CTxMemPoolEntry*> waitingOnDependants;
     // ELEMENTS:
@@ -724,7 +727,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
                 setParentCheck.insert(*it2);
             } else {
                 // peg-in inputs are not sanity-checked to be valid
-                assert(txin.m_is_pegin || pcoins->HaveCoin(txin.prevout));
+                assert(txin.m_is_pegin || active_coins_tip.HaveCoin(txin.prevout));
             }
             // Check whether its inputs are marked in mapNextTx.
             auto it3 = mapNextTx.find(txin.prevout);
@@ -806,7 +809,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     //
     // ELEMENTS:
     for (std::set<std::pair<uint256, COutPoint> >::const_iterator it = setGlobalPeginsSpent.begin(); it != setGlobalPeginsSpent.end(); it++) {
-        assert(!pcoins->IsPeginSpent(*it));
+        assert(!active_coins_tip.IsPeginSpent(*it));
     }
     // END ELEMENTS
     //
