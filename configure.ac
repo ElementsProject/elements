@@ -712,6 +712,8 @@ case $host in
          if $BREW list --versions qt5 >/dev/null; then
            export PKG_CONFIG_PATH="$($BREW --prefix qt5 2>/dev/null)/lib/pkgconfig:$PKG_CONFIG_PATH"
          fi
+         dnl On some versions of osx stack check is turned on by default and is broken
+         AX_CHECK_COMPILE_FLAG([-fno-stack-check],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -fno-stack-check"])
        fi
      else
        case $build_os in
