@@ -85,7 +85,6 @@ ReceiveCoinsDialog::ReceiveCoinsDialog(const PlatformStyle *_platformStyle, QWid
         tableView->horizontalHeader()->setStretchLastSection(true);
 #endif
     }
-    tableView->horizontalHeader()->setSortIndicator(RecentRequestsTableModel::Date, Qt::DescendingOrder);
 }
 
 void ReceiveCoinsDialog::setModel(WalletModel *_model)
@@ -100,6 +99,8 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
 
         QTableView* tableView = ui->recentRequestsView;
         tableView->setModel(_model->getRecentRequestsTableModel());
+        tableView->sortByColumn(RecentRequestsTableModel::Date, Qt::DescendingOrder);
+
         connect(tableView->selectionModel(),
             &QItemSelectionModel::selectionChanged, this,
             &ReceiveCoinsDialog::recentRequestsView_selectionChanged);
