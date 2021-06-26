@@ -16,14 +16,7 @@
 
 static void AssembleBlock(benchmark::Bench& bench)
 {
-    TestingSetup test_setup{
-        CBaseChainParams::REGTEST,
-        /* fedpegscript */ "",
-        /* extra_args */ {
-            "-nodebuglogfile",
-            "-nodebug",
-        },
-    };
+    const auto test_setup = MakeNoLogFileContext<const TestingSetup>();
 
     const std::vector<unsigned char> op_true{OP_TRUE};
     CScriptWitness witness;
@@ -39,7 +32,7 @@ static void AssembleBlock(benchmark::Bench& bench)
     std::array<CTransactionRef, NUM_BLOCKS - COINBASE_MATURITY + 1> txs;
     for (size_t b{0}; b < NUM_BLOCKS; ++b) {
         CMutableTransaction tx;
-        tx.vin.push_back(MineBlock(test_setup.m_node, SCRIPT_PUB));
+        tx.vin.push_back(MineBlock(test_setup->m_node, SCRIPT_PUB));
         tx.witness.vtxinwit.resize(1);
         tx.witness.vtxinwit.back().scriptWitness = witness;
         tx.vout.emplace_back(CTxOut(CAsset(), 1337, SCRIPT_PUB));
@@ -50,13 +43,13 @@ static void AssembleBlock(benchmark::Bench& bench)
         LOCK(::cs_main); // Required for ::AcceptToMemoryPool.
 
         for (const auto& txr : txs) {
-            const MempoolAcceptResult res = ::AcceptToMemoryPool(::ChainstateActive(), *test_setup.m_node.mempool, txr, false /* bypass_limits */);
+            const MempoolAcceptResult res = ::AcceptToMemoryPool(::ChainstateActive(), *test_setup->m_node.mempool, txr, false /* bypass_limits */);
             assert(res.m_result_type == MempoolAcceptResult::ResultType::VALID);
         }
     }
 
     bench.run([&] {
-        PrepareBlock(test_setup.m_node, SCRIPT_PUB);
+        PrepareBlock(test_setup->m_node, SCRIPT_PUB);
     });
 }
 

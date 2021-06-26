@@ -14,14 +14,7 @@
 
 static void DuplicateInputs(benchmark::Bench& bench)
 {
-    TestingSetup test_setup{
-        CBaseChainParams::REGTEST,
-        /* fedpegscript */ "",
-        /* extra_args */ {
-            "-nodebuglogfile",
-            "-nodebug",
-        },
-    };
+    const auto testing_setup = MakeNoLogFileContext<const TestingSetup>();
 
     const CScript SCRIPT_PUB{CScript(OP_TRUE)};
 
