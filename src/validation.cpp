@@ -24,7 +24,6 @@
 #include <mainchainrpc.h>
 #include <node/coinstats.h>
 #include <node/ui_interface.h>
-#include <optional.h>
 #include <pegins.h>
 #include <policy/policy.h>
 #include <policy/settings.h>
@@ -56,6 +55,7 @@
 #include <block_proof.h> // CheckChallenge, CheckProof
 #include <dynafed.h>
 
+#include <optional>
 #include <string>
 
 #include <boost/algorithm/string/replace.hpp>
@@ -5534,7 +5534,7 @@ double GuessVerificationProgress(const CBlockIndex* pindex, int64_t blockInterva
     return std::min(1.0, progress);
 }
 
-Optional<uint256> ChainstateManager::SnapshotBlockhash() const {
+std::optional<uint256> ChainstateManager::SnapshotBlockhash() const {
     LOCK(::cs_main);
     if (m_active_chainstate != nullptr &&
             !m_active_chainstate->m_from_snapshot_blockhash.IsNull()) {

@@ -8,7 +8,6 @@
 #include <attributes.h>
 #include <chainparams.h>
 #include <node/transaction.h>
-#include <optional.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
 #include <primitives/bitcoin/transaction.h>
@@ -18,6 +17,7 @@
 #include <script/sign.h>
 #include <script/signingprovider.h>
 
+#include <optional>
 #include <variant>
 
 // Magic bytes
@@ -90,7 +90,7 @@ struct PSBTInput
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
     int sighash_type = 0;
 
-    Optional<CAmount> value;
+    std::optional<CAmount> value;
     uint256 value_blinding_factor;
     CAsset asset;
     uint256 asset_blinding_factor;
@@ -370,7 +370,7 @@ struct PSBTInput
                     switch(subtype) {
                         case PSBT_IN_VALUE:
                         {
-                            if (value != nullopt) {
+                            if (value != std::nullopt) {
                                 throw std::ios_base::failure("Duplicate Key, input value already provided");
                             } else if (subkey_len != 1) {
                                 throw std::ios_base::failure("Final value key is more than one byte type");
@@ -764,7 +764,7 @@ struct PSBTOutput
 /** A version of CTransaction with the PSBT format*/
 struct PartiallySignedTransaction
 {
-    Optional<CMutableTransaction> tx;
+    std::optional<CMutableTransaction> tx;
     std::vector<PSBTInput> inputs;
     std::vector<PSBTOutput> outputs;
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;

@@ -5,11 +5,12 @@
 #include <wallet/coinselection.h>
 #include <wallet/wallet.h>
 
-#include <optional.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <util/system.h>
 #include <util/moneystr.h>
+
+#include <optional>
 
 CInputCoin::CInputCoin(const CWalletTx* wtx, unsigned int i) {
     if (!wtx || !wtx->tx)
@@ -295,7 +296,7 @@ bool KnapsackSolver(const CAmount& nTargetValue, std::vector<OutputGroup>& group
     nValueRet = 0;
 
     // List of values less than target
-    Optional<OutputGroup> lowest_larger;
+    std::optional<OutputGroup> lowest_larger;
     std::vector<OutputGroup> applicable_groups;
     CAmount nTotalLower = 0;
 

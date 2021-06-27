@@ -191,7 +191,6 @@ BITCOIN_CORE_H = \
   node/ui_interface.h \
   node/utxo_snapshot.h \
   noui.h \
-  optional.h \
   outputtype.h \
   pegins.h \
   policy/feerate.h \
