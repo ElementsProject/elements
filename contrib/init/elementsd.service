@@ -18,7 +18,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart=/usr/bin/elementsd -daemon \
+ExecStart=/usr/bin/elementsd -daemonwait \
                             -pid=/run/elementsd/elementsd.pid \
                             -conf=/etc/elements/elements.conf \
                             -datadir=/var/lib/elementsd
@@ -37,6 +37,7 @@ ExecStartPre=/bin/chgrp bitcoin /etc/bitcoin
 Type=forking
 PIDFile=/run/elementsd/elementsd.pid
 Restart=on-failure
+TimeoutStartSec=infinity
 TimeoutStopSec=600
 
 # Directory creation and permissions
