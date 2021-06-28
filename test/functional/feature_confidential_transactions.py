@@ -226,7 +226,7 @@ class CTTest (BitcoinTestFramework):
         deblinded_tx = self.nodes[1].unblindrawtransaction(conf_tx['hex'])['hex']
         for output in self.nodes[1].decoderawtransaction(deblinded_tx)["vout"]:
             if "value" in output and output["scriptPubKey"]["type"] != "fee":
-                assert_equal(output["scriptPubKey"]["addresses"][0], self.nodes[1].validateaddress(address2)['unconfidential'])
+                assert_equal(output["scriptPubKey"]["address"], self.nodes[1].validateaddress(address2)['unconfidential'])
                 found_unblinded = True
         assert found_unblinded
 

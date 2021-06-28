@@ -36,14 +36,7 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=DUMMY_P2WPKH_SCRIPT):
     txidstr = node.sendtoaddress(new_addr, satoshi_round((amount+fee)/COIN))
     tx1 = node.getrawtransaction(txidstr, 1)
     txid = int(txidstr, 16)
-    i = None
-
-    for i, txout in enumerate(tx1['vout']):
-        if txout['scriptPubKey']['type'] == "fee":
-            continue # skip fee outputs
-        if txout['scriptPubKey']['addresses'] == [unblinded_addr]:
-            break
-    assert i is not None
+    i, _ = next(filter(lambda vout: unblinded_addr == vout[1]['scriptPubKey'].get('address'), enumerate(tx1['vout'])))
 
     tx2 = CTransaction()
     tx2.vin = [CTxIn(COutPoint(txid, i))]

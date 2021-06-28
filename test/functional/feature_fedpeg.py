@@ -176,10 +176,9 @@ class FedPegTest(BitcoinTestFramework):
             scriptPubKey = output['scriptPubKey']
             if 'type' in scriptPubKey and scriptPubKey['type'] == 'nulldata':
                 assert 'pegout_hex' in scriptPubKey and 'pegout_asm' in scriptPubKey and 'pegout_type' in scriptPubKey
-                assert 'pegout_chain' in scriptPubKey and 'pegout_reqSigs' in scriptPubKey and 'pegout_addresses' in scriptPubKey
+                assert 'pegout_chain' in scriptPubKey and 'pegout_address' in scriptPubKey
                 assert scriptPubKey['pegout_chain'] == self.parentgenesisblockhash
-                assert scriptPubKey['pegout_reqSigs'] == 1
-                assert parent_chain_addr in scriptPubKey['pegout_addresses']
+                assert parent_chain_addr == scriptPubKey['pegout_address']
                 pegout_tested = True
                 break
         assert pegout_tested
@@ -294,7 +293,7 @@ class FedPegTest(BitcoinTestFramework):
         outputs = []
         for pegin_vout in sidechain.decoderawtransaction(raw_pegin)['vout']:
             if pegin_vout['scriptPubKey']['type'] == 'witness_v0_keyhash':
-                outputs.append({pegin_vout['scriptPubKey']['addresses'][0]: pegin_vout['value']})
+                outputs.append({pegin_vout['scriptPubKey']['address']: pegin_vout['value']})
             elif pegin_vout['scriptPubKey']['type'] == 'fee':
                 outputs.append({"fee": pegin_vout['value']})
 

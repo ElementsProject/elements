@@ -576,7 +576,7 @@ def find_vout_for_address(node, txid, addr):
     for i in range(len(tx["vout"])):
         if tx["vout"][i]["scriptPubKey"]["type"] == "fee":
             continue
-        if any([unblind_addr == a for a in tx["vout"][i]["scriptPubKey"]["addresses"]]):
+        if unblind_addr == tx["vout"][i]["scriptPubKey"]["address"]:
             return i
     raise RuntimeError("Vout not found for address: txid=%s, addr=%s" % (txid, addr))
 

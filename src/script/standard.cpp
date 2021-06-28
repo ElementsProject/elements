@@ -243,7 +243,6 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
         return true;
     }
     case TxoutType::MULTISIG:
-        // Multisig txns have more than one address...
     case TxoutType::NULL_DATA:
     case TxoutType::NONSTANDARD:
     case TxoutType::OP_TRUE: // ELEMENTS (no address type)
@@ -253,6 +252,7 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
     assert(false);
 }
 
+// TODO: from v23 ("addresses" and "reqSigs" deprecated) "ExtractDestinations" should be removed
 bool ExtractDestinations(const CScript& scriptPubKey, TxoutType& typeRet, std::vector<CTxDestination>& addressRet, int& nRequiredRet)
 {
     addressRet.clear();

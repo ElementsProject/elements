@@ -256,7 +256,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         rawtxfund = self.nodes[2].fundrawtransaction(rawtx, {'changeAddress': change, 'changePosition': 0})
         dec_tx  = self.nodes[2].decoderawtransaction(rawtxfund['hex'])
         out = dec_tx['vout'][0]
-        assert_equal(change, out['scriptPubKey']['addresses'][0])
+        assert_equal(change, out['scriptPubKey']['address'])
 
     def test_change_type(self):
         self.log.info("Test fundrawtxn with a provided change type")
@@ -299,7 +299,7 @@ class RawTransactionsTest(BitcoinTestFramework):
             if out["scriptPubKey"]["type"] == "fee":
                 continue
             totalOut += out['value']
-            if out['scriptPubKey']['addresses'][0] in output_addrs:
+            if out['scriptPubKey']['address'] in output_addrs:
                 matchingOuts+=1
             else:
                 assert_equal(i, rawtxfund['changepos'])
@@ -333,7 +333,7 @@ class RawTransactionsTest(BitcoinTestFramework):
             if out["scriptPubKey"]["type"] == "fee":
                 continue
             totalOut += out['value']
-            if out['scriptPubKey']['addresses'][0] in output_addrs:
+            if out['scriptPubKey']['address'] in output_addrs:
                 matchingOuts+=1
 
         assert_equal(matchingOuts, 1)
@@ -370,7 +370,7 @@ class RawTransactionsTest(BitcoinTestFramework):
             if out["scriptPubKey"]["type"] == "fee":
                 continue
             totalOut += out['value']
-            if out['scriptPubKey']['addresses'][0] in output_addrs:
+            if out['scriptPubKey']['address'] in output_addrs:
                 matchingOuts+=1
 
         assert_equal(matchingOuts, 2)
@@ -828,7 +828,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         changeaddress = ""
         for out in res_dec['vout']:
             if out['value'] > 1.0:
-                changeaddress += out['scriptPubKey']['addresses'][0]
+                changeaddress += out['scriptPubKey']['address']
         assert changeaddress != ""
         nextaddr = self.nodes[3].getnewaddress()
         # Now the change address key should be removed from the keypool.

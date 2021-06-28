@@ -134,7 +134,7 @@ class WalletHDTest(BitcoinTestFramework):
             if out["scriptPubKey"]["type"] == "fee":
                 continue
             if out['value'] != 1:
-                keypath = self.nodes[1].getaddressinfo(out['scriptPubKey']['addresses'][0])['hdkeypath']
+                keypath = self.nodes[1].getaddressinfo(out['scriptPubKey']['address'])['hdkeypath']
 
         if self.options.descriptors:
             assert_equal(keypath[0:14], "m/84'/1'/0'/1/")

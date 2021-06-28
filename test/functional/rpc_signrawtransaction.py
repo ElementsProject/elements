@@ -272,7 +272,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         self.nodes[2].generate(1)
 
         tx = self.nodes[2].getrawtransaction(utxo_txid, True)
-        vout = [v['n'] for v in tx['vout'] if 'scriptPubKey' in v and uc_addr in v['scriptPubKey'].get('addresses',[])]
+        vout = [v['n'] for v in tx['vout'] if 'scriptPubKey' in v and uc_addr == v['scriptPubKey'].get('address',[])]
         assert len(vout) == 1
         utxo_vout = vout[0]
         assert 'valuecommitment' in tx['vout'][utxo_vout]
@@ -315,7 +315,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         self.nodes[2].generate(1)
 
         tx = self.nodes[2].getrawtransaction(txid, True)
-        vout = [v['n'] for v in tx['vout'] if 'scriptPubKey' in v and uc_addr in v['scriptPubKey'].get('addresses',[])]
+        vout = [v['n'] for v in tx['vout'] if 'scriptPubKey' in v and uc_addr == v['scriptPubKey'].get('address',[])]
         assert len(vout) == 1
 
     def run_test(self):

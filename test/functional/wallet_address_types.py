@@ -210,7 +210,7 @@ class AddressTypeTest(BitcoinTestFramework):
         assert_equal(len(tx["vout"]), len(destinations) + 2)
 
         # Make sure the destinations are included, and remove them:
-        output_addresses = [vout['scriptPubKey']['addresses'][0] for vout in tx["vout"] if vout["scriptPubKey"]["type"] != "fee"]
+        output_addresses = [vout['scriptPubKey']['address'] for vout in tx["vout"] if vout["scriptPubKey"]["type"] != "fee"]
         unconfidential_destinations = [self.nodes[node_sender].getaddressinfo(addr)["unconfidential"] for addr in destinations]
         change_addresses = [d for d in output_addresses if d not in unconfidential_destinations]
         assert_equal(len(change_addresses), 1)

@@ -209,17 +209,17 @@ class PSBTTest(BitcoinTestFramework):
         for out in decoded['vout']:
             if out['scriptPubKey']['type'] == 'fee':
                 next
-            elif out['scriptPubKey']['addresses'][0] == p2sh_unconf:
+            elif out['scriptPubKey']['address'] == p2sh_unconf:
                 p2sh_pos = out['n']
-            elif out['scriptPubKey']['addresses'][0] == p2wsh_unconf:
+            elif out['scriptPubKey']['address'] == p2wsh_unconf:
                 p2wsh_pos = out['n']
-            elif out['scriptPubKey']['addresses'][0] == p2wpkh_unconf:
+            elif out['scriptPubKey']['address'] == p2wpkh_unconf:
                 p2wpkh_pos = out['n']
-            elif out['scriptPubKey']['addresses'][0] == p2sh_p2wsh_unconf:
+            elif out['scriptPubKey']['address'] == p2sh_p2wsh_unconf:
                 p2sh_p2wsh_pos = out['n']
-            elif out['scriptPubKey']['addresses'][0] == p2sh_p2wpkh_unconf:
+            elif out['scriptPubKey']['address'] == p2sh_p2wpkh_unconf:
                 p2sh_p2wpkh_pos = out['n']
-            elif out['scriptPubKey']['addresses'][0] == p2pkh_unconf:
+            elif out['scriptPubKey']['address'] == p2pkh_unconf:
                 p2pkh_pos = out['n']
 
         inputs = [{"txid": txid, "vout": p2wpkh_pos}, {"txid": txid, "vout": p2sh_p2wpkh_pos}, {"txid": txid, "vout": p2pkh_pos}]
@@ -393,13 +393,13 @@ class PSBTTest(BitcoinTestFramework):
         for out in rt1['vout']:
             if out['scriptPubKey']['type'] == "fee":
                 pass
-            elif out['scriptPubKey']['addresses'][0] == node1_unconf_addr:
+            elif out['scriptPubKey']['address'] == node1_unconf_addr:
                 vout1 = out['n']
 
         for out in rt2['vout']:
             if out['scriptPubKey']['type'] == "fee":
                 pass
-            elif out['scriptPubKey']['addresses'][0] == node2_unconf_addr:
+            elif out['scriptPubKey']['address'] == node2_unconf_addr:
                 vout2 = out['n']
 
         # This test doesn't work with Confidential Assets yet.
@@ -513,7 +513,7 @@ class PSBTTest(BitcoinTestFramework):
         for out in rt1['vout']:
             if out['scriptPubKey']['type'] == "fee":
                 pass
-            elif out['scriptPubKey']['addresses'][0] == node1_unconf_addr:
+            elif out['scriptPubKey']['address'] == node1_unconf_addr:
                 vout1 = out['n']
 
         psbt = self.nodes[1].createpsbt([{"txid":txid1, "vout":vout1}], [{self.get_address(confidential, 2):1}, {"fee":0.001}])
