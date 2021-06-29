@@ -101,6 +101,7 @@ shift-base:leveldb/
 shift-base:net_processing.cpp
 shift-base:streams.h
 shift-base:util/bip32.cpp
+signed-integer-overflow:txmempool.cpp
 
 # ELEMENTS
 implicit-signed-integer-truncation:script/interpreter.cpp
