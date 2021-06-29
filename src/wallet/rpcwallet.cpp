@@ -6068,7 +6068,8 @@ static RPCHelpMan claimpegin()
     //   brittle hack, and further examples of this pattern should not be introduced.
 
     // Get raw peg-in transaction
-    JSONRPCRequest req(request.context);
+    JSONRPCRequest req;
+    req.context = request.context;
     req.URI = request.URI;
     req.params = request.params;
     UniValue ret(createrawpegin().HandleRequest(req));  // See the note above, on why this is a bad idea.
@@ -6079,7 +6080,8 @@ static RPCHelpMan claimpegin()
     }
 
     // Sign it
-    JSONRPCRequest req2(request.context);
+    JSONRPCRequest req2;
+    req2.context = request.context;
     req2.URI = request.URI;
     UniValue varr(UniValue::VARR);
     varr.push_back(ret["hex"]);
