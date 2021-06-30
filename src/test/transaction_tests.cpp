@@ -110,7 +110,7 @@ bool CheckTxScripts(const CTransaction& tx, const std::map<COutPoint, CScript>& 
             const CScriptWitness *pScriptWitness = ((tx.witness.vtxinwit.size() > i) ? &tx.witness.vtxinwit[i].scriptWitness :  nullptr);
             flags &= ~SCRIPT_NO_SIGHASH_BYTE; // ELEMENTS: ensure that our random flag-setting doesn't cause the sighash byte to be misinterpreted
             tx_valid = VerifyScript(input.scriptSig, map_prevout_scriptPubKeys.at(input.prevout),
-                pScriptWitness, flags, TransactionSignatureChecker(&tx, i, amount, txdata), &err);
+                pScriptWitness, flags, TransactionSignatureChecker(&tx, i, amount, txdata, MissingDataBehavior::ASSERT_FAIL), &err);
         } catch (...) {
             BOOST_ERROR("Bad test: " << strTest);
             return true; // The test format is bad and an error is thrown. Return true to silence further error.
@@ -441,7 +441,7 @@ static void CheckWithFlag(const CTransactionRef& output, const CMutableTransacti
             output->vout[0].scriptPubKey,
             pScriptWitness,
             flags,
-            TransactionSignatureChecker(&inputi, 0, output->vout[0].nValue),
+            TransactionSignatureChecker(&inputi, 0, output->vout[0].nValue, MissingDataBehavior::ASSERT_FAIL),
             &error);
     assert(ret == success);
 }

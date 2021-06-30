@@ -48,7 +48,7 @@ FUZZ_TARGET_INIT(script_flags, initialize_script_flags)
 
         for (unsigned i = 0; i < tx.vin.size(); ++i) {
             const CTxOut& prevout = txdata.m_spent_outputs.at(i);
-            const TransactionSignatureChecker checker{&tx, i, prevout.nValue, txdata};
+            const TransactionSignatureChecker checker{&tx, i, prevout.nValue, txdata, MissingDataBehavior::ASSERT_FAIL};
 
             ScriptError serror;
             const CScriptWitness *script_witness = tx.witness.vtxinwit.size() > i ? &tx.witness.vtxinwit[i].scriptWitness : nullptr;
