@@ -582,7 +582,6 @@ void SetupServerArgs()
     gArgs.AddArg("-mainchainrpccookiefile=<file>", "The bitcoind cookie auth path which the daemon will use to connect to the trusted mainchain daemon to validate peg-ins. (default: `<datadir>/regtest/.cookie`)", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-mainchainrpctimeout=<n>", strprintf("Timeout in seconds during mainchain RPC requests, or 0 for no timeout. (default: %d)", DEFAULT_HTTP_CLIENT_TIMEOUT), false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-peginconfirmationdepth=<n>", strprintf("Pegin claims must be this deep to be considered valid. (default: %d)", DEFAULT_PEGIN_CONFIRMATION_DEPTH), false, OptionsCategory::ELEMENTS);
-    gArgs.AddArg("-recheckpeginblockinterval=<n>", strprintf("The interval in seconds at which a peg-in witness failing block is re-evaluated in case of intermittent peg-in witness failure. 0 means never. (default: %u)", 120), false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-parentpubkeyprefix", strprintf("The byte prefix, in decimal, of the parent chain's base58 pubkey address. (default: %d)", 111), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-parentscriptprefix", strprintf("The byte prefix, in decimal, of the parent chain's base58 script address. (default: %d)", 196), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-parent_bech32_hrp", strprintf("The human-readable part of the parent chain's bech32 encoding. (default: %s)", "bc"), false, OptionsCategory::CHAINPARAMS);

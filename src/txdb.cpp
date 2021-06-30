@@ -272,14 +272,6 @@ bool CBlockTreeDB::ReadFlag(const std::string &name, bool &fValue) {
     return true;
 }
 
-// ELEMENTS:
-bool CBlockTreeDB::ReadInvalidBlockQueue(std::vector<uint256> &vBlocks) {
-    return Read(std::make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), vBlocks);//FIXME: why uint 56 and not ""
-}
-bool CBlockTreeDB::WriteInvalidBlockQueue(const std::vector<uint256> &vBlocks) {
-    return Write(std::make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), vBlocks);
-}
-
 bool CBlockTreeDB::ReadPAKList(std::vector<std::vector<unsigned char> >& offline_list, std::vector<std::vector<unsigned char> >& online_list, bool& reject)
 {
         return Read(std::make_pair(DB_PAK, uint256S("1")), offline_list) && Read(std::make_pair(DB_PAK, uint256S("2")), online_list) && Read(std::make_pair(DB_PAK, uint256S("3")), reject);

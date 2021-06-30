@@ -240,7 +240,11 @@ bool CheckParentProofOfWork(uint256 hash, unsigned int nBits, const Consensus::P
     return true;
 }
 
-bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const std::vector<std::pair<CScript, CScript>>& fedpegscripts, const COutPoint& prevout, std::string& err_msg, bool check_depth) {
+bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const std::vector<std::pair<CScript, CScript>>& fedpegscripts, const COutPoint& prevout, std::string& err_msg, bool check_depth, bool* depth_failed) {
+    if (depth_failed) {
+        *depth_failed = false;
+    }
+
     // 0) Return false if !consensus.has_parent_chain
     if (!Params().GetConsensus().has_parent_chain) {
         err_msg = "Parent chain is not enabled on this network.";
@@ -372,6 +376,9 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const std::vector<
         LogPrintf("Required depth: %d\n", required_depth);
         if (!IsConfirmedBitcoinBlock(block_hash, required_depth, num_txs)) {
             err_msg = "Needs more confirmations.";
+            if (depth_failed) {
+                *depth_failed = true;
+            }
             return false;
         }
     }
