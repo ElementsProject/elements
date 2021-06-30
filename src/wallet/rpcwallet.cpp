@@ -775,8 +775,13 @@ static RPCHelpMan getreceivedbyaddress()
                     {"minconf", RPCArg::Type::NUM, /* default */ "1", "Only include transactions confirmed at least this many times."},
                     {"assetlabel", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Hex asset id or asset label for balance."},
                 },
-                RPCResult{
-                    RPCResult::Type::STR_AMOUNT, "amount", "The total amount in " + CURRENCY_UNIT + " received at this address."
+                {
+                    RPCResult{RPCResult::Type::OBJ, "amount_map", "The total amount, per asset if none is specified, in " + CURRENCY_UNIT + " received for this wallet.",
+                    {
+                        {RPCResult::Type::ELISION, "", "the amount for each asset"},
+                    }},
+		    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
+                    RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{
             "\nThe amount from transactions with at least 1 confirmation\n"
@@ -819,8 +824,13 @@ static RPCHelpMan getreceivedbylabel()
                     {"minconf", RPCArg::Type::NUM, /* default */ "1", "Only include transactions confirmed at least this many times."},
                     {"assetlabel", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Hex asset id or asset label for balance."},
                 },
-                RPCResult{
-                    RPCResult::Type::STR_AMOUNT, "amount", "The total amount in " + CURRENCY_UNIT + " received for this label."
+                {
+                    RPCResult{RPCResult::Type::OBJ, "amount_map", "The total amount, per asset if none is specified, in " + CURRENCY_UNIT + " received for this wallet.",
+                    {
+                        {RPCResult::Type::ELISION, "", "the amount for each asset"},
+                    }},
+		    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
+                    RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{
             "\nAmount received by the default label with at least 1 confirmation\n"
@@ -867,8 +877,13 @@ static RPCHelpMan getbalance()
                     {"avoid_reuse", RPCArg::Type::BOOL, /* default */ "true", "(only available if avoid_reuse wallet flag is set) Do not include balance in dirty outputs; addresses are considered dirty if they have previously been used in a transaction."},
                     {"assetlabel", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Hex asset id or asset label for balance."},
                 },
-                RPCResult{
-                    RPCResult::Type::STR_AMOUNT, "amount", "The total amount in " + CURRENCY_UNIT + " received for this wallet."
+                {
+                    RPCResult{RPCResult::Type::OBJ, "amount_map", "The total amount, per asset if none is specified, in " + CURRENCY_UNIT + " received for this wallet.",
+                    {
+                        {RPCResult::Type::ELISION, "", "the amount for each asset"},
+                    }},
+		    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
+                    RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{
             "\nThe total amount in the wallet with 0 or more confirmations\n"
@@ -924,7 +939,14 @@ static RPCHelpMan getunconfirmedbalance()
     return RPCHelpMan{"getunconfirmedbalance",
                 "DEPRECATED\nIdentical to getbalances().mine.untrusted_pending\n",
                 {},
-                RPCResult{RPCResult::Type::NUM, "", "The balance"},
+                {
+                    RPCResult{RPCResult::Type::OBJ, "amount_map", "The total amount, per asset if none is specified, in " + CURRENCY_UNIT + " received for this wallet.",
+                    {
+                        {RPCResult::Type::ELISION, "", "the amount for each asset"},
+                    }},
+		    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
+                    RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
+                },
                 RPCExamples{""},
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
@@ -985,8 +1007,8 @@ static RPCHelpMan sendmany()
                     },
                     RPCResult{"if verbose is set to true",
                         RPCResult::Type::OBJ, "", "",
-                        {
-                            {RPCResult::Type::STR_HEX, "txid", "The transaction id for the send. Only 1 transaction is created regardless of\n"
+			{
+				{RPCResult::Type::STR_HEX, "txid", "The transaction id for the send. Only 1 transaction is created regardless of\n"
                 "the number of addresses."},
                             {RPCResult::Type::STR, "fee reason", "The transaction fee reason."}
                         },

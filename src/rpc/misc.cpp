@@ -664,7 +664,7 @@ static RPCHelpMan echo(const std::string& name)
                     {"arg8", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, ""},
                     {"arg9", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, ""},
                 },
-                RPCResult{RPCResult::Type::NONE, "", "Returns whatever was passed in"},
+                RPCResult{RPCResult::Type::ANY, "", "Returns whatever was passed in"},
                 RPCExamples{""},
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
@@ -872,7 +872,12 @@ static RPCHelpMan dumpassetlabels()
     return RPCHelpMan{"dumpassetlabels",
                 "\nLists all known asset id/label pairs in this wallet. This list can be modified with `-assetdir` configuration argument.\n",
                 {},
-                RPCResults{},
+                RPCResult{
+                    RPCResult::Type::OBJ, "labels", "",
+                    {
+                        {RPCResult::Type::ELISION, "", "the label for each asset id"},
+                    },
+                },
                 RPCExamples{
                     HelpExampleCli("dumpassetlabels", "" )
             + HelpExampleRpc("dumpassetlabels", "" )

@@ -1924,7 +1924,7 @@ RPCHelpMan importblindingkey()
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The CT address"},
                     {"hexkey", RPCArg::Type::STR, RPCArg::Optional::NO, "The blinding key in hex"},
                 },
-                RPCResults{},
+                RPCResult{RPCResult::Type::NONE, "", ""},
                 RPCExamples{
                     HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
                 },
@@ -1978,7 +1978,7 @@ RPCHelpMan importmasterblindingkey()
                 {
                     {"hexkey", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The blinding key in hex"},
                 },
-                RPCResults{},
+                RPCResult{RPCResult::Type::NONE, "", ""},
                 RPCExamples{
                     HelpExampleCli("importmasterblindingkey", "<hexkey>")
                 },
@@ -2021,7 +2021,7 @@ RPCHelpMan importissuanceblindingkey()
                     {"vin", RPCArg::Type::NUM, RPCArg::Optional::NO, "The input number of the issuance in the transaction."},
                     {"blindingkey", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The blinding key in hex"},
                 },
-                RPCResults{},
+                RPCResult{RPCResult::Type::NONE, "", ""},
                 RPCExamples{
                     HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
                 },
