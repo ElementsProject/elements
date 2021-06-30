@@ -145,6 +145,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
 BasicTestingSetup::~BasicTestingSetup()
 {
     ClearGlobalAssetDir();
+    SetMockTime(0s); // Reset mocktime for following tests
     LogInstance().DisconnectTestLogger();
     fs::remove_all(m_path_root);
     gArgs.ClearArgs();
@@ -328,7 +329,6 @@ CMutableTransaction TestChain100Setup::CreateValidMempoolTransaction(CTransactio
 TestChain100Setup::~TestChain100Setup()
 {
     gArgs.ForceSetArg("-segwitheight", "0");
-    SetMockTime(0);
 }
 
 CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(const CMutableTransaction& tx) const
