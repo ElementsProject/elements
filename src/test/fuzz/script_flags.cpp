@@ -41,6 +41,10 @@ FUZZ_TARGET_INIT(script_flags, initialize_script_flags)
         for (unsigned i = 0; i < tx.vin.size(); ++i) {
             CTxOut prevout;
             ds >> prevout;
+            if (!MoneyRange(prevout.nValue.GetAmount())) {
+                // prevouts should be consensus-valid
+                prevout.nValue.SetToAmount(1);
+            }
             spent_outputs.push_back(prevout);
         }
         PrecomputedTransactionData txdata;
