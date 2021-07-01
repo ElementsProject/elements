@@ -163,6 +163,7 @@ BITCOIN_CORE_H = \
   index/txindex.h \
   indirectmap.h \
   init.h \
+  init/common.h \
   interfaces/chain.h \
   interfaces/handler.h \
   interfaces/node.h \
@@ -560,6 +561,7 @@ libbitcoin_common_a_SOURCES = \
   core_read.cpp \
   core_write.cpp \
   external_signer.cpp \
+  init/common.cpp \
   issuance.cpp \
   key.cpp \
   key_io.cpp \
