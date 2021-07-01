@@ -61,5 +61,5 @@ If the parameters take acceptable values, the message is the concatenation of th
 *** ''sha_single_output'' (32): the SHA256 of the corresponding output in <code>CTxOut</code> format.
 *** '''''NEW''''' ''sha_single_output_witness'' (32): the SHA256 of the serialization of the corresponding output witnesses (rangeproof and surjection proof) in <code>CTxOutWitness</code> format.
 
-The total length of ''SigMsg()'' is ''443'' bytes for <code>ANYONECANPAY</code> sighashes, ''366'' bytes for non-<code>ANYONECANPAY</code> sighashes, and both numbers are reduced by 64 bytes for <code>SIGHASH_NONE</code> sighashes. Note that this does not include the size of sub-hashes such as ''sha_prevouts'', which may be cached across signatures of the same transaction.
+The total length of ''SigMsg()'' is ''257--442'' bytes for <code>ANYONECANPAY</code> sighashes, ''366'' bytes for non-<code>ANYONECANPAY</code> sighashes, and both numbers are reduced by 64 bytes for <code>SIGHASH_NONE</code> sighashes, and increased by 32 bytes if an annex is present. Note that this does not include the size of sub-hashes such as ''sha_prevouts'', which may be cached across signatures of the same transaction.
 
