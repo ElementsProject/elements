@@ -107,6 +107,8 @@ shift-base:streams.h
 shift-base:util/bip32.cpp
 
 # ELEMENTS
+# copied from bech32.cpp above
+implicit-integer-sign-change:blech32.cpp
 implicit-signed-integer-truncation:script/interpreter.cpp
 implicit-integer-sign-change:primitives/block.h
 implicit-integer-sign-change:primitives/confidential.cpp
