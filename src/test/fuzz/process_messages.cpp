@@ -55,7 +55,20 @@ FUZZ_TARGET_INIT(process_messages, initialize_process_messages)
         connman.AddTestNode(p2p_node);
     }
 
+    int elements_iter_count = 0;
     while (fuzzed_data_provider.ConsumeBool()) {
+        if (elements_iter_count++ > 100) {
+            // ELEMENTS: this loop runs on a single core and achieves nothing that couldn't
+            //  be achieved by just repeating the fuzz runs. It typically takes around 11
+            //  minutes on Bitcoin and around 60 minutes on Elements (presumably because the
+            //  seed vectors aren't valid Elements messages so the fuzzer gets lost and starts
+            //  adding tons of iterations).
+            //
+            // Capping to 100 iterations reduces the run time to 4-5 minutes on both Bitcoin
+            //  and Elements.
+            break;
+        }
+
         const std::string random_message_type{fuzzed_data_provider.ConsumeBytesAsString(CMessageHeader::COMMAND_SIZE).c_str()};
 
         const auto mock_time = ConsumeTime(fuzzed_data_provider);
