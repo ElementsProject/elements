@@ -533,3 +533,46 @@ CScriptWitness CreatePeginWitness(const CAmount& value, const CAsset& asset, con
 {
     return CreatePeginWitnessInner(value, asset, genesis_hash, claim_script, tx_ref, merkle_block);
 }
+
+bool DecomposePeginWitness(const CScriptWitness& witness, CAmount& value, CAsset& asset, uint256& genesis_hash, CScript& claim_script, boost::variant<boost::blank, Sidechain::Bitcoin::CTransactionRef, CTransactionRef>& tx, boost::variant<boost::blank, Sidechain::Bitcoin::CMerkleBlock, CMerkleBlock>& merkle_block)
+{
+    const auto& stack = witness.stack;
+
+    if (stack.size() < 5) return false;
+
+    CDataStream stream(stack[0], SER_NETWORK, PROTOCOL_VERSION);
+    stream >> value;
+
+    CAsset tmp_asset(stack[1]);
+    asset = tmp_asset;
+
+    uint256 gh(stack[2]);
+    genesis_hash = gh;
+
+    CScript s(stack[3].begin(), stack[3].end());
+    claim_script = s;
+
+    CDataStream ss_tx(stack[4], SER_NETWORK, PROTOCOL_VERSION);
+    if (Params().GetConsensus().ParentChainHasPow()) {
+        Sidechain::Bitcoin::CTransactionRef btc_tx;
+        ss_tx >> btc_tx;
+        tx = btc_tx;
+    } else {
+        CTransactionRef elem_tx;
+        ss_tx >> elem_tx;
+        tx = elem_tx;
+    }
+
+    CDataStream ss_proof(stack[5], SER_NETWORK, PROTOCOL_VERSION);
+    if (Params().GetConsensus().ParentChainHasPow()) {
+        Sidechain::Bitcoin::CMerkleBlock tx_proof;
+        ss_proof >> tx_proof;
+        merkle_block = tx_proof;
+    } else {
+        CMerkleBlock tx_proof;
+        ss_proof >> tx_proof;
+        merkle_block = tx_proof;
+    }
+
+    return true;
+}

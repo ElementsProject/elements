@@ -59,11 +59,12 @@ class AbandonConflictTest(BitcoinTestFramework):
         # spend 10btc outputs from txA and txB
         inputs.append({"txid": txA, "vout": nA})
         inputs.append({"txid": txB, "vout": nB})
-        outputs = {}
 
-        outputs[self.nodes[0].getnewaddress()] = Decimal("14.99998")
-        outputs[self.nodes[1].getnewaddress()] = Decimal("5")
-        outputs["fee"] = 2 * Decimal('10') - Decimal('14.99998') - Decimal('5')
+        outputs = [
+            {self.nodes[0].getnewaddress(): Decimal("14.99998")},
+            {self.nodes[1].getnewaddress(): Decimal("5")},
+            {"fee": 2 * Decimal('10') - Decimal('14.99998') - Decimal('5')},
+        ]
         signed = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(inputs, outputs))
         txAB1 = self.nodes[0].sendrawtransaction(signed["hex"])
 
@@ -74,17 +75,17 @@ class AbandonConflictTest(BitcoinTestFramework):
         inputs = []
         inputs.append({"txid": txAB1, "vout": nAB})
         inputs.append({"txid": txC, "vout": nC})
-        outputs = {}
-        outputs[self.nodes[0].getnewaddress()] = Decimal("24.9996")
-        outputs["fee"] = Decimal('14.99998') + Decimal('10') - Decimal('24.9996')
+        outputs = [
+            {self.nodes[0].getnewaddress(): Decimal("24.9996")},
+            {"fee": Decimal('14.99998') + Decimal('10') - Decimal('24.9996')},
+        ]
         signed2 = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(inputs, outputs))
         txABC2 = self.nodes[0].sendrawtransaction(signed2["hex"])
 
         # Create a child tx spending ABC2
         signed3_change = Decimal("24.999")
         inputs = [{"txid": txABC2, "vout": 0}]
-        outputs = {self.nodes[0].getnewaddress(): signed3_change}
-        outputs["fee"] = Decimal('24.9996') - signed3_change
+        outputs = [{self.nodes[0].getnewaddress(): signed3_change}, {"fee": Decimal('24.9996') - signed3_change}]
         signed3 = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(inputs, outputs))
         # note tx is never directly referenced, only abandoned as a child of the above
         self.nodes[0].sendrawtransaction(signed3["hex"])
@@ -155,9 +156,10 @@ class AbandonConflictTest(BitcoinTestFramework):
         # Mine double spend from node 1
         inputs = []
         inputs.append({"txid": txA, "vout": nA})
-        outputs = {}
-        outputs[self.nodes[1].getnewaddress()] = Decimal("9.9999")
-        outputs["fee"] = Decimal('10') - Decimal('9.9999')
+        outputs = [
+            {self.nodes[1].getnewaddress(): Decimal("9.9999")},
+            {"fee": Decimal('10') - Decimal('9.9999')},
+        ]
         tx = self.nodes[0].createrawtransaction(inputs, outputs)
         signed = self.nodes[0].signrawtransactionwithwallet(tx)
         self.nodes[1].sendrawtransaction(signed["hex"])

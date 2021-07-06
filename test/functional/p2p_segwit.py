@@ -2169,7 +2169,13 @@ class SegWitTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         unspent = next(u for u in self.nodes[0].listunspent() if u['spendable'] and u['address'].startswith('ert'))
 
-        raw = self.nodes[0].createrawtransaction([{"txid": unspent['txid'], "vout": unspent['vout']}], {self.nodes[0].getnewaddress(): 1})
+        raw = self.nodes[0].createrawtransaction(
+            [
+                {"txid": unspent['txid'], "vout": unspent['vout']}
+            ],
+            [
+                {self.nodes[0].getnewaddress(): 1}
+            ])
         tx = FromHex(CTransaction(), raw)
         assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].decoderawtransaction, hexstring=serialize_with_bogus_witness(tx).hex(), iswitness=True)
         with self.nodes[0].assert_debug_log(['Superfluous witness record']):

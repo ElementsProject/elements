@@ -472,11 +472,8 @@ def create_confirmed_utxos(fee, node, count):
         t = utxos.pop()
         inputs = []
         inputs.append({"txid": t["txid"], "vout": t["vout"]})
-        outputs = {}
         send_value = t['amount'] - fee
-        outputs[addr1] = satoshi_round(send_value / 2)
-        outputs[addr2] = satoshi_round(send_value / 2)
-        outputs["fee"] = fee
+        outputs = [{addr1: satoshi_round(send_value / 2)}, {addr2: satoshi_round(send_value / 2)}, {"fee": fee}]
         raw_tx = node.createrawtransaction(inputs, outputs)
         signed_tx = node.signrawtransactionwithwallet(raw_tx)["hex"]
         node.sendrawtransaction(signed_tx)
@@ -518,10 +515,8 @@ def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
     for _ in range(num):
         t = utxos.pop()
         inputs = [{"txid": t["txid"], "vout": t["vout"]}]
-        outputs = {}
         change = t['amount'] - fee
-        outputs[addr] = satoshi_round(change)
-        outputs["fee"] = fee
+        outputs = [{addr: satoshi_round(change)}, {"fee": fee}]
         rawtx = node.createrawtransaction(inputs, outputs)
         tx = CTransaction()
         tx.deserialize(BytesIO(hex_str_to_bytes(rawtx)))

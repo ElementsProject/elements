@@ -23,6 +23,11 @@ static const size_t MAX_RANGEPROOF_SIZE = 5126;
 static const size_t DEFAULT_SURJECTIONPROOF_SIZE = 135;
 // 32 bytes of asset type, 32 bytes of asset blinding factor in sidechannel
 static const size_t SIDECHANNEL_MSG_SIZE = 64;
+// Maximum number of inputs to select for surjection proof
+static const size_t MAX_SURJECTION_TARGETS = 3;
+
+// Blinding context
+extern secp256k1_context* secp256k1_blind_context;
 
 /*
  * Verify a pair of confidential asset and value, given the blinding factors for both.

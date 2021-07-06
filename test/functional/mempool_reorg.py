@@ -56,7 +56,7 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
                 "txid": coinbase_txids[0],
                 "vout": 0,
             }],
-            outputs={node0_address: 49.99, "fee": 0.01},
+            outputs=[{node0_address: 49.99}, {"fee": 0.01}],
             locktime=self.nodes[0].getblockcount() + 2,
         )
         timelock_tx = self.nodes[0].signrawtransactionwithwallet(timelock_tx)["hex"]

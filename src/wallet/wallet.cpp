@@ -1258,16 +1258,21 @@ void CWallet::BlockUntilSyncedToCurrentChain() const {
     chain().waitForNotificationsIfTipChanged(last_block_hash);
 }
 
-
-isminetype CWallet::IsMine(const CTxIn &txin) const
+isminetype CWallet::IsMine(const CTxIn& txin) const
 {
     AssertLockHeld(cs_wallet);
-    std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txin.prevout.hash);
+    return IsMine(txin.prevout);
+}
+
+isminetype CWallet::IsMine(const COutPoint &outpoint) const
+{
+    AssertLockHeld(cs_wallet);
+    std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(outpoint.hash);
     if (mi != mapWallet.end())
     {
         const CWalletTx& prev = (*mi).second;
-        if (txin.prevout.n < prev.tx->vout.size())
-            return IsMine(prev.tx->vout[txin.prevout.n]);
+        if (outpoint.n < prev.tx->vout.size())
+            return IsMine(prev.tx->vout[outpoint.n]);
     }
     return ISMINE_NO;
 }
@@ -2714,29 +2719,23 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
     LOCK(cs_wallet);
 
     // Get all of the previous transactions
-    for (unsigned int i = 0; i < psbtx.tx->vin.size(); ++i) {
-        const CTxIn& txin = psbtx.tx->vin[i];
-        PSBTInput& input = psbtx.inputs.at(i);
-
+    for (PSBTInput& input : psbtx.inputs) {
         if (PSBTInputSigned(input)) {
             continue;
         }
 
         // If we have no utxo, grab it from the wallet.
         if (!input.non_witness_utxo) {
-            const uint256& txhash = txin.prevout.hash;
+            const uint256& txhash = input.prev_txid;
             const auto it = mapWallet.find(txhash);
             if (it != mapWallet.end()) {
                 const CWalletTx& wtx = it->second;
                 // We only need the non_witness_utxo, which is a superset of the witness_utxo.
                 //   The signing code will switch to the smaller witness_utxo if this is ok.
                 input.non_witness_utxo = wtx.tx;
-
-                // ELEMENTS: Grab the CA data
-                CAmount val_tmp;
-                wtx.GetNonIssuanceBlindingData(txin.prevout.n, nullptr, &val_tmp, &input.value_blinding_factor, &input.asset, &input.asset_blinding_factor);
-                if (val_tmp != -1) {
-                    input.value = val_tmp;
+                // Set the UTXO rangeproof separately, if it's there
+                if (*input.prev_out < wtx.tx->witness.vtxoutwit.size() && !wtx.tx->witness.vtxoutwit[*input.prev_out].vchRangeproof.empty()) {
+                    input.m_utxo_rangeproof = wtx.tx->witness.vtxoutwit[*input.prev_out].vchRangeproof;
                 }
             }
         }
@@ -2747,10 +2746,7 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
     // Each iteration, we may fill more inputs than the input that is specified in that iteration.
     // We assume that each input is filled by only one ScriptPubKeyMan
     std::set<uint256> visited_spk_mans;
-    for (unsigned int i = 0; i < psbtx.tx->vin.size(); ++i) {
-        const CTxIn& txin = psbtx.tx->vin[i];
-        PSBTInput& input = psbtx.inputs.at(i);
-
+    for (PSBTInput& input : psbtx.inputs) {
         if (PSBTInputSigned(input)) {
             continue;
         }
@@ -2760,10 +2756,10 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
         if (!input.witness_utxo.IsNull()) {
             script = input.witness_utxo.scriptPubKey;
         } else if (input.non_witness_utxo) {
-            if (txin.prevout.n >= input.non_witness_utxo->vout.size()) {
+            if (*input.prev_out >= input.non_witness_utxo->vout.size()) {
                 return TransactionError::MISSING_INPUTS;
             }
-            script = input.non_witness_utxo->vout[txin.prevout.n].scriptPubKey;
+            script = input.non_witness_utxo->vout[*input.prev_out].scriptPubKey;
         } else {
             // There's no UTXO so we can just skip this now
             continue;
@@ -2796,12 +2792,47 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
     return TransactionError::OK;
 }
 
+BlindingStatus CWallet::WalletBlindPSBT(PartiallySignedTransaction& psbtx) const
+{
+    // Gather our input data
+    LOCK(cs_wallet);
+    std::map<uint32_t, std::tuple<CAmount, CAsset, uint256, uint256>> our_input_data;
+    std::map<uint32_t, std::pair<CKey, CKey>> our_issuances_to_blind;
+    for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
+        PSBTInput& input = psbtx.inputs[i];
+
+        if (input.m_peg_in_value && !input.m_peg_in_claim_script.empty()) {
+            if (!IsMine(CTxOut(Params().GetConsensus().pegged_asset, *input.m_peg_in_value, input.m_peg_in_claim_script))) continue;
+            our_input_data[i] = std::make_tuple(*input.m_peg_in_value, Params().GetConsensus().pegged_asset, uint256(), uint256());
+        } else {
+            if (!IsMine(COutPoint(input.prev_txid, *input.prev_out))) continue;
+            const CWalletTx* wtx = GetWalletTx(input.prev_txid);
+            if (!wtx) continue;
+            CPubKey blinding_pubkey;
+            CAmount amount;
+            uint256 value_blinder;
+            CAsset asset;
+            uint256 asset_blinder;
+            wtx->GetNonIssuanceBlindingData(*input.prev_out, &blinding_pubkey, &amount, &value_blinder, &asset, &asset_blinder);
+            our_input_data[i] = std::make_tuple(amount, asset, asset_blinder, value_blinder);
+        }
+
+        // Blind issuances on our inputs
+        if (input.m_issuance_value || input.m_issuance_inflation_keys_amount) {
+            CScript blinding_script(CScript() << OP_RETURN << std::vector<unsigned char>(input.prev_txid.begin(), input.prev_txid.end()) << *input.prev_out);
+            our_issuances_to_blind[i] = std::make_pair(GetBlindingKey(&blinding_script), GetBlindingKey(&blinding_script));
+        }
+    }
+
+    // Blind the PSBT
+    return BlindPSBT(psbtx, our_input_data, our_issuances_to_blind);
+}
 TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool imbalance_ok, bool bip32derivs, size_t* n_signed) const
 {
     // If we're signing, check that the transaction is not still in need of blinding
     if (sign) {
         for (const PSBTOutput& o : psbtx.outputs) {
-            if (o.blinding_pubkey.IsValid()) {
+            if (o.IsBlinded() && !o.IsFullyBlinded()) {
                 return TransactionError::BLINDING_REQUIRED;
             }
         }
@@ -2811,11 +2842,8 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
         *n_signed = 0;
     }
 
-    // Save the original transaction since we need to munge it temporarily, which would violate the PSBT rules
-    CTransaction oldtx = CTransaction(*psbtx.tx);
-
     LOCK(cs_wallet);
-    CMutableTransaction& tx = *psbtx.tx;
+    CMutableTransaction tx = psbtx.GetUnsignedTx();
     tx.witness.vtxoutwit.resize(tx.vout.size());
 
     // Stuff in auxiliary CA blinding data, if we have it
@@ -2823,45 +2851,69 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
         PSBTOutput& output = psbtx.outputs.at(i);
         CTxOut& out = tx.vout[i];
 
-        if (!output.value_commitment.IsNull()) {
-            out.nValue = output.value_commitment;
+        if (!output.m_value_commitment.IsNull()) {
+            out.nValue = output.m_value_commitment;
+        } else if (output.amount) {
+            out.nValue.SetToAmount(*output.amount);
         }
-        if (!output.asset_commitment.IsNull()) {
-            out.nAsset = output.asset_commitment;
+        if (!output.m_asset_commitment.IsNull()) {
+            out.nAsset = output.m_asset_commitment;
+        } else if (!output.m_asset.IsNull()) {
+            out.nAsset.SetToAsset(CAsset(output.m_asset));
         }
-        if (!output.nonce_commitment.IsNull()) {
-            out.nNonce = output.nonce_commitment;
+        if (output.m_ecdh_pubkey.IsValid()) {
+            // The nonce is actually the ecdh pubkey
+            out.nNonce.vchCommitment.clear();
+            out.nNonce.vchCommitment.insert(out.nNonce.vchCommitment.end(), output.m_ecdh_pubkey.begin(), output.m_ecdh_pubkey.end());
         }
 
         // The signature can't depend on witness contents, so these are technically not necessary to sign.
         // HOWEVER, as long as we're checking that values balance before signing, they are required.
         CTxOutWitness& outwit = tx.witness.vtxoutwit[i];
-        if (!output.range_proof.empty()) {
-            outwit.vchRangeproof = output.range_proof;
+        if (!output.m_value_rangeproof.empty()) {
+            outwit.vchRangeproof = output.m_value_rangeproof;
         }
-        if (!output.surjection_proof.empty()) {
-            outwit.vchSurjectionproof = output.surjection_proof;
+        if (!output.m_asset_surjection_proof.empty()) {
+            outwit.vchSurjectionproof = output.m_asset_surjection_proof;
         }
     }
 
-    // Stuff in the peg-in data
+    // Stuff in the peg-in and issuance data
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
         PSBTInput& input = psbtx.inputs[i];
-        if (input.value && input.peg_in_tx.which() != 0 && input.txout_proof.which() != 0 && !input.claim_script.empty() && !input.genesis_hash.IsNull()) {
+        CTxIn& txin = tx.vin[i];
+        CTxInWitness& txinwit = tx.witness.vtxinwit[i];
+        if (input.m_peg_in_value &&
+                input.m_peg_in_tx.which() > 0 &&
+                input.m_peg_in_txout_proof.which() > 0 &&
+                !input.m_peg_in_claim_script.empty() &&
+                !input.m_peg_in_genesis_hash.IsNull()) {
             CScriptWitness pegin_witness;
             if (Params().GetConsensus().ParentChainHasPow()) {
-                const Sidechain::Bitcoin::CTransactionRef& btc_peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(input.peg_in_tx);
-                const Sidechain::Bitcoin::CMerkleBlock& btc_txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(input.txout_proof);
-                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, btc_peg_in_tx, btc_txout_proof);
+                pegin_witness = CreatePeginWitness(*input.m_peg_in_value, Params().GetConsensus().pegged_asset, input.m_peg_in_genesis_hash, input.m_peg_in_claim_script, boost::get<Sidechain::Bitcoin::CTransactionRef&>(input.m_peg_in_tx), boost::get<Sidechain::Bitcoin::CMerkleBlock>(input.m_peg_in_txout_proof));
             } else {
-                const CTransactionRef& elem_peg_in_tx = boost::get<CTransactionRef>(input.peg_in_tx);
-                const CMerkleBlock& elem_txout_proof = boost::get<CMerkleBlock>(input.txout_proof);
-                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, elem_peg_in_tx, elem_txout_proof);
+                pegin_witness = CreatePeginWitness(*input.m_peg_in_value, Params().GetConsensus().pegged_asset, input.m_peg_in_genesis_hash, input.m_peg_in_claim_script, boost::get<CTransactionRef&>(input.m_peg_in_tx), boost::get<CMerkleBlock>(input.m_peg_in_txout_proof));
             }
             tx.vin[i].m_is_pegin = true;
             tx.witness.vtxinwit[i].m_pegin_witness = pegin_witness;
             // Set the witness utxo
             input.witness_utxo = GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness);
+        }
+        if (!input.m_issuance_value_commitment.IsNull()) {
+            txin.assetIssuance.nAmount = input.m_issuance_value_commitment;
+        } else if (input.m_issuance_value) {
+            txin.assetIssuance.nAmount.SetToAmount(*input.m_issuance_value);
+        }
+        if (!input.m_issuance_inflation_keys_commitment.IsNull()) {
+            txin.assetIssuance.nInflationKeys = input.m_issuance_inflation_keys_commitment;
+        } else if (input.m_issuance_inflation_keys_amount) {
+            txin.assetIssuance.nInflationKeys.SetToAmount(*input.m_issuance_inflation_keys_amount);
+        }
+        if (!input.m_issuance_rangeproof.empty()) {
+            txinwit.vchIssuanceAmountRangeproof = input.m_issuance_rangeproof;
+        }
+        if (!input.m_issuance_inflation_keys_rangeproof.empty()) {
+            txinwit.vchInflationKeysRangeproof = input.m_issuance_inflation_keys_rangeproof;
         }
     }
 
@@ -2869,21 +2921,12 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
     if (!imbalance_ok) {
         // Get UTXOs for all inputs, to check that amounts balance before signing.
         std::vector<CTxOut> inputs_utxos;
-        for (size_t i = 0; i < psbtx.inputs.size(); ++i) {
-            PSBTInput& inp = psbtx.inputs[i];
-            if (inp.non_witness_utxo) {
-                if (inp.non_witness_utxo->GetHash() != tx.vin[i].prevout.hash) {
-                    return TransactionError::INVALID_PSBT;
-                }
-                if (!inp.witness_utxo.IsNull() && inp.non_witness_utxo->vout[tx.vin[i].prevout.n] != inp.witness_utxo) {
-                    return TransactionError::INVALID_PSBT;
-                }
-                inputs_utxos.push_back(inp.non_witness_utxo->vout[tx.vin[i].prevout.n]);
-            } else if (!inp.witness_utxo.IsNull()) {
-                inputs_utxos.push_back(inp.witness_utxo);
-            } else {
+        for (const PSBTInput& input : psbtx.inputs) {
+            CTxOut utxo;
+            if (!input.GetUTXO(utxo)) {
                 return TransactionError::UTXOS_MISSING_BALANCE_CHECK;
             }
+            inputs_utxos.push_back(utxo);
         }
 
         CTransaction tx_tmp(tx);
@@ -2910,14 +2953,11 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
     for (const auto& input : psbtx.inputs) {
         complete &= PSBTInputSigned(input);
     }
-
-    // Restore the saved transaction, to remove our temporary munging.
-    psbtx.tx = (CMutableTransaction)oldtx;
     return TransactionError::OK;
 }
 
 // This function remains for backwards compatibility. It will not succeed in Elements unless everything involved is non-blinded.
-TransactionError CWallet::FillPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool bip32derivs, size_t* n_signed) const
+TransactionError CWallet::FillPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool bip32derivs, bool imbalance_ok, size_t* n_signed) const
 {
     complete = false;
     TransactionError te;
@@ -2926,7 +2966,7 @@ TransactionError CWallet::FillPSBT(PartiallySignedTransaction& psbtx, bool& comp
         return te;
     }
     // For backwards compatibility, do not check if amounts balance before signing in this case.
-    te = SignPSBT(psbtx, complete, sighash_type, sign, true, bip32derivs, n_signed);
+    te = SignPSBT(psbtx, complete, sighash_type, sign, imbalance_ok, bip32derivs, n_signed);
     if (te != TransactionError::OK) {
         return te;
     }

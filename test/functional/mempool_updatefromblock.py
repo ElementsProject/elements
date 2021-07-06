@@ -73,15 +73,15 @@ class MempoolUpdateFromBlockTest(BitcoinTestFramework):
                 # Transaction tx[K] is an ancestor of each of subsequent transactions tx[K+1]..tx[N-1].
                 n_outputs = size - tx_count
                 output_value = ((inputs_value - fee) / Decimal(n_outputs)).quantize(Decimal('0.00000001'))
-                outputs = {}
+                outputs = []
                 for _ in range(n_outputs):
                     outputs_value += output_value
-                    outputs[self.nodes[0].getnewaddress()] = output_value
+                    outputs.append({self.nodes[0].getnewaddress(): output_value})
             else:
                 output_value = (inputs_value - fee).quantize(Decimal('0.00000001'))
                 outputs_value += output_value
-                outputs = {end_address: output_value}
-            outputs['fee'] = (inputs_value - outputs_value).quantize(Decimal('0.00000001'))
+                outputs = [{end_address: output_value}]
+            outputs.append({'fee': (inputs_value - outputs_value).quantize(Decimal('0.00000001'))})
 
             self.log.debug('outputs_value={}'.format(outputs_value))
             self.log.debug('output_value={}'.format(output_value))

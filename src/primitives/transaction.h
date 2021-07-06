@@ -320,6 +320,11 @@ public:
     }
 
     std::string ToString() const;
+
+    friend bool operator<(const CTxOut& a, const CTxOut& b)
+    {
+        return a.scriptPubKey < b.scriptPubKey;
+    }
 };
 
 struct CMutableTransaction;
@@ -477,7 +482,7 @@ class CTransaction
 {
 public:
     // Default transaction version.
-    static const int32_t CURRENT_VERSION=2;
+    static const int32_t CURRENT_VERSION;
 
     // Changing the default transaction version requires a two step process: first
     // adapting relay policy by bumping MAX_STANDARD_VERSION, and then later date

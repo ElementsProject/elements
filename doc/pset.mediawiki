@@ -1,5 +1,3 @@
-Note that this format is not yet implemented by Elements.
-
 <pre>
   BIP: PSET
   Layer: Applications

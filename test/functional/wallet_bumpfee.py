@@ -201,9 +201,9 @@ def test_segwit_bumpfee_succeeds(self, rbf_node, dest_address):
         'txid': segwitid,
         'vout': 0,
         "sequence": BIP125_SEQUENCE_NUMBER
-    }], {dest_address: Decimal("0.0005"),
-         rbf_node.getrawchangeaddress(): Decimal("0.0003"),
-         "fee": "0.0001"})
+    }], [{dest_address: Decimal("0.0005")},
+        {rbf_node.getrawchangeaddress(): Decimal("0.0003")},
+        {"fee": "0.0001"}])
     rbfsigned = rbf_node.signrawtransactionwithwallet(rbfraw)
     rbfid = rbf_node.sendrawtransaction(rbfsigned["hex"])
     assert rbfid in rbf_node.getrawmempool()
@@ -235,7 +235,7 @@ def test_notmine_bumpfee_fails(self, rbf_node, peer_node, dest_address):
         "sequence": BIP125_SEQUENCE_NUMBER
     } for utxo in utxos]
     output_val = sum(utxo["amount"] for utxo in utxos) - fee
-    rawtx = rbf_node.createrawtransaction(inputs, {dest_address: output_val, "fee": fee})
+    rawtx = rbf_node.createrawtransaction(inputs, [{dest_address: output_val}, {"fee": fee}])
     signedtx = rbf_node.signrawtransactionwithwallet(rawtx)
     signedtx = peer_node.signrawtransactionwithwallet(signedtx["hex"])
     rbfid = rbf_node.sendrawtransaction(signedtx["hex"])
@@ -249,7 +249,7 @@ def test_bumpfee_with_descendant_fails(self, rbf_node, rbf_node_address, dest_ad
     # parent is send-to-self, so we don't have to check which output is change when creating the child tx
     parent_id = spend_one_input(rbf_node, rbf_node_address)
     input_val = rbf_node.getrawtransaction(parent_id, 1)["vout"][0]["value"]
-    tx = rbf_node.createrawtransaction([{"txid": parent_id, "vout": 0}], {dest_address: "0.0002", "fee": input_val-Decimal("0.0002")})
+    tx = rbf_node.createrawtransaction([{"txid": parent_id, "vout": 0}], [{dest_address: "0.0002"}, {"fee": input_val-Decimal("0.0002")}])
     tx = rbf_node.signrawtransactionwithwallet(tx)
     rbf_node.sendrawtransaction(tx["hex"])
     assert_raises_rpc_error(-8, "Transaction has descendants in the wallet", rbf_node.bumpfee, parent_id)
@@ -429,15 +429,15 @@ def test_watchonly_psbt(self, peer_node, rbf_node, dest_address):
     self.sync_all()
 
     # Create single-input PSBT for transaction to be bumped
-    psbt = watcher.walletcreatefundedpsbt([], {dest_address: 0.0005}, 0, {"feeRate": 0.00001}, True)['psbt']
+    psbt = watcher.walletcreatefundedpsbt([], [{dest_address: 0.0005}], 0, {"feeRate": 0.00001}, True)['psbt']
     psbt_signed = signer.walletprocesspsbt(psbt=psbt, sign=True, sighashtype="ALL", bip32derivs=True)
     psbt_final = watcher.finalizepsbt(psbt_signed["psbt"])
     original_txid = watcher.sendrawtransaction(psbt_final["hex"])
-    assert_equal(len(watcher.decodepsbt(psbt)["tx"]["vin"]), 1)
+    assert_equal(len(watcher.decodepsbt(psbt)["inputs"]), 1)
 
     # Bump fee, obnoxiously high to add additional watchonly input
     bumped_psbt = watcher.psbtbumpfee(original_txid, {"fee_rate": HIGH})
-    assert_greater_than(len(watcher.decodepsbt(bumped_psbt['psbt'])["tx"]["vin"]), 1)
+    assert_greater_than(len(watcher.decodepsbt(bumped_psbt['psbt'])["inputs"]), 1)
     assert "txid" not in bumped_psbt
     assert_equal(bumped_psbt["origfee"], -watcher.gettransaction(original_txid)["fee"]['bitcoin'])
     assert not watcher.finalizepsbt(bumped_psbt["psbt"])["complete"]
@@ -562,10 +562,10 @@ def test_change_script_match(self, rbf_node, dest_address):
 def spend_one_input(node, dest_address, change_size=Decimal("0.00049000")):
     tx_input = dict(
         sequence=BIP125_SEQUENCE_NUMBER, **next(u for u in node.listunspent() if u["amount"] == Decimal("0.00100000")))
-    destinations = {dest_address: Decimal("0.00050000")}
+    destinations = [{dest_address: Decimal("0.00050000")}]
     if change_size > 0:
-        destinations[node.getrawchangeaddress()] = change_size
-    destinations["fee"] = Decimal("0.00001")
+        destinations.append({node.getrawchangeaddress(): change_size})
+    destinations.append({"fee": Decimal("0.00001")})
     rawtx = node.createrawtransaction([tx_input], destinations)
     signedtx = node.signrawtransactionwithwallet(rawtx)
     txid = node.sendrawtransaction(signedtx["hex"])

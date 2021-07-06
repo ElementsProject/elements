@@ -1462,7 +1462,7 @@ class TaprootTest(BitcoinTestFramework):
                 'txid': i['txid'],
                 'vout': i['vout']
             } for i in self.nodes[1].listunspent()],
-            outputs={addr: self.nodes[1].getbalance()['bitcoin']},
+            outputs=[{addr: self.nodes[1].getbalance()['bitcoin']}],
         )
         rawtx = self.nodes[1].signrawtransactionwithwallet(rawtx)['hex']
         # Transaction is too large to fit into the mempool, so put it into a block

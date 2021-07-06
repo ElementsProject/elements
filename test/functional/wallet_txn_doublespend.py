@@ -69,10 +69,7 @@ class TxnMallTest(BitcoinTestFramework):
         rawtx_input_1["vout"] = find_output(self.nodes[0], fund_bar_txid, 29)
         inputs = [rawtx_input_0, rawtx_input_1]
         change_address = self.nodes[0].getnewaddress()
-        outputs = {}
-        outputs[node1_address] = 1240
-        outputs[change_address] = 1248 - 1240 + doublespend_fee
-        outputs["fee"] = (1219+29) - (1240+1248 - 1240 + doublespend_fee)
+        outputs = [{node1_address: 1240}, {change_address: 1248 - 1240 + doublespend_fee}, {"fee": (1219+29) - (1240+1248 - 1240 + doublespend_fee)}]
         rawtx = self.nodes[0].createrawtransaction(inputs, outputs)
         doublespend = self.nodes[0].signrawtransactionwithwallet(rawtx)
         assert_equal(doublespend["complete"], True)

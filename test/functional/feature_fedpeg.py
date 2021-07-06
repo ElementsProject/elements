@@ -304,14 +304,23 @@ class FedPegTest(BitcoinTestFramework):
         # Check that createpsbt makes the correct unsigned peg-in
         pegin_psbt = sidechain.createpsbt([{"txid":txid1, "vout": vout, "pegin_bitcoin_tx": raw, "pegin_txout_proof": proof, "pegin_claim_script": addrs["claim_script"]}], outputs)
         decoded_psbt = sidechain.decodepsbt(pegin_psbt)
+        # Check that createpsbt and updatepsbtpegin makes the correct unsigned peg-in
+        pegin_psbt2 = sidechain.createpsbt([{"txid":txid1, "vout": vout, "pegin_bitcoin_tx": raw, "pegin_txout_proof": proof, "pegin_claim_script": addrs["claim_script"]}], outputs)
+        pegin_psbt2 = sidechain.updatepsbtpegin(psbt=pegin_psbt2, input=0, bitcoin_tx=raw, txout_proof=proof, claim_script=addrs["claim_script"])
+        decoded_psbt2 = sidechain.decodepsbt(pegin_psbt2)
         # Check that pegin_bitcoin_tx == raw, but due to stripping witnesses, we need to compare their txids
         txid1 = parent.decoderawtransaction(decoded_psbt['inputs'][0]['pegin_bitcoin_tx'])['txid']
         txid2 = parent.decoderawtransaction(raw)['txid']
+        txid3 = parent.decoderawtransaction(decoded_psbt2['inputs'][0]['pegin_bitcoin_tx'])['txid']
         assert_equal(txid1, txid2)
+        assert_equal(txid1, txid3)
         # Check the rest
         assert_equal(decoded_psbt['inputs'][0]['pegin_claim_script'], addrs["claim_script"])
         assert_equal(decoded_psbt['inputs'][0]['pegin_txout_proof'], proof)
         assert_equal(decoded_psbt['inputs'][0]['pegin_genesis_hash'], parent.getblockhash(0))
+        assert_equal(decoded_psbt2['inputs'][0]['pegin_claim_script'], addrs["claim_script"])
+        assert_equal(decoded_psbt2['inputs'][0]['pegin_txout_proof'], proof)
+        assert_equal(decoded_psbt2['inputs'][0]['pegin_genesis_hash'], parent.getblockhash(0))
         # Make a psbt without those peg-in data and merge them
         merge_pegin_psbt = sidechain.createpsbt([{"txid":txid1, "vout": vout}], outputs)
         decoded_psbt = sidechain.decodepsbt(merge_pegin_psbt)
@@ -322,10 +331,13 @@ class FedPegTest(BitcoinTestFramework):
         merged_pegin_psbt = sidechain.combinepsbt([pegin_psbt, merge_pegin_psbt])
         assert_equal(pegin_psbt, merged_pegin_psbt)
         # Now sign the psbt
-        signed_psbt = sidechain.walletsignpsbt(pegin_psbt)
+        signed_psbt = sidechain.walletprocesspsbt(pegin_psbt)
+        signed_psbt2 = sidechain.walletprocesspsbt(pegin_psbt2)
         # Finalize and extract and compare
         fin_psbt = sidechain.finalizepsbt(signed_psbt['psbt'])
+        fin_psbt2 = sidechain.finalizepsbt(signed_psbt2['psbt'])
         assert_equal(fin_psbt, signed_pegin)
+        assert_equal(fin_psbt2, signed_pegin)
 
         # Try funding a psbt with the peg-in
         assert_equal(sidechain.getbalance()['bitcoin'], 50)
@@ -336,7 +348,7 @@ class FedPegTest(BitcoinTestFramework):
                 out_bal += Decimal(val)
         assert_greater_than(out_bal, 50)
         pegin_psbt = sidechain.walletcreatefundedpsbt([{"txid":txid1, "vout": vout, "pegin_bitcoin_tx": raw, "pegin_txout_proof": proof, "pegin_claim_script": addrs["claim_script"]}], outputs, 0, {'add_inputs': True})
-        signed_psbt = sidechain.walletsignpsbt(pegin_psbt['psbt'])
+        signed_psbt = sidechain.walletprocesspsbt(pegin_psbt['psbt'])
         fin_psbt = sidechain.finalizepsbt(signed_psbt['psbt'])
         assert fin_psbt['complete']
 
@@ -494,7 +506,7 @@ class FedPegTest(BitcoinTestFramework):
         pegout_chain = 'a' * 64
         pegout_hex = 'b' * 500
         inputs = [{"txid": prev_txid, "vout": 0}]
-        outputs = {"vdata": [pegout_chain, pegout_hex]}
+        outputs = [{"vdata": [pegout_chain, pegout_hex]}]
         rawtx = sidechain.createrawtransaction(inputs, outputs)
         raw_pegout = sidechain.decoderawtransaction(rawtx)
 
@@ -562,7 +574,7 @@ class FedPegTest(BitcoinTestFramework):
         assert sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1
 
         # Test superfluous peg-in witness data on regular spend before we have no funds
-        raw_spend = sidechain.createrawtransaction([], {sidechain.getnewaddress():1})
+        raw_spend = sidechain.createrawtransaction([], [{sidechain.getnewaddress():1}])
         fund_spend = sidechain.fundrawtransaction(raw_spend)
         sign_spend = sidechain.signrawtransactionwithwallet(fund_spend["hex"])
         signed_struct = FromHex(CTransaction(), sign_spend["hex"])

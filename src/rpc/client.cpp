@@ -115,6 +115,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "walletcreatefundedpsbt", 3, "options" },
     { "walletcreatefundedpsbt", 4, "bip32derivs" },
     { "walletcreatefundedpsbt", 5, "solving_data" },
+    { "walletcreatefundedpsbt", 6, "psbt_version" },
     { "walletprocesspsbt", 1, "sign" },
     { "walletprocesspsbt", 3, "bip32derivs" },
     { "walletfillpsbtdata", 1, "bip32derivs" },
@@ -122,6 +123,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "createpsbt", 1, "outputs" },
     { "createpsbt", 2, "locktime" },
     { "createpsbt", 3, "replaceable" },
+    { "createpsbt", 5, "psbt_version" },
     { "combinepsbt", 0, "txs"},
     { "joinpsbts", 0, "txs"},
     { "finalizepsbt", 1, "extract"},
@@ -225,8 +227,10 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "sendmany", 8 , "output_assets" },
     { "sendmany", 9 , "ignoreblindfail" },
     { "sendtoaddress", 10, "ignoreblindfail" },
-    { "createrawtransaction", 4, "output_assets" },
-    { "createpsbt", 4, "output_assets" },
+    { "calculateasset", 1, "vout" },
+    { "calculateasset", 3, "blind_reissuance" },
+    { "updatepsbtpegin", 1, "input" },
+    { "updatepsbtpegin", 2, "value" },
 
 };
 // clang-format on

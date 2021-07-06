@@ -410,7 +410,7 @@ class BIP68Test(BitcoinTestFramework):
     # Use self.nodes[1] to test that version 2 transactions are standard.
     def test_version2_relay(self):
         inputs = [ ]
-        outputs = { self.nodes[1].getnewaddress() : 1.0 }
+        outputs = [{ self.nodes[1].getnewaddress() : 1.0 }]
         rawtx = self.nodes[1].createrawtransaction(inputs, outputs)
         rawtxfund = self.nodes[1].fundrawtransaction(rawtx)['hex']
         tx = FromHex(CTransaction(), rawtxfund)

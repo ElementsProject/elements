@@ -8,6 +8,7 @@
 
 #include <amount.h>
 #include <asset.h>
+#include <blindpsbt.h>
 #include <interfaces/chain.h>
 #include <interfaces/handler.h>
 #include <outputtype.h>
@@ -1085,11 +1086,13 @@ public:
                   int sighash_type = 1 /* SIGHASH_ALL */,
                   bool sign = true,
                   bool bip32derivs = true,
+                  bool imbalance_ok = false,
                   size_t* n_signed = nullptr) const;
 
     // ELEMENTS
     TransactionError FillPSBTData(PartiallySignedTransaction& psbtx, bool bip32derivs = false) const;
     TransactionError SignPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type = 1, bool sign = true, bool imbalance_ok = false, bool bip32derivs = false, size_t* n_signed = nullptr) const;
+    BlindingStatus WalletBlindPSBT(PartiallySignedTransaction& psbtx) const;
     // end ELEMENTS
 
     /**
@@ -1172,6 +1175,7 @@ public:
     isminetype IsMine(const CTxDestination& dest) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     isminetype IsMine(const CScript& script) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     isminetype IsMine(const CTxIn& txin) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    isminetype IsMine(const COutPoint& txin) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     /**
      * Returns amount of debit if the input matches the
      * filter, otherwise returns 0
