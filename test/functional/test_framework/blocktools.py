@@ -178,21 +178,21 @@ def create_tx_with_script(prevtx, n, script_sig=b"", *, amount, fee=0, script_pu
     tx.calc_sha256()
     return tx
 
-def create_transaction(node, txid, to_address, *, amount, fee):
+def create_transaction(node, txid, to_address, *, amount, fee, locktime=0):
     """ Return signed transaction spending the first output of the
         input txid. Note that the node must have a wallet that can
         sign for the output that is being spent.
     """
-    raw_tx = create_raw_transaction(node, txid, to_address, amount=amount, fee=fee)
+    raw_tx = create_raw_transaction(node, txid, to_address, amount=amount, fee=fee, locktime=locktime)
     tx = FromHex(CTransaction(), raw_tx)
     return tx
 
-def create_raw_transaction(node, txid, to_address, *, amount, fee):
+def create_raw_transaction(node, txid, to_address, *, amount, fee, locktime=0):
     """ Return raw signed transaction spending the first output of the
         input txid. Note that the node must have a wallet that can sign
         for the output that is being spent.
     """
-    psbt = node.createpsbt(inputs=[{"txid": txid, "vout": 0}], outputs={to_address: amount, "fee": fee})
+    psbt = node.createpsbt(inputs=[{"txid": txid, "vout": 0}], outputs={to_address: amount, "fee": fee}, locktime=locktime)
     for _ in range(2):
         for w in node.listwallets():
             wrpc = node.get_wallet_rpc(w)
