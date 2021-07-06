@@ -1009,6 +1009,10 @@ bool MemPoolAccept::PolicyScriptChecks(ATMPArgs& args, Workspace& ws, Precompute
         scriptVerifyFlags |= SCRIPT_SIGHASH_RANGEPROOF;
     }
 
+    if (IsSimplicityEnabled(::ChainActive().Tip(), args.m_chainparams.GetConsensus())) {
+        scriptVerifyFlags |= SCRIPT_VERIFY_SIMPLICITY;
+    }
+
     // Check input scripts and signatures.
     // This is done last to help prevent CPU exhaustion denial-of-service attacks.
     if (!CheckInputScripts(tx, state, m_view, scriptVerifyFlags, true, false, txdata)) {
@@ -2067,6 +2071,10 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
 
     if (IsDynaFedEnabled(pindex->pprev, consensusparams)) {
         flags |= SCRIPT_SIGHASH_RANGEPROOF;
+    }
+
+    if (IsSimplicityEnabled(pindex->pprev, consensusparams)) {
+        flags |= SCRIPT_VERIFY_SIMPLICITY;
     }
 
     return flags;
@@ -3667,6 +3675,11 @@ bool IsDynaFedEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& pa
 {
     LOCK(cs_main);
     return (VersionBitsState(pindexPrev, params, Consensus::DEPLOYMENT_DYNA_FED, versionbitscache) == ThresholdState::ACTIVE);
+}
+
+bool IsSimplicityEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params)
+{
+    return params.simplicity_enabled;
 }
 
 void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams)

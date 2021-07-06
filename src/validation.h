@@ -304,6 +304,9 @@ bool IsWitnessEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& pa
 /** Check whether Dynamic Federation has activated. */
 bool IsDynaFedEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params);
 
+/** Check whether Simplicity has activated. */
+bool IsSimplicityEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params);
+
 /** Update uncommitted block structures (currently: only the witness reserved value). This is safe for submitted blocks. */
 void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams);
 
