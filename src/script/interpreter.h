@@ -6,6 +6,7 @@
 #ifndef BITCOIN_SCRIPT_INTERPRETER_H
 #define BITCOIN_SCRIPT_INTERPRETER_H
 
+#include <hash.h>
 #include <script/script_error.h>
 #include <span.h>
 #include <primitives/transaction.h>
@@ -166,19 +167,29 @@ struct PrecomputedTransactionData
     uint256 m_outputs_single_hash;
     uint256 m_spent_amounts_single_hash;
     uint256 m_spent_scripts_single_hash;
-    //! Whether the 5 fields above are initialized.
+    // Elements
+    uint256 m_outpoints_flag_single_hash;
+    uint256 m_spent_asset_amounts_single_hash;
+    uint256 m_issuances_single_hash;
+    uint256 m_output_witnesses_single_hash;
+    uint256 m_issuance_rangeproofs_single_hash;
+    //! Whether the 10 fields above are initialized.
     bool m_bip341_taproot_ready = false;
 
     // BIP143 precomputed data (double-SHA256).
     uint256 hashPrevouts, hashSequence, hashOutputs, hashIssuance, hashRangeproofs;
-    //! Whether the 3 fields above are initialized.
+    //! Whether the 5 fields above are initialized.
     bool m_bip143_segwit_ready = false;
 
     std::vector<CTxOut> m_spent_outputs;
     //! Whether m_spent_outputs is initialized.
     bool m_spent_outputs_ready = false;
 
-    PrecomputedTransactionData() = default;
+    //! ELEMENTS: parent genesis hash
+    CHashWriter m_tapsighash_hasher;
+
+    explicit PrecomputedTransactionData(const uint256& hash_genesis_block);
+    explicit PrecomputedTransactionData() : PrecomputedTransactionData(uint256{}) {}
 
     template <class T>
     void Init(const T& tx, std::vector<CTxOut>&& spent_outputs);

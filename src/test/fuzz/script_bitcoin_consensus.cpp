@@ -17,6 +17,8 @@ void test_one_input(const std::vector<uint8_t>& buffer)
     FuzzedDataProvider fuzzed_data_provider(buffer.data(), buffer.size());
     const std::vector<uint8_t> random_bytes_1 = ConsumeRandomLengthByteVector(fuzzed_data_provider);
     const std::vector<uint8_t> random_bytes_2 = ConsumeRandomLengthByteVector(fuzzed_data_provider);
+    const uint256 random_hash = ConsumeUInt256(fuzzed_data_provider);
+
     const std::optional<CConfidentialValue> money = ConsumeDeserializable<CConfidentialValue>(fuzzed_data_provider);
     bitcoinconsensus_error err;
     bitcoinconsensus_error* err_p = fuzzed_data_provider.ConsumeBool() ? &err : nullptr;
@@ -26,10 +28,10 @@ void test_one_input(const std::vector<uint8_t>& buffer)
     if ((flags & SCRIPT_VERIFY_WITNESS) != 0 && (flags & SCRIPT_VERIFY_P2SH) == 0) {
         return;
     }
-    (void)bitcoinconsensus_verify_script(random_bytes_1.data(), random_bytes_1.size(), random_bytes_2.data(), random_bytes_2.size(), n_in, flags, err_p);
+    (void)bitcoinconsensus_verify_script(random_hash.begin() ,random_bytes_1.data(), random_bytes_1.size(), random_bytes_2.data(), random_bytes_2.size(), n_in, flags, err_p);
     if (money) {
         CDataStream data_stream(SER_NETWORK, PROTOCOL_VERSION);
         data_stream << *money;
-        (void)bitcoinconsensus_verify_script_with_amount(random_bytes_1.data(), random_bytes_1.size(), (unsigned char*) data_stream.data(), data_stream.size(), random_bytes_2.data(), random_bytes_2.size(), n_in, flags, err_p);
+        (void)bitcoinconsensus_verify_script_with_amount(random_hash.begin(), random_bytes_1.data(), random_bytes_1.size(), (unsigned char*) data_stream.data(), data_stream.size(), random_bytes_2.data(), random_bytes_2.size(), n_in, flags, err_p);
     }
 }
