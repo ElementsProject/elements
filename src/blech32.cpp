@@ -4,22 +4,15 @@
 
 #include <blech32.h>
 
-/*
- * IMPORTANT NOTE: Comments below may largely pertain for bech32, not blech32.
- * Some of these magic constants have changes.
- * See liquid_addr.py for compact difference from bech32
- * TODO: Update comments
- */
-
 namespace blech32
 {
 
 typedef std::vector<uint8_t> data;
 
-/** The Blech32 character set for encoding. */
+/** The Bech32 character set for encoding. */
 const char* CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
-/** The Blech32 character set for decoding. */
+/** The Bech32 character set for decoding. */
 const int8_t CHARSET_REV[128] = {
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
@@ -38,8 +31,8 @@ data Cat(data x, const data& y)
     return x;
 }
 
-/** This function will compute what 6 5-bit values to XOR into the last 6 input values, in order to
- *  make the checksum 0. These 6 values are packed together in a single 30-bit integer. The higher
+/** This function will compute what 12 5-bit values to XOR into the last 12 input values, in order to
+ *  make the checksum 0. These 12 values are packed together in a single 60-bit integer. The higher
  *  bits correspond to earlier values. */
 uint64_t PolyMod(const data& v)
 {
@@ -48,12 +41,13 @@ uint64_t PolyMod(const data& v)
     // 1*x^5 + v0*x^4 + v1*x^3 + v2*x^2 + v3*x + v4. The implicit 1 guarantees that
     // [v0,v1,v2,...] has a distinct checksum from [0,v0,v1,v2,...].
 
-    // The output is a 30-bit integer whose 5-bit groups are the coefficients of the remainder of
+    // The output is a 60-bit integer whose 5-bit groups are the coefficients of the remainder of
     // v(x) mod g(x), where g(x) is the Blech32 generator,
-    // x^6 + {29}x^5 + {22}x^4 + {20}x^3 + {21}x^2 + {29}x + {18}. g(x) is chosen in such a way
-    // that the resulting code is a BCH code, guaranteeing detection of up to 3 errors within a
-    // window of 1023 characters. Among the various possible BCH codes, one was selected to in
-    // fact guarantee detection of up to 4 errors within a window of 89 characters.
+    // x^12 + {31}x^10 + {10}x^9 + {18}x^8 + {31}x^7 + {14}x^6
+    //      +  {18}x^5 + {23}x^3 + {22}x^2 +  {4}x   +  {6}   . g(x) is chosen in such a way
+    // that the resulting code is a BCH code, guaranteeing detection of up to ??? errors within a
+    // window of ??? characters. Among the various possible BCH codes, one was selected to in
+    // fact guarantee detection of up to ??? errors within a window of ??? characters.
 
     // Note that the coefficients are elements of GF(32), here represented as decimal numbers
     // between {}. In this finite field, addition is just XOR of the corresponding numbers. For
@@ -77,25 +71,31 @@ uint64_t PolyMod(const data& v)
         // c'(x) = (f(x) * x + v_i) mod g(x)
         //         ((f(x) mod g(x)) * x + v_i) mod g(x)
         //         (c(x) * x + v_i) mod g(x)
-        // If c(x) = c0*x^5 + c1*x^4 + c2*x^3 + c3*x^2 + c4*x + c5, we want to compute
-        // c'(x) = (c0*x^5 + c1*x^4 + c2*x^3 + c3*x^2 + c4*x + c5) * x + v_i mod g(x)
-        //       = c0*x^6 + c1*x^5 + c2*x^4 + c3*x^3 + c4*x^2 + c5*x + v_i mod g(x)
-        //       = c0*(x^6 mod g(x)) + c1*x^5 + c2*x^4 + c3*x^3 + c4*x^2 + c5*x + v_i
-        // If we call (x^6 mod g(x)) = k(x), this can be written as
-        // c'(x) = (c1*x^5 + c2*x^4 + c3*x^3 + c4*x^2 + c5*x + v_i) + c0*k(x)
+        // If c(x) = c0*x^11 + c1*x^10 + c2*x^9 + c3*x^8 + c4*x^7 + c5*x^6 +
+        //          c6*x^5 + c7*x^4 + c8*x^3 + c9*x^2 + c10*x + c11, we want to compute
+        // c'(x) = (c0*x^11 + c1*x^10 + c2*x^9 + c3*x^8 + c4*x^7 + c5*x^6 +
+        //          c6*x^5 + c7*x^4 + c8*x^3 + c9*x^2 + c10*x + c11) * x + v_i mod g(x)
+        //       = c0*x^12 + c1*x^11 + c2*x^10 + c3*x^9 + c4*x^8 + c5*x^7 +
+        //         c6*x^6 + c7*x^5 + c8*x^4 + c9*x^3 + c10*x^2 + c11*x + v_i mod g(x)
+        //       = c0*(x^12 mod g(x)) + c1*x^11 + c2*x^10 + c3*x^9 + c4*x^8 + c5*x^7 +
+        //         c6*x^6 + c7*x^5 + c8*x^4 + c9*x^3 + c10*x^2 + c11*x + v_i
+        // If we call (x^12 mod g(x)) = k(x), this can be written as
+        // c'(x) = (c1*x^11 + c2*x^10 + c3*x^9 + c4*x^8 + c5*x^7 + c6*x^6 +
+        //             c7*x^5 + c8*x^4 + c9*x^3 + c10*x^2 + c11 * x + v_i) + c0*k(x)
 
         // First, determine the value of c0:
-        uint8_t c0 = c >> 55; // ELEMENTS: 25->55
+        uint8_t c0 = c >> 55; // BLECH32: 25->55
 
-        // Then compute c1*x^5 + c2*x^4 + c3*x^3 + c4*x^2 + c5*x + v_i:
-        c = ((c & 0x7fffffffffffff) << 5) ^ v_i; // ELEMENTS 0x1ffffff->0x7fffffffffffff
+        // Then compute c1*x^11 + c2*x^10 + c3*x^9 + c4*x^8 + c5*x^7 + c6*x^6 +
+        //  c7*x^5 + c8*x^4 + c9*x^3 + c10*x^2 + c11 * x + v_i:
+        c = ((c & 0x7fffffffffffff) << 5) ^ v_i; // BLECH32: 0x1ffffff->0x7fffffffffffff
 
         // Finally, for each set bit n in c0, conditionally add {2^n}k(x):
-        if (c0 & 1)  c ^= 0x7d52fba40bd886; // ELEMENTS
-        if (c0 & 2)  c ^= 0x5e8dbf1a03950c; // ELEMENTS
-        if (c0 & 4)  c ^= 0x1c3a3c74072a18; // ELEMENTS
-        if (c0 & 8)  c ^= 0x385d72fa0e5139; // ELEMENTS
-        if (c0 & 16) c ^= 0x7093e5a608865b; // ELEMENTS
+        if (c0 & 1)  c ^= 0x7d52fba40bd886; // BLECH32:     k(x) = {31}x^10 + {10}x^9 + {18}x^8 + {31}x^7 + {14}x^6 + {18}x^5 + {23}x^3 + {22}x^2 +  {4}x +  {6}
+        if (c0 & 2)  c ^= 0x5e8dbf1a03950c; // BLECH32:  {2}k(x) = {23}x^10 + {20}x^9 + {13}x^8 + {23}x^7 + {28}x^6 + {13}x^5 +  {7}x^3 +  {5}x^2 +  {8}x + {12}
+        if (c0 & 4)  c ^= 0x1c3a3c74072a18; // BLECH32:  {4}k(x) =  {7}x^10 +  {1}x^9 + {26}x^8 +  {7}x^7 + {17}x^6 + {26}x^5 + {14}x^3 + {10}x^2 + {16}x + {24}
+        if (c0 & 8)  c ^= 0x385d72fa0e5139; // BLECH32:  {8}k(x) = {14}x^10 +  {2}x^9 + {29}x^8 + {14}x^7 + {11}x^6 + {29}x^5 + {28}x^3 + {20}x^2 +  {9}x + {25}
+        if (c0 & 16) c ^= 0x7093e5a608865b; // BLECH32: {16}k(x) = {28}x^10 +  {4}x^9 + {19}x^8 + {28}x^7 + {22}x^6 + {19}x^5 + {17}x^3 +  {1}x^2 + {18}x + {27}
     }
     return c;
 }
@@ -135,12 +135,12 @@ bool VerifyChecksum(const std::string& hrp, const data& values)
 data CreateChecksum(const std::string& hrp, const data& values)
 {
     data enc = Cat(ExpandHRP(hrp), values);
-    enc.resize(enc.size() + 12); // ELEMENTS: Append 6->12 zeroes
-    uint64_t mod = PolyMod(enc) ^ 1; // Determine what to XOR into those 6 zeroes.
-    data ret(12); // ELEMENTS: 6->12
-    for (size_t i = 0; i < 12; ++i) { // ELEMENTS: 6->12
+    enc.resize(enc.size() + 12); // BLECH32: Append 6->12 zeroes
+    uint64_t mod = PolyMod(enc) ^ 1; // Determine what to XOR into those 12 zeroes.
+    data ret(12); // BLECH32: 6->12
+    for (size_t i = 0; i < 12; ++i) { // BLECH32: 6->12
         // Convert the 5-bit groups in mod to checksum values.
-        ret[i] = (mod >> (5 * (11 - i))) & 31; // ELEMENTS: 5->11
+        ret[i] = (mod >> (5 * (11 - i))) & 31; // BLECH32: 5->11
     }
     return ret;
 }
@@ -168,7 +168,7 @@ std::pair<std::string, data> Decode(const std::string& str) {
     }
     if (lower && upper) return {};
     size_t pos = str.rfind('1');
-    if (str.size() > 1000 || pos == str.npos || pos == 0 || pos + 13 > str.size()) { // ELEMENTS: 90->1000, 7->13
+    if (str.size() > 1000 || pos == str.npos || pos == 0 || pos + 13 > str.size()) { // BLECH32: 90->1000, 7->13
         return {};
     }
     data values(str.size() - 1 - pos);
@@ -188,7 +188,7 @@ std::pair<std::string, data> Decode(const std::string& str) {
     if (!VerifyChecksum(hrp, values)) {
         return {};
     }
-    return {hrp, data(values.begin(), values.end() - 12)};
+    return {hrp, data(values.begin(), values.end() - 12)}; // BLECH32: 6->12
 }
 
 } // namespace blech32
