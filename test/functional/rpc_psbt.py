@@ -535,6 +535,15 @@ class PSBTTest(BitcoinTestFramework):
         # ... but you still can't send it.
         assert_raises_rpc_error(-26, "bad-txns-in-ne-out, value in != value out", self.nodes[1].sendrawtransaction, psbt['hex'])
 
+    def run_unsafe_tests(self):
+        # Make sure unsafe inputs are included if specified
+        self.nodes[2].createwallet(wallet_name="unsafe")
+        wunsafe = self.nodes[2].get_wallet_rpc("unsafe")
+        self.nodes[0].sendtoaddress(wunsafe.getnewaddress(), 2)
+        self.sync_mempools()
+        assert_raises_rpc_error(-4, "Insufficient funds", wunsafe.walletcreatefundedpsbt, [], [{self.nodes[0].getnewaddress(): 1}])
+        wunsafe.walletcreatefundedpsbt([], [{self.nodes[0].getnewaddress(): 1}], 0, {"include_unsafe": True})
+
 
     # BIP 174 tests are disabled because they don't work with CA yet. Comment the function so it doesn't flag lint as unused.
     """
@@ -716,6 +725,7 @@ class PSBTTest(BitcoinTestFramework):
 
         # Some Confidential-Assets-specific tests
         self.run_ca_tests()
+        self.run_unsafe_tests()
 
         # TODO: Re-enable this for segwit v1
         # self.test_utxo_conversion()
