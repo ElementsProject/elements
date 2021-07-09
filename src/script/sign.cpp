@@ -476,7 +476,7 @@ bool IsSegWitOutput(const SigningProvider& provider, const CScript& script)
 {
     std::vector<valtype> solutions;
     auto whichtype = Solver(script, solutions);
-    if (whichtype == TxoutType::WITNESS_V0_SCRIPTHASH || whichtype == TxoutType::WITNESS_V0_KEYHASH || whichtype == TxoutType::WITNESS_UNKNOWN) return true;
+    if (whichtype == TxoutType::WITNESS_V0_SCRIPTHASH || whichtype == TxoutType::WITNESS_V0_KEYHASH || whichtype == TxoutType::WITNESS_V1_TAPROOT || whichtype == TxoutType::WITNESS_UNKNOWN) return true;
     if (whichtype == TxoutType::SCRIPTHASH) {
         auto h160 = uint160(solutions[0]);
         CScript subscript;
