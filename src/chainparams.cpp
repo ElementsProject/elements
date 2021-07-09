@@ -551,11 +551,11 @@ public:
         m_assumeutxo_data = MapAssumeutxo{
             {
                 110,
-                {uint256S("0x09a3e443dbf48f3b95207c9ce529062d9764395232c482aa7d3a0bf274d282d9"), 110},
+                {AssumeutxoHash{uint256S("0x09a3e443dbf48f3b95207c9ce529062d9764395232c482aa7d3a0bf274d282d9")}, 110},
             },
             {
                 210,
-                {uint256S("0x9c5ed99ef98544b34f8920b6d1802f72ac28ae6e2bd2bd4c316ff10c230df3f2"), 210},
+                {AssumeutxoHash{uint256S("0x9c5ed99ef98544b34f8920b6d1802f72ac28ae6e2bd2bd4c316ff10c230df3f2")}, 210},
             },
         };
 
@@ -1343,10 +1343,4 @@ void SelectParams(const std::string& network)
 {
     SelectBaseParams(network);
     globalChainParams = CreateChainParams(gArgs, network);
-}
-
-std::ostream& operator<<(std::ostream& o, const AssumeutxoData& aud)
-{
-    o << strprintf("AssumeutxoData(%s, %s)", aud.hash_serialized.ToString(), aud.nChainTx);
-    return o;
 }
