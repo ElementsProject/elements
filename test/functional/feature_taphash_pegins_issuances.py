@@ -136,7 +136,7 @@ class TapHashPeginTest(BitcoinTestFramework):
 
         blind_addr = self.nodes[0].getnewaddress()
         nonblind_addr = self.nodes[0].validateaddress(blind_addr)['unconfidential']
-        raw_tx = self.nodes[0].createrawtransaction([], {nonblind_addr: 1})
+        raw_tx = self.nodes[0].createrawtransaction([], [{nonblind_addr: 1}])
         raw_tx = FromHex(CTransaction(), raw_tx)
 
         # Need to taproot outputs later because fundrawtransaction cannot estimate fees
