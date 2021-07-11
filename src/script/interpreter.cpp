@@ -61,6 +61,65 @@ static inline void popstack(std::vector<valtype>& stack)
     stack.pop_back();
 }
 
+static inline void push4_le(std::vector<valtype>& stack, uint32_t v)
+{
+    uint32_t v_le = htole32(v);
+    stack.emplace_back(reinterpret_cast<unsigned char*>(&v_le), reinterpret_cast<unsigned char*>(&v_le) + sizeof(v_le));
+}
+
+static inline void push8_le(std::vector<valtype>& stack, uint64_t v)
+{
+    uint64_t v_le = htole64(v);
+    stack.emplace_back(reinterpret_cast<unsigned char*>(&v_le), reinterpret_cast<unsigned char*>(&v_le) + sizeof(v_le));
+}
+
+static inline void pushasset(std::vector<valtype>& stack, const CConfidentialAsset& asset)
+{
+    assert(!asset.IsNull());
+    stack.emplace_back(asset.vchCommitment.begin() + 1, asset.vchCommitment.end()); // Push asset without prefix
+    stack.emplace_back(asset.vchCommitment.begin(), asset.vchCommitment.begin() + 1); // Push prefix
+}
+
+static inline void pushvalue(std::vector<valtype>& stack, const CConfidentialValue& value)
+{
+    valtype vchinpValue, vchValuePref;
+    if (value.IsNull()) {
+        // If value is null, explicitly push the explicit prefix 0x01
+        vchValuePref = {0x01};
+        vchinpValue.assign(8, 0x00);
+    } else if (value.IsExplicit()) {
+        // Convert BE to LE by using reverse iterator
+        vchValuePref.assign(value.vchCommitment.begin(), value.vchCommitment.begin() + 1);
+        vchinpValue.assign(value.vchCommitment.rbegin(), value.vchCommitment.rbegin() + 8);
+    } else { // (value.IsCommitment())
+        vchValuePref.assign(value.vchCommitment.begin(), value.vchCommitment.begin() + 1);
+        vchinpValue.assign(value.vchCommitment.begin() + 1, value.vchCommitment.end());
+    }
+    stack.push_back(std::move(vchinpValue)); // if value is null, 0(LE 8) is pushed
+    stack.push_back(std::move(vchValuePref)); // always push prefix
+}
+
+static inline void pushspk(std::vector<valtype>& stack, const CScript& scriptPubKey, const uint256& scriptPubKey_sha)
+{
+    int witnessversion;
+    valtype witnessprogram;
+    if (scriptPubKey.IsWitnessProgram(witnessversion, witnessprogram)) {
+        stack.push_back(std::move(witnessprogram));
+        stack.push_back(CScriptNum(witnessversion).getvch());
+    } else {
+        stack.emplace_back(scriptPubKey_sha.begin(), scriptPubKey_sha.end());
+        stack.push_back(CScriptNum(-1).getvch());
+    }
+}
+
+/** Compute the outpoint flag(u8) for a given txin **/
+template <class T>
+inline unsigned char GetOutpointFlag(const T& txin)
+{
+    return static_cast<unsigned char> ((!txin.assetIssuance.IsNull() ? (COutPoint::OUTPOINT_ISSUANCE_FLAG >> 24) : 0) |
+            (txin.m_is_pegin ? (COutPoint::OUTPOINT_PEGIN_FLAG >> 24) : 0));
+}
+
 bool static IsCompressedOrUncompressedPubKey(const valtype &vchPubKey) {
     if (vchPubKey.size() < CPubKey::COMPRESSED_SIZE) {
         //  Non-canonical public key: too short
@@ -1681,6 +1740,214 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                 }
                 break;
 
+                case OP_INSPECTINPUTOUTPOINT:
+                case OP_INSPECTINPUTASSET:
+                case OP_INSPECTINPUTVALUE:
+                case OP_INSPECTINPUTSCRIPTPUBKEY:
+                case OP_INSPECTINPUTSEQUENCE:
+                case OP_INSPECTINPUTISSUANCE:
+                {
+                    // Input inspection opcodes only available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    int idx = CScriptNum(stacktop(-1), fRequireMinimal).getint();
+                    popstack(stack);
+
+                    auto inps = checker.GetTxvIn();
+                    const PrecomputedTransactionData *cache = checker.GetPrecomputedTransactionData();
+                    // Return error if the evaluation context is unavailable
+                    // TODO: Handle accoding to MissingDataBehavior
+                    if (!inps || !cache || !cache->m_bip341_taproot_ready)
+                        return set_error(serror, SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE);
+                    const std::vector<CTxOut>& spent_outputs = cache->m_spent_outputs;
+                    // This condition is ensured when m_spent_outputs_ready is set
+                    // which is asserted when m_bip341_taproot_ready is set
+                    assert(spent_outputs.size() == inps->size());
+                    if (idx < 0 || static_cast<unsigned int>(idx) >= inps->size())
+                        return set_error(serror, SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS);
+                    const CTxIn& inp = inps->at(idx);
+                    const CTxOut& spent_utxo = spent_outputs[idx];
+
+                    switch (opcode)
+                    {
+                        case OP_INSPECTINPUTOUTPOINT:
+                        {
+                            // Push prev txid
+                            stack.emplace_back(inp.prevout.hash.begin(), inp.prevout.hash.end());
+                            push4_le(stack, inp.prevout.n);
+
+                            // Push the outpoint flag
+                            stack.emplace_back(1, GetOutpointFlag(inp));
+                            break;
+                        }
+                        case OP_INSPECTINPUTASSET:
+                        {
+                            pushasset(stack, spent_utxo.nAsset);
+                            break;
+                        }
+                        case OP_INSPECTINPUTVALUE:
+                        {
+                            pushvalue(stack, spent_utxo.nValue);
+                            break;
+                        }
+                        case OP_INSPECTINPUTSCRIPTPUBKEY:
+                        {
+                            pushspk(stack, spent_utxo.scriptPubKey, cache->m_spent_output_spk_single_hashes[idx]);
+                            break;
+                        }
+                        case OP_INSPECTINPUTSEQUENCE:
+                        {
+                            push4_le(stack, inp.nSequence);
+                            break;
+                        }
+                        case OP_INSPECTINPUTISSUANCE:
+                        {
+                            if (!inp.assetIssuance.IsNull()) {
+                                pushvalue(stack, inp.assetIssuance.nInflationKeys);
+                                pushvalue(stack, inp.assetIssuance.nAmount);
+                                // Next push Asset entropy
+                                stack.emplace_back(inp.assetIssuance.assetEntropy.begin(), inp.assetIssuance.assetEntropy.end());
+                                // Finally push blinding nonce
+                                // By pushing the this order, we make sure that the stack top is empty
+                                // iff there is no issuance.
+                                stack.emplace_back(inp.assetIssuance.assetBlindingNonce.begin(), inp.assetIssuance.assetBlindingNonce.end());
+                            } else { // No issuance
+                                stack.push_back(vchFalse);
+                            }
+                            break;
+                        }
+                        default: assert(!"invalid opcode"); break;
+                    }
+                }
+                break;
+
+                case OP_PUSHCURRENTINPUTINDEX:
+                {
+                    // OP_PUSHCURRENTINPUTINDEX is available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    // Even tough this value should never 2^25(MAX_SIZE), this can set to any value in exotic custom contexts
+                    // safe to check that this in 4 byte positive number before pushing it
+                    // TODO: Handle accoding to MissingDataBehavior
+                    if (checker.GetnIn() > MAX_SIZE)
+                        return set_error(serror, SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE);
+                    stack.push_back(CScriptNum(static_cast<int64_t>(checker.GetnIn())).getvch());
+                }
+                break;
+
+                case OP_INSPECTOUTPUTASSET:
+                case OP_INSPECTOUTPUTVALUE:
+                case OP_INSPECTOUTPUTNONCE:
+                case OP_INSPECTOUTPUTSCRIPTPUBKEY:
+                {
+                    // Output instropsection codes only available post tapscript is available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    int idx = CScriptNum(stacktop(-1), fRequireMinimal).getint();
+                    popstack(stack);
+
+                    auto outs = checker.GetTxvOut();
+                    const PrecomputedTransactionData *cache = checker.GetPrecomputedTransactionData();
+                    // Return error if the evaluation context is unavailable
+                    // TODO: Handle accoding to MissingDataBehavior
+                    if (!outs || !cache || !cache->m_bip341_taproot_ready)
+                        return set_error(serror, SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE);
+                    assert(cache->m_output_spk_single_hashes.size() == outs->size());
+
+                    if (idx < 0 || static_cast<unsigned int>(idx) >= outs->size())
+                        return set_error(serror, SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS);
+                    const CTxOut& out = outs->at(idx);
+
+                    switch (opcode)
+                    {
+                        case OP_INSPECTOUTPUTASSET:
+                        {
+                            pushasset(stack, out.nAsset);
+                            break;
+                        }
+                        case OP_INSPECTOUTPUTVALUE:
+                        {
+                            pushvalue(stack, out.nValue);
+                            break;
+                        }
+                        case OP_INSPECTOUTPUTNONCE:
+                        {
+                            if (out.nNonce.IsNull()) {
+                                stack.push_back(vchFalse);
+                            } else {
+                                stack.emplace_back(out.nNonce.vchCommitment);
+                            }
+                            break;
+                        }
+                        case OP_INSPECTOUTPUTSCRIPTPUBKEY:
+                        {
+                            pushspk(stack, out.scriptPubKey, cache->m_output_spk_single_hashes[idx]);
+                            break;
+                        }
+                        default: assert(!"invalid opcode"); break;
+                    }
+                }
+                break;
+
+                case OP_INSPECTVERSION:
+                case OP_INSPECTLOCKTIME:
+                case OP_INSPECTNUMINPUTS:
+                case OP_INSPECTNUMOUTPUTS:
+                case OP_TXWEIGHT:
+                {
+                    // Transaction introspection is available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    switch (opcode)
+                    {
+                        case OP_INSPECTVERSION:
+                        {
+                            push4_le(stack, static_cast<uint32_t>(checker.GetTxVersion()));
+                            break;
+                        }
+                        case OP_INSPECTLOCKTIME:
+                        {
+                            push4_le(stack, checker.GetLockTime());
+                            break;
+                        }
+                        case OP_INSPECTNUMINPUTS:
+                        {
+                            auto inps = checker.GetTxvIn();
+                            // TODO: Handle according to MissingDataBehavior
+                            if (!inps)
+                                return set_error(serror, SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE);
+                            auto num_ins = inps->size();
+                            assert(num_ins <= MAX_SIZE);
+                            stack.push_back(CScriptNum(static_cast<int64_t>(num_ins)).getvch());
+                            break;
+                        }
+                        case OP_INSPECTNUMOUTPUTS:
+                        {
+                            auto outs = checker.GetTxvOut();
+                            // TODO: Handle according to MissingDataBehavior
+                            if (!outs)
+                                return set_error(serror, SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE);
+                            auto num_outs = outs->size();
+                            assert(num_outs <= MAX_SIZE);
+                            stack.push_back(CScriptNum(static_cast<int64_t>(num_outs)).getvch());
+                            break;
+                        }
+                        case OP_TXWEIGHT:
+                        {
+                            push8_le(stack, checker.GetTxWeight());
+                            break;
+                        }
+                        default: assert(!"invalid opcode"); break;
+                    }
+                }
+                break;
+
                 default:
                     return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
             }
@@ -1824,14 +2091,6 @@ public:
         ::Serialize(s, txTo.nLockTime);
     }
 };
-
-/** Compute the outpoint flag(u8) for a given txin **/
-template <class T>
-inline unsigned char GetOutpointFlag(const T& txin)
-{
-    return (unsigned char) ((!txin.assetIssuance.IsNull() ? (COutPoint::OUTPOINT_ISSUANCE_FLAG >> 24) : 0) |
-            (txin.m_is_pegin ? (COutPoint::OUTPOINT_PEGIN_FLAG >> 24) : 0));
-}
 
 /** Compute the (single) SHA256 of the concatenation of all outpoint flags of a tx. */
 template <class T>

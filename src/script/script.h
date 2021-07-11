@@ -218,11 +218,36 @@ enum opcodetype
     OP_SHA256UPDATE = 0xc5,
     OP_SHA256FINALIZE = 0xc6,
 
+    // Introspection opcodes
+    //inputs
+    OP_INSPECTINPUTOUTPOINT = 0xc7,
+    OP_INSPECTINPUTASSET = 0xc8,
+    OP_INSPECTINPUTVALUE = 0xc9,
+    OP_INSPECTINPUTSCRIPTPUBKEY = 0xca,
+    OP_INSPECTINPUTSEQUENCE = 0xcb,
+    OP_INSPECTINPUTISSUANCE = 0xcc,
+
+    // current index
+    OP_PUSHCURRENTINPUTINDEX = 0xcd,
+
+    // outputs
+    OP_INSPECTOUTPUTASSET = 0xce,
+    OP_INSPECTOUTPUTVALUE = 0xcf,
+    OP_INSPECTOUTPUTNONCE = 0xd0,
+    OP_INSPECTOUTPUTSCRIPTPUBKEY = 0xd1,
+
+    // transaction
+    OP_INSPECTVERSION = 0xd2,
+    OP_INSPECTLOCKTIME = 0xd3,
+    OP_INSPECTNUMINPUTS = 0xd4,
+    OP_INSPECTNUMOUTPUTS = 0xd5,
+    OP_TXWEIGHT = 0xd6,
+
     OP_INVALIDOPCODE = 0xff,
 };
 
 // Maximum value that an opcode can be
-static const unsigned int MAX_OPCODE = OP_SHA256FINALIZE; // 0xc6
+static const unsigned int MAX_OPCODE = OP_TXWEIGHT; // 0xd7
 
 std::string GetOpName(opcodetype opcode);
 
