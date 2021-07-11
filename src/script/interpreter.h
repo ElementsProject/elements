@@ -289,6 +289,11 @@ public:
         return 0;
     }
 
+    virtual unsigned int GetTxWeight() const
+    {
+        return 0;
+    }
+
     virtual const PrecomputedTransactionData* GetPrecomputedTransactionData() const
     {
         return nullptr;
@@ -326,6 +331,7 @@ public:
     const std::vector<CTxOut>* GetTxvOut() const override;
     unsigned int GetLockTime() const override;
     unsigned int GetTxVersion() const override;
+    unsigned int GetTxWeight() const override;
 
     const PrecomputedTransactionData* GetPrecomputedTransactionData() const override;
     unsigned int GetnIn() const override;

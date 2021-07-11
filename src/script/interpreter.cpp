@@ -11,6 +11,7 @@
 #include <pubkey.h>
 #include <script/script.h>
 #include <uint256.h>
+#include <consensus/consensus.h>
 
 typedef std::vector<unsigned char> valtype;
 
@@ -58,6 +59,14 @@ static inline void popstack(std::vector<valtype>& stack)
     if (stack.empty())
         throw std::runtime_error("popstack(): stack empty");
     stack.pop_back();
+}
+
+static inline void push4_le(std::vector<valtype>& stack, uint32_t v)
+{
+    valtype vch;
+    auto v_le = htole32(v);
+    vch.insert(vch.begin(), (unsigned char*)&v_le, (unsigned char*)&v_le + 4);
+    stack.push_back(vch);
 }
 
 static inline void pushasset(std::vector<valtype>& stack, const CConfidentialAsset& asset)
@@ -1745,11 +1754,8 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                         {
                             valtype vchPrevTxid;
                             vchPrevTxid.insert(vchPrevTxid.begin(), inp.prevout.hash.begin(), inp.prevout.hash.begin() + 32);
-                            valtype vchPrevVout;
-                            auto vout_le = htole32(inp.prevout.n);
-                            vchPrevVout.insert(vchPrevVout.begin(), (unsigned char*)&vout_le, (unsigned char*)&vout_le + 4);
                             stack.push_back(vchPrevTxid);
-                            stack.push_back(vchPrevVout);
+                            push4_le(stack, inp.prevout.n);
                             break;
                         }
                         case 2:
@@ -1771,10 +1777,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                         }
                         case 5:
                         {
-                            valtype vchnSequence;
-                            auto nsequence_le = htole32(inp.nSequence);
-                            vchnSequence.insert(vchnSequence.begin(), (unsigned char*)&nsequence_le, (unsigned char*)&nsequence_le + 4);
-                            stack.push_back(vchnSequence);
+                            push4_le(stack, inp.nSequence);
                             break;
                         }
                         case 6:
@@ -1794,6 +1797,129 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                             } else { // No issuance
                                 stack.push_back(vchFalse);
                             }
+                            break;
+                        }
+                        default:
+                            // Error on other values. This could be turned into OP_SUCCESS, but enforcing it
+                            // via SCRIPT_VERIFY_DISCOURAGE_OP_SUCCESS is not possible.
+                            // Alternatively, this can be turned into a OP_NOP, but restricts the use of this
+                            // opcode to read-only type.
+                            return set_error(serror, SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS);
+                    }
+                }
+                break;
+
+                case OP_INSPECTCURRENTINPUT:
+                {
+                    // OP_INSPECTOUTPUT is available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (checker.GetnIn() > 0x7fffffff)
+                        return set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
+                    CScriptNum currIdx = CScriptNum((int64_t) checker.GetnIn());
+                    stack.push_back(currIdx.getvch());
+                }
+                break;
+
+                case OP_INSPECTOUTPUT:
+                {
+                    // OP_INSPECTOUTPUT is available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 2)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    int n = CScriptNum(stacktop(-1), fRequireMinimal).getint();
+                    int idx = CScriptNum(stacktop(-2), fRequireMinimal).getint();
+                    popstack(stack);
+                    popstack(stack);
+
+                    auto outs = checker.GetTxvOut();
+                    if (idx < 0 || (unsigned int)idx >= outs->size())
+                        return set_error(serror, SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS);
+                    const CTxOut out = outs->at(idx);
+
+                    switch (n)
+                    {
+                        case 0: // Asset
+                        {
+                            pushasset(stack, out.nAsset);
+                            break;
+                        }
+                        case 1: // Value
+                        {
+                            pushvalue(stack, out.nValue);
+                            break;
+                        }
+                        case 2: // Nonce
+                        {
+                            valtype vchOutNonce;
+                            if (out.nNonce.IsNull()) {
+                                stack.push_back(vchFalse);
+                            } else {
+                                vchOutNonce.insert(vchOutNonce.begin(), out.nNonce.vchCommitment.begin(), out.nNonce.vchCommitment.begin() + 33);
+                                stack.push_back(vchOutNonce);
+                            }
+                            break;
+                        }
+                        case 3: // spk
+                        {
+                            valtype vchScriptPubKey;
+                            vchScriptPubKey.insert(vchScriptPubKey.begin(), out.scriptPubKey.begin(), out.scriptPubKey.end());
+                            stack.push_back(vchScriptPubKey);
+                            break;
+                        }
+                        default:
+                            // Error on other values. This could be turned into OP_SUCCESS, but enforcing it
+                            // via SCRIPT_VERIFY_DISCOURAGE_OP_SUCCESS is not possible.
+                            // Alternatively, this can be turned into a OP_NOP, but restricts the use of this
+                            // opcode to read-only type.
+                            return set_error(serror, SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS);
+                    }
+                }
+                break;
+
+                case OP_INSPECTTX:
+                {
+                    // OP_INSPECTTX is available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    int n = CScriptNum(stacktop(-1), fRequireMinimal).getint();
+                    popstack(stack);
+
+                    switch (n)
+                    {
+                        case 0: // Version
+                        {
+                            // This does an inplicit conversion from version(int32_t) to (uint32_t)
+                            push4_le(stack, (uint32_t) checker.GetTxVersion());
+                            break;
+                        }
+                        case 1: // nLockTime
+                        {
+                            push4_le(stack, checker.GetLockTime());
+                            break;
+                        }
+                        case 2: // Number of inputs
+                        {
+                            if (checker.GetTxvIn()->size() > 0x7fffffff)
+                                return set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
+                            push4_le(stack, checker.GetTxvIn()->size());
+                            break;
+                        }
+                        case 3: // Number of outputs
+                        {
+                            // No need to bound checks for num_outputs. Elements consensus rules would break
+                            // if outpoint more 2**30 is allowed.
+                            push4_le(stack, checker.GetTxvOut()->size());
+                            break;
+                        }
+                        case 4: // Transaction size
+                        {
+                            push4_le(stack, checker.GetTxWeight());
                             break;
                         }
                         default:
@@ -2533,6 +2659,12 @@ template <class T>
 unsigned int GenericTransactionSignatureChecker<T>::GetTxVersion() const
 {
     return txTo->nVersion;
+}
+
+template <class T>
+unsigned int GenericTransactionSignatureChecker<T>::GetTxWeight() const
+{
+    return ::GetSerializeSize(*txTo, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR - 1) + ::GetSerializeSize(*txTo, PROTOCOL_VERSION);
 }
 
 template <class T>
