@@ -56,7 +56,7 @@ global_task_template: &GLOBAL_TASK_TEMPLATE
 #    - choco install python --version=3.7.7 -y
 
 task:
-  name: 'ARM  [GOAL: install]  [buster]  [unit tests, no functional tests]'
+  name: 'ARM [unit tests, no functional tests] [buster]'
   << : *GLOBAL_TASK_TEMPLATE
   container:
     image: debian:buster
@@ -64,7 +64,7 @@ task:
     FILE_ENV: "./ci/test/00_setup_env_arm.sh"
 
 task:
-  name: 'Win64  [GOAL: deploy]  [unit tests, no gui, no boost::process, no functional tests]'
+  name: 'Win64 [unit tests, no gui tests, no boost::process, no functional tests] [bionic]'
   << : *GLOBAL_TASK_TEMPLATE
   container:
     image: ubuntu:bionic
@@ -72,7 +72,7 @@ task:
     FILE_ENV: "./ci/test/00_setup_env_win64.sh"
 
 task:
-  name: 'x86_64 Linux  [GOAL: install]  [bionic]  [C++17, previous releases, uses qt5 dev package and some depends packages] [unsigned char]'
+  name: '[previous releases, uses qt5 dev package and some depends packages] [unsigned char] [bionic]'
   << : *GLOBAL_TASK_TEMPLATE
   container:
     image: ubuntu:bionic
@@ -80,7 +80,7 @@ task:
     FILE_ENV: "./ci/test/00_setup_env_native_qt5.sh"
 
 task:
-  name: 'x86_64 Linux  [GOAL: install]  [focal]  [depends, sanitizers: thread (TSan), no gui]'
+  name: '[depends, sanitizers: thread (TSan), no gui] [focal]'
   << : *GLOBAL_TASK_TEMPLATE
   container:
     image: ubuntu:focal
@@ -91,7 +91,7 @@ task:
     FILE_ENV: "./ci/test/00_setup_env_native_tsan.sh"
 
 task:
-  name: 'x86_64 Linux  [GOAL: install]  [focal]  [depends, sanitizers: memory (MSan)]'
+  name: '[depends, sanitizers: memory (MSan)] [focal]'
   << : *GLOBAL_TASK_TEMPLATE
   container:
     image: ubuntu:focal
@@ -99,7 +99,7 @@ task:
     FILE_ENV: "./ci/test/00_setup_env_native_msan.sh"
 
 task:
-  name: 'x86_64 Linux  [GOAL: install]  [focal]  [no depends, only system libs, sanitizers: address/leak (ASan + LSan) + undefined (UBSan) + integer]'
+  name: '[no depends, only system libs, sanitizers: address/leak (ASan + LSan) + undefined (UBSan) + integer] [focal]'
   << : *GLOBAL_TASK_TEMPLATE
   container:
     image: ubuntu:focal
@@ -109,7 +109,7 @@ task:
     FILE_ENV: "./ci/test/00_setup_env_native_asan.sh"
 
 task:
-  name: 'x86_64 Linux  [GOAL: install]  [focal]  [no depends, only system libs, sanitizers: fuzzer,address,undefined]'
+  name: '[no depends, only system libs, sanitizers: fuzzer,address,undefined] [focal]'
   << : *GLOBAL_TASK_TEMPLATE
   container:
     image: ubuntu:focal
@@ -119,7 +119,7 @@ task:
     FILE_ENV: "./ci/test/00_setup_env_native_fuzz.sh"
 
 task:
-  name: 'x86_64 Linux [GOAL: install]  [focal]  [multiprocess]'
+  name: '[multiprocess] [focal]'
   << : *GLOBAL_TASK_TEMPLATE
   container:
     image: ubuntu:focal
@@ -127,7 +127,15 @@ task:
     FILE_ENV: "./ci/test/00_setup_env_native_multiprocess.sh"
 
 task:
-  name: 'macOS 10.12  [GOAL: deploy] [no functional tests]'
+  name: '[no wallet] [bionic]'
+  << : *GLOBAL_TASK_TEMPLATE
+  container:
+    image: ubuntu:bionic
+  env:
+    FILE_ENV: "./ci/test/00_setup_env_native_nowallet.sh"
+
+task:
+  name: 'macOS 10.14 [gui, no tests] [bionic]'
   << : *GLOBAL_TASK_TEMPLATE
   container:
     image: ubuntu:bionic
@@ -135,13 +143,13 @@ task:
     FILE_ENV: "./ci/test/00_setup_env_mac.sh"
 
 task:
-  name: 'macOS 10.14 native [GOAL: install] [GUI] [no depends]'
-  macos_brew_addon_script:
-    - brew install boost libevent berkeley-db4 qt miniupnpc ccache zeromq qrencode sqlite libtool automake pkg-config gnu-getopt
+  name: 'macOS 11 native [gui] [no depends]'
+  brew_install_script:
+    - brew install boost libevent berkeley-db4 qt@5 miniupnpc ccache zeromq qrencode sqlite libtool automake pkg-config gnu-getopt
   << : *GLOBAL_TASK_TEMPLATE
   osx_instance:
     # Use latest image, but hardcode version to avoid silent upgrades (and breaks)
-    image: catalina-xcode-12.1  # https://cirrus-ci.org/guide/macOS
+    image: big-sur-xcode-12.5  # https://cirrus-ci.org/guide/macOS
   env:
     DANGER_RUN_CI_ON_HOST: "true"
     CI_USE_APT_INSTALL: "no"
