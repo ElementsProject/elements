@@ -19,33 +19,35 @@ Taproot already increases a lot of resource limitations from segwitv0, so there 
 
 # New Opcodes for additional functionality:
 
-1. **Streaming Opcodes for streaming hashes**: There is an existing limitation of `MAX_SCRIPT_ELEMENT_SIZE`(520 bytes) because of which we cannot operate hash functions like `OP_SHA256` on messages more than 520 bytes. This allows hashing on more than 520 bytes while still preserving the existing security against resource exhaustion attacks. The proposal for this is still under discussion in https://github.com/ElementsProject/elements/pull/817. We suggest the latest scheme suggested by Russell O'Connor
+1. **Streaming Opcodes for streaming hashes**: There is an existing limitation of `MAX_SCRIPT_ELEMENT_SIZE`(520 bytes) because of which we cannot operate hash functions like `OP_SHA256` on messages more than 520 bytes. This allows hashing on more than 520 bytes while still preserving the existing security against resource exhaustion attacks. The proposal for this is still under discussion in https://github.com/ElementsProject/elements/pull/817 by Russell O'Connor.
    -  Define `OP_SUCCESS196` as `OP_SHA256INITIALIZE` which pops a bytestring and push SHA256 context creating by adding the bytestring to the initial SHA256 context.
-   - Define `OP_SUCCESS197` as `OP_SHA256UPDATE` which pops 1) a SHA256 context and 2) bytestring and push an updated context by adding the bytestring to the data stream being hashed.
-   - Define `OP_SUCCESS198` as `OP_SHA256FINALIZE` to pop a SHA256 context and bytestring and push a SHA256 hash value after adding the bytestring and completing the padding.
+   - Define `OP_SUCCESS197` as `OP_SHA256UPDATE` which frist pops a SHA256 contextm then pops another bytestring and pushes an updated context by adding the bytestring to the data stream being hashed.
+   - Define `OP_SUCCESS198` as `OP_SHA256FINALIZE` which first pops a SHA256 context, then pops another bytestring and finally pushes a SHA256 hash value after adding the bytestring and completing the padding.
 
 
 2. **Transaction Introspection codes**: Transaction introspection is already possible in elements script by use of `OP_CHECKSIGFROMSTACKVERIFY`, however the current solutions are really expensive in applications like [covenants](https://github.com/sanket1729/covenants-demo). Therefore, we are not adding any new functionality by supporting introspection, only making it easier to use. The warning still remains the same as with covenants, if the user is inspecting data from parts of the transaction that are not signed, the script can cause unexpected behavior.
-For opcodes that inspect data that is not committed in sighash, introspection is safe because any changes to the witness data would cause wtxid to change and it would revalidate the tx again.
+For opcodes that inspect data that is not committed in sighash, introspection is safe because any changes to the witness data would cause wtxid to change and it would revalidate the tx again. For pegin inputs, the asset/value/script information will be one from the parent chain.
    - Define `OP_SUCCESS199` as `OP_INSPECTINPUT` with the following semantics: Pop two minimal `CScriptNum`s from stack. The first number `n` denotes the type of introspection, and the second number `idx `denotes the position of input to inspect. Immediately abort if `idx` is out of bounds.
-      1. If `n=0`, Push 1 byte "spend_type" onto the stack. spend_type (1) is equal to `(ext_flag * 2) + annex_present` as defined in [Modified BIP-341 SigMsg for Elements](https://gist.github.com/roconnor-blockstream/9f0753711153de2e254f7e54314f7169)
-      2. If `n=1`, Push the outpoint_flag(1) as defined in [Modified BIP-341 SigMsg for Elements](https://gist.github.com/roconnor-blockstream/9f0753711153de2e254f7e54314f7169)
-      3. if `n=2`, Push the outpoint as a tuple. First push the `txid`(32) of the `prev_out`, followed by a 4 byte push of `vout`
-      4. If `n=3`, Push the `nAsset` onto the stack as two elements. The first push the assetID(32), followed by the prefix(1)
-      5. If `n=4`, Push the `nValue` as a tuple, value(8, 32) followed by prefix,
-      6. If `n=5`, Push the scriptPubkey(35) onto the stack.
-      7. If `n=6`, Push the `nSequence`(4) as little-endian number.
-      8. If `n=7`, Push the assetIssuance information(74-130) if the asset has issuance, otherwise push an empty vector
-      9. If `n=8`, Push the annex onto the stack where the annex includes the prefix(0x50). If the annex does not exist, push an empty vector
-      10. Otherwise treat as `OP_SUCCESS` and return true (without executing rest of script).
-   - Define `OP_SUCCESS200` as `OP_INSPECTCURRENTINPUT` that pushes the current input index(4) as little-endian onto the stack
+      2. If `n=0`, Push the outpoint_flag(1) as defined in [Modified BIP-341 SigMsg for Elements](https://gist.github.com/roconnor-blockstream/9f0753711153de2e254f7e54314f7169)
+      3. if `n=1`, Push the outpoint as a tuple. First push the `txid`(32) of the `prev_out`, followed by a 4 byte push of `vout`
+      4. If `n=2`, Push the `nAsset` onto the stack as two elements. The first push the assetID(32), followed by the prefix(1)
+      5. If `n=3`, Push the `nValue` as a tuple, value(8, 32) followed by prefix(1),
+      6. If `n=4`, Push the scriptPubkey(34) onto the stack. Note that the compact size prefix is not pushed onto the stack.
+      7. If `n=5`, Push the `nSequence`(4) as little-endian number.
+      8. If `n=6`, Push the assetIssuance information if the asset has issuance, otherwise push an empty vector. Asset Issuance information is pushed as follows
+         - Push `nInflationKeys` as tuple, value(8, 32) followed by push for prefix(1). In case `nInflationKeys` is null, push a single element `0x00`(Note that this is different from `OP_FALSE` which is empty vector).
+         - Push `nAmount` as a tuple, value(8, 32) followed by a push for prefix(1). This cannot be null
+         - Push 32 byte `assetEntropy`
+         - Push 32 byte `assetBlindingNonce`
+      9. Else, Immediately return true without executing the rest of the script.
+   - Define `OP_SUCCESS200` as `OP_INSPECTCURRENTINPUT` that pushes the current input index as `CScriptNum`. This can be used in conjunction with `OP_INSPECTINPUT` for inspecting current input
    - Define `OP_SUCCESS201` as `OP_INSPECTOUTPUT` with the following semantics:
-      - Pop the stack pop as minimal `CScriptNum` as `n`. Next, pop another element as minimal `CScriptNum` input index `idx`.
+      - Pop the stack pop as minimal `CScriptNum` as `n`. Next, pop another element as minimal `CScriptNum` output index `idx`.
       1. If `n=0`, Push the `nAsset` as a tuple, first push the assetID(32), followed by the prefix(1)
       2. If `n=1`, Push the `nValue` as a tuple, value(8, 32) followed by prefix
-      3. If `n=2`, Push the `nNonce` as a tuple, nonce(32, 0) followed by prefix. Push empty vector for `None` nonce
-      4. If `n=3`, Push the scriptPubkey(35).
-      5. Otherwise treat as `OP_SUCCESS` and return true (without executing rest of script).
+      3. If `n=2`, Push the `nNonce`(33) onto the stack. If the nonce is null, push an empty vector onto the stack.
+      4. If `n=3`, Push the scriptPubkey(34) onto the stack. Note that the compact size prefix is not pushed onto the stack.
+      5. Else, Immediately return true without executing the rest of the script.
    - Define `OP_SUCCESS202` as `OP_INSPECTTX` with the following semantics:
       - Pop the stack pop as minimal `CScriptNum` as `n`.
       1. If `n=0`, Push the nVersion(4) as little-endian.
@@ -53,12 +55,11 @@ For opcodes that inspect data that is not committed in sighash, introspection is
       3. If `n=2`, Push the number of inputs(4) as little-endian
       4. If `n=3`, Push the number of outputs(4) as little-endian
       5. If `n=4`, Push the transaction size in vbytes (4) as little-endian
-      6. Otherwise treat as `OP_SUCCESS` and return true (without executing rest of script).
+      6. Else, Immediately return true without executing the rest of the script.
 
-5. **Crypto**: In order to allow more complex operations on elements, we introduce the following new crypto-operators.
-   - Define `OP_SUCCESS203` as `OP_ECMULSCALAREXPVERIFY`, pop the top element as `k`. Then pop next elements as points `G1`(first), `G2`(second)
-      ..`Gk`. Next pop `k` scalars `x1`, `x2`... `xk`. Finally pop result element as as point `Q`. Assert `x1G1+x2G2+x3G3.. xkGk == Q` This counts as `k*50` towards budget sigops. If any of `G_i`,`Q` is point at infinity fail.
-   - Define `OP_SUCCESS204` as `OP_TAPTWEAK` with the following semantics. Pop the first element as point `P`, second element as script blob `S`. Push the Taptweak on the top of stack `Q = P + H(P||S)*G`. If `|S| > MAX_ELEMENT_SIZE`, the user should use the streaming opcodes to compute the Hash function.
+5. **Crypto**: In order to allow more complex operations on elements, we introduce the following new crypto-operators. Each opcode counts as 50 towards the sigops budget.
+   - Define `OP_SUCCESS203` as `OP_ECMULSCALAREXPVERIFY`which pops three elements from stack as described below: 1) a 32 byte scalar `k`. 2) Compressed EC point `P`, and 3) compressed EC point `Q`. Abort if `P`, `Q` is invalid or `k` is not 32 bytes and outside of secp256k1 curve order(TODO: confirm this). Abort if `Q != k*P`.
+   - Define `OP_SUCCESS204` as `OP_TAPTWEAKVERIFY` with the following semantics: Pop the three elements as: 1) 32 byte X-only internal key `P`, 2) 32 byte scalar `k` and 3) 33 byte compressed point `Q`. Abort if `P`, `Q` is invalid or `k` is not 32 bytes and outside of secp256k1 curve order(TODO: confirm this). Abort if `Q != P + k*G` where `G` is the generator for secp256k1.
 
 3. **Signed 64-bit arithmetic opcodes:** Current operations on `CScriptNum` as limited to 4 bytes and are difficult to compose because of minimality rules. having a fixed width little operations with 8 byte signed operations helps doing calculations on amounts which are encoded as 8 byte little endian.
    - When dealing with overflows, we explicitly return the success bit as a `CScriptNum` at the top of the stack and the result being the second element from the top. If the operation overflows, first the operands are pushed onto the stack followed by success bit. \[`a_second` `a_top`\] overflows, the stack state after the operation is \[`a_second` `a_top` `0`\] and if the operation does not overflow, the stack state is \[`res` `1`\].
@@ -67,7 +68,7 @@ When defining the opcodes which can fail, we only define the success path, and a
    - Define `OP_SUCCESS205` as `OP_ADD64`: pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push a + b onto the stack. Push 1 `CScriptNum` if there is no overflow. Overflow behavior defined above.
    - Define `OP_SUCCESS206` as `OP_SUB64`: pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push a - b onto the stack. Push 1 `CScriptNum` if there is no overflow. Overflow behavior defined above.
    - Define `OP_SUCCESS207` as `OP_MUL64`: pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push `a*b` onto the stack. Push 1 `CScriptNum` if there is no overflow. Overflow behavior defined above.
-   - Define `OP_SUCCESS208` as `OP_DIV64`: pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). First push remainder `a%b`(must be non-negative and less than |b|) onto the stack followed by quotient(`a//b`) onto the stack. Abort if `b=0`. Push 1 `CScriptNum` if there is no overflow. Overflow behavior defined above.
+   - Define `OP_SUCCESS208` as `OP_DIV64`(Does not fail): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). First push remainder `a%b`(must be non-negative and less than |b|) onto the stack followed by quotient(`a//b`) onto the stack. If `b==0`, treat as overflow as defined above. Push 1 `CScriptNum` if there is no overflow.
    - Define `OP_SUCCESS209` as `OP_LESSTHAN64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a < b`.
    - Define `OP_SUCCESS210` as `OP_LESSTHANOREQUAL64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a <= b`.
    - Define `OP_SUCCESS211` as `OP_GREATERTHAN64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a > b`.
@@ -77,8 +78,8 @@ When defining the opcodes which can fail, we only define the success path, and a
    - Define `OP_SUCCESS215` as `OP_OR64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a | b`.
    - Define `OP_SUCCESS216` as `OP_XOR64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a ^ b`.
    - Define `OP_SUCCESS217` as `OP_NOT64`(cannot fail!): pop the first number(8 byte LE) as `a`. Push `~a`.
-   - Define `OP_SUCCESS218` as `OP_LSHIFT`: pop the first number as `CScriptNum` `l`(abort if l < 0 or l > 63) followed another pop for `a` (8 byte LE). Push `a << l` preserving the sign bit. `(-1 << 3) = - 8` returns fixed 64 bits, extra-bits are discarded and sign is preserved.
-   - Define `OP_SUCCESS219` as `OP_RSHIFT`: pop the first number as `CScriptNum` `r`(abort if r < 0 or r > 63) followed another pop for `a` (8 byte LE). Push `a >> r`.(Sign bit is preserved).
+   - Define `OP_SUCCESS218` as `OP_LSHIFT`: first pop `a` (8 byte LE) followed by another pop for `CScriptNum` `l`(abort if l < 0 or l > 63). Abort if `a<0`. Push `a << l` otherwise
+   - Define `OP_SUCCESS219` as `OP_RSHIFT`: first pop `a` (8 byte LE) followed by another pop for `CScriptNum` `r`(abort if l < 0 or l > 63). Abort if `a<0`. Push `a >> r` otherwise.
 
 4. **Conversion opcodes:** Methods for conversion from `CScriptNum` to `8-byte LE`, `4-byte LE`.
    - Define `OP_SUCCESS220` as `OP_SCIPTNUMTOLE64`: pop the stack as minimal `CSciptNum`, push 8 byte signed LE corresponding to that number.
@@ -86,7 +87,9 @@ When defining the opcodes which can fail, we only define the success path, and a
    - Define `OP_SUCCESS222` as `OP_LE32TOLE64`: pop the stack as a 4 byte signed LE. Push the corresponding 8 byte LE number. Cannot fail, useful for conversion of version/sequence.
 
 6. **Changes to existing Opcodes**:
-   - Add `OP_CHECKSIGFROMSTACK` and `OP_CHECKSIGFROMSTACKVERIFY` to follow the semantics from bip340-342 when witness program is v1.
+   - Add `OP_CHECKSIGFROMSTACK` and `OP_CHECKSIGFROMSTACKVERIFY` to follow the semantics from bip340 when witness program is v1. In more detail, the opcodes pops three elements stack 1) 32 byte `pk` Xonly public key 2) Variable length message `msg` and 3) 64 byte Schnorr signature `sig`. Let `res = BIP340_verify(pk, msg, sig)` where `BIP340_verify` is defined for elements [here](https://github.com/ElementsProject/elements/blob/master/doc/taproot-sighash.mediawiki). Note that this is different form bitcoin BIP340 as it uses different tagged hashes. If opcode is `OP_CHECKSIGFROMSTACKVERIFY`, abort if the verification fails.
+   - If the opcode is `OP_CHECKSIGFROMSTACK`, push `0` if an empty sig is provided and push `1` if the verification succeeds. Abort if provided with a non-empty signature that fails the verification. Both `OP_CHECKSIGFROMSTACK` and `OP_CHECKSIGFROMSTACKVERIFY` count as 50 towards the sigops budget.
+   - Abort if the pubkey is empty, but allow success for non-empty non-byte keys for future extension of tagged keys.
 
 
 # General tips, suggestions and quirks for using Taproot opcodes
