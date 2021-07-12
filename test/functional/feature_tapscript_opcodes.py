@@ -10,7 +10,7 @@ from test_framework.util import BITCOIN_ASSET_BYTES, assert_raises_rpc_error, sa
 from test_framework.key import ECKey, ECPubKey, compute_xonly_pubkey, generate_privkey, sign_schnorr, tweak_add_privkey, tweak_add_pubkey, verify_schnorr
 from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, CTxOutNonce, CTxOutValue, CTxOutWitness, FromHex, ser_uint256, sha256, uint256_from_str
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.script import CScript, OP_0, OP_1, OP_2, OP_3, OP_4, OP_5, OP_6, OP_CAT, OP_DROP, OP_EQUAL, OP_EQUALVERIFY, OP_FALSE, OP_FROMALTSTACK, OP_INSPECTINPUT, OP_SHA256FINALIZE, OP_SHA256INITIALIZE, OP_SHA256UPDATE, OP_SIZE, OP_SWAP, OP_TOALTSTACK, TaprootSignatureHash, taproot_construct, SIGHASH_DEFAULT, SIGHASH_ALL, SIGHASH_NONE, SIGHASH_SINGLE, SIGHASH_ANYONECANPAY
+from test_framework.script import CScript, OP_0, OP_1, OP_2, OP_3, OP_4, OP_5, OP_6, OP_7, OP_CAT, OP_DROP, OP_DUP, OP_ELSE, OP_EQUAL, OP_EQUALVERIFY, OP_FALSE, OP_FROMALTSTACK, OP_IF, OP_INSPECTCURRENTINPUT, OP_INSPECTINPUT, OP_INSPECTOUTPUT, OP_INSPECTTX, OP_NOT, OP_NOTIF, OP_SHA256FINALIZE, OP_SHA256INITIALIZE, OP_SHA256UPDATE, OP_SIZE, OP_SWAP, OP_TOALTSTACK, TaprootSignatureHash, taproot_construct, SIGHASH_DEFAULT, SIGHASH_ALL, SIGHASH_NONE, SIGHASH_SINGLE, SIGHASH_ANYONECANPAY
 
 import os
 
@@ -101,7 +101,11 @@ class TapHashPeginTest(BitcoinTestFramework):
 
         return tx, prev_vout, spk, sec, pub, tap
 
-    def tapscript_satisfy_test(self, script, inputs = [], add_issuance = False, add_pegin = False, fail=False, add_prevout=False, add_asset=False, add_value=False, add_spk = False, seq = 0, blind=False):
+    def tapscript_satisfy_test(self, script, inputs = [], add_issuance = False,
+        add_pegin = False, fail=False, add_prevout=False, add_asset=False,
+        add_value=False, add_spk = False, seq = 0, add_out_spk = None,
+        add_out_asset = None, add_out_value = None, add_out_nonce = None,
+        ver = 2, locktime = 0, add_num_outputs=False, add_weight=False, blind=False):
         # Create a taproot utxo
         scripts = [("s0", script)]
         prev_tx, prev_vout, spk, sec, pub, tap = self.create_taproot_utxo(scripts)
@@ -120,6 +124,8 @@ class TapHashPeginTest(BitcoinTestFramework):
         else:
             tx = CTransaction()
 
+        tx.nVersion = ver
+        tx.nLockTime = locktime
         # Spend the pegin and taproot tx together
         in_total = prev_tx.vout[prev_vout].nValue.getAmount()
         fees = 1000
@@ -192,6 +198,36 @@ class TapHashPeginTest(BitcoinTestFramework):
                 inputs = [value[0:1], value[1:9]]
         if add_spk:
             inputs = [spk]
+
+        # Add witness for outputs
+        if add_out_asset is not None:
+            asset = tx.vout[add_out_asset].nAsset.vchCommitment
+            inputs = [asset[0:1], asset[1:33]]
+        if add_out_value is not None:
+            value = tx.vout[add_out_value].nValue.vchCommitment
+            if len(value) == 9:
+                inputs = [value[0:1], value[1:9][::-1]]
+            else:
+                inputs = [value[0:1], value[1:33]]
+        if add_out_nonce is not None:
+            nonce = tx.vout[add_out_nonce].nNonce.vchCommitment
+            if len(nonce) == 1:
+                inputs = [b'']
+            else:
+                inputs = [nonce]
+        if add_out_spk is not None:
+            inputs = [tx.vout[add_out_spk].scriptPubKey]
+        if add_num_outputs:
+            num_outs = len(tx.vout)
+            inputs = [num_outs.to_bytes(4, 'little')]
+        if add_weight:
+            # Add a dummy input and check the overall weight
+            inputs = [int(5).to_bytes(4, 'little')]
+            wit = inputs + [bytes(tap.leaves["s0"].script), control_block] + suffix_annex
+            tx.wit.vtxinwit[tap_in_pos].scriptWitness.stack = wit
+
+            exp_weight = self.nodes[0].decoderawtransaction(tx.serialize().hex())["weight"]
+            inputs = [exp_weight.to_bytes(4, 'little')]
         wit = inputs + [bytes(tap.leaves["s0"].script), control_block] + suffix_annex
         tx.wit.vtxinwit[tap_in_pos].scriptWitness.stack = wit
 
@@ -251,7 +287,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         self.tapscript_satisfy_test(CScript([OP_0, OP_0, OP_INSPECTINPUT, b'\x00', OP_EQUAL]), add_pegin = True, add_issuance=True, fail=True)
 
         # Test opcode for inspecting prev tx
-        self.log.info("Instrospection tests: prevout")
+        self.log.info("Instrospection tests: inputs")
         self.tapscript_satisfy_test(CScript([OP_0, OP_1, OP_INSPECTINPUT, OP_TOALTSTACK, OP_EQUALVERIFY, OP_FROMALTSTACK, OP_EQUAL]), add_prevout=True)
 
         # Test taproot asset with blinding.
@@ -290,9 +326,54 @@ class TapHashPeginTest(BitcoinTestFramework):
             # Check the explicit issue amount
             1, OP_EQUALVERIFY, asset_issue_amount.to_bytes(8, 'little'), OP_EQUALVERIFY,
              # Last inflation keys is null, check for \x00(different from OP_FALSE)
-            b'\x00', OP_EQUAL
+            OP_FALSE, OP_EQUAL
         ]), add_issuance=True)
 
+        # 7 Test that undefined introspections fail
+        self.tapscript_satisfy_test(CScript([OP_0, OP_7, OP_INSPECTINPUT, OP_FALSE, OP_EQUAL]), fail=True)
+        # Input index out of bounds
+        self.tapscript_satisfy_test(CScript([120, OP_1, OP_INSPECTINPUT, OP_FALSE, OP_EQUAL]), fail=True)
+        self.tapscript_satisfy_test(CScript([-1, OP_1, OP_INSPECTINPUT, OP_FALSE, OP_EQUAL]), fail=True)
+
+        # Test current input
+        self.log.info("Instrospection tests: current input index")
+        self.tapscript_satisfy_test(CScript([OP_INSPECTCURRENTINPUT, OP_FALSE, OP_EQUAL]))
+        self.tapscript_satisfy_test(CScript([OP_INSPECTCURRENTINPUT, OP_1, OP_EQUAL]), fail=True)
+
+        # Test Outputs
+        self.log.info("Instrospection tests: outputs")
+        for blind in [True, False]:
+            for out_pos in [0, 1]:
+                self.tapscript_satisfy_test(CScript([out_pos, OP_0, OP_INSPECTOUTPUT, OP_TOALTSTACK, OP_EQUALVERIFY, OP_FROMALTSTACK, OP_EQUAL]), blind=blind, add_out_asset=out_pos)
+                self.tapscript_satisfy_test(CScript([out_pos, OP_1, OP_INSPECTOUTPUT, OP_TOALTSTACK, OP_EQUALVERIFY, OP_FROMALTSTACK, OP_EQUAL]), blind=blind, add_out_value=out_pos)
+                self.tapscript_satisfy_test(CScript([out_pos, OP_2, OP_INSPECTOUTPUT, OP_EQUAL]), blind=blind, add_out_nonce=out_pos)
+                self.tapscript_satisfy_test(CScript([out_pos, OP_3, OP_INSPECTOUTPUT, OP_EQUAL]), blind=blind, add_out_spk=out_pos)
+
+        # Test that introspection fails for `n>3` fail
+        self.tapscript_satisfy_test(CScript([0, OP_4, OP_INSPECTOUTPUT, OP_EQUAL]), fail=True)
+        # Test that output index out of bounds fail
+        self.tapscript_satisfy_test(CScript([120, OP_1, OP_INSPECTOUTPUT, OP_FALSE, OP_EQUAL]), fail=True)
+        self.tapscript_satisfy_test(CScript([-1, OP_1, OP_INSPECTOUTPUT, OP_FALSE, OP_EQUAL]), fail=True)
+
+        # Finally, check the tx instrospection
+        self.log.info("Instrospection tests: tx")
+        # Test version equality
+        self.tapscript_satisfy_test(CScript([OP_0, OP_INSPECTTX, int(2).to_bytes(4, 'little'), OP_EQUAL]), ver = 2)
+        self.tapscript_satisfy_test(CScript([OP_0, OP_INSPECTTX, int(5).to_bytes(4, 'little'), OP_EQUAL]), ver = 2, fail=True)
+
+        # Test nlocktime
+        self.tapscript_satisfy_test(CScript([OP_1, OP_INSPECTTX, int(7).to_bytes(4, 'little'), OP_EQUAL]), locktime = 7)
+        self.tapscript_satisfy_test(CScript([OP_1, OP_INSPECTTX, int(7).to_bytes(4, 'little'), OP_EQUAL]), locktime = 10, fail=True)
+
+        # Test num_inputs
+        self.tapscript_satisfy_test(CScript([OP_2, OP_INSPECTTX, int(1).to_bytes(4, 'little'), OP_EQUAL]))
+        self.tapscript_satisfy_test(CScript([OP_2, OP_INSPECTTX, int(2).to_bytes(4, 'little'), OP_EQUAL]), fail=True)
+
+        # Test num_outputs
+        self.tapscript_satisfy_test(CScript([OP_3, OP_INSPECTTX, OP_EQUAL]), add_num_outputs= True)
+
+        # Test tx wieght
+        self.tapscript_satisfy_test(CScript([OP_4, OP_INSPECTTX, OP_EQUAL]), add_weight= True)
 
 if __name__ == '__main__':
     TapHashPeginTest().main()
