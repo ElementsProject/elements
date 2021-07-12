@@ -554,8 +554,8 @@ public:
                 {AssumeutxoHash{uint256S("0x09a3e443dbf48f3b95207c9ce529062d9764395232c482aa7d3a0bf274d282d9")}, 110},
             },
             {
-                210,
-                {AssumeutxoHash{uint256S("0x9c5ed99ef98544b34f8920b6d1802f72ac28ae6e2bd2bd4c316ff10c230df3f2")}, 210},
+                200,
+                {AssumeutxoHash{uint256S("0x51c8d11d8b5c1de51543c579736e786aa2736206d1e11e627568029ce092cf62")}, 200},
             },
         };
 
