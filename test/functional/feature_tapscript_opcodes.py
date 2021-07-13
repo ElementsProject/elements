@@ -329,8 +329,9 @@ class TapHashPeginTest(BitcoinTestFramework):
             OP_FALSE, OP_EQUAL
         ]), add_issuance=True)
 
-        # 7 Test that undefined introspections fail
-        self.tapscript_satisfy_test(CScript([OP_0, OP_7, OP_INSPECTINPUT, OP_FALSE, OP_EQUAL]), fail=True)
+        # Test that undefined introspections operate as OP_SUCCESS
+        self.tapscript_satisfy_test(CScript([OP_0, OP_7, OP_INSPECTINPUT, OP_FALSE, OP_EQUAL]))
+
         # Input index out of bounds
         self.tapscript_satisfy_test(CScript([120, OP_1, OP_INSPECTINPUT, OP_FALSE, OP_EQUAL]), fail=True)
         self.tapscript_satisfy_test(CScript([-1, OP_1, OP_INSPECTINPUT, OP_FALSE, OP_EQUAL]), fail=True)
@@ -349,8 +350,8 @@ class TapHashPeginTest(BitcoinTestFramework):
                 self.tapscript_satisfy_test(CScript([out_pos, OP_2, OP_INSPECTOUTPUT, OP_EQUAL]), blind=blind, add_out_nonce=out_pos)
                 self.tapscript_satisfy_test(CScript([out_pos, OP_3, OP_INSPECTOUTPUT, OP_EQUAL]), blind=blind, add_out_spk=out_pos)
 
-        # Test that introspection fails for `n>3` fail
-        self.tapscript_satisfy_test(CScript([0, OP_4, OP_INSPECTOUTPUT, OP_EQUAL]), fail=True)
+        # Test that introspection operates as OP_SUCCESS for `n>3`
+        self.tapscript_satisfy_test(CScript([0, OP_4, OP_INSPECTOUTPUT, OP_EQUAL]))
         # Test that output index out of bounds fail
         self.tapscript_satisfy_test(CScript([120, OP_1, OP_INSPECTOUTPUT, OP_FALSE, OP_EQUAL]), fail=True)
         self.tapscript_satisfy_test(CScript([-1, OP_1, OP_INSPECTOUTPUT, OP_FALSE, OP_EQUAL]), fail=True)
@@ -374,6 +375,10 @@ class TapHashPeginTest(BitcoinTestFramework):
 
         # Test tx wieght
         self.tapscript_satisfy_test(CScript([OP_4, OP_INSPECTTX, OP_EQUAL]), add_weight= True)
+
+        # Test that undefined introspections operate as OP_SUCCESS
+        # Script which don't make sense should also pass
+        self.tapscript_satisfy_test(CScript([OP_5, OP_INSPECTTX, OP_IF, OP_IF]))
 
 if __name__ == '__main__':
     TapHashPeginTest().main()

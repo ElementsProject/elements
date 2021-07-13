@@ -24,6 +24,13 @@ inline bool set_success(ScriptError* ret)
     return true;
 }
 
+inline bool set_success_early_return(ScriptError* ret)
+{
+    if (ret)
+        *ret = SCRIPT_ERR_OK_OP_SUCCESS;
+    return true;
+}
+
 inline bool set_error(ScriptError* ret, const ScriptError serror)
 {
     if (ret)
@@ -1800,11 +1807,8 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                             break;
                         }
                         default:
-                            // Error on other values. This could be turned into OP_SUCCESS, but enforcing it
-                            // via SCRIPT_VERIFY_DISCOURAGE_OP_SUCCESS is not possible.
-                            // Alternatively, this can be turned into a OP_NOP, but restricts the use of this
-                            // opcode to read-only type.
-                            return set_error(serror, SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS);
+                            // Operate as OP_SUCCESS for all undefined intospection positions
+                            return set_success_early_return(serror);
                     }
                 }
                 break;
@@ -1870,11 +1874,8 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                             break;
                         }
                         default:
-                            // Error on other values. This could be turned into OP_SUCCESS, but enforcing it
-                            // via SCRIPT_VERIFY_DISCOURAGE_OP_SUCCESS is not possible.
-                            // Alternatively, this can be turned into a OP_NOP, but restricts the use of this
-                            // opcode to read-only type.
-                            return set_error(serror, SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS);
+                            // Operate as OP_SUCCESS for all undefined intospection positions
+                            return set_success_early_return(serror);
                     }
                 }
                 break;
@@ -1923,11 +1924,8 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                             break;
                         }
                         default:
-                            // Error on other values. This could be turned into OP_SUCCESS, but enforcing it
-                            // via SCRIPT_VERIFY_DISCOURAGE_OP_SUCCESS is not possible.
-                            // Alternatively, this can be turned into a OP_NOP, but restricts the use of this
-                            // opcode to read-only type.
-                            return set_error(serror, SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS);
+                            // Operate as OP_SUCCESS for all undefined intospection positions
+                            return set_success_early_return(serror);
                     }
                 }
                 break;
@@ -2715,8 +2713,26 @@ static bool ExecuteWitnessScript(const Span<const valtype>& stack_span, const CS
     }
 
     // Run the script interpreter.
+    // If serror is nullprt, set it to freshly created instance
+    // Make sure to set the freshly created instance back to nullptr for memory consistency
+    bool is_serror_null = (serror == nullptr);
+    if (!serror) {
+        ScriptError err = SCRIPT_ERR_UNKNOWN_ERROR;
+        serror = &err;
+    }
     if (!EvalScript(stack, scriptPubKey, flags, checker, sigversion, execdata, serror)) return false;
 
+    // Set script success for early return. This skips the checks for CLEANSTACK, SCRIPT_ERR_EVAL_FALSE check.
+    // and returns true for script interpreter.
+    // This is like OP_SUCCESS, but different in the following ways:
+    // - This requires script to be of valid structure and opcodes must be valid opcodes
+    // - This will only terminate if this opcode is encountered. Unlike OP_SUCCESS which will
+    // succeed the script even if it is executed, this only succeds if it is executed
+    if (*serror == SCRIPT_ERR_OK_OP_SUCCESS) { // serror cannot be null here
+        if (is_serror_null) serror = nullptr;
+        return true;
+    }
+    if (is_serror_null) serror = nullptr;
     // Scripts inside witness implicitly require cleanstack behaviour
     if (stack.size() != 1) return set_error(serror, SCRIPT_ERR_CLEANSTACK);
     if (!CastToBool(stack.back())) return set_error(serror, SCRIPT_ERR_EVAL_FALSE);

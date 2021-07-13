@@ -91,7 +91,10 @@ typedef enum ScriptError_t
 
     /* Elements: New tapscript related errors */
     SCRIPT_ERR_SHA2_CONTEXT_LOAD,
-    SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS
+    SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS,
+
+    // Success error code. Used for early return in script execution
+    SCRIPT_ERR_OK_OP_SUCCESS
 } ScriptError;
 
 #define SCRIPT_ERR_LAST SCRIPT_ERR_ERROR_COUNT

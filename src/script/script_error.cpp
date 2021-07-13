@@ -119,6 +119,8 @@ std::string ScriptErrorString(const ScriptError serror)
             return "Invalid Sha256 context object";
         case SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS:
             return "Introspection index out of bounds";
+        case SCRIPT_ERR_OK_OP_SUCCESS:
+            return "No error: undefined introspection index encountered";
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;
