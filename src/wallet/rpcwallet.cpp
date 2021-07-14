@@ -6145,6 +6145,77 @@ void FillBlinds(CWallet* pwallet, CMutableTransaction& tx, std::vector<uint256>&
     }
 }
 
+RPCHelpMan analyzerawtransaction()
+{
+    return RPCHelpMan{"analyzerawtransaction",
+        "\nGenerate a mapping showing losses and gains resulting in the signing and broadcasting of the given transaction.\n" +
+        HELP_REQUIRING_PASSPHRASE,
+        {
+            {"hexstring", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction hex string"},
+        },
+        RPCResult{
+            RPCResult::Type::OBJ_DYN, "", "",
+            {
+                {RPCResult::Type::NUM, "asset", "The wallet change for the given asset (negative means decrease)."},
+            }
+        },
+        RPCExamples{
+            HelpExampleCli("analyzerawtransaction", "\"myhex\"")
+            + HelpExampleRpc("analyzerawtransaction", "\"myhex\"")
+        },
+    [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    if (!wallet) return NullUniValue;
+    CWallet* const pwallet = wallet.get();
+
+    RPCTypeCheck(request.params, {UniValue::VSTR}, true);
+
+    LOCK(pwallet->cs_wallet);
+    EnsureWalletIsUnlocked(pwallet);
+
+    // Decode and unblind the transaction
+    CMutableTransaction mtx;
+    if (!DecodeHexTx(mtx, request.params[0].get_str())) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed. Make sure the tx has at least one input.");
+    }
+
+    std::vector<uint256> output_value_blinds;
+    std::vector<uint256> output_asset_blinds;
+    std::vector<CPubKey> output_pubkeys;
+    std::vector<CKey> asset_keys;
+    std::vector<CKey> token_keys;
+    FillBlinds(pwallet, mtx, output_value_blinds, output_asset_blinds, output_pubkeys, asset_keys, token_keys);
+    CTransaction tx(mtx);
+
+    // Calculate changes (+credit, -debit)
+    CAmountMap changes;
+
+    // Fetch debit; we are *spending* these; if the transaction is signed and broadcast, we will lose everything in these
+    for (size_t i = 0; i < tx.vin.size(); ++i) {
+        CAmountMap debit = pwallet->GetDebit(tx.vin.at(i), ISMINE_SPENDABLE);
+        for (const auto& entry : debit) {
+            changes[entry.first] -= entry.second;
+        }
+    }
+
+    // Fetch credit; we are *receiving* these; if the transaciton is signed and broadcast, we will receive everything in these
+    for (size_t i = 0; i < tx.vout.size(); ++i) {
+        const CTxOut& txout = tx.vout.at(i);
+        if (!pwallet->IsMine(txout)) continue;
+        if (!txout.nAsset.IsExplicit() || !txout.nValue.IsExplicit()) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Output belongs to me but I can't unblind it");
+        }
+        const auto& asset = txout.nAsset.GetAsset();
+        const auto& value = txout.nValue.GetAmount();
+        changes[asset] += value;
+    }
+
+    return AmountMapToUniv(changes, "");
+}
+    };
+}
+
 static RPCHelpMan blindrawtransaction()
 {
     return RPCHelpMan{"blindrawtransaction",
@@ -7022,6 +7093,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "getpeginaddress",                  &getpeginaddress,               {} },
     { "wallet",             "claimpegin",                       &claimpegin,                    {"bitcoin_tx", "txoutproof", "claim_script"} },
     { "wallet",             "createrawpegin",                   &createrawpegin,                {"bitcoin_tx", "txoutproof", "claim_script"} },
+    { "wallet",             "analyzerawtransaction",            &analyzerawtransaction,         {"hexstring"} },
     { "wallet",             "blindrawtransaction",              &blindrawtransaction,           {"hexstring", "ignoreblindfail", "asset_commitments", "blind_issuances", "totalblinder"} },
     { "wallet",             "unblindrawtransaction",            &unblindrawtransaction,         {"hex"} },
     { "wallet",             "sendtomainchain",                  &sendtomainchain,               {"address", "amount", "subtractfeefromamount", "verbose"} },
