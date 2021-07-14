@@ -156,6 +156,25 @@ std::string GetOpName(opcodetype opcode)
     case OP_INSPECTOUTPUT          : return "OP_INSPECTOUTPUT";
     case OP_INSPECTTX              : return "OP_INSPECTTX";
 
+    // 64 bit LE arithmatic opcodes
+    case OP_ADD64                  : return "OP_ADD64";
+    case OP_SUB64                  : return "OP_SUB64";
+    case OP_MUL64                  : return "OP_MUL64";
+    case OP_DIV64                  : return "OP_DIV64";
+    case OP_LESSTHAN64             : return "OP_LESSTHAN64";
+    case OP_LESSTHANOREQUAL64      : return "OP_LESSTHANOREQUAL64";
+    case OP_GREATERTHAN64          : return "OP_GREATERTHAN64";
+    case OP_GREATERTHANOREQUAL64   : return "OP_GREATERTHANOREQUAL64";
+    case OP_EQUAL64                : return "OP_EQUAL64";
+    case OP_AND64                  : return "OP_AND64";
+    case OP_OR64                   : return "OP_OR64";
+    case OP_XOR64                  : return "OP_XOR64";
+    case OP_NOT64                  : return "OP_NOT64";
+    case OP_LSHIFT64               : return "OP_LSHIFT64";
+    case OP_RSHIFT64               : return "OP_RSHIFT64";
+    case OP_SCIPTNUMTOLE64         : return "OP_SCIPTNUMTOLE64";
+    case OP_LE64TOSCIPTNUM         : return "OP_LE64TOSCIPTNUM";
+    case OP_LE32TOLE64             : return "OP_LE32TOLE64";
     case OP_INVALIDOPCODE          : return "OP_INVALIDOPCODE";
 
     default:

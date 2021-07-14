@@ -76,6 +76,14 @@ static inline void push4_le(std::vector<valtype>& stack, uint32_t v)
     stack.push_back(vch);
 }
 
+static inline void push8_le(std::vector<valtype>& stack, int64_t v)
+{
+    valtype vch;
+    auto v_le = htole64(v);
+    vch.insert(vch.begin(), (unsigned char*)&v_le, (unsigned char*)&v_le + 8);
+    stack.push_back(vch);
+}
+
 static inline void pushasset(std::vector<valtype>& stack, const CConfidentialAsset& asset)
 {
     valtype vchinpAsset;
@@ -1927,6 +1935,178 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                             // Operate as OP_SUCCESS for all undefined intospection positions
                             return set_success_early_return(serror);
                     }
+                }
+                break;
+
+                case OP_ADD64:
+                case OP_SUB64:
+                case OP_MUL64:
+                case OP_DIV64:
+                case OP_LESSTHAN64:
+                case OP_LESSTHANOREQUAL64:
+                case OP_GREATERTHAN64:
+                case OP_GREATERTHANOREQUAL64:
+                case OP_EQUAL64:
+                case OP_AND64:
+                case OP_OR64:
+                case OP_XOR64:
+                {
+                    // Opcodes only available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 2)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    valtype& vchb = stacktop(-1);
+                    valtype& vcha = stacktop(-2);
+                    if (vchb.size() != 8 || vcha.size() != 8)
+                        return set_error(serror, SCRIPT_ERR_EXPECTED_8BYTES);
+
+                    int64_t b = ReadLE64(vchb.data());
+                    int64_t a = ReadLE64(vcha.data());
+
+                    switch(opcode)
+                    {
+                        case OP_SUB64:
+                            b = -b;
+                            // fallthrough (a - b == a + (-b)). Negation should not change any overflow logic
+                        case OP_ADD64:
+                            if ((a > 0 && b > std::numeric_limits<int64_t>::max() - a) ||
+                                (a < 0 && b < std::numeric_limits<int64_t>::min() - a))
+                                stack.push_back(vchFalse);
+                            else {
+                                popstack(stack);
+                                popstack(stack);
+                                push8_le(stack, a + b);
+                                stack.push_back(vchTrue);
+                            }
+                            break;
+                        case OP_MUL64:
+                            if ((a > 0 && b > 0 && a > std::numeric_limits<int64_t>::max() / b) ||
+                                (a > 0 && b < 0 && b < std::numeric_limits<int64_t>::min() / a) ||
+                                (a < 0 && b > 0 && a < std::numeric_limits<int64_t>::min() / b) ||
+                                (a < 0 && b < 0 && b < std::numeric_limits<int64_t>::max() / a))
+                                stack.push_back(vchFalse);
+                            else {
+                                popstack(stack);
+                                popstack(stack);
+                                push8_le(stack, a * b);
+                                stack.push_back(vchTrue);
+                            }
+                            break;
+                        case OP_DIV64:
+                        {
+                            int64_t r = a % b;
+                            int64_t q = a / b;
+                            if (b == 0) { stack.push_back(vchFalse); break; }
+                            if (r < 0 && b > 0)      { r += b; q-=1;} // ensures that 0<=r<|b|
+                            else if (r < 0 && b < 0) { r -= b; q+=1;} // ensures that 0<=r<|b|
+                            popstack(stack);
+                            popstack(stack);
+                            push8_le(stack, r);
+                            push8_le(stack, q);
+                            stack.push_back(vchTrue);
+                        }
+                        break;
+                        case OP_LESSTHAN64:            popstack(stack); popstack(stack); stack.push_back( (a <  b) ? vchTrue : vchFalse ); break;
+                        case OP_LESSTHANOREQUAL64:     popstack(stack); popstack(stack); stack.push_back( (a <= b) ? vchTrue : vchFalse ); break;
+                        case OP_GREATERTHAN64:         popstack(stack); popstack(stack); stack.push_back( (a >  b) ? vchTrue : vchFalse ); break;
+                        case OP_GREATERTHANOREQUAL64:  popstack(stack); popstack(stack); stack.push_back( (a >= b) ? vchTrue : vchFalse ); break;
+                        case OP_EQUAL64:               popstack(stack); popstack(stack); stack.push_back( (a == b) ? vchTrue : vchFalse ); break; //same as op_equal
+                        case OP_AND64:                 popstack(stack); popstack(stack); push8_le(stack, a & b); break;
+                        case OP_OR64:                  popstack(stack); popstack(stack); push8_le(stack, a | b); break;
+                        case OP_XOR:                   popstack(stack); popstack(stack); push8_le(stack, a ^ b); break;
+                        default:                       assert(!"invalid opcode"); break;
+                    }
+                }
+                break;
+                case OP_NOT64:
+                case OP_LSHIFT64:
+                case OP_RSHIFT64:
+                {
+                    // Opcodes only available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    valtype& vcha = stacktop(-1);
+                    if (vcha.size() != 8)
+                        return set_error(serror, SCRIPT_ERR_EXPECTED_8BYTES);
+
+                    int64_t a = ReadLE64(vcha.data());
+                    switch (opcode)
+                    {
+                        case OP_NOT64: popstack(stack); push8_le(stack, ~a); break;
+
+                        case OP_LSHIFT64:
+                        case OP_RSHIFT64:
+                        {
+                            if (stack.size() < 2)
+                                return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                            int64_t offset = CScriptNum(stacktop(-2), fRequireMinimal).getint();
+                            if (offset < 0 || offset > 63 || a < 0)
+                                return set_error(serror, SCRIPT_ERR_ARITHEMATIC64);
+                            switch (opcode)
+                            {
+                            case OP_RSHIFT64:              popstack(stack); popstack(stack); push8_le(stack, (uint64_t)a >> offset); break;
+                            case OP_LSHIFT64:              popstack(stack); popstack(stack); push8_le(stack, (uint64_t)a << offset); break;
+                            default:                       assert(!"unreachable opcode"); break;
+                            }
+                        }
+                        break;
+                        default:                           assert(!"unreachable opcode"); break;
+                    }
+                }
+                break;
+
+                case OP_SCIPTNUMTOLE64:
+                {
+                    // Opcodes only available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    int num = CScriptNum(stacktop(-1), fRequireMinimal).getint();
+                    popstack(stack);
+                    push8_le(stack, num);
+                }
+                break;
+                case OP_LE64TOSCIPTNUM:
+                {
+                    // Opcodes only available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    valtype& vchnum = stacktop(-1);
+                    if (vchnum.size() != 8)
+                        return set_error(serror, SCRIPT_ERR_EXPECTED_8BYTES);
+                    valtype vchscript_num = CScriptNum(ReadLE64(vchnum.data())).getvch();
+                    if (vchscript_num.size() > CScriptNum::nDefaultMaxNumSize) {
+                        stack.push_back(vchFalse);
+                    } else {
+                        popstack(stack);
+                        stack.push_back(vchscript_num);
+                    }
+                }
+                break;
+                case OP_LE32TOLE64:
+                {
+                    // Opcodes only available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    valtype& vchnum = stacktop(-1);
+                    if (vchnum.size() != 4)
+                        return set_error(serror, SCRIPT_ERR_ARITHEMATIC64);
+                    int32_t num = ReadLE32(vchnum.data());
+                    popstack(stack);
+                    push8_le(stack, (int64_t)num);
                 }
                 break;
 
