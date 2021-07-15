@@ -110,7 +110,8 @@ class IssuanceTest(BitcoinTestFramework):
         assert_equal(len(self.nodes[0].listissuances()), 0)
 
         # Unblinded issuance of asset
-        issued = self.nodes[0].issueasset(1, 1, False)
+        contract_hash = "deadbeef"*8
+        issued = self.nodes[0].issueasset(1, 1, False, contract_hash)
         balance = self.nodes[0].getwalletinfo()["balance"]
         assert_equal(balance[issued["asset"]], 1)
         assert_equal(balance[issued["token"]], 1)
@@ -120,7 +121,8 @@ class IssuanceTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        issued2 = self.nodes[0].issueasset(2, 1)
+        contract_hash = "deadbeee"*8
+        issued2 = self.nodes[0].issueasset(2, 1, True, contract_hash)
         test_asset = issued2["asset"]
         assert_equal(self.nodes[0].getwalletinfo()['balance'][test_asset], Decimal(2))
         node1balance = self.nodes[1].getwalletinfo()['balance']
