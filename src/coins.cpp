@@ -51,8 +51,10 @@ static inline CCoinsMapKey native_key(const COutPoint& outpoint) {
 
 CCoinsMap::iterator CCoinsViewCache::FetchCoin(const COutPoint &outpoint) const {
     CCoinsMap::iterator it = cacheCoins.find(native_key(outpoint));
-    if (it != cacheCoins.end())
+    if (it != cacheCoins.end()) {
+        assert(it->second.coin.out.nNonce.IsNull());
         return it;
+    }
     Coin tmp;
     if (!base->GetCoin(outpoint, tmp))
         return cacheCoins.end();
@@ -72,6 +74,7 @@ bool CCoinsViewCache::GetCoin(const COutPoint &outpoint, Coin &coin) const {
     CCoinsMap::const_iterator it = FetchCoin(outpoint);
     if (it != cacheCoins.end()) {
         coin = it->second.coin;
+        assert(coin.out.nNonce.IsNull());
         return !coin.IsSpent();
     }
     return false;
@@ -119,7 +122,9 @@ void AddCoins(CCoinsViewCache& cache, const CTransaction &tx, int nHeight, bool 
         bool overwrite = check_for_overwrite ? cache.HaveCoin(COutPoint(txid, i)) : fCoinbase;
         // Coinbase transactions can always be overwritten, in order to correctly
         // deal with the pre-BIP30 occurrences of duplicate coinbase transactions.
-        cache.AddCoin(COutPoint(txid, i), Coin(tx.vout[i], nHeight, fCoinbase), overwrite);
+        Coin new_coin(tx.vout[i], nHeight, fCoinbase);
+        new_coin.out.nNonce.SetNull();
+        cache.AddCoin(COutPoint(txid, i), std::move(new_coin), overwrite);
     }
 }
 
