@@ -6,11 +6,12 @@
 #
 # Test for taproot sighash algorithm with pegins and issuances
 
+from random import randint
 from test_framework.util import BITCOIN_ASSET_BYTES, assert_raises_rpc_error, satoshi_round
 from test_framework.key import ECKey, ECPubKey, compute_xonly_pubkey, generate_privkey, sign_schnorr, tweak_add_privkey, tweak_add_pubkey, verify_schnorr
 from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, CTxOutNonce, CTxOutValue, CTxOutWitness, FromHex, ser_uint256, sha256, uint256_from_str
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.script import CScript, OP_0, OP_1, OP_2, OP_3, OP_4, OP_5, OP_6, OP_7, OP_CAT, OP_DROP, OP_DUP, OP_ELSE, OP_EQUAL, OP_EQUALVERIFY, OP_FALSE, OP_FROMALTSTACK, OP_IF, OP_INSPECTCURRENTINPUT, OP_INSPECTINPUT, OP_INSPECTOUTPUT, OP_INSPECTTX, OP_NOT, OP_NOTIF, OP_SHA256FINALIZE, OP_SHA256INITIALIZE, OP_SHA256UPDATE, OP_SIZE, OP_SWAP, OP_TOALTSTACK, TaprootSignatureHash, taproot_construct, SIGHASH_DEFAULT, SIGHASH_ALL, SIGHASH_NONE, SIGHASH_SINGLE, SIGHASH_ANYONECANPAY
+from test_framework.script import CScript, CScriptNum, OP_0, OP_1, OP_2, OP_3, OP_4, OP_5, OP_6, OP_7, OP_ADD64, OP_AND64, OP_CAT, OP_DIV64, OP_DROP, OP_DUP, OP_ELSE, OP_EQUAL, OP_EQUAL64, OP_EQUALVERIFY, OP_FALSE, OP_FROMALTSTACK, OP_GREATERTHAN, OP_GREATERTHAN64, OP_GREATERTHANOREQUAL64, OP_IF, OP_INSPECTCURRENTINPUT, OP_INSPECTINPUT, OP_INSPECTOUTPUT, OP_INSPECTTX, OP_LE32TOLE64, OP_LE64TOSCIPTNUM, OP_LESSTHAN64, OP_LESSTHANOREQUAL64, OP_LSHIFT, OP_LSHIFT64, OP_MUL64, OP_NOT, OP_NOT64, OP_NOTIF, OP_OR64, OP_RSHIFT64, OP_SCIPTNUMTOLE64, OP_SHA256FINALIZE, OP_SHA256INITIALIZE, OP_SHA256UPDATE, OP_SIZE, OP_SUB64, OP_SWAP, OP_TOALTSTACK, OP_VERIFY, OP_XOR, TaprootSignatureHash, taproot_construct, SIGHASH_DEFAULT, SIGHASH_ALL, SIGHASH_NONE, SIGHASH_SINGLE, SIGHASH_ANYONECANPAY
 
 import os
 
@@ -379,6 +380,125 @@ class TapHashPeginTest(BitcoinTestFramework):
         # Test that undefined introspections operate as OP_SUCCESS
         # Script which don't make sense should also pass
         self.tapscript_satisfy_test(CScript([OP_5, OP_INSPECTTX, OP_IF, OP_IF]))
+
+        # short handle to convert int to 8 byte LE
+        def le8(x, signed=True):
+            return int(x).to_bytes(8, 'little', signed=signed)
+
+        def check_add(a, b, c, fail=False):
+            self.tapscript_satisfy_test(CScript([OP_ADD64, OP_VERIFY, le8(c), OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+        def check_sub(a, b, c, fail=False):
+            self.tapscript_satisfy_test(CScript([OP_SUB64, OP_VERIFY, le8(c), OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+        def check_mul(a, b, c, fail=False):
+            self.tapscript_satisfy_test(CScript([OP_MUL64, OP_VERIFY, le8(c), OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+        def check_div(a, b, q, r, fail=False):
+            self.tapscript_satisfy_test(CScript([OP_DIV64, OP_VERIFY, le8(q), OP_EQUALVERIFY, le8(r), OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+        def check_le(a, b, res, fail=False):
+            self.tapscript_satisfy_test(CScript([OP_LESSTHAN64, res, OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+        def check_leq(a, b, res, fail=False):
+            self.tapscript_satisfy_test(CScript([OP_LESSTHANOREQUAL64, res, OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+        def check_ge(a, b, res, fail=False):
+            self.tapscript_satisfy_test(CScript([OP_GREATERTHAN64, res, OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+        def check_geq(a, b, res, fail=False):
+            self.tapscript_satisfy_test(CScript([OP_GREATERTHANOREQUAL64, res, OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+        def check_eq(a, b, res, fail=False):
+            self.tapscript_satisfy_test(CScript([OP_EQUAL64, res, OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+        def check_lshift(a, l, res, fail=False):
+            self.tapscript_satisfy_test(CScript([l, le8(a), OP_LSHIFT64 , le8(res, False), OP_EQUAL]), fail=fail)
+        def check_rshift(a, l, res, fail=False):
+            self.tapscript_satisfy_test(CScript([l, le8(a), OP_RSHIFT64 , le8(res, False), OP_EQUAL]), fail=fail)
+        # Arithematic opcodes
+        check_add(5, 5, 10)
+        check_add(-5, -5, -10)
+        check_add(-5, 5, 0)
+        check_add(14231, -123213, 14231 - 123213)
+        check_add(2**63 - 1, 5, 4, fail=True)#overflow
+        check_add(5, 2**63 - 1, 4, fail=True)#overflow
+        check_add(-5, -2**63 + 1, -4, fail=True)#overflow
+
+        # Substraction
+        check_sub(5, 6, -1)
+        check_sub(-5, 6, -11)
+        check_sub(-5, -5, 0)
+        check_sub(14231, -123213, 14231 + 123213)
+        check_sub(2**63 - 1, 4, 2**63 - 5)
+        check_sub(-5, 2**63 - 1, -4, fail=True)#overflow
+        check_sub(2**63 - 1, -4, 5, fail=True)#overflow
+
+        # Multiplication
+        check_mul(5, 6, 30)
+        check_mul(-5, 6, -30)
+        check_mul(-5, 0, 0)
+        check_mul(-5, -6, 30)
+        check_mul(14231, -123213, -14231 * 123213)
+        check_mul(2**32, 2**31 - 1, 2**63 - 2**32)
+        check_mul(2**32, 2**31, 0, fail=True)#overflow
+        check_mul(-2**32, 2**31, -2**63)# no  overflow
+        check_mul(-2**32, -2**32, 0, fail=True)#overflow
+
+        # Division
+        check_div(5, 6, 0, 5)
+        check_div(-5, 6, -1, 1) # r must be in 0<=r<a
+        check_div(-5, 0, 0, 0, fail=True) # only fails if b = 0
+        check_div(6213123213513, 621, 6213123213513//621, 6213123213513 % 621)
+        check_div(2**62, 2**31, 2**31, 0)
+
+        # Less than test
+        # Comparison tests
+        # Less than
+        check_le(5, 6, 1)
+        check_le(5, 5, 0)
+        check_le(6, 5, 0)
+
+        # Less than equal
+        check_leq(5, 6, 1)
+        check_leq(5, 5, 1)
+        check_leq(6, 5, 0)
+
+        # Greater than
+        check_ge(5, 6, 0)
+        check_ge(5, 5, 0)
+        check_ge(6, 5, 1)
+
+        # Greater than equal
+        check_geq(5, 6, 0)
+        check_geq(5, 5, 1)
+        check_geq(6, 5, 1)
+
+        # equal
+        check_eq(5, 5, 1)
+        check_eq(5, 4, 0)
+
+        # Test boolean operations
+        for _ in range(5):
+            a = randint(-2**63, 2**63 -1)
+            b = randint(-2**63, 2**63 -1)
+            self.tapscript_satisfy_test(CScript([OP_AND64, le8(a & b), OP_EQUAL]), inputs = [le8(a), le8(b)])
+            self.tapscript_satisfy_test(CScript([OP_OR64, le8(a | b), OP_EQUAL]), inputs = [le8(a), le8(b)])
+            self.tapscript_satisfy_test(CScript([OP_NOT64, le8(~a), OP_EQUAL]), inputs = [le8(a)])
+            self.tapscript_satisfy_test(CScript([OP_XOR, le8(a ^ b), OP_EQUAL]), inputs = [le8(a), le8(b)])
+
+        check_lshift(5, 1, 10)
+        check_lshift(5, 2, 20)
+        check_lshift(5, -1, 10, fail=True)
+        check_lshift(5, 64, 10, fail=True)
+        check_lshift(5, 63, 2**63)
+        check_lshift(5, 60, 5 << 60)
+        check_lshift(-5, 60, 5 << 60, fail=True) # Fail on negative nums
+
+        check_rshift(5, 1, 2)
+        check_rshift(5, 2, 1)
+        check_rshift(5, -1, 10, fail=True)
+        check_rshift(5, 64, 10, fail=True)
+        check_rshift(5, 63, 0)
+        check_rshift(2**63-1, 62, 1)
+        check_lshift(-5, 0, 1, fail=True) # Fail on negative nums
+
+        # Finally, test conversion opcodes
+        for n in [-2**31 + 1, -1, 0, 1, 2**31 - 1]:
+            self.tapscript_satisfy_test(CScript([le8(n), OP_LE64TOSCIPTNUM, n, OP_EQUAL]))
+            self.tapscript_satisfy_test(CScript([n, OP_SCIPTNUMTOLE64, le8(n), OP_EQUAL]))
+            self.tapscript_satisfy_test(CScript([n.to_bytes(4, 'little', signed=True), OP_LE32TOLE64, le8(n), OP_EQUAL]))
 
 if __name__ == '__main__':
     TapHashPeginTest().main()

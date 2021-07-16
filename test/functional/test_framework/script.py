@@ -264,6 +264,28 @@ OP_INSPECTCURRENTINPUT = CScriptOp(0xc8)
 OP_INSPECTOUTPUT = CScriptOp(0xc9)
 OP_INSPECTTX = CScriptOp(0xca)
 
+# Arithmatic opcodes
+OP_ADD64 = CScriptOp(0xcd)
+OP_SUB64 = CScriptOp(0xce)
+OP_MUL64 = CScriptOp(0xcf)
+OP_DIV64 = CScriptOp(0xd0)
+OP_LESSTHAN64 = CScriptOp(0xd1)
+OP_LESSTHANOREQUAL64 = CScriptOp(0xd2)
+OP_GREATERTHAN64 = CScriptOp(0xd3)
+OP_GREATERTHANOREQUAL64 = CScriptOp(0xd4)
+OP_EQUAL64 = CScriptOp(0xd5)
+OP_AND64 = CScriptOp(0xd6)
+OP_OR64 = CScriptOp(0xd7)
+OP_XOR64 = CScriptOp(0xd8)
+OP_NOT64 = CScriptOp(0xd9)
+OP_LSHIFT64 = CScriptOp(0xda)
+OP_RSHIFT64 = CScriptOp(0xdb)
+
+# Conversion opcodes
+OP_SCIPTNUMTOLE64 = CScriptOp(0xdc)
+OP_LE64TOSCIPTNUM = CScriptOp(0xdd)
+OP_LE32TOLE64 = CScriptOp(0xde)
+
 OP_INVALIDOPCODE = CScriptOp(0xff)
 
 OPCODE_NAMES.update({
