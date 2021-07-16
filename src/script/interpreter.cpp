@@ -11,6 +11,7 @@
 #include <pubkey.h>
 #include <script/script.h>
 #include <uint256.h>
+#include <consensus/consensus.h>
 
 typedef std::vector<unsigned char> valtype;
 
@@ -20,6 +21,13 @@ inline bool set_success(ScriptError* ret)
 {
     if (ret)
         *ret = SCRIPT_ERR_OK;
+    return true;
+}
+
+inline bool set_success_early_return(ScriptError* ret)
+{
+    if (ret)
+        *ret = SCRIPT_ERR_OK_OP_SUCCESS;
     return true;
 }
 
@@ -58,6 +66,54 @@ static inline void popstack(std::vector<valtype>& stack)
     if (stack.empty())
         throw std::runtime_error("popstack(): stack empty");
     stack.pop_back();
+}
+
+static inline void push4_le(std::vector<valtype>& stack, uint32_t v)
+{
+    valtype vch;
+    auto v_le = htole32(v);
+    vch.insert(vch.begin(), (unsigned char*)&v_le, (unsigned char*)&v_le + 4);
+    stack.push_back(vch);
+}
+
+static inline void push8_le(std::vector<valtype>& stack, int64_t v)
+{
+    valtype vch;
+    auto v_le = htole64(v);
+    vch.insert(vch.begin(), (unsigned char*)&v_le, (unsigned char*)&v_le + 8);
+    stack.push_back(vch);
+}
+
+static inline void pushasset(std::vector<valtype>& stack, const CConfidentialAsset& asset)
+{
+    valtype vchinpAsset;
+    vchinpAsset.insert(vchinpAsset.begin(), asset.vchCommitment.begin() + 1, asset.vchCommitment.begin() + 33);
+    valtype vchAssetPref;
+    vchAssetPref.insert(vchAssetPref.begin(), asset.vchCommitment.begin(), asset.vchCommitment.begin() + 1);
+    stack.push_back(vchinpAsset);
+    stack.push_back(vchAssetPref);
+}
+
+// Review: Not sure if this should inline or not? Leave it to the compiler??
+static void pushvalue(std::vector<valtype>& stack, const CConfidentialValue& value)
+{
+    valtype vchinpValue;
+    if (value.IsExplicit()) {
+        // int64_t amt = value.GetAmount();
+        // Convert BE to LE by using reverse iterator
+        vchinpValue.insert(vchinpValue.begin(), value.vchCommitment.rbegin(), value.vchCommitment.rbegin() + 8);
+    } else if (value.IsCommitment()) {
+        vchinpValue.insert(vchinpValue.begin(), value.vchCommitment.begin() + 1, value.vchCommitment.begin() + 33);
+    } // nothing to insert is value is Null
+    valtype vchValuePref;
+    if (!value.IsNull()) {
+        vchValuePref.insert(vchValuePref.begin(), value.vchCommitment.begin(), value.vchCommitment.begin() + 1);
+        stack.push_back(vchinpValue); // if value is null, dont' push value
+        stack.push_back(vchValuePref); // always push prefix
+    } else {
+        // If value is null, push the empty vector onto the stack
+        stack.push_back(valtype(0));
+    }
 }
 
 bool static IsCompressedOrUncompressedPubKey(const valtype &vchPubKey) {
@@ -1613,6 +1669,447 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                 }
                 break;
 
+                case OP_SHA256INITIALIZE: // (in -- sha256_ctx)
+                {
+                    // OP_SHA256INITIALIZE is only available in Tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    CSHA256 ctx;
+                    valtype& vch = stacktop(-1);
+                    if (!ctx.SafeWrite(vch.data(), vch.size()))
+                        return set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
+
+                    popstack(stack);
+                    stack.push_back(ctx.Save());
+                }
+                break;
+
+                case OP_SHA256UPDATE: // (sha256_ctx in -- sha256_ctx)
+                {
+                    // OP_SHA256UPDATE is only available in Tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 2)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    CSHA256 ctx;
+                    valtype& vchCtx = stacktop(-1);
+                    if (!ctx.Load(vchCtx))
+                        return set_error(serror, SCRIPT_ERR_SHA2_CONTEXT_LOAD);
+
+                    valtype& vch = stacktop(-2);
+                    if (!ctx.SafeWrite(vch.data(), vch.size()))
+                        return set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
+
+                    popstack(stack);
+                    popstack(stack);
+                    stack.push_back(ctx.Save());
+                }
+                break;
+
+                case OP_SHA256FINALIZE: // (sha256_ctx in -- hash)
+                {
+                    // OP_SHA256Finalize is only available in Tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 2)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    valtype& vchCtx = stacktop(-1);
+                    CSHA256 ctx;
+                    if (!ctx.Load(vchCtx))
+                        return set_error(serror, SCRIPT_ERR_SHA2_CONTEXT_LOAD);
+
+                    valtype& vch = stacktop(-2);
+                    if (!ctx.SafeWrite(vch.data(), vch.size()))
+                        return set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
+
+                    valtype vchHash(32);
+                    ctx.Finalize(vchHash.data());
+
+                    popstack(stack);
+                    popstack(stack);
+                    stack.push_back(vchHash);
+                }
+                break;
+
+                case OP_INSPECTINPUT:
+                {
+                    // OP_INSPECTINPUT is available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 2)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    int n = CScriptNum(stacktop(-1), fRequireMinimal).getint();
+                    int idx = CScriptNum(stacktop(-2), fRequireMinimal).getint();
+                    popstack(stack);
+                    popstack(stack);
+
+                    auto inps = checker.GetTxvIn();
+                    auto spent_outputs = checker.GetPrecomputedTransactionData()->m_spent_outputs;
+                    if (idx < 0 || (unsigned int)idx >= inps->size() || (unsigned int)idx >= spent_outputs.size())
+                        return set_error(serror, SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS);
+                    const CTxIn inp = inps->at(idx);
+                    const CTxOut spent_utxo = spent_outputs[idx];
+
+                    switch (n)
+                    {
+                        case 0:
+                        {
+                            valtype vchOutpointFlag(1);
+                            vchOutpointFlag[0] = (unsigned char) ((!inp.assetIssuance.IsNull() << 7) + (inp.m_is_pegin << 6));
+                            stack.push_back(vchOutpointFlag);
+                            break;
+                        }
+                        case 1:
+                        {
+                            valtype vchPrevTxid;
+                            vchPrevTxid.insert(vchPrevTxid.begin(), inp.prevout.hash.begin(), inp.prevout.hash.begin() + 32);
+                            stack.push_back(vchPrevTxid);
+                            push4_le(stack, inp.prevout.n);
+                            break;
+                        }
+                        case 2:
+                        {
+                            pushasset(stack, spent_utxo.nAsset);
+                            break;
+                        }
+                        case 3:
+                        {
+                            pushvalue(stack, spent_utxo.nValue);
+                            break;
+                        }
+                        case 4:
+                        {
+                            valtype vchScriptPubKey;
+                            vchScriptPubKey.insert(vchScriptPubKey.begin(), spent_utxo.scriptPubKey.begin(), spent_utxo.scriptPubKey.end());
+                            stack.push_back(vchScriptPubKey);
+                            break;
+                        }
+                        case 5:
+                        {
+                            push4_le(stack, inp.nSequence);
+                            break;
+                        }
+                        case 6:
+                        {
+                            if (!inp.assetIssuance.IsNull()) {
+                                valtype vchAssetBlindingNonce, vchAssetEntropy;
+                                pushvalue(stack, inp.assetIssuance.nInflationKeys);
+                                pushvalue(stack, inp.assetIssuance.nAmount);
+                                // Next push Asset entropy
+                                vchAssetEntropy.insert(vchAssetEntropy.begin(), inp.assetIssuance.assetEntropy.begin(), inp.assetIssuance.assetEntropy.end());
+                                stack.push_back(vchAssetEntropy);
+                                // Finally push blinding nonce
+                                // By pushing the this order, we make sure that the stack top is empty
+                                // iff there is no issuance. Note that nInflationKeys can be null and can push false
+                                vchAssetBlindingNonce.insert(vchAssetBlindingNonce.begin(), inp.assetIssuance.assetBlindingNonce.begin(), inp.assetIssuance.assetBlindingNonce.end());
+                                stack.push_back(vchAssetBlindingNonce);
+                            } else { // No issuance
+                                stack.push_back(vchFalse);
+                            }
+                            break;
+                        }
+                        default:
+                            // Operate as OP_SUCCESS for all undefined intospection positions
+                            return set_success_early_return(serror);
+                    }
+                }
+                break;
+
+                case OP_INSPECTCURRENTINPUT:
+                {
+                    // OP_INSPECTOUTPUT is available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (checker.GetnIn() > 0x7fffffff)
+                        return set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
+                    CScriptNum currIdx = CScriptNum((int64_t) checker.GetnIn());
+                    stack.push_back(currIdx.getvch());
+                }
+                break;
+
+                case OP_INSPECTOUTPUT:
+                {
+                    // OP_INSPECTOUTPUT is available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 2)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    int n = CScriptNum(stacktop(-1), fRequireMinimal).getint();
+                    int idx = CScriptNum(stacktop(-2), fRequireMinimal).getint();
+                    popstack(stack);
+                    popstack(stack);
+
+                    auto outs = checker.GetTxvOut();
+                    if (idx < 0 || (unsigned int)idx >= outs->size())
+                        return set_error(serror, SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS);
+                    const CTxOut out = outs->at(idx);
+
+                    switch (n)
+                    {
+                        case 0: // Asset
+                        {
+                            pushasset(stack, out.nAsset);
+                            break;
+                        }
+                        case 1: // Value
+                        {
+                            pushvalue(stack, out.nValue);
+                            break;
+                        }
+                        case 2: // Nonce
+                        {
+                            valtype vchOutNonce;
+                            if (out.nNonce.IsNull()) {
+                                stack.push_back(vchFalse);
+                            } else {
+                                vchOutNonce.insert(vchOutNonce.begin(), out.nNonce.vchCommitment.begin(), out.nNonce.vchCommitment.begin() + 33);
+                                stack.push_back(vchOutNonce);
+                            }
+                            break;
+                        }
+                        case 3: // spk
+                        {
+                            valtype vchScriptPubKey;
+                            vchScriptPubKey.insert(vchScriptPubKey.begin(), out.scriptPubKey.begin(), out.scriptPubKey.end());
+                            stack.push_back(vchScriptPubKey);
+                            break;
+                        }
+                        default:
+                            // Operate as OP_SUCCESS for all undefined intospection positions
+                            return set_success_early_return(serror);
+                    }
+                }
+                break;
+
+                case OP_INSPECTTX:
+                {
+                    // OP_INSPECTTX is available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    int n = CScriptNum(stacktop(-1), fRequireMinimal).getint();
+                    popstack(stack);
+
+                    switch (n)
+                    {
+                        case 0: // Version
+                        {
+                            // This does an inplicit conversion from version(int32_t) to (uint32_t)
+                            push4_le(stack, (uint32_t) checker.GetTxVersion());
+                            break;
+                        }
+                        case 1: // nLockTime
+                        {
+                            push4_le(stack, checker.GetLockTime());
+                            break;
+                        }
+                        case 2: // Number of inputs
+                        {
+                            if (checker.GetTxvIn()->size() > 0x7fffffff)
+                                return set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
+                            push4_le(stack, checker.GetTxvIn()->size());
+                            break;
+                        }
+                        case 3: // Number of outputs
+                        {
+                            // No need to bound checks for num_outputs. Elements consensus rules would break
+                            // if outpoint more 2**30 is allowed.
+                            push4_le(stack, checker.GetTxvOut()->size());
+                            break;
+                        }
+                        case 4: // Transaction size
+                        {
+                            push4_le(stack, checker.GetTxWeight());
+                            break;
+                        }
+                        default:
+                            // Operate as OP_SUCCESS for all undefined intospection positions
+                            return set_success_early_return(serror);
+                    }
+                }
+                break;
+
+                case OP_ADD64:
+                case OP_SUB64:
+                case OP_MUL64:
+                case OP_DIV64:
+                case OP_LESSTHAN64:
+                case OP_LESSTHANOREQUAL64:
+                case OP_GREATERTHAN64:
+                case OP_GREATERTHANOREQUAL64:
+                case OP_EQUAL64:
+                case OP_AND64:
+                case OP_OR64:
+                case OP_XOR64:
+                {
+                    // Opcodes only available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 2)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    valtype& vchb = stacktop(-1);
+                    valtype& vcha = stacktop(-2);
+                    if (vchb.size() != 8 || vcha.size() != 8)
+                        return set_error(serror, SCRIPT_ERR_EXPECTED_8BYTES);
+
+                    int64_t b = ReadLE64(vchb.data());
+                    int64_t a = ReadLE64(vcha.data());
+
+                    switch(opcode)
+                    {
+                        case OP_SUB64:
+                            b = -b;
+                            // fallthrough (a - b == a + (-b)). Negation should not change any overflow logic
+                        case OP_ADD64:
+                            if ((a > 0 && b > std::numeric_limits<int64_t>::max() - a) ||
+                                (a < 0 && b < std::numeric_limits<int64_t>::min() - a))
+                                stack.push_back(vchFalse);
+                            else {
+                                popstack(stack);
+                                popstack(stack);
+                                push8_le(stack, a + b);
+                                stack.push_back(vchTrue);
+                            }
+                            break;
+                        case OP_MUL64:
+                            if ((a > 0 && b > 0 && a > std::numeric_limits<int64_t>::max() / b) ||
+                                (a > 0 && b < 0 && b < std::numeric_limits<int64_t>::min() / a) ||
+                                (a < 0 && b > 0 && a < std::numeric_limits<int64_t>::min() / b) ||
+                                (a < 0 && b < 0 && b < std::numeric_limits<int64_t>::max() / a))
+                                stack.push_back(vchFalse);
+                            else {
+                                popstack(stack);
+                                popstack(stack);
+                                push8_le(stack, a * b);
+                                stack.push_back(vchTrue);
+                            }
+                            break;
+                        case OP_DIV64:
+                        {
+                            int64_t r = a % b;
+                            int64_t q = a / b;
+                            if (b == 0) { stack.push_back(vchFalse); break; }
+                            if (r < 0 && b > 0)      { r += b; q-=1;} // ensures that 0<=r<|b|
+                            else if (r < 0 && b < 0) { r -= b; q+=1;} // ensures that 0<=r<|b|
+                            popstack(stack);
+                            popstack(stack);
+                            push8_le(stack, r);
+                            push8_le(stack, q);
+                            stack.push_back(vchTrue);
+                        }
+                        break;
+                        case OP_LESSTHAN64:            popstack(stack); popstack(stack); stack.push_back( (a <  b) ? vchTrue : vchFalse ); break;
+                        case OP_LESSTHANOREQUAL64:     popstack(stack); popstack(stack); stack.push_back( (a <= b) ? vchTrue : vchFalse ); break;
+                        case OP_GREATERTHAN64:         popstack(stack); popstack(stack); stack.push_back( (a >  b) ? vchTrue : vchFalse ); break;
+                        case OP_GREATERTHANOREQUAL64:  popstack(stack); popstack(stack); stack.push_back( (a >= b) ? vchTrue : vchFalse ); break;
+                        case OP_EQUAL64:               popstack(stack); popstack(stack); stack.push_back( (a == b) ? vchTrue : vchFalse ); break; //same as op_equal
+                        case OP_AND64:                 popstack(stack); popstack(stack); push8_le(stack, a & b); break;
+                        case OP_OR64:                  popstack(stack); popstack(stack); push8_le(stack, a | b); break;
+                        case OP_XOR:                   popstack(stack); popstack(stack); push8_le(stack, a ^ b); break;
+                        default:                       assert(!"invalid opcode"); break;
+                    }
+                }
+                break;
+                case OP_NOT64:
+                case OP_LSHIFT64:
+                case OP_RSHIFT64:
+                {
+                    // Opcodes only available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    valtype& vcha = stacktop(-1);
+                    if (vcha.size() != 8)
+                        return set_error(serror, SCRIPT_ERR_EXPECTED_8BYTES);
+
+                    int64_t a = ReadLE64(vcha.data());
+                    switch (opcode)
+                    {
+                        case OP_NOT64: popstack(stack); push8_le(stack, ~a); break;
+
+                        case OP_LSHIFT64:
+                        case OP_RSHIFT64:
+                        {
+                            if (stack.size() < 2)
+                                return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                            int64_t offset = CScriptNum(stacktop(-2), fRequireMinimal).getint();
+                            if (offset < 0 || offset > 63 || a < 0)
+                                return set_error(serror, SCRIPT_ERR_ARITHEMATIC64);
+                            switch (opcode)
+                            {
+                            case OP_RSHIFT64:              popstack(stack); popstack(stack); push8_le(stack, (uint64_t)a >> offset); break;
+                            case OP_LSHIFT64:              popstack(stack); popstack(stack); push8_le(stack, (uint64_t)a << offset); break;
+                            default:                       assert(!"unreachable opcode"); break;
+                            }
+                        }
+                        break;
+                        default:                           assert(!"unreachable opcode"); break;
+                    }
+                }
+                break;
+
+                case OP_SCIPTNUMTOLE64:
+                {
+                    // Opcodes only available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    int num = CScriptNum(stacktop(-1), fRequireMinimal).getint();
+                    popstack(stack);
+                    push8_le(stack, num);
+                }
+                break;
+                case OP_LE64TOSCIPTNUM:
+                {
+                    // Opcodes only available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    valtype& vchnum = stacktop(-1);
+                    if (vchnum.size() != 8)
+                        return set_error(serror, SCRIPT_ERR_EXPECTED_8BYTES);
+                    valtype vchscript_num = CScriptNum(ReadLE64(vchnum.data())).getvch();
+                    if (vchscript_num.size() > CScriptNum::nDefaultMaxNumSize) {
+                        stack.push_back(vchFalse);
+                    } else {
+                        popstack(stack);
+                        stack.push_back(vchscript_num);
+                    }
+                }
+                break;
+                case OP_LE32TOLE64:
+                {
+                    // Opcodes only available post tapscript
+                    if (sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0) return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
+
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    valtype& vchnum = stacktop(-1);
+                    if (vchnum.size() != 4)
+                        return set_error(serror, SCRIPT_ERR_ARITHEMATIC64);
+                    int32_t num = ReadLE32(vchnum.data());
+                    popstack(stack);
+                    push8_le(stack, (int64_t)num);
+                }
+                break;
+
                 default:
                     return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
             }
@@ -2318,6 +2815,48 @@ bool GenericTransactionSignatureChecker<T>::CheckSequence(const CScriptNum& nSeq
     return true;
 }
 
+template <class T>
+const std::vector<CTxIn>* GenericTransactionSignatureChecker<T>::GetTxvIn() const
+{
+    return &txTo->vin;
+}
+
+template <class T>
+const std::vector<CTxOut>* GenericTransactionSignatureChecker<T>::GetTxvOut() const
+{
+    return &txTo->vout;
+}
+
+template <class T>
+unsigned int GenericTransactionSignatureChecker<T>::GetLockTime() const
+{
+    return txTo->nLockTime;
+}
+
+template <class T>
+unsigned int GenericTransactionSignatureChecker<T>::GetTxVersion() const
+{
+    return txTo->nVersion;
+}
+
+template <class T>
+unsigned int GenericTransactionSignatureChecker<T>::GetTxWeight() const
+{
+    return ::GetSerializeSize(*txTo, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR - 1) + ::GetSerializeSize(*txTo, PROTOCOL_VERSION);
+}
+
+template <class T>
+const PrecomputedTransactionData* GenericTransactionSignatureChecker<T>::GetPrecomputedTransactionData() const
+{
+    return txdata;
+}
+
+template <class T>
+unsigned int GenericTransactionSignatureChecker<T>::GetnIn() const
+{
+    return nIn;
+}
+
 // explicit instantiation
 template class GenericTransactionSignatureChecker<CTransaction>;
 template class GenericTransactionSignatureChecker<CMutableTransaction>;
@@ -2354,8 +2893,26 @@ static bool ExecuteWitnessScript(const Span<const valtype>& stack_span, const CS
     }
 
     // Run the script interpreter.
+    // If serror is nullprt, set it to freshly created instance
+    // Make sure to set the freshly created instance back to nullptr for memory consistency
+    bool is_serror_null = (serror == nullptr);
+    if (!serror) {
+        ScriptError err = SCRIPT_ERR_UNKNOWN_ERROR;
+        serror = &err;
+    }
     if (!EvalScript(stack, scriptPubKey, flags, checker, sigversion, execdata, serror)) return false;
 
+    // Set script success for early return. This skips the checks for CLEANSTACK, SCRIPT_ERR_EVAL_FALSE check.
+    // and returns true for script interpreter.
+    // This is like OP_SUCCESS, but different in the following ways:
+    // - This requires script to be of valid structure and opcodes must be valid opcodes
+    // - This will only terminate if this opcode is encountered. Unlike OP_SUCCESS which will
+    // succeed the script even if it is executed, this only succeds if it is executed
+    if (*serror == SCRIPT_ERR_OK_OP_SUCCESS) { // serror cannot be null here
+        if (is_serror_null) serror = nullptr;
+        return true;
+    }
+    if (is_serror_null) serror = nullptr;
     // Scripts inside witness implicitly require cleanstack behaviour
     if (stack.size() != 1) return set_error(serror, SCRIPT_ERR_CLEANSTACK);
     if (!CastToBool(stack.back())) return set_error(serror, SCRIPT_ERR_EVAL_FALSE);

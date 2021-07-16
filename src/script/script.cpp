@@ -147,6 +147,34 @@ std::string GetOpName(opcodetype opcode)
     // Opcode added by BIP 342 (Tapscript)
     case OP_CHECKSIGADD            : return "OP_CHECKSIGADD";
 
+    // Elements Tapscript opcodes
+    case OP_SHA256INITIALIZE       : return "OP_SHA256INITIALIZE";
+    case OP_SHA256UPDATE           : return "OP_SHA256UPDATE";
+    case OP_SHA256FINALIZE         : return "OP_SHA256FINALIZE";
+    case OP_INSPECTINPUT           : return "OP_INSPECTINPUT";
+    case OP_INSPECTCURRENTINPUT    : return "OP_INSPECTCURRENTINPUT";
+    case OP_INSPECTOUTPUT          : return "OP_INSPECTOUTPUT";
+    case OP_INSPECTTX              : return "OP_INSPECTTX";
+
+    // 64 bit LE arithmatic opcodes
+    case OP_ADD64                  : return "OP_ADD64";
+    case OP_SUB64                  : return "OP_SUB64";
+    case OP_MUL64                  : return "OP_MUL64";
+    case OP_DIV64                  : return "OP_DIV64";
+    case OP_LESSTHAN64             : return "OP_LESSTHAN64";
+    case OP_LESSTHANOREQUAL64      : return "OP_LESSTHANOREQUAL64";
+    case OP_GREATERTHAN64          : return "OP_GREATERTHAN64";
+    case OP_GREATERTHANOREQUAL64   : return "OP_GREATERTHANOREQUAL64";
+    case OP_EQUAL64                : return "OP_EQUAL64";
+    case OP_AND64                  : return "OP_AND64";
+    case OP_OR64                   : return "OP_OR64";
+    case OP_XOR64                  : return "OP_XOR64";
+    case OP_NOT64                  : return "OP_NOT64";
+    case OP_LSHIFT64               : return "OP_LSHIFT64";
+    case OP_RSHIFT64               : return "OP_RSHIFT64";
+    case OP_SCIPTNUMTOLE64         : return "OP_SCIPTNUMTOLE64";
+    case OP_LE64TOSCIPTNUM         : return "OP_LE64TOSCIPTNUM";
+    case OP_LE32TOLE64             : return "OP_LE32TOLE64";
     case OP_INVALIDOPCODE          : return "OP_INVALIDOPCODE";
 
     default:
@@ -416,5 +444,6 @@ bool IsOpSuccess(const opcodetype& opcode)
             // ELEMENTS: Don't mark OP_INVERT , OP_AND, OP_OR, OP_XOR. OP_LSHIFT, OP_RSHIFT as success
            (opcode >= 141 && opcode <= 142) || (opcode >= 149 && opcode <= 151) ||
            // ELEMENTS: Exclude OP_DETERMINISTICRANDOM, OP_CHECKSIGFROMSTACK(VERIFY), OP_SUBSTRLAZY
-           (opcode >= 187 && opcode <= 191) || (opcode >= 196 && opcode <= 254);
+           // ELEMENTS: Tapscript extension till
+           (opcode >= 187 && opcode <= 191) || (opcode >= 223 && opcode <= 254);
 }

@@ -255,6 +255,37 @@ OP_NOP10 = CScriptOp(0xb9)
 # BIP 342 opcodes (Tapscript)
 OP_CHECKSIGADD = CScriptOp(0xba)
 
+# Elements Tapscript extension
+OP_SHA256INITIALIZE = CScriptOp(0xc4)
+OP_SHA256UPDATE = CScriptOp(0xc5)
+OP_SHA256FINALIZE = CScriptOp(0xc6)
+OP_INSPECTINPUT = CScriptOp(0xc7)
+OP_INSPECTCURRENTINPUT = CScriptOp(0xc8)
+OP_INSPECTOUTPUT = CScriptOp(0xc9)
+OP_INSPECTTX = CScriptOp(0xca)
+
+# Arithmatic opcodes
+OP_ADD64 = CScriptOp(0xcd)
+OP_SUB64 = CScriptOp(0xce)
+OP_MUL64 = CScriptOp(0xcf)
+OP_DIV64 = CScriptOp(0xd0)
+OP_LESSTHAN64 = CScriptOp(0xd1)
+OP_LESSTHANOREQUAL64 = CScriptOp(0xd2)
+OP_GREATERTHAN64 = CScriptOp(0xd3)
+OP_GREATERTHANOREQUAL64 = CScriptOp(0xd4)
+OP_EQUAL64 = CScriptOp(0xd5)
+OP_AND64 = CScriptOp(0xd6)
+OP_OR64 = CScriptOp(0xd7)
+OP_XOR64 = CScriptOp(0xd8)
+OP_NOT64 = CScriptOp(0xd9)
+OP_LSHIFT64 = CScriptOp(0xda)
+OP_RSHIFT64 = CScriptOp(0xdb)
+
+# Conversion opcodes
+OP_SCIPTNUMTOLE64 = CScriptOp(0xdc)
+OP_LE64TOSCIPTNUM = CScriptOp(0xdd)
+OP_LE32TOLE64 = CScriptOp(0xde)
+
 OP_INVALIDOPCODE = CScriptOp(0xff)
 
 OPCODE_NAMES.update({
@@ -371,6 +402,13 @@ OPCODE_NAMES.update({
     OP_NOP10: 'OP_NOP10',
     OP_CHECKSIGADD: 'OP_CHECKSIGADD',
     OP_INVALIDOPCODE: 'OP_INVALIDOPCODE',
+    OP_SHA256INITIALIZE : 'OP_SHA256INITIALIZE',
+    OP_SHA256UPDATE : 'OP_SHA256UPDATE',
+    OP_SHA256FINALIZE : 'OP_SHA256FINALIZE',
+    OP_INSPECTINPUT : 'OP_INSPECTINPUT',
+    OP_INSPECTCURRENTINPUT : 'OP_INSPECTCURRENTINPUT',
+    OP_INSPECTOUTPUT : 'OP_INSPECTOUTPUT',
+    OP_INSPECTTX : 'OP_INSPECTTX',
 })
 
 class CScriptInvalidError(Exception):
@@ -936,4 +974,4 @@ def taproot_construct(pubkey, scripts=None):
     return TaprootInfo(CScript([OP_1, tweaked]), pubkey, negated + 0, tweak, leaves)
 
 def is_op_success(o):
-    return o == 80 or o == 98 or (o >= 137 and o <= 138) or (o >= 141 and o <= 142) or (o >= 149 and o <= 151) or (o >= 187 and o <= 191) or (o >= 196 and o <= 254)
+    return o == 80 or o == 98 or (o >= 137 and o <= 138) or (o >= 141 and o <= 142) or (o >= 149 and o <= 151) or (o >= 187 and o <= 191) or (o >= 223 and o <= 254)

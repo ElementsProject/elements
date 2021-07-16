@@ -269,6 +269,41 @@ public:
          return false;
     }
 
+    virtual const std::vector<CTxIn>* GetTxvIn() const
+    {
+        return nullptr;
+    }
+
+    virtual const std::vector<CTxOut>* GetTxvOut() const
+    {
+        return nullptr;
+    }
+
+    virtual unsigned int GetLockTime() const
+    {
+        return 0;
+    }
+
+    virtual unsigned int GetTxVersion() const
+    {
+        return 0;
+    }
+
+    virtual unsigned int GetTxWeight() const
+    {
+        return 0;
+    }
+
+    virtual const PrecomputedTransactionData* GetPrecomputedTransactionData() const
+    {
+        return nullptr;
+    }
+
+    virtual unsigned int GetnIn() const
+    {
+        return 0xffffffff;
+    }
+
     virtual ~BaseSignatureChecker() {}
 };
 
@@ -292,6 +327,14 @@ public:
     bool CheckSchnorrSignature(Span<const unsigned char> sig, Span<const unsigned char> pubkey, SigVersion sigversion, const ScriptExecutionData& execdata, ScriptError* serror = nullptr) const override;
     bool CheckLockTime(const CScriptNum& nLockTime) const override;
     bool CheckSequence(const CScriptNum& nSequence) const override;
+    const std::vector<CTxIn>* GetTxvIn() const override;
+    const std::vector<CTxOut>* GetTxvOut() const override;
+    unsigned int GetLockTime() const override;
+    unsigned int GetTxVersion() const override;
+    unsigned int GetTxWeight() const override;
+
+    const PrecomputedTransactionData* GetPrecomputedTransactionData() const override;
+    unsigned int GetnIn() const override;
 };
 
 using TransactionSignatureChecker = GenericTransactionSignatureChecker<CTransaction>;
