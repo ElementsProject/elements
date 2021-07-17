@@ -34,7 +34,7 @@ WALLET_PASSPHRASE_TIMEOUT = 3600
 INSUFFICIENT =      1
 ECONOMICAL   =     50
 NORMAL       =    100
-HIGH         =    500
+HIGH         =    800
 TOO_HIGH     = 100000
 
 
