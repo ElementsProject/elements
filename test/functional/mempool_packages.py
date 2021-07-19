@@ -6,6 +6,7 @@
 
 from decimal import Decimal
 
+from test_framework.blocktools import COINBASE_MATURITY
 from test_framework.messages import COIN
 from test_framework.p2p import P2PTxInvStore
 from test_framework.test_framework import BitcoinTestFramework
@@ -80,7 +81,7 @@ class MempoolPackagesTest(BitcoinTestFramework):
 
         # Mine some blocks and have them mature.
         peer_inv_store = self.nodes[0].add_p2p_connection(P2PTxInvStore()) # keep track of invs
-        self.nodes[0].generate(101)
+        self.nodes[0].generate(COINBASE_MATURITY + 1)
         utxos = []
         for utxo in self.nodes[0].listunspent(10):
             # Skip change/fees we scooped up
