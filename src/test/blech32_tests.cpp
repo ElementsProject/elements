@@ -5,11 +5,10 @@
 #include <blech32.h>
 #include <random.h>
 #include <util/strencodings.h>
-#include <test/util/setup_common.h>
 
 #include <boost/test/unit_test.hpp>
 
-BOOST_FIXTURE_TEST_SUITE(blech32_tests, BasicTestingSetup)
+BOOST_AUTO_TEST_SUITE(blech32_tests)
 
 BOOST_AUTO_TEST_CASE(blech32_polymod_sanity)
 {
