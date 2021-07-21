@@ -966,6 +966,11 @@ public:
         id.blinding_pubkey = blind_key;
     }
 
+    void operator()(WitnessV1Taproot& tap) const
+    {
+        tap.blinding_pubkey = blind_key;
+    }
+
     void operator()(WitnessUnknown& id) const
     {
         id.blinding_pubkey = blind_key;

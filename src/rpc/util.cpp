@@ -306,6 +306,16 @@ public:
         return obj;
     }
 
+    UniValue operator()(const WitnessV1Taproot& tap) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("isscript", true);
+        obj.pushKV("iswitness", true);
+        obj.pushKV("witness_version", 1);
+        obj.pushKV("witness_program", HexStr(tap));
+        return obj;
+    }
+
     UniValue operator()(const WitnessUnknown& id) const
     {
         UniValue obj(UniValue::VOBJ);
@@ -1075,6 +1085,11 @@ public:
         return id.blinding_pubkey;
     }
 
+    CPubKey operator()(const WitnessV1Taproot& tap) const
+    {
+        return tap.blinding_pubkey;
+    }
+
     CPubKey operator()(const WitnessUnknown& id) const
     {
         return id.blinding_pubkey;
@@ -1164,6 +1179,22 @@ public:
         } else {
             obj.pushKV("confidential_key", "");
             obj.pushKV("unconfidential", EncodeDestination(id));
+        }
+        return obj;
+    }
+
+    UniValue operator()(const WitnessV1Taproot& tap) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        const CPubKey& blind_pub = tap.blinding_pubkey;
+        if (IsBlindDestination(tap)) {
+            obj.pushKV("confidential_key", HexStr(blind_pub));
+            WitnessV1Taproot unblinded(tap);
+            unblinded.blinding_pubkey = CPubKey();
+            obj.pushKV("unconfidential", EncodeDestination(unblinded));
+        } else {
+            obj.pushKV("confidential_key", "");
+            obj.pushKV("unconfidential", EncodeDestination(tap));
         }
         return obj;
     }

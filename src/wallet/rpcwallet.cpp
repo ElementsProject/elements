@@ -4067,6 +4067,7 @@ public:
         return obj;
     }
 
+    UniValue operator()(const WitnessV1Taproot& id) const { return UniValue(UniValue::VOBJ); }
     UniValue operator()(const WitnessUnknown& id) const { return UniValue(UniValue::VOBJ); }
     UniValue operator()(const NullData& id) const { return NullUniValue; }
 };
@@ -4145,6 +4146,20 @@ public:
             obj.pushKV("confidential", EncodeDestination(dest));
         } else {
             obj.pushKV("confidential", EncodeDestination(id));
+        }
+        return obj;
+    }
+
+    UniValue operator()(const WitnessV1Taproot& tap) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        if (!IsBlindDestination(tap) && mine != ISMINE_NO) {
+            CPubKey blind_pub = wallet.GetBlindingPubKey(GetScriptForDestination(tap));
+            WitnessV1Taproot dest(tap);
+            dest.blinding_pubkey = blind_pub;
+            obj.pushKV("confidential", EncodeDestination(dest));
+        } else {
+            obj.pushKV("confidential", EncodeDestination(tap));
         }
         return obj;
     }
