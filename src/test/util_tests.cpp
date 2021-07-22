@@ -334,7 +334,7 @@ struct NoIncludeConfTest {
     {
         TestArgsManager test;
         test.SetupArgs({{"-includeconf", ArgsManager::ALLOW_ANY}});
-        std::array<const char*, 2> argv{"ignored", arg};
+        std::array argv{"ignored", arg};
         std::string error;
         (void)test.ParseParameters(argv.size(), argv.data(), error);
         return error;
