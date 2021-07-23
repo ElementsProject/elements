@@ -60,7 +60,7 @@ static void CoinSelection(benchmark::Bench& bench)
         CAmountMap mapValueRet;
         CAmountMap mapValue;
         mapValue[::policyAsset] = 1003 * COIN;
-        bool success = wallet.SelectCoinsMinConf(mapValue, filter_standard, coins, setCoinsRet, mapValueRet, coin_selection_params);
+        bool success = wallet.AttemptSelection(mapValue, filter_standard, coins, setCoinsRet, mapValueRet, coin_selection_params);
         assert(success);
         assert(mapValueRet[::policyAsset] == 1003 * COIN);
         assert(setCoinsRet.size() == 2);
