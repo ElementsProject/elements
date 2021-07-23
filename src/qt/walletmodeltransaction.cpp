@@ -28,6 +28,11 @@ CTransactionRef& WalletModelTransaction::getWtx()
     return wtx;
 }
 
+void WalletModelTransaction::setWtx(const CTransactionRef& newTx)
+{
+    wtx = newTx;
+}
+
 unsigned int WalletModelTransaction::getTransactionSize()
 {
     return wtx ? GetVirtualTransactionSize(*wtx) : 0;
