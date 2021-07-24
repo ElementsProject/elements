@@ -456,6 +456,7 @@ extern bool elements_simplicity_execSimplicity(bool* success, unsigned char* imr
   if (cmr) sha256_toMidstate(cmr_hash.s, cmr);
   if (amr) sha256_toMidstate(amr_hash.s, amr);
 
+fprintf(stderr, "start\n");
   {
     bitstream stream = initializeBitstream(file);
     len = decodeMallocDag(&dag, &census, &stream);
@@ -464,6 +465,7 @@ extern bool elements_simplicity_execSimplicity(bool* success, unsigned char* imr
       return PERMANENT_FAILURE(len);
     }
 
+fprintf(stderr, "decodedag done\n");
     int32_t err = decodeMallocWitnessData(&witnessAlloc, &witness, &stream);
     if (err < 0) {
       *success = false;
@@ -476,14 +478,18 @@ extern bool elements_simplicity_execSimplicity(bool* success, unsigned char* imr
     }
   }
 
+
   if (*success) {
+fprintf(stderr, "decode witness done\n");
     *success = !cmr || 0 == memcmp(cmr_hash.s, dag[len-1].cmr.s, sizeof(uint32_t[8]));
     if (*success) {
+fprintf(stderr, "CMR check\n");
       type* type_dag;
       result = mallocTypeInference(&type_dag, dag, (size_t)len, &census);
       *success = result && type_dag && 0 == dag[len-1].sourceType && 0 == dag[len-1].targetType
               && fillWitnessData(dag, type_dag, (size_t)len, witness);
       if (*success) {
+fprintf(stderr, "type inference done\n");
         sha256_midstate* imr_buf = (size_t)len <= SIZE_MAX / sizeof(sha256_midstate)
                                  ? malloc((size_t)len * sizeof(sha256_midstate))
                                  : NULL;
@@ -507,11 +513,13 @@ extern bool elements_simplicity_execSimplicity(bool* success, unsigned char* imr
         free(analysis);
       }
       if (*success) {
+fprintf(stderr, "dedup check\n");
         result = evalTCOProgram(success, dag, type_dag, (size_t)len, &(txEnv){.tx = tx, .scriptCMR = cmr_hash.s, .ix = ix});
       }
       free(type_dag);
     }
   }
+fprintf(stderr, "eval complete %d\n", *success);
 
   free(dag);
   free(witnessAlloc);

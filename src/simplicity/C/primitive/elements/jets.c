@@ -9,6 +9,16 @@
  *               NULL != h;
  */
 static void writeHash(frameItem* dst, const sha256_midstate* h) {
+fprintf(stderr, "%x%x%x%x%x%x%x%x\n",
+h->s[0],
+h->s[1],
+h->s[2],
+h->s[3],
+h->s[4],
+h->s[5],
+h->s[6],
+h->s[7]
+);
   write32s(dst, h->s, 8);
 }
 
@@ -18,7 +28,9 @@ static void writeHash(frameItem* dst, const sha256_midstate* h) {
  *               NULL != op;
  */
 static void prevOutpoint(frameItem* dst, const outpoint* op) {
+fprintf(stderr, "prevOutpoint: ");
   writeHash(dst, &op->txid);
+fprintf(stderr, "prevOutpoint ix: %ld", op->ix);
   write32(dst, op->ix);
 }
 
@@ -36,6 +48,7 @@ static bool asset(frameItem* dst, const confidential* asset) {
   } else {
     writeBit(dst, ODD_Y == asset->prefix);
   }
+fprintf(stderr, "asset: ");
   writeHash(dst, &asset->data);
   return true;
 }
@@ -47,11 +60,13 @@ static bool asset(frameItem* dst, const confidential* asset) {
  *               NULL != amt;
  */
 static bool amt(frameItem* dst, const confAmount* amt) {
+fprintf(stderr, "am: \n");
   if (NONE == amt->prefix) return false;
 
   if (writeBit(dst, EXPLICIT == amt->prefix)) {
     skipBits(dst, 1 + 256 - 64);
     write64(dst, amt->explicit);
+fprintf(stderr, "explicit: %ld\n", amt->explicit);
   } else {
     writeBit(dst, ODD_Y == amt->prefix);
     writeHash(dst, &amt->confidential);
@@ -71,6 +86,7 @@ static void nonce(frameItem* dst, const confidential* nonce) {
     } else {
       writeBit(dst, ODD_Y == nonce->prefix);
     }
+fprintf(stderr, "nonce: ");
     writeHash(dst, &nonce->data);
   } else {
     skipBits(dst, 1+1+256);
@@ -210,6 +226,7 @@ bool inputAmount(frameItem* dst, frameItem src, const txEnv* env) {
 bool inputScriptHash(frameItem* dst, frameItem src, const txEnv* env) {
   uint_fast32_t i = read32(&src);
   if (writeBit(dst, i < env->tx->numInputs)) {
+fprintf(stderr, "input script hash: ");
     writeHash(dst, &env->tx->input[i].txo.scriptPubKey);
   } else {
     skipBits(dst, 256);
@@ -320,6 +337,7 @@ bool outputNonce(frameItem* dst, frameItem src, const txEnv* env) {
 bool outputScriptHash(frameItem* dst, frameItem src, const txEnv* env) {
   uint_fast32_t i = read32(&src);
   if (writeBit(dst, i < env->tx->numOutputs)) {
+fprintf(stderr, "output script hash: ");
     writeHash(dst, &env->tx->output[i].scriptPubKey);
   } else {
     skipBits(dst, 256);
@@ -430,6 +448,7 @@ bool currentAmount(frameItem* dst, frameItem src, const txEnv* env) {
 bool currentScriptHash(frameItem* dst, frameItem src, const txEnv* env) {
   (void) src; // src is unused;
   if (env->tx->numInputs <= env->ix) return false;
+fprintf(stderr, "current script hash: ");
   writeHash(dst, &env->tx->input[env->ix].txo.scriptPubKey);
   return true;
 }
@@ -485,6 +504,7 @@ bool currentIssuanceTokenAmt(frameItem* dst, frameItem src, const txEnv* env) {
 /* inputsHash : ONE |- TWO^256 */
 bool inputsHash(frameItem* dst, frameItem src, const txEnv* env) {
   (void) src; // src is unused;
+fprintf(stderr, "intputs hash ");
   writeHash(dst, &env->tx->inputsHash);
   return true;
 }
@@ -492,6 +512,7 @@ bool inputsHash(frameItem* dst, frameItem src, const txEnv* env) {
 /* outputsHash : ONE |- TWO^256 */
 bool outputsHash(frameItem* dst, frameItem src, const txEnv* env) {
   (void) src; // src is unused;
+fprintf(stderr, "outputs hash ");
   writeHash(dst, &env->tx->outputsHash);
   return true;
 }

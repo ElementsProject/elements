@@ -2474,6 +2474,7 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
             return set_error(serror, SCRIPT_ERR_WITNESS_PROGRAM_WRONG_LENGTH);
         }
     } else if (witversion == 1 && program.size() == WITNESS_V1_TAPROOT_SIZE && !is_p2sh) {
+fprintf(stderr,"istaproot stack size: %zd\n",stack.size());
         // BIP341 Taproot: 32-byte non-P2SH witness v1 program (which encodes a P2C-tweaked pubkey)
         if (!(flags & SCRIPT_VERIFY_TAPROOT)) return set_success(serror);
         if (stack.size() == 0) return set_error(serror, SCRIPT_ERR_WITNESS_PROGRAM_WITNESS_EMPTY);
@@ -2493,6 +2494,7 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
             }
             return set_success(serror);
         } else {
+fprintf(stderr,"script spend stack size: %zd\n",stack.size());
             // Script path spending (stack size is >1 after removing optional annex)
             const valtype& control = SpanPopBack(stack);
             const valtype& script_bytes = SpanPopBack(stack);
@@ -2511,6 +2513,7 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
                 return ExecuteWitnessScript(stack, exec_script, flags, SigVersion::TAPSCRIPT, checker, execdata, serror);
             }
             if ((flags & SCRIPT_VERIFY_SIMPLICITY) && (control[0] & TAPROOT_LEAF_MASK) == TAPROOT_LEAF_TAPSIMPLICITY) {
+fprintf(stderr,"is tapsimplicity stack size: %zd\n", stack.size());
                 if (stack.size() != 1) return set_error(serror, SCRIPT_ERR_WITNESS_PROGRAM_MISMATCH);
                 // Tapsimplicity (leaf version 0xbe)
                 return checker.CheckSimplicity(stack.front(), script_bytes, serror);
