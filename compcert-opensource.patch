@@ -1,0 +1,111 @@
+--- CompCert-3.9/Makefile	2021-05-10 04:11:36.000000000 -0400
++++ CompCert-3.9-adj/Makefile	2021-06-19 18:50:59.484683789 -0400
+@@ -28,7 +28,7 @@
+ ARCHDIRS=$(ARCH)_$(BITSIZE) $(ARCH)
+ endif
+ 
+-DIRS := lib common $(ARCHDIRS) backend cfrontend driver exportclight cparser
++DIRS := lib common $(ARCHDIRS) backend cfrontend exportclight cparser
+ 
+ COQINCLUDES := $(foreach d, $(DIRS), -R $(d) compcert.$(d))
+ 
+@@ -102,41 +102,12 @@
+ # Back-end modules (in backend/, $(ARCH)/)
+ 
+ BACKEND=\
+-  Cminor.v Cminortyping.v Op.v CminorSel.v \
+-  SelectOp.v SelectDiv.v SplitLong.v SelectLong.v Selection.v \
+-  SelectOpproof.v SelectDivproof.v SplitLongproof.v \
+-  SelectLongproof.v Selectionproof.v \
+-  Registers.v RTL.v \
+-  RTLgen.v RTLgenspec.v RTLgenproof.v \
+-  Tailcall.v Tailcallproof.v \
+-  Inlining.v Inliningspec.v Inliningproof.v \
+-  Renumber.v Renumberproof.v \
+-  RTLtyping.v \
+-  Kildall.v Liveness.v \
+-  ValueDomain.v ValueAOp.v ValueAnalysis.v \
+-  ConstpropOp.v Constprop.v ConstpropOpproof.v Constpropproof.v \
+-  CSEdomain.v CombineOp.v CSE.v CombineOpproof.v CSEproof.v \
+-  NeedDomain.v NeedOp.v Deadcode.v Deadcodeproof.v \
+-  Unusedglob.v Unusedglobproof.v \
+-  Machregs.v Locations.v Conventions1.v Conventions.v LTL.v \
+-  Allocation.v Allocproof.v \
+-  Tunneling.v Tunnelingproof.v \
+-  Linear.v Lineartyping.v \
+-  Linearize.v Linearizeproof.v \
+-  CleanupLabels.v CleanupLabelsproof.v \
+-  Debugvar.v Debugvarproof.v \
+-  Mach.v \
+-  Bounds.v Stacklayout.v Stacking.v Stackingproof.v \
+-  Asm.v Asmgen.v Asmgenproof0.v Asmgenproof1.v Asmgenproof.v
++  Cminor.v
+ 
+ # C front-end modules (in cfrontend/)
+ 
+-CFRONTEND=Ctypes.v Cop.v Csyntax.v Csem.v Ctyping.v Cstrategy.v Cexec.v \
+-  Initializers.v Initializersproof.v \
+-  SimplExpr.v SimplExprspec.v SimplExprproof.v \
+-  Clight.v ClightBigstep.v SimplLocals.v SimplLocalsproof.v \
+-  Cshmgen.v Cshmgenproof.v \
+-  Csharpminor.v Cminorgen.v Cminorgenproof.v
++CFRONTEND=Ctypes.v Cop.v Csyntax.v Csem.v Ctyping.v Cstrategy.v \
++  Clight.v ClightBigstep.v
+ 
+ # Parser
+ 
+@@ -152,22 +123,11 @@
+ MENHIRLIB=
+ endif
+ 
+-# Putting everything together (in driver/)
+-
+-DRIVER=Compopts.v Compiler.v Complements.v
+-
+ # All source files
+ 
+-FILES=$(VLIB) $(COMMON) $(BACKEND) $(CFRONTEND) $(DRIVER) $(FLOCQ) \
++FILES=$(VLIB) $(COMMON) $(BACKEND) $(CFRONTEND) $(FLOCQ) \
+   $(MENHIRLIB) $(PARSER)
+ 
+-# Generated source files
+-
+-GENERATED=\
+-  $(ARCH)/ConstpropOp.v $(ARCH)/SelectOp.v $(ARCH)/SelectLong.v \
+-  backend/SelectDiv.v backend/SplitLong.v \
+-  cparser/Parser.v
+-
+ all:
+ 	@test -f .depend || $(MAKE) depend
+ 	$(MAKE) proof
+@@ -293,20 +253,13 @@
+ 	$(MENHIR) --coq --coq-no-version-check cparser/Parser.vy
+ 	@chmod a-w $@
+ 
+-depend: $(GENERATED) depend1
++depend: depend1
+ 
+ depend1: $(FILES) exportclight/Clightdefs.v
+ 	@echo "Analyzing Coq dependencies"
+ 	@$(COQDEP) $^ > .depend
+ 
+ install:
+-	install -d $(DESTDIR)$(BINDIR)
+-	install -m 0755 ./ccomp $(DESTDIR)$(BINDIR)
+-	install -d $(DESTDIR)$(SHAREDIR)
+-	install -m 0644 ./compcert.ini $(DESTDIR)$(SHAREDIR)
+-	install -d $(DESTDIR)$(MANDIR)/man1
+-	install -m 0644 ./doc/ccomp.1 $(DESTDIR)$(MANDIR)/man1
+-	$(MAKE) -C runtime install
+ ifeq ($(CLIGHTGEN),true)
+ 	install -m 0755 ./clightgen $(DESTDIR)$(BINDIR)
+ endif
+@@ -330,7 +283,7 @@
+ 	rm -f compcert.ini compcert.config
+ 	rm -f extraction/STAMP extraction/*.ml extraction/*.mli .depend.extr
+ 	rm -f tools/ndfun tools/modorder tools/*.cm? tools/*.o
+-	rm -f $(GENERATED) .depend
++	rm -f .depend
+ 	rm -f .lia.cache
+ 	$(MAKE) -f Makefile.extr clean
+ 	$(MAKE) -C runtime clean
