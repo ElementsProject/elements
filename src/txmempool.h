@@ -881,7 +881,8 @@ protected:
 public:
     CCoinsViewMemPool(CCoinsView* baseIn, const CTxMemPool& mempoolIn);
     bool GetCoin(const COutPoint &outpoint, Coin &coin) const override;
-    /** Add the coins created by this transaction. */
+    /** Add the coins created by this transaction. These coins are only temporarily stored in
+     * m_temp_added and cannot be flushed to the back end. Only used for package validation. */
     void PackageAddTransaction(const CTransactionRef& tx);
     // ELEMENTS:
     bool IsPeginSpent(const std::pair<uint256, COutPoint> &outpoint) const override;

@@ -370,6 +370,7 @@ libbitcoin_server_a_SOURCES = \
   noui.cpp \
   pegins.cpp \
   policy/fees.cpp \
+  policy/packages.cpp \
   policy/rbf.cpp \
   policy/settings.cpp \
   pow.cpp \
