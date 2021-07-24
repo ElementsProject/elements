@@ -87,6 +87,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
         gArgs.SoftSetBoolArg("-validatepegin", false);
     }
 
+    m_node.args = &gArgs;
     const std::vector<const char*> arguments = Cat(
         {
             "dummy",
@@ -106,7 +107,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
     gArgs.ForceSetArg("-datadir", m_path_root.string());
     gArgs.ClearPathCache();
     {
-        SetupServerArgs(m_node);
+        SetupServerArgs(*m_node.args);
         std::string error;
         const bool success{m_node.args->ParseParameters(arguments.size(), arguments.data(), error)};
         assert(success);
