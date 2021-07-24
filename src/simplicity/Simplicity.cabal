@@ -1,0 +1,216 @@
+cabal-version:       2.2
+name:                Simplicity
+version:             0.0.0
+-- synopsis:
+-- description:
+license:             MIT
+license-file:        LICENSE
+author:              Russell O'Connor
+maintainer:          roconnor@blockstream.com
+copyright:           (c) 2018 Blockstream
+category:            Language
+build-type:          Simple
+extra-source-files:  README.md
+tested-with:         GHC ==8.6.4
+
+library Simplicity-Core
+  C-sources:           C/sha256.c, C/frame.c, C/jets.c, C/jets-secp256k1.c
+                       Haskell/cbits/frame.c, Haskell/cbits/jets.c
+  Include-dirs:        C
+  Includes:            sha256.h, frame.h, jets.h
+  exposed-modules:     Simplicity.Ty, Simplicity.Ty.Bit, Simplicity.Ty.Word,
+                       Simplicity.Term.Core,
+                       Simplicity.CoreJets,
+                       Simplicity.Functor, Simplicity.Tensor,
+                       Simplicity.FFI.Frame, Simplicity.FFI.Jets,
+                       Simplicity.BitMachine, Simplicity.BitMachine.Authentic, Simplicity.BitMachine.Ty,
+                       Simplicity.BitMachine.Translate, Simplicity.BitMachine.Translate.TCO,
+                       Simplicity.BitMachine.StaticAnalysis, Simplicity.BitMachine.StaticAnalysis.TCO,
+                       Simplicity.Programs.Bit, Simplicity.Programs.Generic, Simplicity.Programs.Loop,
+                       Simplicity.Programs.Word, Simplicity.Programs.Arith,
+                       Simplicity.Programs.Sha256, Simplicity.Programs.Sha256.Lib,
+                       Simplicity.Programs.LibSecp256k1, Simplicity.Programs.LibSecp256k1.Lib,
+                       Simplicity.Programs.CheckSigHash,
+                       Simplicity.Digest,
+                       Simplicity.MerkleRoot, Simplicity.MerkleRoot.Impl,
+                       Simplicity.Delegator, Simplicity.Delegator.Impl,
+                       Simplicity.Serialization,
+                       Simplicity.Word,
+                       Simplicity.LibSecp256k1.Schnorr,
+                       Simplicity.LibSecp256k1.Spec
+  other-extensions:    BangPatterns,
+                       FlexibleContexts,
+                       GADTs, StandaloneDeriving, TypeFamilies
+                       NoMonomorphismRestriction,
+                       UndecidableInstances, QuantifiedConstraints, RankNTypes, ExistentialQuantification, TypeOperators, TypeFamilies, DeriveTraversable,
+                       ScopedTypeVariables,
+                       RecordWildCards,
+                       ForeignFunctionInterface
+  hs-source-dirs:      Haskell/Core
+  default-language:    Haskell2010
+  ghc-options:         -O2
+  build-depends:       base >=4.9 && <4.16,
+                       binary >=0.7 && <0.9,
+                       bytestring >=0.10 && <0.11,
+                       containers >=0.5.10 && <0.7,
+                       cereal >=0.5 && <0.6,
+                       lens-family >=2.0 && <2.2,
+                       mtl >=2.2 && <2.3,
+                       MemoTrie >=0.6 && <0.7,
+                       SHA >=1.6 && <1.7,
+                       split >=0.2.3 && <0.3,
+                       tardis >=0.4.1 && <0.5,
+                       transformers >=0.5 && <0.6,
+                       unification-fd >=0.10 && <0.12,
+                       vector >=0.12 && <0.13
+
+library Simplicity-Bitcoin
+  exposed-modules:     Simplicity.Bitcoin.Primitive, Simplicity.Bitcoin.DataTypes
+  other-extensions:    GADTs, ScopedTypeVariables
+  hs-source-dirs:      Haskell/Bitcoin
+  default-language:    Haskell2010
+  ghc-options:         -O2
+  build-depends:       Simplicity-Core,
+                       array >=0.5 && <0.6,
+                       base >=4.9 && <4.16,
+                       bytestring >=0.10 && <0.11,
+                       cereal >=0.5 && <0.6
+
+library Simplicity-Elements
+  exposed-modules:     Simplicity.Elements.Primitive, Simplicity.Elements.DataTypes
+  other-extensions:    GADTs, ScopedTypeVariables
+  hs-source-dirs:      Haskell/Elements
+  default-language:    Haskell2010
+  ghc-options:         -O2
+  build-depends:       Simplicity-Core,
+                       array >=0.5 && <0.6,
+                       base >=4.9 && <4.16,
+                       bytestring >=0.10 && <0.11,
+                       cereal >=0.5 && <0.6
+
+library Simplicity-Indef
+  exposed-modules:     Simplicity.Term,
+                       Simplicity.Semantics,
+                       Simplicity.Dag, Simplicity.Inference
+                       Simplicity.JetType,
+                       Simplicity.Serialization.BitString, Simplicity.Serialization.ByteString
+  signatures:          Simplicity.Primitive
+  other-extensions:    EmptyCase, EmptyDataDecls, EmptyDataDeriving,
+                       ScopedTypeVariables,
+                       DeriveTraversable, FlexibleInstances, GADTs, TypeFamilies, MultiParamTypeClasses, RankNTypes,
+                       UndecidableInstances
+  hs-source-dirs:      Haskell/Indef
+  default-language:    Haskell2010
+  ghc-options:         -O2
+  build-depends:       Simplicity-Core,
+                       base >=4.9 && <4.16,
+                       bytestring >=0.10 && <0.11,
+                       cereal >=0.5 && <0.6,
+                       containers >=0.5.10 && <0.7,
+                       lens-family >=2.0 && <2.2,
+                       mtl >=2.2 && <2.3,
+                       transformers >=0.5 && <0.6,
+                       unification-fd >=0.10 && <0.12,
+                       vector >=0.12 && <0.13
+
+library
+  exposed-modules:     Simplicity.Bitcoin.Programs.CheckSigHashAll, Simplicity.Elements.Programs.CheckSigHashAll,
+                       Simplicity.Bitcoin.Programs.CheckSigHashAll.Lib, Simplicity.Elements.Programs.CheckSigHashAll.Lib,
+                       Simplicity.Bitcoin.Jets, Simplicity.Elements.Jets
+  reexported-modules:  Simplicity.Ty, Simplicity.Ty.Bit, Simplicity.Ty.Word,
+                       Simplicity.Term.Core,
+                       Simplicity.CoreJets,
+                       Simplicity.Functor, Simplicity.Tensor,
+                       Simplicity.FFI.Jets,
+                       Simplicity.BitMachine, Simplicity.BitMachine.Authentic, Simplicity.BitMachine.Ty,
+                       Simplicity.BitMachine.Translate, Simplicity.BitMachine.Translate.TCO,
+                       Simplicity.BitMachine.StaticAnalysis, Simplicity.BitMachine.StaticAnalysis.TCO,
+                       Simplicity.Programs.Bit, Simplicity.Programs.Generic, Simplicity.Programs.Loop,
+                       Simplicity.Programs.Word, Simplicity.Programs.Arith,
+                       Simplicity.Programs.Sha256, Simplicity.Programs.Sha256.Lib,
+                       Simplicity.Programs.LibSecp256k1, Simplicity.Programs.LibSecp256k1.Lib,
+                       Simplicity.Programs.CheckSigHash,
+                       Simplicity.Digest,
+                       Simplicity.MerkleRoot,
+                       Simplicity.Delegator,
+                       Simplicity.Serialization,
+                       Simplicity.Word,
+                       Simplicity.LibSecp256k1.Schnorr,
+                       Simplicity.LibSecp256k1.Spec,
+                       Simplicity.Bitcoin.Primitive, Simplicity.Bitcoin.DataTypes,
+                       Simplicity.Bitcoin.Term,
+                       Simplicity.Bitcoin.Semantics,
+                       Simplicity.Bitcoin.Dag,
+                       Simplicity.Bitcoin.Inference,
+                       Simplicity.Bitcoin.JetType,
+                       Simplicity.Bitcoin.Serialization.BitString,
+                       Simplicity.Bitcoin.Serialization.ByteString,
+                       Simplicity.Elements.Primitive, Simplicity.Elements.DataTypes,
+                       Simplicity.Elements.Term,
+                       Simplicity.Elements.Semantics,
+                       Simplicity.Elements.Dag,
+                       Simplicity.Elements.Inference,
+                       Simplicity.Elements.JetType,
+                       Simplicity.Elements.Serialization.BitString,
+                       Simplicity.Elements.Serialization.ByteString
+  mixins:              Simplicity-Indef
+                         (Simplicity.Term as Simplicity.Bitcoin.Term,
+                          Simplicity.Semantics as Simplicity.Bitcoin.Semantics,
+                          Simplicity.Dag as Simplicity.Bitcoin.Dag,
+                          Simplicity.Inference as Simplicity.Bitcoin.Inference,
+                          Simplicity.JetType as Simplicity.Bitcoin.JetType,
+                          Simplicity.Serialization.BitString as Simplicity.Bitcoin.Serialization.BitString,
+                          Simplicity.Serialization.ByteString as Simplicity.Bitcoin.Serialization.ByteString)
+                       requires
+                         (Simplicity.Primitive as Simplicity.Bitcoin.Primitive),
+                       Simplicity-Indef
+                         (Simplicity.Term as Simplicity.Elements.Term,
+                          Simplicity.Semantics as Simplicity.Elements.Semantics,
+                          Simplicity.Dag as Simplicity.Elements.Dag,
+                          Simplicity.Inference as Simplicity.Elements.Inference,
+                          Simplicity.JetType as Simplicity.Elements.JetType,
+                          Simplicity.Serialization.BitString as Simplicity.Elements.Serialization.BitString,
+                          Simplicity.Serialization.ByteString as Simplicity.Elements.Serialization.ByteString)
+                       requires
+                         (Simplicity.Primitive as Simplicity.Elements.Primitive)
+  other-extensions:    ConstraintKinds, GADTs, StandaloneDeriving, TypeFamilies
+  hs-source-dirs:      Haskell
+  default-language:    Haskell2010
+  ghc-options:         -O2
+  build-depends:       Simplicity-Core, Simplicity-Bitcoin, Simplicity-Elements, Simplicity-Indef,
+                       base >=4.9 && <4.16,
+                       bytestring >=0.10 && <0.11,
+                       containers >=0.5.10 && <0.7
+
+Test-Suite testsuite
+  Type:                exitcode-stdio-1.0
+  main-is:             Tests.hs
+  other-extensions:    RankNTypes,
+                       GADTs,
+                       ScopedTypeVariables
+  hs-source-dirs:      Haskell/Tests
+  default-language:    Haskell2010
+  ghc-options:         -O0 -with-rtsopts=-c
+  other-modules:       Simplicity.Programs.Example,
+                       Simplicity.Bip0340,
+                       Simplicity.Ty.Arbitrary,
+                       Simplicity.BitMachine.StaticAnalysis.Tests, Simplicity.BitMachine.Tests,
+                       Simplicity.Bitcoin.Serialization.Tests,
+                       Simplicity.Elements.Tests,
+                       Simplicity.FFI.Tests,
+                       Simplicity.Programs.Tests,
+                       Simplicity.TestEval,
+                       Simplicity.Ty.Tests
+  build-depends:       Simplicity,
+                       array >=0.5 && <0.6,
+                       base >=4.9 && <4.16,
+                       bytestring >=0.10 && <0.11,
+                       cereal >=0.5 && <0.6,
+                       lens-family >=2.0 && <2.2,
+                       QuickCheck >=2.10 && <2.15,
+                       SHA >=1.6 && <1.7,
+                       tasty >=0.11 && <1.5,
+                       tasty-hunit >=0.9 && <0.11,
+                       tasty-quickcheck >=0.8 && <0.11,
+                       transformers >=0.5 && <0.6,
+                       vector >=0.12 && <0.13

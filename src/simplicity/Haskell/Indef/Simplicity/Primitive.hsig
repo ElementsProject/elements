@@ -1,0 +1,20 @@
+signature Simplicity.Primitive where
+
+import Data.Serialize (Get, Putter)
+import Data.Word (Word8)
+
+import Simplicity.Serialization (DList)
+import Simplicity.Ty
+
+data Prim a b
+
+primPrefix :: String
+primName :: Prim a b -> String
+getPrimBit :: Monad m => m Bool -> m (SomeArrow Prim)
+getPrimByte :: Word8 -> Get (Maybe (SomeArrow Prim))
+putPrimBit :: Prim a b -> DList Bool
+putPrimByte :: Putter (Prim a b)
+
+data PrimEnv
+
+primSem :: Prim a b -> a -> PrimEnv -> Maybe b
