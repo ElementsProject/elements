@@ -14,7 +14,6 @@
 #include <string>
 #include <vector>
 
-
 void initialize_base_encode_decode()
 {
     static const ECCVerifyHandle verify_handle;
