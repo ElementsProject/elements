@@ -1782,7 +1782,7 @@ bool CWallet::SignTransaction(CMutableTransaction& tx) const
         coins[input.prevout] = Coin(wtx.tx->vout[input.prevout.n], wtx.m_confirm.block_height, wtx.IsCoinBase());
     }
     std::map<int, std::string> input_errors;
-    return SignTransaction(tx, coins, SIGHASH_ALL, input_errors);
+    return SignTransaction(tx, coins, SIGHASH_DEFAULT, input_errors);
 }
 
 bool CWallet::SignTransaction(CMutableTransaction& tx, const std::map<COutPoint, Coin>& coins, int sighash, std::map<int, std::string>& input_errors) const
@@ -1804,6 +1804,7 @@ bool CWallet::SignTransaction(CMutableTransaction& tx, const std::map<COutPoint,
 // ELEMENTS: split FillPSBT into FillPSBData and SignPSBT
 TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool bip32derivs) const
 {
+    const PrecomputedTransactionData txdata = PrecomputePSBTData(psbtx);
     LOCK(cs_wallet);
 
     // Get all of the previous transactions
@@ -1876,7 +1877,7 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
 
             // Fill in the information from the spk_man
             // ELEMENTS: Get key origin info for input, if bip32derivs is true. Does not actually sign anything.
-            TransactionError res = spk_man->FillPSBT(psbtx, 1, false /* don't sign */, bip32derivs);
+            TransactionError res = spk_man->FillPSBT(psbtx, txdata, 1, false /* don't sign */, bip32derivs);
             if (res != TransactionError::OK) {
                 return res;
             }
@@ -1985,10 +1986,12 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
         }
     }
 
+    // ELEMENTS: precompute transaction data only after munging is done
+    const PrecomputedTransactionData txdata = PrecomputePSBTData(psbtx);
     for (ScriptPubKeyMan* spk_man : GetAllScriptPubKeyMans()) {
         int n_signed_this_spkm = 0;
         // ELEMENTS: Here we _only_ sign, and do not e.g. fill in key origin data.
-        TransactionError res = spk_man->FillPSBT(psbtx, sighash_type, sign, bip32derivs, &n_signed_this_spkm);
+        TransactionError res = spk_man->FillPSBT(psbtx, txdata, sighash_type, sign, bip32derivs, &n_signed_this_spkm);
         if (res != TransactionError::OK) {
             return res;
         }

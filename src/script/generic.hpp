@@ -62,6 +62,11 @@ public:
         }
         return true;
     }
+    // ELEMENTS: for now we do not support Schnorr signing in block headers
+    bool CreateSchnorrSig(const SigningProvider& provider, std::vector<unsigned char>& sig, const XOnlyPubKey& pubkey, const uint256* leaf_hash, const uint256* merkle_root, SigVersion sigversion) const override
+    {
+        return false;
+    }
 };
 
 template<typename T>
