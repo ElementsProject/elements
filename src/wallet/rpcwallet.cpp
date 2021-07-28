@@ -4746,9 +4746,13 @@ static RPCHelpMan walletfillpsbtdata()
     if (!g_con_elementsmode)
         throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
 
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    if (!wallet) return NullUniValue;
-    CWallet* const pwallet = wallet.get();
+    std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!pwallet) return NullUniValue;
+
+    const CWallet& wallet{*pwallet};
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    wallet.BlockUntilSyncedToCurrentChain();
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL});
 
@@ -4760,7 +4764,7 @@ static RPCHelpMan walletfillpsbtdata()
     }
 
     bool bip32derivs = request.params[1].isNull() ? true : request.params[1].get_bool();
-    const TransactionError err = pwallet->FillPSBTData(psbtx, bip32derivs);
+    const TransactionError err = wallet.FillPSBTData(psbtx, bip32derivs);
     if (err != TransactionError::OK) {
         throw JSONRPCTransactionError(err);
     }
@@ -4805,9 +4809,13 @@ static RPCHelpMan walletsignpsbt()
     if (!g_con_elementsmode)
         throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
 
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    if (!wallet) return NullUniValue;
-    const CWallet* const pwallet = wallet.get();
+    std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!pwallet) return NullUniValue;
+
+    const CWallet& wallet{*pwallet};
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    wallet.BlockUntilSyncedToCurrentChain();
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VBOOL});
 
@@ -4826,7 +4834,7 @@ static RPCHelpMan walletsignpsbt()
     bool imbalance_ok = request.params[2].isNull() ? false : request.params[2].get_bool();
 
     bool complete;
-    const TransactionError err = pwallet->SignPSBT(psbtx, complete, nHashType, true, imbalance_ok);
+    const TransactionError err{wallet.SignPSBT(psbtx, complete, nHashType, true, imbalance_ok)};
     if (err != TransactionError::OK) {
         throw JSONRPCTransactionError(err);
     }
@@ -4884,6 +4892,11 @@ static RPCHelpMan walletprocesspsbt()
     std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return NullUniValue;
 
+    const CWallet& wallet{*pwallet};
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    wallet.BlockUntilSyncedToCurrentChain();
+
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL, UniValue::VSTR});
 
     // Unserialize the transaction
@@ -4900,7 +4913,7 @@ static RPCHelpMan walletprocesspsbt()
     bool sign = request.params[1].isNull() ? true : request.params[1].get_bool();
     bool bip32derivs = request.params[3].isNull() ? true : request.params[3].get_bool();
     bool complete = true;
-    const TransactionError err = pwallet->FillPSBT(psbtx, complete, nHashType, sign, bip32derivs);
+    const TransactionError err{wallet.FillPSBT(psbtx, complete, nHashType, sign, bip32derivs)};
     if (err != TransactionError::OK) {
         throw JSONRPCTransactionError(err);
     }
@@ -5023,6 +5036,11 @@ static RPCHelpMan walletcreatefundedpsbt()
     std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return NullUniValue;
 
+    CWallet& wallet{*pwallet};
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    wallet.BlockUntilSyncedToCurrentChain();
+
     RPCTypeCheck(request.params, {
         UniValue::VARR,
         UniValueType(), // ARR or OBJ, checked later
@@ -5034,7 +5052,7 @@ static RPCHelpMan walletcreatefundedpsbt()
 
     CAmount fee;
     int change_position;
-    bool rbf = pwallet->m_signal_rbf;
+    bool rbf{wallet.m_signal_rbf};
     const UniValue &replaceable_arg = request.params[3]["replaceable"];
     if (!replaceable_arg.isNull()) {
         RPCTypeCheckArgument(replaceable_arg, UniValue::VBOOL);
@@ -5043,12 +5061,12 @@ static RPCHelpMan walletcreatefundedpsbt()
     // It's hard to control the behavior of FundTransaction, so we will wait
     //   until after it's done, then extract the blinding keys from the output
     //   nonces.
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, pwallet->chain().getTip(), NullUniValue /* CA: assets_in */, nullptr /* output_pubkeys_out */, true /* allow_peg_in */);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, wallet.chain().getTip(), NullUniValue /* CA: assets_in */, nullptr /* output_pubkeys_out */, true /* allow_peg_in */);
     CCoinControl coin_control;
     // Automatically select coins, unless at least one is manually selected. Can
     // be overridden by options.add_inputs.
     coin_control.m_add_inputs = rawTx.vin.size() == 0;
-    FundTransaction(*pwallet, rawTx, fee, change_position, request.params[3], coin_control, /* solving_data */ request.params[5], /* override_min_fee */ true);
+    FundTransaction(wallet, rawTx, fee, change_position, request.params[3], coin_control, /* solving_data */ request.params[5], /* override_min_fee */ true);
 
     // Make a blank psbt
     PartiallySignedTransaction psbtx(rawTx);
@@ -5063,7 +5081,7 @@ static RPCHelpMan walletcreatefundedpsbt()
     // Fill transaction with out data but don't sign
     bool bip32derivs = request.params[4].isNull() ? true : request.params[4].get_bool();
     bool complete = true;
-    const TransactionError err = pwallet->FillPSBT(psbtx, complete, 1, false, bip32derivs);
+    const TransactionError err{wallet.FillPSBT(psbtx, complete, 1, false, bip32derivs)};
     if (err != TransactionError::OK) {
         throw JSONRPCTransactionError(err);
     }
