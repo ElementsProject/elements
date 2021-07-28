@@ -82,7 +82,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_generate(
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_generate_blinded(
     const secp256k1_context* ctx,
     secp256k1_generator* gen,
-    const unsigned char *key32,
+    const unsigned char *seed32,
     const unsigned char *blind32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 

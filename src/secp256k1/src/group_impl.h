@@ -1,13 +1,12 @@
-/**********************************************************************
- * Copyright (c) 2013, 2014 Pieter Wuille                             *
- * Distributed under the MIT software license, see the accompanying   *
- * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
- **********************************************************************/
+/***********************************************************************
+ * Copyright (c) 2013, 2014 Pieter Wuille                              *
+ * Distributed under the MIT software license, see the accompanying    *
+ * file COPYING or https://www.opensource.org/licenses/mit-license.php.*
+ ***********************************************************************/
 
 #ifndef SECP256K1_GROUP_IMPL_H
 #define SECP256K1_GROUP_IMPL_H
 
-#include "num.h"
 #include "field.h"
 #include "group.h"
 
@@ -101,8 +100,8 @@ static void secp256k1_ge_set_gej(secp256k1_ge *r, secp256k1_gej *a) {
 
 static void secp256k1_ge_set_gej_var(secp256k1_ge *r, secp256k1_gej *a) {
     secp256k1_fe z2, z3;
-    r->infinity = a->infinity;
     if (a->infinity) {
+        secp256k1_ge_set_infinity(r);
         return;
     }
     secp256k1_fe_inv_var(&a->z, &a->z);
@@ -111,8 +110,7 @@ static void secp256k1_ge_set_gej_var(secp256k1_ge *r, secp256k1_gej *a) {
     secp256k1_fe_mul(&a->x, &a->x, &z2);
     secp256k1_fe_mul(&a->y, &a->y, &z3);
     secp256k1_fe_set_int(&a->z, 1);
-    r->x = a->x;
-    r->y = a->y;
+    secp256k1_ge_set_xy(r, &a->x, &a->y);
 }
 
 static void secp256k1_ge_set_all_gej_var(secp256k1_ge *r, const secp256k1_gej *a, size_t len) {
@@ -121,7 +119,9 @@ static void secp256k1_ge_set_all_gej_var(secp256k1_ge *r, const secp256k1_gej *a
     size_t last_i = SIZE_MAX;
 
     for (i = 0; i < len; i++) {
-        if (!a[i].infinity) {
+        if (a[i].infinity) {
+            secp256k1_ge_set_infinity(&r[i]);
+        } else {
             /* Use destination's x coordinates as scratch space */
             if (last_i == SIZE_MAX) {
                 r[i].x = a[i].z;
@@ -149,7 +149,6 @@ static void secp256k1_ge_set_all_gej_var(secp256k1_ge *r, const secp256k1_gej *a
     r[last_i].x = u;
 
     for (i = 0; i < len; i++) {
-        r[i].infinity = a[i].infinity;
         if (!a[i].infinity) {
             secp256k1_ge_set_gej_zinv(&r[i], &a[i], &r[i].x);
         }
@@ -316,7 +315,7 @@ static void secp256k1_gej_double_var(secp256k1_gej *r, const secp256k1_gej *a, s
      *  point will be gibberish (z = 0 but infinity = 0).
      */
     if (a->infinity) {
-        r->infinity = 1;
+        secp256k1_gej_set_infinity(r);
         if (rzr != NULL) {
             secp256k1_fe_set_int(rzr, 1);
         }
@@ -591,7 +590,7 @@ static void secp256k1_gej_add_ge(secp256k1_gej *r, const secp256k1_gej *a, const
     secp256k1_fe_cmov(&n, &m, degenerate);              /* n = M^3 * Malt (2) */
     secp256k1_fe_sqr(&t, &rr_alt);                      /* t = Ralt^2 (1) */
     secp256k1_fe_mul(&r->z, &a->z, &m_alt);             /* r->z = Malt*Z (1) */
-    infinity = secp256k1_fe_normalizes_to_zero(&r->z) * (1 - a->infinity);
+    infinity = secp256k1_fe_normalizes_to_zero(&r->z) & ~a->infinity;
     secp256k1_fe_mul_int(&r->z, 2);                     /* r->z = Z3 = 2*Malt*Z (2) */
     secp256k1_fe_negate(&q, &q, 1);                     /* q = -Q (2) */
     secp256k1_fe_add(&t, &q);                           /* t = Ralt^2-Q (3) */
@@ -674,7 +673,7 @@ static int secp256k1_ge_is_in_correct_subgroup(const secp256k1_ge* ge) {
     secp256k1_gej out;
     int i;
 
-    /* A very simple EC multiplication ladder that avoids a dependecy on ecmult. */
+    /* A very simple EC multiplication ladder that avoids a dependency on ecmult. */
     secp256k1_gej_set_infinity(&out);
     for (i = 0; i < 32; ++i) {
         secp256k1_gej_double_var(&out, &out, NULL);

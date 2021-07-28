@@ -197,7 +197,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_verify(
  *  In/Out: blind_out: storage for the 32-byte blinding factor used for the commitment
  *        value_out: pointer to an unsigned int64 which has the exact value of the commitment.
  *        message_out: pointer to a 4096 byte character array to receive message data from the proof author.
- *        outlen:  length of message data written to message_out.
+ *        outlen: length of message data written to message_out. This is generally not equal to the
+ *                msg_len used by the signer. However, for all i with msg_len <= i < outlen, it is
+ *                guaranteed that message_out[i] == 0.
  *        min_value: pointer to an unsigned int64 which will be updated with the minimum value that commit could have. (cannot be NULL)
  *        max_value: pointer to an unsigned int64 which will be updated with the maximum value that commit could have. (cannot be NULL)
  */
