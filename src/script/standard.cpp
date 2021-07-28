@@ -564,9 +564,9 @@ std::optional<std::vector<std::tuple<int, CScript, int>>> InferTaprootTree(const
     std::vector<std::tuple<int, CScript, int>> ret;
     if (spenddata.merkle_root.IsNull()) return ret;
 
-    /** Data structure to represent the nodes of the tree we're going to be build. */
+    /** Data structure to represent the nodes of the tree we're going to build. */
     struct TreeNode {
-        /** Hash of this none, if known; 0 otherwise. */
+        /** Hash of this node, if known; 0 otherwise. */
         uint256 hash;
         /** The left and right subtrees (note that their order is irrelevant). */
         std::unique_ptr<TreeNode> sub[2];
@@ -581,7 +581,7 @@ std::optional<std::vector<std::tuple<int, CScript, int>>> InferTaprootTree(const
         bool done = false;
     };
 
-    // Build tree from the provides branches.
+    // Build tree from the provided branches.
     TreeNode root;
     root.hash = spenddata.merkle_root;
     for (const auto& [key, control_blocks] : spenddata.scripts) {
