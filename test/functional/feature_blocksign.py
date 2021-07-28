@@ -9,8 +9,8 @@ from test_framework import (
     key,
 )
 from test_framework.messages import (
-    FromHex,
     CBlock,
+    from_hex,
 )
 from test_framework.script import (
     CScript
@@ -119,11 +119,11 @@ class BlockSignTest(BitcoinTestFramework):
                 miner.sendtoaddress(miner_next.getnewaddress(), int(miner.getbalance()['bitcoin']/10), "", "", True)
         # miner makes a block
         block = miner.getnewblockhex()
-        block_struct = FromHex(CBlock(), block)
+        block_struct = from_hex(CBlock(), block)
 
         # make another block with the commitment field filled out
         dummy_block = miner.getnewblockhex(commit_data="deadbeef")
-        dummy_struct = FromHex(CBlock(), dummy_block)
+        dummy_struct = from_hex(CBlock(), dummy_block)
         assert_equal(len(dummy_struct.vtx[0].vout), len(block_struct.vtx[0].vout) + 1)
         # OP_RETURN deadbeef
         assert_equal(CScript(dummy_struct.vtx[0].vout[0].scriptPubKey).hex(), '6a04deadbeef')
