@@ -255,6 +255,7 @@ public:
     bool EraseDestData(const std::string &address, const std::string &key);
 
     bool WriteActiveScriptPubKeyMan(uint8_t type, const uint256& id, bool internal);
+    bool EraseActiveScriptPubKeyMan(uint8_t type, bool internal);
 
     /// ELEMENTS: Storage of PAK settings
     bool WriteOnlineKey(const CPubKey& online_key);
