@@ -470,6 +470,8 @@ static RPCHelpMan createrawtransaction()
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
+
     RPCTypeCheck(request.params, {
         UniValue::VARR,
         UniValueType(), // ARR or OBJ, checked later
@@ -483,7 +485,7 @@ static RPCHelpMan createrawtransaction()
     if (!request.params[3].isNull()) {
         rbf = request.params[3].isTrue();
     }
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, request.params[4]);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, chainman.ActiveChain().Tip(), request.params[4]);
 
     return EncodeHexTx(CTransaction(rawTx));
 },
@@ -831,6 +833,8 @@ static RPCHelpMan signrawtransactionwithkey()
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
+
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VARR, UniValue::VSTR}, true);
 
     CMutableTransaction mtx;
@@ -861,7 +865,7 @@ static RPCHelpMan signrawtransactionwithkey()
     ParsePrevouts(request.params[2], &keystore, coins);
 
     UniValue result(UniValue::VOBJ);
-    SignTransaction(mtx, &keystore, coins, request.params[3], result);
+    SignTransaction(mtx, &keystore, coins, request.params[3], result, chainman.ActiveChain().Tip());
     return result;
 },
     };
@@ -1780,6 +1784,8 @@ static RPCHelpMan createpsbt()
     if (!g_con_elementsmode)
         throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
 
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
+
     RPCTypeCheck(request.params, {
         UniValue::VARR,
         UniValueType(), // ARR or OBJ, checked later
@@ -1793,7 +1799,7 @@ static RPCHelpMan createpsbt()
     if (!request.params[3].isNull()) {
         rbf = request.params[3].isTrue();
     }
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, request.params[4], &output_pubkeys);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, chainman.ActiveChain().Tip(), request.params[4], &output_pubkeys);
 
     // Make a blank psbt
     PartiallySignedTransaction psbtx(rawTx);
@@ -2269,6 +2275,8 @@ static RPCHelpMan rawblindrawtransaction()
                 RPCExamples{""},
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
+    NodeContext& node = EnsureAnyNodeContext(request.context);
+    ChainstateManager& chainman = EnsureChainman(node);
     std::vector<unsigned char> txData(ParseHexV(request.params[0], "argument 1"));
     CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
     CMutableTransaction tx;
@@ -2307,7 +2315,7 @@ static RPCHelpMan rawblindrawtransaction()
             "Invalid parameter: one (potentially empty) input asset blind for each input must be provided");
     }
 
-    const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    const auto& fedpegscripts = GetValidFedpegScripts(chainman.ActiveChain().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
 
     std::vector<CAmount> input_amounts;
     std::vector<uint256> input_blinds;

@@ -58,15 +58,7 @@ void RegenerateCommitments(CBlock& block, ChainstateManager& chainman)
     tx.witness.vtxoutwit.erase(tx.witness.vtxoutwit.begin() + GetWitnessCommitmentIndex(block));
     block.vtx.at(0) = MakeTransactionRef(tx);
 
-    CBlockIndex* prev_block;
-    {
-        // TODO: Temporary scope to check correctness of refactored code.
-        // Should be removed manually after merge of
-        // https://github.com/bitcoin/bitcoin/pull/20158
-        LOCK(::cs_main);
-        assert(std::addressof(g_chainman.m_blockman) == std::addressof(chainman.m_blockman));
-        prev_block = chainman.m_blockman.LookupBlockIndex(block.hashPrevBlock);
-    }
+    CBlockIndex* prev_block = WITH_LOCK(::cs_main, return chainman.m_blockman.LookupBlockIndex(block.hashPrevBlock));
     GenerateCoinbaseCommitment(block, prev_block, Params().GetConsensus());
 
     block.hashMerkleRoot = BlockMerkleRoot(block);
@@ -139,7 +131,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vTxSigOpsCost.push_back(-1); // updated at end
 
     LOCK2(cs_main, m_mempool.cs);
-    assert(std::addressof(*::ChainActive().Tip()) == std::addressof(*m_chainstate.m_chain.Tip()));
     CBlockIndex* pindexPrev = m_chainstate.m_chain.Tip();
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
@@ -169,7 +160,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     fIncludeWitness = IsWitnessEnabled(pindexPrev, chainparams.GetConsensus());
 
     if (IsDynaFedEnabled(pindexPrev, chainparams.GetConsensus())) {
-        const DynaFedParamEntry current_params = ComputeNextBlockCurrentParameters(::ChainActive().Tip(), chainparams.GetConsensus());
+        const DynaFedParamEntry current_params = ComputeNextBlockCurrentParameters(m_chainstate.m_chain.Tip(), chainparams.GetConsensus());
         const DynaFedParams block_params(current_params, proposed_entry ? *proposed_entry : DynaFedParamEntry());
         pblock->m_dynafed_params = block_params;
         nBlockWeight += ::GetSerializeSize(block_params, PROTOCOL_VERSION)*WITNESS_SCALE_FACTOR;
@@ -234,7 +225,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
 
     BlockValidationState state;
-    assert(std::addressof(::ChainstateActive()) == std::addressof(m_chainstate));
     if (!TestBlockValidity(state, chainparams, m_chainstate, *pblock, pindexPrev, false, false)) {
         throw std::runtime_error(strprintf("%s: TestBlockValidity failed: %s", __func__, state.ToString()));
     }

@@ -804,7 +804,8 @@ static RPCHelpMan tweakfedpegscript()
         throw JSONRPCError(RPC_TYPE_ERROR, "the first argument must be a hex string");
     }
 
-    CScript fedpegscript = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */).front().second;
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
+    CScript fedpegscript = GetValidFedpegScripts(chainman.ActiveChain().Tip(), Params().GetConsensus(), true /* nextblock_validation */).front().second;
 
     if (!request.params[1].isNull()) {
         if (IsHex(request.params[1].get_str())) {
@@ -870,7 +871,8 @@ static RPCHelpMan getpakinfo()
     LOCK(cs_main);
 
     UniValue ret(UniValue::VOBJ);
-    CPAKList paklist = GetActivePAKList(::ChainActive().Tip(), Params().GetConsensus());
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
+    CPAKList paklist = GetActivePAKList(chainman.ActiveChain().Tip(), Params().GetConsensus());
     ret.pushKV("block_paklist", FormatPAKList(paklist));
 
     return ret;

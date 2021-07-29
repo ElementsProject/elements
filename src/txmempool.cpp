@@ -516,7 +516,6 @@ void CTxMemPool::removeForReorg(CChainState& active_chainstate, int flags)
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->GetTx();
         LockPoints lp = it->GetLockPoints();
-        assert(std::addressof(::ChainstateActive()) == std::addressof(active_chainstate));
         bool validLP =  TestLockPointValidity(active_chainstate.m_chain, &lp);
         CCoinsViewMemPool view_mempool(&active_chainstate.CoinsTip(), *this);
         if (!CheckFinalTx(active_chainstate.m_chain.Tip(), tx, flags)
@@ -670,13 +669,13 @@ void CTxMemPool::clear()
     _clear();
 }
 
-static void CheckInputsAndUpdateCoins(const CTxMemPoolEntry& entry, CCoinsViewCache& mempoolDuplicate, const int64_t spendheight, std::set<std::pair<uint256, COutPoint>>& setGlobalPeginsSpent)
+static void CheckInputsAndUpdateCoins(CChainState& active_chainstate, const CTxMemPoolEntry& entry, CCoinsViewCache& mempoolDuplicate, const int64_t spendheight, std::set<std::pair<uint256, COutPoint>>& setGlobalPeginsSpent)
 {
     CTransaction tx = entry.GetTx();
     TxValidationState dummy_state; // Not used. CheckTxInputs() should always pass
     CAmountMap fee_map;
     std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
-    const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    const auto& fedpegscripts = GetValidFedpegScripts(active_chainstate.m_chain.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
     bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, dummy_state, mempoolDuplicate, spendheight, fee_map, setPeginsSpent, NULL, false, true, fedpegscripts);
     assert(fCheckResult);
     UpdateCoins(tx, mempoolDuplicate, std::numeric_limits<int>::max());
@@ -703,10 +702,8 @@ void CTxMemPool::check(CChainState& active_chainstate) const
     uint64_t innerUsage = 0;
 
     CCoinsViewCache& active_coins_tip = active_chainstate.CoinsTip();
-    assert(std::addressof(::ChainstateActive().CoinsTip()) == std::addressof(active_coins_tip)); // TODO: REVIEW-ONLY, REMOVE IN FUTURE COMMIT
     CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(&active_coins_tip));
     const int64_t spendheight = active_chainstate.m_chain.Height() + 1;
-    assert(g_chainman.m_blockman.GetSpendHeight(mempoolDuplicate) == spendheight); // TODO: REVIEW-ONLY, REMOVE IN FUTURE COMMIT
 
     std::list<const CTxMemPoolEntry*> waitingOnDependants;
     // ELEMENTS:
@@ -786,7 +783,7 @@ void CTxMemPool::check(CChainState& active_chainstate) const
         if (fDependsWait)
             waitingOnDependants.push_back(&(*it));
         else {
-            CheckInputsAndUpdateCoins(*it, mempoolDuplicate, spendheight, setGlobalPeginsSpent);
+            CheckInputsAndUpdateCoins(active_chainstate, *it, mempoolDuplicate, spendheight, setGlobalPeginsSpent);
         }
     }
     unsigned int stepsSinceLastRemove = 0;
@@ -798,7 +795,7 @@ void CTxMemPool::check(CChainState& active_chainstate) const
             stepsSinceLastRemove++;
             assert(stepsSinceLastRemove < waitingOnDependants.size());
         } else {
-            CheckInputsAndUpdateCoins(*entry, mempoolDuplicate, spendheight, setGlobalPeginsSpent);
+            CheckInputsAndUpdateCoins(active_chainstate, *entry, mempoolDuplicate, spendheight, setGlobalPeginsSpent);
             stepsSinceLastRemove = 0;
         }
     }

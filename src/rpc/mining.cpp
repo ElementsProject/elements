@@ -121,7 +121,6 @@ static bool GenerateBlock(ChainstateManager& chainman, CBlock& block, uint64_t& 
 
     {
         LOCK(cs_main);
-        CHECK_NONFATAL(std::addressof(::ChainActive()) == std::addressof(chainman.ActiveChain()));
         IncrementExtraNonce(&block, chainman.ActiveChain().Tip(), extra_nonce);
     }
 
@@ -167,7 +166,6 @@ static UniValue generateBlocks(ChainstateManager& chainman, const CTxMemPool& me
 
     {   // Don't keep cs_main locked
         LOCK(cs_main);
-        CHECK_NONFATAL(std::addressof(::ChainActive()) == std::addressof(chainman.ActiveChain()));
         nHeight = chainman.ActiveChain().Height();
         nHeightEnd = nHeight+nGenerate;
     }
@@ -1300,6 +1298,8 @@ static RPCHelpMan getnewblockhex()
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
+
     int required_wait = !request.params[0].isNull() ? request.params[0].get_int() : 0;
     if (required_wait < 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "min_tx_age must be non-negative.");
@@ -1308,7 +1308,7 @@ static RPCHelpMan getnewblockhex()
     // Construct proposed parameter entry, if any
     DynaFedParamEntry proposed;
     if (!request.params[1].isNull()) {
-        if (!IsDynaFedEnabled(::ChainActive().Tip(), Params().GetConsensus())) {
+        if (!IsDynaFedEnabled(chainman.ActiveChain().Tip(), Params().GetConsensus())) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Dynamic federations is not active on this network. Proposed parameters are not needed.");
         }
 
@@ -1356,7 +1356,7 @@ static RPCHelpMan getnewblockhex()
     CScript feeDestinationScript = Params().GetConsensus().mandatory_coinbase_destination;
     if (feeDestinationScript == CScript()) feeDestinationScript = CScript() << OP_TRUE;
     const NodeContext& node = EnsureAnyNodeContext(request.context);
-    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(::ChainstateActive(), *node.mempool, Params()).CreateNewBlock(feeDestinationScript, std::chrono::seconds(required_wait), &proposed, data_commitment.empty() ? nullptr : &data_commitment));
+    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainman.ActiveChainstate(), *node.mempool, Params()).CreateNewBlock(feeDestinationScript, std::chrono::seconds(required_wait), &proposed, data_commitment.empty() ? nullptr : &data_commitment));
     if (!pblocktemplate.get()) {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
     }
@@ -1365,7 +1365,7 @@ static RPCHelpMan getnewblockhex()
         // IncrementExtraNonce sets coinbase flags and builds merkle tree
         LOCK(cs_main);
         unsigned int nExtraNonce = 0;
-        IncrementExtraNonce(&pblocktemplate->block, ::ChainActive().Tip(), nExtraNonce);
+        IncrementExtraNonce(&pblocktemplate->block, chainman.ActiveChain().Tip(), nExtraNonce);
     }
 
     // If WSH(OP_TRUE) block, fill in witness
@@ -1718,13 +1718,13 @@ static RPCHelpMan testproposedblock()
     if (mi != chainman.BlockIndex().end())
         throw JSONRPCError(RPC_VERIFY_ERROR, "already have block");
 
-    CBlockIndex* const pindexPrev = ::ChainActive().Tip();
+    CBlockIndex* const pindexPrev = chainman.ActiveChain().Tip();
     // TestBlockValidity only supports blocks built on the current Tip
     if (block.hashPrevBlock != pindexPrev->GetBlockHash())
         throw JSONRPCError(RPC_VERIFY_ERROR, "proposal was not based on our best chain");
 
     BlockValidationState state;
-    if (!TestBlockValidity(state, Params(), ::ChainstateActive(), block, pindexPrev, false, true) || !state.IsValid()) {
+    if (!TestBlockValidity(state, Params(), chainman.ActiveChainstate(), block, pindexPrev, false, true) || !state.IsValid()) {
         std::string strRejectReason = state.GetRejectReason();
         if (strRejectReason.empty())
             throw JSONRPCError(RPC_VERIFY_ERROR, state.IsInvalid() ? "Block proposal was invalid" : "Error checking block proposal");

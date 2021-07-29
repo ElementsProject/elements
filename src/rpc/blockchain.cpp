@@ -86,7 +86,6 @@ ChainstateManager& EnsureChainman(const NodeContext& node)
     if (!node.chainman) {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Node chainman not found");
     }
-    WITH_LOCK(::cs_main, CHECK_NONFATAL(std::addressof(g_chainman) == std::addressof(*node.chainman)));
     return *node.chainman;
 }
 
@@ -1589,7 +1588,7 @@ RPCHelpMan getblockchaininfo()
         CScript sign_block_script = chainparams.GetConsensus().signblockscript;
         obj.pushKV("signblock_asm", ScriptToAsmStr(sign_block_script));
         obj.pushKV("signblock_hex", HexStr(sign_block_script));
-        if (!IsDynaFedEnabled(::ChainActive().Tip(), chainparams.GetConsensus())) {
+        if (!IsDynaFedEnabled(tip, chainparams.GetConsensus())) {
             obj.pushKV("current_signblock_asm", ScriptToAsmStr(sign_block_script));
             obj.pushKV("current_signblock_hex", HexStr(sign_block_script));
             obj.pushKV("max_block_witness", (uint64_t)chainparams.GetConsensus().max_block_signature_size);
@@ -1599,7 +1598,7 @@ RPCHelpMan getblockchaininfo()
             }
             obj.pushKV("extension_space", arr);
         } else {
-            const DynaFedParamEntry entry = ComputeNextBlockFullCurrentParameters(::ChainActive().Tip(), chainparams.GetConsensus());
+            const DynaFedParamEntry entry = ComputeNextBlockFullCurrentParameters(tip, chainparams.GetConsensus());
             obj.pushKV("current_params_root", entry.CalculateRoot().GetHex());
             obj.pushKV("current_signblock_asm", ScriptToAsmStr(entry.m_signblockscript));
             obj.pushKV("current_signblock_hex", HexStr(entry.m_signblockscript));
@@ -1613,7 +1612,7 @@ RPCHelpMan getblockchaininfo()
             obj.pushKV("extension_space", arr);
             obj.pushKV("epoch_length", (uint64_t)chainparams.GetConsensus().dynamic_epoch_length);
             obj.pushKV("total_valid_epochs", (uint64_t)chainparams.GetConsensus().total_valid_epochs);
-            obj.pushKV("epoch_age", (uint64_t)(::ChainActive().Tip()->nHeight % chainparams.GetConsensus().dynamic_epoch_length));
+            obj.pushKV("epoch_age", (uint64_t)(tip->nHeight % chainparams.GetConsensus().dynamic_epoch_length));
         }
     }
 
@@ -2847,13 +2846,15 @@ static RPCHelpMan getsidechaininfo()
 {
     LOCK(cs_main);
 
+    NodeContext& node = EnsureAnyNodeContext(request.context);
+    ChainstateManager& chainman = EnsureChainman(node);
     const Consensus::Params& consensus = Params().GetConsensus();
     const uint256& parent_blockhash = Params().ParentGenesisBlockHash();
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("fedpegscript", HexStr(consensus.fedpegScript));
     // We use mempool_validation as true to show what is enforced for *next* block
-    std::vector<std::pair<CScript, CScript>> fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), consensus, true /* nextblock_validation */);
+    std::vector<std::pair<CScript, CScript>> fedpegscripts = GetValidFedpegScripts(chainman.ActiveChain().Tip(), consensus, true /* nextblock_validation */);
     UniValue fedpeg_prog_entries(UniValue::VARR);
     UniValue fedpeg_entries(UniValue::VARR);
     for (const auto& scripts : fedpegscripts) {

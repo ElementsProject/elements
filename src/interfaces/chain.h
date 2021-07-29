@@ -281,7 +281,9 @@ public:
     virtual void requestMempoolTransactions(Notifications& notifications) = 0;
 
 // ELEMENTS
+    virtual CBlockIndex* getTip() = 0;
     virtual MempoolAcceptResult testPeginClaimAcceptance(const CTransactionRef tx) = 0;
+    virtual bool testBlockValidity(BlockValidationState& state, const CChainParams& chainparams, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW, bool fCheckMerkleRoot) = 0;
 };
 
 //! Interface to let node manage chain clients (wallets, or maybe tools for

@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include <chain.h>
 #include <merkleblock.h>
 #include <primitives/bitcoin/merkleblock.h>
 #include <primitives/bitcoin/transaction.h>
@@ -31,7 +32,7 @@ class SigningProvider;
  * @param  hashType      The signature hash type
  * @param result         JSON object where signed transaction results accumulate
  */
-void SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, const UniValue& hashType, UniValue& result);
+void SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, const UniValue& hashType, UniValue& result, const CBlockIndex* active_chain_tip);
 void SignTransactionResultToJSON(CMutableTransaction& mtx, bool complete, const std::map<COutPoint, Coin>& coins, const std::map<int, std::string>& input_errors, bool immature_pegin, UniValue& result);
 
 /**
@@ -46,13 +47,13 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
 /** Create a transaction from univalue parameters. If (and only if)
     output_pubkeys_out is null, the "nonce hack" of storing Confidential
     Assets output pubkeys in nonces will be used. */
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const UniValue& assets_in, std::vector<CPubKey>* output_pubkeys_out = nullptr, bool allow_peg_in = true);
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const CBlockIndex* active_chain_tip, const UniValue& assets_in, std::vector<CPubKey>* output_pubkeys_out = nullptr, bool allow_peg_in = true);
 
 /** Create a peg-in input */
-void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, CTransactionRef& tx_btc, CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData);
-void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, Sidechain::Bitcoin::CTransactionRef& tx_btc, Sidechain::Bitcoin::CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData);
+void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, CTransactionRef& tx_btc, CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData, const CBlockIndex* active_chain_tip);
+void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, Sidechain::Bitcoin::CTransactionRef& tx_btc, Sidechain::Bitcoin::CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData, const CBlockIndex* active_chain_tip);
 
 /** Check a peg-in input against the current fedpeg parameters */
-bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, std::map<int, std::string>& input_errors);
+bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, const CBlockIndex* active_chain_tip, std::map<int, std::string>& input_errors);
 
 #endif // BITCOIN_RPC_RAWTRANSACTION_UTIL_H

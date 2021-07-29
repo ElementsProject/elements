@@ -63,6 +63,8 @@
 
 using interfaces::FoundBlock;
 
+ChainstateManager& EnsureAnyChainman(const std::any& context); // ELEMENTS: from rpc/blockchain.cpp
+
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
 static const std::string HELP_REQUIRING_PASSPHRASE{"\nRequires wallet passphrase to be set with walletpassphrase call if wallet is encrypted.\n"};
 
@@ -3474,7 +3476,7 @@ void FundTransaction(CWallet& wallet, CMutableTransaction& tx, CAmount& fee_out,
 
     // Check any existing inputs for peg-in data and add to external txouts if so
     // Fetch specified UTXOs from the UTXO set
-    const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    const auto& fedpegscripts = GetValidFedpegScripts(wallet.chain().getTip(), Params().GetConsensus(), true /* nextblock_validation */);
     std::map<COutPoint, Coin> coins;
     for (unsigned int i = 0; i < tx.vin.size(); ++i ) {
         const CTxIn& txin = tx.vin[i];
@@ -3712,7 +3714,7 @@ RPCHelpMan signrawtransactionwithwallet()
     // Script verification errors
     std::map<int, std::string> input_errors;
 
-    bool immature_pegin = ValidateTransactionPeginInputs(mtx, input_errors);
+    bool immature_pegin = ValidateTransactionPeginInputs(mtx, pwallet->chain().getTip(), input_errors);
     bool complete = pwallet->SignTransaction(mtx, coins, nHashType, input_errors);
     UniValue result(UniValue::VOBJ);
     SignTransactionResultToJSON(mtx, complete, coins, input_errors, immature_pegin, result);
@@ -4594,7 +4596,7 @@ static RPCHelpMan send()
             if (options.exists("replaceable")) {
                 rbf = options["replaceable"].get_bool();
             }
-            CMutableTransaction rawTx = ConstructTransaction(options["inputs"], request.params[0], options["locktime"], rbf, NullUniValue /* CA: assets_in */, nullptr /* output_pubkey_out */, true /* allow_peg_in */);
+            CMutableTransaction rawTx = ConstructTransaction(options["inputs"], request.params[0], options["locktime"], rbf, pwallet->chain().getTip(), NullUniValue /* CA: assets_in */, nullptr /* output_pubkey_out */, true /* allow_peg_in */);
             CCoinControl coin_control;
             // Automatically select coins, unless at least one is manually selected. Can
             // be overridden by options.add_inputs.
@@ -5038,7 +5040,7 @@ static RPCHelpMan walletcreatefundedpsbt()
     // It's hard to control the behavior of FundTransaction, so we will wait
     //   until after it's done, then extract the blinding keys from the output
     //   nonces.
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, NullUniValue /* CA: assets_in */, nullptr /* output_pubkeys_out */, true /* allow_peg_in */);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, pwallet->chain().getTip(), NullUniValue /* CA: assets_in */, nullptr /* output_pubkeys_out */, true /* allow_peg_in */);
     CCoinControl coin_control;
     // Automatically select coins, unless at least one is manually selected. Can
     // be overridden by options.add_inputs.
@@ -5271,8 +5273,6 @@ static RPCHelpMan signblock()
     if (!DecodeHexBlk(block, request.params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
 
-    ChainstateManager& chainman = g_chainman; // FIXME avoid using this global, see #19413
-
     LegacyScriptPubKeyMan* spk_man = pwallet->GetLegacyScriptPubKeyMan();
     if (!spk_man) {
         throw JSONRPCError(RPC_WALLET_ERROR, "This type of wallet does not support this command");
@@ -5281,17 +5281,16 @@ static RPCHelpMan signblock()
     {
         LOCK(cs_main);
         uint256 hash = block.GetHash();
-        BlockMap::iterator mi = chainman.BlockIndex().find(hash);
-        if (mi != chainman.BlockIndex().end())
+        if (pwallet->chain().hasBlocks(hash, 0, std::nullopt))
             throw JSONRPCError(RPC_VERIFY_ERROR, "already have block");
 
-        CBlockIndex* const pindexPrev = ::ChainActive().Tip();
+        CBlockIndex* const pindexPrev = wallet->chain().getTip();
         // TestBlockValidity only supports blocks built on the current Tip
         if (block.hashPrevBlock != pindexPrev->GetBlockHash())
             throw JSONRPCError(RPC_VERIFY_ERROR, "proposal was not based on our best chain");
 
         BlockValidationState state;
-        if (!TestBlockValidity(state, Params(), ::ChainstateActive(), block, pindexPrev, false, true) || !state.IsValid()) {
+        if (!wallet->chain().testBlockValidity(state, Params(), block, pindexPrev, false, true) || !state.IsValid()) {
             std::string strRejectReason = state.GetRejectReason();
             if (strRejectReason.empty())
                 throw JSONRPCError(RPC_VERIFY_ERROR, state.IsInvalid() ? "Block proposal was invalid" : "Error checking block proposal");
@@ -5377,11 +5376,11 @@ static RPCHelpMan getpeginaddress()
     spk_man->AddCScript(dest_script);
 
     // Get P2CH deposit address on mainchain from most recent fedpegscript.
-    const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    const auto& fedpegscripts = GetValidFedpegScripts(pwallet->chain().getTip(), Params().GetConsensus(), true /* nextblock_validation */);
     CTxDestination mainchain_dest(WitnessV0ScriptHash(calculate_contract(fedpegscripts.front().second, dest_script)));
     // P2SH-wrapped is the only valid choice for non-dynafed chains but still an
     // option for dynafed-enabled ones as well
-    if (!IsDynaFedEnabled(::ChainActive().Tip(), Params().GetConsensus()) ||
+    if (!IsDynaFedEnabled(pwallet->chain().getTip(), Params().GetConsensus()) ||
                 fedpegscripts.front().first.IsPayToScriptHash()) {
         mainchain_dest = ScriptHash(GetScriptForDestination(mainchain_dest));
     }
@@ -5769,7 +5768,7 @@ static RPCHelpMan sendtomainchain_pak()
         subtract_fee = request.params[2].get_bool();
     }
 
-    CPAKList paklist = GetActivePAKList(::ChainActive().Tip(), Params().GetConsensus());
+    CPAKList paklist = GetActivePAKList(pwallet->chain().getTip(), Params().GetConsensus());
     if (paklist.IsReject()) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pegout freeze is under effect to aid a pak transition to a new list. Please consult the network operator.");
     }
@@ -5994,7 +5993,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     CMutableTransaction mtx;
 
     // Construct pegin input
-    CreatePegInInput(mtx, 0, txBTCRef, merkleBlock, claim_scripts, txData, txOutProofData);
+    CreatePegInInput(mtx, 0, txBTCRef, merkleBlock, claim_scripts, txData, txOutProofData, wallet->chain().getTip());
 
     // Manually construct peg-in transaction, sign it, and send it off.
     // Decrement the output value as much as needed given the total vsize to
@@ -6128,7 +6127,7 @@ static RPCHelpMan claimpegin()
 
     LOCK(pwallet->cs_wallet);
 
-    if (::ChainstateActive().IsInitialBlockDownload()) {
+    if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Peg-ins cannot be completed during initial sync or reindexing.");
     }
 
@@ -6359,7 +6358,7 @@ static RPCHelpMan blindrawtransaction()
 
     LOCK(pwallet->cs_wallet);
 
-    const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    const auto& fedpegscripts = GetValidFedpegScripts(pwallet->chain().getTip(), Params().GetConsensus(), true /* nextblock_validation */);
 
     std::vector<uint256> input_blinds;
     std::vector<uint256> input_asset_blinds;
@@ -6948,7 +6947,7 @@ static RPCHelpMan generatepegoutproof()
     if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &onlinepubkey_secp, &onlinepubkeybytes[0], onlinepubkeybytes.size()))
         throw JSONRPCError(RPC_WALLET_ERROR, "Invalid online pubkey");
 
-    CPAKList paklist = GetActivePAKList(::ChainActive().Tip(), Params().GetConsensus());
+    CPAKList paklist = GetActivePAKList(pwallet->chain().getTip(), Params().GetConsensus());
     if (paklist.IsReject()) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pegout freeze is under effect to aid a pak transition to a new list. Please consult the network operator.");
     }

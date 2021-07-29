@@ -43,7 +43,7 @@ unsigned int GetPeginTxnOutputIndex(const T_tx& txn, const CScript& witnessProgr
 
 // Modifies an existing transaction input in-place to be a valid peg-in input, and inserts the witness if deemed valid.
 template<typename T_tx_ref, typename T_merkle_block>
-static void CreatePegInInputInner(CMutableTransaction& mtx, uint32_t input_idx, T_tx_ref& txBTCRef, T_merkle_block& merkleBlock, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData)
+static void CreatePegInInputInner(CMutableTransaction& mtx, uint32_t input_idx, T_tx_ref& txBTCRef, T_merkle_block& merkleBlock, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData, const CBlockIndex* active_chain_tip)
 {
     if ((mtx.vin.size() > input_idx && !mtx.vin[input_idx].scriptSig.empty()) || (mtx.witness.vtxinwit.size() > input_idx && !mtx.witness.vtxinwit[input_idx].IsNull())) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Attempting to add a peg-in to an input that already has a scriptSig or witness");
@@ -79,7 +79,7 @@ static void CreatePegInInputInner(CMutableTransaction& mtx, uint32_t input_idx, 
 
     CScript witness_script;
     unsigned int nOut = txBTCRef->vout.size();
-    const auto fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    const auto fedpegscripts = GetValidFedpegScripts(active_chain_tip, Params().GetConsensus(), true /* nextblock_validation */);
     for (const CScript& script : claim_scripts) {
         nOut = GetPeginTxnOutputIndex(*txBTCRef, script, fedpegscripts);
         if (nOut != txBTCRef->vout.size()) {
@@ -134,16 +134,16 @@ static void CreatePegInInputInner(CMutableTransaction& mtx, uint32_t input_idx, 
     mtx.witness.vtxinwit[input_idx] = txinwit;
 }
 
-void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, CTransactionRef& tx_btc, CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData)
+void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, CTransactionRef& tx_btc, CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData, const CBlockIndex* active_chain_tip)
 {
-    CreatePegInInputInner(mtx, input_idx, tx_btc, merkle_block, claim_scripts, txData, txOutProofData);
+    CreatePegInInputInner(mtx, input_idx, tx_btc, merkle_block, claim_scripts, txData, txOutProofData, active_chain_tip);
 }
-void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, Sidechain::Bitcoin::CTransactionRef& tx_btc, Sidechain::Bitcoin::CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData)
+void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, Sidechain::Bitcoin::CTransactionRef& tx_btc, Sidechain::Bitcoin::CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData, const CBlockIndex* active_chain_tip)
 {
-    CreatePegInInputInner(mtx, input_idx, tx_btc, merkle_block, claim_scripts, txData, txOutProofData);
+    CreatePegInInputInner(mtx, input_idx, tx_btc, merkle_block, claim_scripts, txData, txOutProofData, active_chain_tip);
 }
 
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const UniValue& assets_in, std::vector<CPubKey>* output_pubkeys_out, bool allow_peg_in)
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const CBlockIndex* active_chain_tip, const UniValue& assets_in, std::vector<CPubKey>* output_pubkeys_out, bool allow_peg_in)
 {
     if (outputs_in.isNull()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output argument must be non-null");
@@ -225,14 +225,14 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             if (Params().GetConsensus().ParentChainHasPow()) {
                 Sidechain::Bitcoin::CTransactionRef tx_btc;
                 Sidechain::Bitcoin::CMerkleBlock merkle_block;
-                CreatePegInInput(rawTx, idx, tx_btc, merkle_block, claim_scripts, ParseHex(pegin_tx.get_str()), ParseHex(pegin_tx_proof.get_str()));
+                CreatePegInInput(rawTx, idx, tx_btc, merkle_block, claim_scripts, ParseHex(pegin_tx.get_str()), ParseHex(pegin_tx_proof.get_str()), active_chain_tip);
                 if (!CheckParentProofOfWork(merkle_block.header.GetHash(), merkle_block.header.nBits, Params().GetConsensus())) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
                 }
             } else {
                 CTransactionRef tx_btc;
                 CMerkleBlock merkle_block;
-                CreatePegInInput(rawTx, idx, tx_btc, merkle_block, claim_scripts, ParseHex(pegin_tx.get_str()), ParseHex(pegin_tx_proof.get_str()));
+                CreatePegInInput(rawTx, idx, tx_btc, merkle_block, claim_scripts, ParseHex(pegin_tx.get_str()), ParseHex(pegin_tx_proof.get_str()), active_chain_tip);
                 if (!CheckProofSignedParent(merkle_block.header, Params().GetConsensus())) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
                 }
@@ -503,9 +503,9 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
 }
 
 // ELEMENTS: check whether pegin inputs make sense against the current fedpegscript
-bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, std::map<int, std::string>& input_errors)
+bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, const CBlockIndex* active_chain_tip, std::map<int, std::string>& input_errors)
 {
-    const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    const auto& fedpegscripts = GetValidFedpegScripts(active_chain_tip, Params().GetConsensus(), true /* nextblock_validation */);
     // Track an immature peg-in that's otherwise valid, give warning
     bool immature_pegin = false;
 
@@ -525,14 +525,14 @@ bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, std::map<int
     return immature_pegin;
 }
 
-void SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, const UniValue& hashType, UniValue& result)
+void SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, const UniValue& hashType, UniValue& result, const CBlockIndex* active_chain_tip)
 {
     int nHashType = ParseSighashString(hashType);
 
     // Script verification errors
     std::map<int, std::string> input_errors;
 
-    bool immature_pegin = ValidateTransactionPeginInputs(mtx, input_errors);
+    bool immature_pegin = ValidateTransactionPeginInputs(mtx, active_chain_tip, input_errors);
     bool complete = SignTransaction(mtx, keystore, coins, nHashType, input_errors);
     SignTransactionResultToJSON(mtx, complete, coins, input_errors, immature_pegin, result);
 }
