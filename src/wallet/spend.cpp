@@ -899,8 +899,12 @@ bool CWallet::CreateTransactionInternal(
             // Reserve a new key pair from key pool. If it fails, provide a dummy
             // destination in case we don't need change.
             CTxDestination dest;
-            if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(dest, true)) {
-                error = _("Transaction needs a change address, but we can't generate it. Please call keypoolrefill first.");
+            std::string dest_err;
+            if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(dest, true, dest_err)) {
+                if (dest_err.empty()) {
+                    dest_err = "Please call keypoolrefill first";
+                }
+                error = strprintf(_("Transaction needs a change address, but we can't generate it. %s"), dest_err);
                 // ELEMENTS: We need to put a dummy destination here. Core uses an empty script
                 //  but we can't because empty scripts indicate fees (which trigger assertation
                 //  failures in `BlindTransaction`). We also set the index to -1, indicating
@@ -935,8 +939,12 @@ bool CWallet::CreateTransactionInternal(
             }
 
             CTxDestination dest;
-            if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(dest, true)) {
-                error = _("Keypool ran out, please call keypoolrefill first");
+            std::string dest_err;
+            if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(dest, true, dest_err)) {
+                if (dest_err.empty()) {
+                    dest_err = "Keypool ran out, please call keypoolrefill first";
+                }
+                error = strprintf(_("Transaction needs a change address, but we can't generate it. %s"), dest_err);
                 return false;
             }
 

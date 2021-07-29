@@ -182,7 +182,7 @@ public:
     }
 
     //! Reserve an address
-    bool GetReservedDestination(CTxDestination& pubkey, bool internal);
+    bool GetReservedDestination(CTxDestination& pubkey, bool internal, std::string& error);
     //! Attach a blinding pubkey to a reserved address
     void SetBlindingPubKey(const CPubKey& blinding_pubkey, CTxDestination& dest);
     //! Return reserved address
