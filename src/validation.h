@@ -25,7 +25,6 @@
 #include <sync.h>
 #include <txmempool.h> // For CTxMemPool::cs
 #include <txdb.h>
-#include <versionbits.h>
 #include <serialize.h>
 #include <util/check.h>
 #include <util/hasher.h>
@@ -341,13 +340,6 @@ bool TestBlockValidity(BlockValidationState& state,
                        CBlockIndex* pindexPrev,
                        bool fCheckPOW = true,
                        bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-
-/** Check whether witness commitments are required for a block, and whether to enforce NULLDUMMY (BIP 147) rules.
- *  Note that transaction witness validation rules are always enforced when P2SH is enforced. */
-bool IsWitnessEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params);
-
-/** Check whether Dynamic Federation has activated. */
-bool IsDynaFedEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params);
 
 /** Update uncommitted block structures (currently: only the witness reserved value). This is safe for submitted blocks. */
 void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams);
@@ -1025,13 +1017,6 @@ public:
 
 /** Global variable that points to the active block tree (protected by cs_main) */
 extern std::unique_ptr<CBlockTreeDB> pblocktree;
-
-extern VersionBitsCache versionbitscache;
-
-/**
- * Determine what nVersion a new block should use.
- */
-int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params);
 
 using FopenFn = std::function<FILE*(const fs::path&, const char*)>;
 

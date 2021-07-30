@@ -4,6 +4,7 @@
 
 #include <versionbits.h>
 #include <consensus/params.h>
+#include <util/system.h> // for gArgs
 
 // Elements: We use height, not time!
 int64_t GetBIP9Time(const CBlockIndex* pindexPrev, const Consensus::Params& params) {
@@ -200,29 +201,57 @@ public:
 
 } // namespace
 
-ThresholdState VersionBitsState(const CBlockIndex* pindexPrev, const Consensus::Params& params, Consensus::DeploymentPos pos, VersionBitsCache& cache)
+ThresholdState VersionBitsCache::State(const CBlockIndex* pindexPrev, const Consensus::Params& params, Consensus::DeploymentPos pos)
 {
-    return VersionBitsConditionChecker(pos).GetStateFor(pindexPrev, params, cache.caches[pos]);
+    LOCK(m_mutex);
+    return VersionBitsConditionChecker(pos).GetStateFor(pindexPrev, params, m_caches[pos]);
 }
 
-BIP9Stats VersionBitsStatistics(const CBlockIndex* pindexPrev, const Consensus::Params& params, Consensus::DeploymentPos pos)
+BIP9Stats VersionBitsCache::Statistics(const CBlockIndex* pindexPrev, const Consensus::Params& params, Consensus::DeploymentPos pos)
 {
     return VersionBitsConditionChecker(pos).GetStateStatisticsFor(pindexPrev, params);
 }
 
-int VersionBitsStateSinceHeight(const CBlockIndex* pindexPrev, const Consensus::Params& params, Consensus::DeploymentPos pos, VersionBitsCache& cache)
+int VersionBitsCache::StateSinceHeight(const CBlockIndex* pindexPrev, const Consensus::Params& params, Consensus::DeploymentPos pos)
 {
-    return VersionBitsConditionChecker(pos).GetStateSinceHeightFor(pindexPrev, params, cache.caches[pos]);
+    LOCK(m_mutex);
+    return VersionBitsConditionChecker(pos).GetStateSinceHeightFor(pindexPrev, params, m_caches[pos]);
 }
 
-uint32_t VersionBitsMask(const Consensus::Params& params, Consensus::DeploymentPos pos)
+uint32_t VersionBitsCache::Mask(const Consensus::Params& params, Consensus::DeploymentPos pos)
 {
     return VersionBitsConditionChecker(pos).Mask(params);
 }
 
+int32_t VersionBitsCache::ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params)
+{
+    LOCK(m_mutex);
+    int32_t nVersion = VERSIONBITS_TOP_BITS;
+
+    for (int i = 0; i < (int)Consensus::MAX_VERSION_BITS_DEPLOYMENTS; i++) {
+        Consensus::DeploymentPos pos = static_cast<Consensus::DeploymentPos>(i);
+        ThresholdState state = VersionBitsConditionChecker(pos).GetStateFor(pindexPrev, params, m_caches[pos]);
+        if (state == ThresholdState::LOCKED_IN || state == ThresholdState::STARTED) {
+            nVersion |= Mask(params, pos);
+        }
+    }
+
+    // Undo default signalling behavior for dynafed unless explicitly enabled.
+    if (!gArgs.GetBoolArg("-con_dyna_deploy_signal", false)) {
+        auto dynafed = Consensus::DeploymentPos::DEPLOYMENT_DYNA_FED;
+        int bit = params.vDeployments[dynafed].bit;
+        if (bit > 0 && bit < VERSIONBITS_NUM_BITS) {
+            nVersion &= ~Mask(params, dynafed);
+        }
+    }
+
+    return nVersion;
+}
+
 void VersionBitsCache::Clear()
 {
+    LOCK(m_mutex);
     for (unsigned int d = 0; d < Consensus::MAX_VERSION_BITS_DEPLOYMENTS; d++) {
-        caches[d].clear();
+        m_caches[d].clear();
     }
 }

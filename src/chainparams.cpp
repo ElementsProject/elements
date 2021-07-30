@@ -7,12 +7,12 @@
 
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
+#include <deploymentinfo.h>
 #include <hash.h> // for signet block challenge hash
 #include <issuance.h>
 #include <primitives/transaction.h>
 #include <util/system.h>
 #include <crypto/sha256.h>
-#include <versionbitsinfo.h>
 
 #include <assert.h>
 

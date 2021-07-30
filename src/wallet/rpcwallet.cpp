@@ -9,6 +9,7 @@
 #include <block_proof.h>
 #include <consensus/validation.h>
 #include <core_io.h>
+#include <deploymentstatus.h>
 #include <interfaces/chain.h>
 #include <key_io.h>
 #include <mainchainrpc.h>
@@ -5415,7 +5416,7 @@ static RPCHelpMan getpeginaddress()
     CTxDestination mainchain_dest(WitnessV0ScriptHash(calculate_contract(fedpegscripts.front().second, dest_script)));
     // P2SH-wrapped is the only valid choice for non-dynafed chains but still an
     // option for dynafed-enabled ones as well
-    if (!IsDynaFedEnabled(pwallet->chain().getTip(), Params().GetConsensus()) ||
+    if (!DeploymentActiveAfter(pwallet->chain().getTip(), Params().GetConsensus(), Consensus::DEPLOYMENT_DYNA_FED) ||
                 fedpegscripts.front().first.IsPayToScriptHash()) {
         mainchain_dest = ScriptHash(GetScriptForDestination(mainchain_dest));
     }

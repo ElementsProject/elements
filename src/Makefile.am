@@ -151,6 +151,8 @@ BITCOIN_CORE_H = \
   core_memusage.h \
   cuckoocache.h \
   dbwrapper.h \
+  deploymentinfo.h \
+  deploymentstatus.h \
   dynafed.h \
   external_signer.h \
   flatfile.h \
@@ -285,7 +287,6 @@ BITCOIN_CORE_H = \
   validation.h \
   validationinterface.h \
   versionbits.h \
-  versionbitsinfo.h \
   wallet/bdb.h \
   wallet/coincontrol.h \
   wallet/coinselection.h \
@@ -345,6 +346,7 @@ libbitcoin_server_a_SOURCES = \
   consensus/tx_verify.cpp \
   dynafed.cpp \
   dbwrapper.cpp \
+  deploymentstatus.cpp \
   flatfile.cpp \
   httprpc.cpp \
   httpserver.cpp \
@@ -579,6 +581,7 @@ libbitcoin_common_a_SOURCES = \
   compressor.cpp \
   core_read.cpp \
   core_write.cpp \
+  deploymentinfo.cpp \
   external_signer.cpp \
   init/common.cpp \
   issuance.cpp \
@@ -602,7 +605,6 @@ libbitcoin_common_a_SOURCES = \
   script/sign.cpp \
   script/signingprovider.cpp \
   script/standard.cpp \
-  versionbitsinfo.cpp \
   warnings.cpp \
   $(BITCOIN_CORE_H)
 
