@@ -300,13 +300,13 @@ void OverviewPage::setWalletModel(WalletModel *model)
 
 void OverviewPage::changeEvent(QEvent* e)
 {
-#ifdef Q_OS_MACOS
     if (e->type() == QEvent::PaletteChange) {
         QIcon icon = m_platform_style->SingleColorIcon(QStringLiteral(":/icons/warning"));
         ui->labelTransactionsStatus->setIcon(icon);
         ui->labelWalletStatus->setIcon(icon);
     }
-#endif
+
+    QWidget::changeEvent(e);
 }
 
 void OverviewPage::updateDisplayUnit()

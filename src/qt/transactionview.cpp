@@ -246,7 +246,6 @@ void TransactionView::setModel(WalletModel *_model)
 
 void TransactionView::changeEvent(QEvent* e)
 {
-#ifdef Q_OS_MACOS
     if (e->type() == QEvent::PaletteChange) {
         watchOnlyWidget->setItemIcon(
             TransactionFilterProxy::WatchOnlyFilter_Yes,
@@ -255,7 +254,8 @@ void TransactionView::changeEvent(QEvent* e)
             TransactionFilterProxy::WatchOnlyFilter_No,
             m_platform_style->SingleColorIcon(QStringLiteral(":/icons/eye_minus")));
     }
-#endif
+
+    QWidget::changeEvent(e);
 }
 
 void TransactionView::chooseDate(int idx)
