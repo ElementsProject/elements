@@ -309,6 +309,7 @@ BASE_SCRIPTS = [
     'mempool_unbroadcast.py',
     # ELEMENTS: need to point past versions at our own release server
     #'mempool_compatibility.py',
+    'mempool_accept_wtxid.py',
     'rpc_deriveaddresses.py',
     'rpc_deriveaddresses.py --usecli',
     'p2p_ping.py',
