@@ -127,11 +127,14 @@ public:
     }
 
     std::string operator()(const CNoDestination& no) const { return {}; }
-    std::string operator()(const NullData& null) const { return {}; }
+    std::string operator()(const NullData& null) const { return "null"; }
 };
 
 CTxDestination DecodeDestination(const std::string& str, const CChainParams& params, const bool for_parent, std::string& error_str)
 {
+    // ELEMENTS: special case nulldata as "null"
+    if (str == "null") return NullData{};
+
     std::vector<unsigned char> data;
     size_t pk_size = CPubKey::COMPRESSED_SIZE;
     uint160 hash;
