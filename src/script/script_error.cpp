@@ -127,6 +127,8 @@ std::string ScriptErrorString(const ScriptError serror)
             return "Arithmetic opcodes expect 8 bytes operands";
         case SCRIPT_ERR_ARITHMETIC64:
             return "Arithmetic opcode error";
+        case SCRIPT_ERR_ECMULTVERIFYFAIL:
+            return "EC scalar mult verify fail";
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;

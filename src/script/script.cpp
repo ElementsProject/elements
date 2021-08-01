@@ -181,6 +181,11 @@ std::string GetOpName(opcodetype opcode)
     case OP_SCRIPTNUMTOLE64        : return "OP_SCRIPTNUMTOLE64";
     case OP_LE64TOSCRIPTNUM        : return "OP_LE64TOSCRIPTNUM";
     case OP_LE32TOLE64             : return "OP_LE32TOLE64";
+
+    // Crypto opcodes
+    case OP_ECMULSCALARVERIFY      : return "OP_ECMULSCALARVERIFY";
+    case OP_TWEAKVERIFY            : return "OP_TWEAKVERIFY";
+
     case OP_INVALIDOPCODE          : return "OP_INVALIDOPCODE";
 
     default:

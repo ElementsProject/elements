@@ -259,11 +259,15 @@ enum opcodetype
     OP_LE64TOSCRIPTNUM = 0xe1,
     OP_LE32TOLE64 = 0xe2,
 
+    // Crypto opcodes
+    OP_ECMULSCALARVERIFY = 0xe3,
+    OP_TWEAKVERIFY = 0xe4,
+
     OP_INVALIDOPCODE = 0xff,
 };
 
 // Maximum value that an opcode can be
-static const unsigned int MAX_OPCODE = OP_LE32TOLE64; // 0xe6
+static const unsigned int MAX_OPCODE = OP_TWEAKVERIFY; // 0xe4
 
 std::string GetOpName(opcodetype opcode);
 

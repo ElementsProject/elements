@@ -206,6 +206,9 @@ public:
 
     //! Derive BIP32 child pubkey.
     bool Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc, std::vector<unsigned char>* tweak = nullptr /* ELEMENTS: vector of key tweak values that are filled out if non-null */) const;
+
+    //! Verify that when this public key is tweaked with tweak, the result is res
+    bool TweakMulVerify(const CPubKey& res, const uint256& tweak) const;
 };
 
 class XOnlyPubKey
@@ -221,7 +224,7 @@ public:
      *
      * sigbytes must be exactly 64 bytes.
      */
-    bool VerifySchnorr(const uint256& msg, Span<const unsigned char> sigbytes) const;
+    bool VerifySchnorr(const Span<const unsigned char> msg, Span<const unsigned char> sigbytes) const;
     bool CheckPayToContract(const XOnlyPubKey& base, const uint256& hash, bool parity) const;
 
     const unsigned char& operator[](int pos) const { return *(m_keydata.begin() + pos); }
