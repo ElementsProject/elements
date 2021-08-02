@@ -149,9 +149,6 @@ BASE_SCRIPTS = [
     'wallet_abandonconflict.py --descriptors',
     # ELEMENTS: no transitions in Elements
     #'feature_csv_activation.py',
-    'rpc_rawtransaction.py',
-    'rpc_rawtransaction.py --legacy-wallet',
-    'rpc_rawtransaction.py --descriptors',
     'wallet_address_types.py --legacy-wallet',
     'wallet_address_types.py --descriptors',
     'feature_bip68_sequence.py',
@@ -197,6 +194,8 @@ BASE_SCRIPTS = [
     'feature_proxy.py',
     'rpc_signrawtransaction.py --legacy-wallet',
     'rpc_signrawtransaction.py --descriptors',
+    'rpc_rawtransaction.py --legacy-wallet',
+    'rpc_rawtransaction.py --descriptors',
     'wallet_groups.py --legacy-wallet',
     'p2p_addrv2_relay.py',
     'wallet_groups.py --descriptors',
