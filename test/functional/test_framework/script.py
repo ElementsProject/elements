@@ -239,6 +239,8 @@ OP_CHECKSIG = CScriptOp(0xac)
 OP_CHECKSIGVERIFY = CScriptOp(0xad)
 OP_CHECKMULTISIG = CScriptOp(0xae)
 OP_CHECKMULTISIGVERIFY = CScriptOp(0xaf)
+OP_CHECKSIGFROMSTACK = CScriptOp(0xc1)
+OP_CHECKSIGFROMSTACKVERIFY = CScriptOp(0xc2)
 
 # expansion
 OP_NOP1 = CScriptOp(0xb0)
@@ -295,6 +297,9 @@ OP_GREATERTHANOREQUAL64 = CScriptOp(0xdf)
 OP_SCRIPTNUMTOLE64 = CScriptOp(0xe0)
 OP_LE64TOSCRIPTNUM = CScriptOp(0xe1)
 OP_LE32TOLE64 = CScriptOp(0xe2)
+# Tapscript crypto opcodes
+OP_ECMULSCALARVERIFY = CScriptOp(0xe3)
+OP_TWEAKVERIFY = CScriptOp(0xe4)
 
 OP_INVALIDOPCODE = CScriptOp(0xff)
 
@@ -432,6 +437,22 @@ OPCODE_NAMES.update({
     OP_INSPECTNUMOUTPUTS: 'OP_INSPECTNUMOUTPUTS',
     OP_TXWEIGHT: 'OP_TXWEIGHT',
     OP_INVALIDOPCODE: 'OP_INVALIDOPCODE',
+    OP_CHECKSIGFROMSTACK: 'OP_CHECKSIGFROMSTACK',
+    OP_TWEAKVERIFY: 'OP_TWEAKVERIFY',
+    OP_ADD64: 'OP_ADD64',
+    OP_SUB64: 'OP_SUB64',
+    OP_MUL64: 'OP_MUL64',
+    OP_DIV64: 'OP_DIV64',
+    OP_LESSTHAN64: 'OP_LESSTHAN64',
+    OP_LESSTHANOREQUAL64: 'OP_LESSTHANOREQUAL64',
+    OP_GREATERTHAN64: 'OP_GREATERTHAN64',
+    OP_GREATERTHANOREQUAL64: 'OP_GREATERTHANOREQUAL64',
+    OP_NEG64: 'OP_NEG64',
+    OP_SCRIPTNUMTOLE64: 'OP_SCRIPTNUMTOLE64',
+    OP_LE64TOSCRIPTNUM: 'OP_LE64TOSCRIPTNUM',
+    OP_LE32TOLE64: 'OP_LE32TOLE64',
+    OP_CHECKSIGFROMSTACKVERIFY: 'OP_CHECKSIGFROMSTACKVERIFY',
+    OP_ECMULSCALARVERIFY: 'OP_ECMULSCALARVERIFY',
 })
 
 class CScriptInvalidError(Exception):
@@ -997,4 +1018,4 @@ def taproot_construct(pubkey, scripts=None):
     return TaprootInfo(CScript([OP_1, tweaked]), pubkey, negated + 0, tweak, leaves)
 
 def is_op_success(o):
-    return o == 80 or o == 98 or (o >= 137 and o <= 138) or (o >= 141 and o <= 142) or (o >= 149 and o <= 151) or (o >= 187 and o <= 191) or (o >= 233 and o <= 254)
+    return o == 80 or o == 98 or (o >= 137 and o <= 138) or (o >= 141 and o <= 142) or (o >= 149 and o <= 151) or (o >= 187 and o <= 191) or (o >= 229 and o <= 254)

@@ -11,7 +11,7 @@ from test_framework.util import BITCOIN_ASSET_BYTES, assert_raises_rpc_error, sa
 from test_framework.key import ECKey, ECPubKey, compute_xonly_pubkey, generate_privkey, sign_schnorr, tweak_add_privkey, tweak_add_pubkey, verify_schnorr
 from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, CTxOutNonce, CTxOutValue, CTxOutWitness, FromHex, ser_uint256, sha256, uint256_from_str
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.script import CScript, CScriptNum, CScriptOp, OP_0, OP_1, OP_2, OP_3, OP_4, OP_5, OP_6, OP_7, OP_ADD64, OP_AND, OP_CAT, OP_DIV64, OP_DROP, OP_DUP, OP_ELSE, OP_EQUAL, OP_EQUALVERIFY, OP_FALSE, OP_FROMALTSTACK, OP_GREATERTHAN64, OP_GREATERTHANOREQUAL64, OP_INSPECTINPUTASSET, OP_INSPECTINPUTISSUANCE, OP_INSPECTINPUTOUTPOINT, OP_INSPECTINPUTSCRIPTPUBKEY, OP_INSPECTINPUTSEQUENCE, OP_INSPECTINPUTVALUE, OP_INSPECTLOCKTIME, OP_INSPECTNUMINPUTS, OP_INSPECTNUMOUTPUTS, OP_INSPECTOUTPUTASSET, OP_INSPECTOUTPUTNONCE, OP_INSPECTOUTPUTSCRIPTPUBKEY, OP_INSPECTOUTPUTVALUE, OP_IF, OP_INSPECTVERSION, OP_INVERT, OP_LE32TOLE64, OP_LE64TOSCRIPTNUM, OP_LESSTHAN64, OP_LESSTHANOREQUAL64, OP_MUL64, OP_NEG64, OP_NOT, OP_NOTIF, OP_OR, OP_PUSHCURRENTINPUTINDEX, OP_SCRIPTNUMTOLE64, OP_SHA256FINALIZE, OP_SHA256INITIALIZE, OP_SHA256UPDATE, OP_SIZE, OP_SUB64, OP_SWAP, OP_TOALTSTACK, OP_TXWEIGHT, OP_VERIFY, OP_XOR, TaprootSignatureHash, taproot_construct, SIGHASH_DEFAULT, SIGHASH_ALL, SIGHASH_NONE, SIGHASH_SINGLE, SIGHASH_ANYONECANPAY
+from test_framework.script import CScript, CScriptNum, CScriptOp, OP_0, OP_1, OP_2, OP_3, OP_4, OP_5, OP_6, OP_7, OP_ADD64, OP_AND, OP_CAT, OP_CHECKSIGFROMSTACK, OP_DIV64, OP_DROP, OP_DUP, OP_ECMULSCALARVERIFY, OP_ELSE, OP_EQUAL, OP_EQUALVERIFY, OP_FALSE, OP_FROMALTSTACK, OP_GREATERTHAN64, OP_GREATERTHANOREQUAL64, OP_INSPECTINPUTASSET, OP_INSPECTINPUTISSUANCE, OP_INSPECTINPUTOUTPOINT, OP_INSPECTINPUTSCRIPTPUBKEY, OP_INSPECTINPUTSEQUENCE, OP_INSPECTINPUTVALUE, OP_INSPECTLOCKTIME, OP_INSPECTNUMINPUTS, OP_INSPECTNUMOUTPUTS, OP_INSPECTOUTPUTASSET, OP_INSPECTOUTPUTNONCE, OP_INSPECTOUTPUTSCRIPTPUBKEY, OP_INSPECTOUTPUTVALUE, OP_IF, OP_INSPECTVERSION, OP_LE32TOLE64, OP_LE64TOSCRIPTNUM, OP_LESSTHAN64, OP_LESSTHANOREQUAL64, OP_MUL64, OP_NEG64, OP_NOT, OP_INVERT, OP_NOTIF, OP_OR, OP_PUSHCURRENTINPUTINDEX, OP_SCRIPTNUMTOLE64, OP_SHA256FINALIZE, OP_SHA256INITIALIZE, OP_SHA256UPDATE, OP_SIZE, OP_SUB64, OP_SWAP, OP_TWEAKVERIFY, OP_TOALTSTACK, OP_TXWEIGHT, OP_VERIFY, OP_XOR, OP_XOR, TaprootSignatureHash, taproot_construct, SIGHASH_DEFAULT, SIGHASH_ALL, SIGHASH_NONE, SIGHASH_SINGLE, SIGHASH_ANYONECANPAY
 
 import os
 
@@ -495,6 +495,96 @@ class TapHashPeginTest(BitcoinTestFramework):
         # Overflow inputs
         self.tapscript_satisfy_test(CScript([le8(2**31), OP_LE64TOSCRIPTNUM, 2**31, OP_EQUAL]), fail = "Arithmetic opcode error")
 
+
+        self.log.info("Check Crypto opcodes")
+
+        res = bytes.fromhex("03a0434d9e47f3c86235477c7b1ae6ae5d3442d49b1943c2b752a68e2a47e247c7")
+        scalar = bytes.fromhex("000000000000000000000000000000000000000000000000000000000000000a")
+        g = bytes.fromhex("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+        self.tapscript_satisfy_test(CScript([OP_ECMULSCALARVERIFY, OP_1]), inputs = [res, g, scalar])
+
+        res = bytes.fromhex("032c0158d0f6df4881e99e65fbea21f27321d817f79ad39e08eaf4f16f1419bb0c")
+        scalar = bytes.fromhex("e0f47c124f228b97bbdc0e4398aac9788869b9fbbc193d5323fdad9570609de6")
+        g = bytes.fromhex("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+        self.tapscript_satisfy_test(CScript([OP_ECMULSCALARVERIFY, OP_1]), inputs = [res, g, scalar])
+
+        # test that other random values fail correctly
+        res = bytes.fromhex("032c0158d0f6df4881e99e65fbea21f27321d817f79ad39e08eaf4f16f1419bb0c")
+        scalar = bytes.fromhex("e0f47c124f228b97bbdc0e4398aac9788869b9fbbc193d5323fdad9570609de6")
+        g = bytes.fromhex("0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")# y co-ordinate mutated
+        self.tapscript_satisfy_test(CScript([OP_ECMULSCALARVERIFY, OP_1]), inputs = [res, g, scalar], fail="Public key is neither compressed or uncompressed")
+
+        invalid_full_pks_33 = [
+            "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81700" # invalid point on curve
+            ]
+        invalid_full_pks_non33 = [
+            "0979be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", # 33 byte without 0x02,0x03
+            "0462b31419b87d5e095e9d7532f92aea39c39735253a48fbdaff48441d5cf706f9a7a946ce481411e4034143e0acad4e79aecb2a8212ee5cca26a7cc5fe5b45881", # compressed
+            "62b31419b87d5e095e9d7532f92aea39c39735253a48fbdaff48441d5cf706f9", # x-only key
+            "0262b31419b87d5e095e9d7532f92aea39c39735253a48fbdaff48441d5cf706f9f9f9" # 34 byte key
+        ]
+        invalid_tweaks = [
+            "e07c124f228b97bbdc0e4398aac9788869b9fbbc193d5323fdad9570609de6", # non 32 byte hash
+            "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364143" # order + 2
+            ]
+        invalid_xonly_keys = [
+            "0379be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", # 33 byte valid key
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81700", # invalid point on curve
+            "0462b31419b87d5e095e9d7532f92aea39c39735253a48fbdaff48441d5cf706f9a7a946ce481411e4034143e0acad4e79aecb2a8212ee5cca26a7cc5fe5b45881", # compressed
+            "62b31419b87d5e095e9d7532f92aea39c39735253a48fbdaff48441d5cf706" # 31 byte x-only key
+        ]
+
+        valid_res = bytes.fromhex("032c0158d0f6df4881e99e65fbea21f27321d817f79ad39e08eaf4f16f1419bb0c")
+        valid_scalar = bytes.fromhex("e0f47c124f228b97bbdc0e4398aac9788869b9fbbc193d5323fdad9570609de6")
+        valid_g = bytes.fromhex("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+        valid_xonly_key = bytes.fromhex("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+
+        for invalid_tweak in invalid_tweaks:
+            self.tapscript_satisfy_test(CScript([OP_ECMULSCALARVERIFY, OP_1]), inputs = [valid_res, valid_g, bytes.fromhex(invalid_tweak)], fail="EC scalar mult verify fail")
+
+        self.tapscript_satisfy_test(CScript([OP_TWEAKVERIFY, OP_1]), inputs = [valid_res, bytes.fromhex(invalid_tweaks[1]), valid_xonly_key], fail="EC scalar mult verify fail")
+        self.tapscript_satisfy_test(CScript([OP_TWEAKVERIFY, OP_1]), inputs = [valid_res, bytes.fromhex(invalid_tweaks[0]), valid_xonly_key], fail="Public key is neither compressed or uncompressed")
+
+        for invalid_full_pk in invalid_full_pks_33:
+            self.tapscript_satisfy_test(CScript([OP_ECMULSCALARVERIFY, OP_1]), inputs = [bytes.fromhex(invalid_full_pk), valid_g, valid_scalar], fail="EC scalar mult verify fail")
+            self.tapscript_satisfy_test(CScript([OP_ECMULSCALARVERIFY, OP_1]), inputs = [valid_res, bytes.fromhex(invalid_full_pk), valid_scalar], fail="EC scalar mult verify fail")
+
+        for invalid_full_pk in invalid_full_pks_non33:
+            self.tapscript_satisfy_test(CScript([OP_ECMULSCALARVERIFY, OP_1]), inputs = [bytes.fromhex(invalid_full_pk), valid_g, valid_scalar], fail="Public key is neither compressed or uncompressed")
+            self.tapscript_satisfy_test(CScript([OP_ECMULSCALARVERIFY, OP_1]), inputs = [valid_res, bytes.fromhex(invalid_full_pk), valid_scalar], fail="Public key is neither compressed or uncompressed")
+
+        self.tapscript_satisfy_test(CScript([OP_TWEAKVERIFY, OP_1]), inputs = [valid_res, valid_scalar, bytes.fromhex(invalid_xonly_keys[0])], fail="Public key is neither compressed or uncompressed")
+        self.tapscript_satisfy_test(CScript([OP_TWEAKVERIFY, OP_1]), inputs = [valid_res, valid_scalar, bytes.fromhex(invalid_xonly_keys[1])], fail="EC scalar mult verify fail")
+        self.tapscript_satisfy_test(CScript([OP_TWEAKVERIFY, OP_1]), inputs = [valid_res, valid_scalar, bytes.fromhex(invalid_xonly_keys[2])], fail="Public key is neither compressed or uncompressed")
+        self.tapscript_satisfy_test(CScript([OP_TWEAKVERIFY, OP_1]), inputs = [valid_res, valid_scalar, bytes.fromhex(invalid_xonly_keys[3])], fail="Public key is neither compressed or uncompressed")
+
+        # Checksigfromstack tests
+        # 32 byte msg
+        def csfs_test(msg, mutute_sig = False, fail=None):
+            sec = generate_privkey()
+            msg = bytes.fromhex(msg)
+            pub = compute_xonly_pubkey(sec)[0]
+            sig = sign_schnorr(sec, msg)
+            if mutute_sig:
+                new_sig = sig[:63]
+                new_sig += (sig[63] ^ 0xff).to_bytes(1, 'little') # flip the last bit
+                sig = new_sig
+            self.tapscript_satisfy_test(CScript([msg, pub, OP_CHECKSIGFROMSTACK]), inputs = [sig], fail=fail)
+
+        csfs_test("e168c349d0d2499caf3a6d71734c743d517f94f8571fa52c04285b68deec1936")
+        csfs_test("Hello World!".encode('utf-8').hex())
+        csfs_test("Hello World!".encode('utf-8').hex(), fail="Invalid Schnorr signature", mutute_sig=True)
+        msg = bytes.fromhex("e168c349d0d2499caf3a6d71734c743d517f94f8571fa52c04285b68deec1936")
+        pub = bytes.fromhex("3f67e97da0df6931189cfb0072447da22707897bd5de04936a277ed7e00b35b3")
+        self.tapscript_satisfy_test(CScript([OP_0, msg, pub, OP_CHECKSIGFROMSTACK, OP_NOT]), inputs = [])
+        short_sig = bytes.fromhex("0102")
+        self.tapscript_satisfy_test(CScript([short_sig, msg, pub, OP_CHECKSIGFROMSTACK, OP_NOT]), inputs = [], fail="Invalid Schnorr signature size")
+
+        short_pub = bytes.fromhex("67e97da0df6931189cfb0072447da22707897bd5de04936a277ed7e00b35b3")
+        long_pub = bytes.fromhex("67e97da0df6931189cfb0072447da22707897bd5de04936a277ed7e00b35b30908")
+        sig = bytes.fromhex("3f67e97da0df6931189cfb0072447da22707897bd5de04936a277ed7e00b35b33f67e97da0df6931189cfb0072447da22707897bd5de04936a277ed7e00b35b3")
+        self.tapscript_satisfy_test(CScript([msg, short_pub, OP_CHECKSIGFROMSTACK]), inputs = [sig], fail="Public key version reserved for soft-fork upgrades")
+        self.tapscript_satisfy_test(CScript([msg, long_pub, OP_CHECKSIGFROMSTACK]), inputs = [sig], fail="Public key version reserved for soft-fork upgrades")
 
 if __name__ == '__main__':
     TapHashPeginTest().main()
