@@ -1298,6 +1298,61 @@ bool AppInitLockDataDirectory()
     return true;
 }
 
+/* This function checks that the RPC connection to the parent chain node
+ * can be attained, and is returning back reasonable answers.
+ */
+bool MainchainRPCCheck()
+{
+    // Check for working and valid rpc
+    // Retry until a non-RPC_IN_WARMUP result
+    while (true) {
+        try {
+            // The first thing we have to check is the version of the node.
+            UniValue params(UniValue::VARR);
+            UniValue reply = CallMainChainRPC("getnetworkinfo", params);
+            UniValue error = reply["error"];
+            if (!error.isNull()) {
+                // On the first call, it's possible to node is still in
+                // warmup; in that case, just wait and retry.
+                if (error["code"].get_int() == RPC_IN_WARMUP) {
+                    UninterruptibleSleep(std::chrono::milliseconds{1000});
+                    continue;
+                }
+                else {
+                    LogPrintf("ERROR: Mainchain daemon RPC check returned 'error' response.\n");
+                    return false;
+                }
+            }
+            UniValue result = reply["result"];
+            if (!result.isObject() || !result.get_obj()["version"].isNum() ||
+                    result.get_obj()["version"].get_int() < MIN_MAINCHAIN_NODE_VERSION) {
+                LogPrintf("ERROR: Parent chain daemon too old; need Bitcoin Core version 0.16.3 or newer.\n");
+                return false;
+            }
+
+            // Then check the genesis block to correspond to parent chain.
+            params.push_back(UniValue(0));
+            reply = CallMainChainRPC("getblockhash", params);
+            error = reply["error"];
+            if (!error.isNull()) {
+                LogPrintf("ERROR: Mainchain daemon RPC check returned 'error' response.\n");
+                return false;
+            }
+            result = reply["result"];
+            if (!result.isStr() || result.get_str() != Params().ParentGenesisBlockHash().GetHex()) {
+                LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?\n");
+                return false;
+            }
+        } catch (const std::runtime_error& re) {
+            LogPrintf("ERROR: Failure connecting to mainchain daemon RPC: %s\n", std::string(re.what()));
+            return false;
+        }
+
+        // Success
+        return true;
+    }
+}
+
 bool AppInitInterfaces(NodeContext& node)
 {
     node.chain = interfaces::MakeChain(node);
@@ -2078,29 +2133,34 @@ bool AppInitMain(const util::Ref& context, NodeContext& node, interfaces::BlockA
     // ELEMENTS:
     if (gArgs.GetBoolArg("-validatepegin", Params().GetConsensus().has_parent_chain)) {
         uiInterface.InitMessage(_("Awaiting mainchain RPC warmup").translated);
-    }
-    if (!MainchainRPCCheck(true)) { //Initial check only
-        const std::string err_msg = "ERROR: elements is set to verify pegins but cannot get a valid response from the mainchain daemon. Please check debug.log for more information.\n\nIf you haven't setup a bitcoind please get the latest stable version from https://bitcoincore.org/en/download/ or if you do not need to validate pegins set in your elements configuration validatepegin=0";
-        // We fail immediately if this node has RPC server enabled
-        if (gArgs.GetBoolArg("-server", false)) {
-            InitError(Untranslated(err_msg));
-            return false;
-        } else {
-            // Or gently warn the user, and continue
-            InitError(Untranslated(err_msg));
-            gArgs.SoftSetArg("-validatepegin", "0");
+        if (!MainchainRPCCheck()) {
+            const std::string err_msg = "ERROR: elements is set to verify pegins but cannot get a valid response from the mainchain daemon. Please check debug.log for more information.\n\nIf you haven't setup a bitcoind please get the latest stable version from https://bitcoincore.org/en/download/ or if you do not need to validate pegins set in your elements configuration validatepegin=0";
+            // We fail immediately if this node has RPC server enabled
+            if (gArgs.GetBoolArg("-server", false)) {
+                InitError(Untranslated(err_msg));
+                return false;
+            } else {
+                // Or gently warn the user, and continue
+                InitError(Untranslated(err_msg));
+                gArgs.SoftSetArg("-validatepegin", "0");
+            }
         }
     }
 
-    // Start the lightweight block re-evaluation scheduler thread
-    CScheduler::Function reevaluationLoop = [&node]{ node.reverification_scheduler->serviceQueue(); };
-    threadGroup.create_thread(std::bind(&TraceThread<CScheduler::Function>, "reevaluation_scheduler", reevaluationLoop));
-
-    CScheduler::Function f2 = std::bind(&MainchainRPCCheck, false);
-    unsigned int check_rpc_every = gArgs.GetArg("-recheckpeginblockinterval", 120);
-    if (check_rpc_every) {
-        node.reverification_scheduler->scheduleEvery(f2, std::chrono::seconds(check_rpc_every));
-    }
+    // Call ActivateBestChain every 30 seconds. This is almost always a
+    // harmless no-op. It is necessary in the unusual case where:
+    // (1) Our connection to bitcoind is lost, and
+    // (2) we build up a queue of blocks to validate in the meantime, and then
+    // (3) our connection to bitcoind is restored, but
+    // (4) nothing after that causes ActivateBestChain to be called, including
+    //     no further blocks arriving for us to validate.
+    // Unfortunately, this unusual case happens in the functional test suite.
+    node.reverification_scheduler->scheduleEvery([]{
+        BlockValidationState state;
+        if (!ActivateBestChain(state, Params())) {
+            LogPrintf("Failed to periodically activate best chain (%s)\n", state.ToString());
+        }
+    }, std::chrono::seconds{30});
 
     uiInterface.InitMessage(_("Done loading").translated);
 

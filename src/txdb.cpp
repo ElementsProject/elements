@@ -33,7 +33,7 @@ static const char DB_LAST_BLOCK = 'l';
 
 // ELEMENTS:
 static const char DB_PEGIN_FLAG = 'w';
-static const char DB_INVALID_BLOCK_Q = 'q';
+// static const char DB_INVALID_BLOCK_Q = 'q';  // No longer used, but avoid reuse.
 static const char DB_PAK = 'p';
 
 namespace {

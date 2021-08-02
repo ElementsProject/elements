@@ -983,8 +983,4 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
     return (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0);
 }
 
-// ELEMENTS:
-/** Check if bitcoind connection via RPC is correctly working*/
-bool MainchainRPCCheck(bool init);
-
 #endif // BITCOIN_VALIDATION_H
