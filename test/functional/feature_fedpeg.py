@@ -119,7 +119,6 @@ class FedPegTest(BitcoinTestFramework):
                 '-peginconfirmationdepth=10',
                 '-mainchainrpchost=127.0.0.1',
                 '-mainchainrpcport=%s' % rpc_port(n),
-                '-recheckpeginblockinterval=15', # Long enough to allow failure and repair before timeout
                 '-parentgenesisblockhash=%s' % self.parentgenesisblockhash,
                 '-parentpubkeyprefix=111',
                 '-parentscriptprefix=196',
