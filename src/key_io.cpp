@@ -19,6 +19,8 @@
 
 /// Maximum witness length for Bech32 addresses.
 static constexpr std::size_t BECH32_WITNESS_PROG_MAX_LEN = 40;
+/// Maximum witness length for Blech32 addresses. Note this does not include the extra 33-byte blinding key.
+static constexpr std::size_t BLECH32_WITNESS_PROG_MAX_LEN = 40;
 
 namespace
 {
@@ -77,7 +79,7 @@ public:
             bytes.insert(bytes.end(), id.begin(), id.end());
             ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, bytes.begin(), bytes.end());
             const std::string& hrp = for_parent ? m_params.ParentBlech32HRP() : m_params.Blech32HRP();
-            return blech32::Encode(hrp, data);
+            return blech32::Encode(blech32::Encoding::BLECH32, hrp, data);
         }
 
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
@@ -94,7 +96,7 @@ public:
             bytes.insert(bytes.end(), id.begin(), id.end());
             ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, bytes.begin(), bytes.end());
             const std::string& hrp = for_parent ? m_params.ParentBlech32HRP() : m_params.Blech32HRP();
-            return blech32::Encode(hrp, data);
+            return blech32::Encode(blech32::Encoding::BLECH32, hrp, data);
         }
 
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
@@ -114,7 +116,7 @@ public:
             bytes.insert(bytes.end(), id.program, id.program + id.length);
             ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, bytes.begin(), bytes.end());
             const std::string& hrp = for_parent ? m_params.ParentBlech32HRP() : m_params.Blech32HRP();
-            return blech32::Encode(hrp, data);
+            return blech32::Encode(blech32::Encoding::BLECH32M, hrp, data);
         }
 
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.program, id.program + id.length);
@@ -241,14 +243,29 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
     data.clear();
     auto blech = blech32::Decode(str);
     const std::string& bl_hrp = for_parent ? params.ParentBlech32HRP() : params.Blech32HRP();
-    if (blech.second.size() > 0 && blech.first == bl_hrp) {
+    if ((blech.encoding == blech32::Encoding::BLECH32 || blech.encoding == blech32::Encoding::BLECH32M) && blech.data.size() > 0) {
         // Blech32 decoding
-        int version = blech.second[0]; // The first 5 bit symbol is the witness version (0-16)
+        error_str = "";
 
-        data.reserve(((blech.second.size() - 1) * 5) / 8);
+        if (blech.hrp != bl_hrp) {
+            error_str = "Invalid prefix for Blech32 address";
+            return CNoDestination();
+        }
+
+        int version = blech.data[0]; // The first 5 bit symbol is the witness version (0-16)
+        if (version == 0 && blech.encoding != blech32::Encoding::BLECH32) {
+            error_str = "Version 0 witness address must use Blech32 checksum";
+            return CNoDestination();
+        }
+        if (version != 0 && blech.encoding != blech32::Encoding::BLECH32M) {
+            error_str = "Version 1+ witness address must use Blech32m checksum";
+            return CNoDestination();
+        }
+
+        data.reserve(((blech.data.size() - 1) * 5) / 8);
 
         // The rest of the symbols are converted blinding pubkey and witness program bytes.
-        if (ConvertBits<5, 8, false>([&](unsigned char c) { data.push_back(c); }, blech.second.begin() + 1, blech.second.end())) {
+        if (ConvertBits<5, 8, false>([&](unsigned char c) { data.push_back(c); }, blech.data.begin() + 1, blech.data.end())) {
             // Must be long enough for blinding key and other data taken below
             if (data.size() < 34) {
                 return CNoDestination();
@@ -273,11 +290,21 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
                         return scriptid;
                     }
                 }
+
+                error_str = "Invalid Blech32 v0 address data size";
                 return CNoDestination();
             }
-            if (version > 16 || data.size() < 2 || data.size() > 40) {
+
+            if (version > 16) {
+                error_str = "Invalid Blech32 address witness version";
                 return CNoDestination();
             }
+
+            if (data.size() < 2 || data.size() > BLECH32_WITNESS_PROG_MAX_LEN) {
+                error_str = "Invalid Blech32 address data size";
+                return CNoDestination();
+            }
+
             WitnessUnknown unk;
             unk.version = version;
             std::copy(data.begin(), data.end(), unk.program);
@@ -287,7 +314,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         }
     }
 
-    // Set error message if address can't be interpreted as Base58 or Bech32.
+    // Set error message if address can't be interpreted as Base58 or Bech32 or Blech32.
     if (error_str.empty()) error_str = "Invalid address format";
 
     return CNoDestination();
