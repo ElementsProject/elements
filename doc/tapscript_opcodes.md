@@ -12,11 +12,6 @@ Taproot already increases a lot of resource limitations from segwitv0, so there 
 - Sigops limit: The sigops in tapscripts do not count towards the block-wide limit of 80000 (weighted). Instead, there is a per-script sigops budget. The budget equals 50 + the total serialized size in bytes of the transaction input's witness (including the CompactSize prefix). Executing a signature opcode (`OP_CHECKSIG`, `OP_CHECKSIGVERIFY`, or `OP_CHECKSIGADD`) with a non-empty signature decrements the budget by 50. If that brings the budget below zero, the script fails immediately.
 - Stack + altstack element count limit: The existing limit of 1000 elements in the stack and altstack together after every executed opcode remains. It is extended to also apply to the size of the initial stack.
 - Stack element size limit: The existing limit of maximum 520 bytes per stack element remains, during the stack machine operations. There is an additional policy rule limiting the initial push size to `80` bytes.
-
-## Additional resource limits changes in Elements
-
-- New added opcodes `OP_MULTISCALAREXPVERIFY` for `k` base multi scalar exponentiation is counted as `50*k` units towards the SIGOPS budget. If the operation requires extra script_budget, the user must add additional witness elements to make sure that the script executes within the desired budget.
-
 # New Opcodes for additional functionality:
 
 1. **Streaming Opcodes for streaming hashes**: There is an existing limitation of `MAX_SCRIPT_ELEMENT_SIZE`(520 bytes) because of which we cannot operate hash functions like `OP_SHA256` on messages more than 520 bytes. This allows hashing on more than 520 bytes while still preserving the existing security against resource exhaustion attacks. The proposal for this is still under discussion in https://github.com/ElementsProject/elements/pull/817 by Russell O'Connor.
