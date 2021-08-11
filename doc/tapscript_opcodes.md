@@ -47,39 +47,39 @@ For opcodes that inspect data that is not committed in sighash, introspection is
       1. Define `OP_SUCCESS214` as `OP_INSPECTNUMOUTPUTS`: Pop a `CScriptNum` input index `idx` and push the number of outputs(4) as little-endian
       1. Define `OP_SUCCESS215` as `OP_TXSIZE`: Pop a `CScriptNum` input index `idx` and push the transaction size in vbytes (4) as little-endian
 
-5. **Crypto**: In order to allow more complex operations on elements, we introduce the following new crypto-operators. Each opcode counts as 50 towards the sigops budget.
-   - Define `OP_SUCCESS216` as `OP_ECMULSCALAREXPVERIFY`which pops three elements from stack as described below: 1) a 32 byte scalar `k`. 2) Compressed EC point `P`, and 3) compressed EC point `Q`. Abort if `P`, `Q` is invalid or `k` is not 32 bytes and outside of secp256k1 curve order(TODO: confirm this). Abort if `Q != k*P`.
-   - Define `OP_SUCCESS217` as `OP_TAPTWEAKVERIFY` with the following semantics: Pop the three elements as: 1) 32 byte X-only internal key `P`, 2) 32 byte scalar `k` and 3) 33 byte compressed point `Q`. Abort if `P`, `Q` is invalid or `k` is not 32 bytes and outside of secp256k1 curve order(TODO: confirm this). Abort if `Q != P + k*G` where `G` is the generator for secp256k1.
-
 3. **Signed 64-bit arithmetic opcodes:** Current operations on `CScriptNum` as limited to 4 bytes and are difficult to compose because of minimality rules. having a fixed width little operations with 8 byte signed operations helps doing calculations on amounts which are encoded as 8 byte little endian.
    - When dealing with overflows, we explicitly return the success bit as a `CScriptNum` at the top of the stack and the result being the second element from the top. If the operation overflows, first the operands are pushed onto the stack followed by success bit. \[`a_second` `a_top`\] overflows, the stack state after the operation is \[`a_second` `a_top` `0`\] and if the operation does not overflow, the stack state is \[`res` `1`\].
    - This gives the user flexibility to deal if they script to have overflows using `OP_IF\OP_ELSE` or `OP_VERIFY` the success bit if they expect that operation would never fail.
 When defining the opcodes which can fail, we only define the success path, and assume the overflow behavior as stated above.
-   - Define `OP_SUCCESS218` as `OP_ADD64`: pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push a + b onto the stack. Push 1 `CScriptNum` if there is no overflow. Overflow behavior defined above.
-   - Define `OP_SUCCESS219` as `OP_SUB64`: pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push a - b onto the stack. Push 1 `CScriptNum` if there is no overflow. Overflow behavior defined above.
-   - Define `OP_SUCCESS220` as `OP_MUL64`: pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push `a*b` onto the stack. Push 1 `CScriptNum` if there is no overflow. Overflow behavior defined above.
-   - Define `OP_SUCCESS221` as `OP_DIV64`: pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). First push remainder `a%b`(must be non-negative and less than |b|) onto the stack followed by quotient(`a//b`) onto the stack. If `b<=0` or `a<0`, treat as overflow as defined above. Push 1 `CScriptNum` if there is no overflow.
-   - Define `OP_SUCCESS222` as `OP_LESSTHAN64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a < b`.
-   - Define `OP_SUCCESS223` as `OP_LESSTHANOREQUAL64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a <= b`.
-   - Define `OP_SUCCESS224` as `OP_GREATERTHAN64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a > b`.
-   - Define `OP_SUCCESS225` as `OP_GREATERTHANOREQUAL64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a >= b`.
-   - Define `OP_SUCCESS226` as `OP_EQUAL64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a == b`.
-   - Define `OP_SUCCESS227` as `OP_AND64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a & b`.
-   - Define `OP_SUCCESS228` as `OP_OR64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a | b`.
-   - Define `OP_SUCCESS229` as `OP_XOR64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a ^ b`.
-   - Define `OP_SUCCESS230` as `OP_NOT64`(cannot fail!): pop the first number(8 byte LE) as `a`. Push `~a`.
-   - Define `OP_SUCCESS231` as `OP_LSHIFT`: first pop `a` (8 byte LE) followed by another pop for `CScriptNum` `l`(abort if `l` < 0 or `l` > 63). Abort if `a<0`. Push `a << l` otherwise
-   - Define `OP_SUCCESS232` as `OP_RSHIFT`: first pop `a` (8 byte LE) followed by another pop for `CScriptNum` `r`(abort if `r` < 0 or `r` > 63). Abort if `a<0`. Push `a >> r` otherwise.
+   - Define `OP_SUCCESS216` as `OP_ADD64`: pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push a + b onto the stack. Push 1 `CScriptNum` if there is no overflow. Overflow behavior defined above.
+   - Define `OP_SUCCESS217` as `OP_SUB64`: pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push a - b onto the stack. Push 1 `CScriptNum` if there is no overflow. Overflow behavior defined above.
+   - Define `OP_SUCCESS218` as `OP_MUL64`: pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push `a*b` onto the stack. Push 1 `CScriptNum` if there is no overflow. Overflow behavior defined above.
+   - Define `OP_SUCCESS219` as `OP_DIV64`: pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). First push remainder `a%b`(must be non-negative and less than |b|) onto the stack followed by quotient(`a//b`) onto the stack. If `b==0` or `a = int64_min && b = -1`, treat as overflow as defined above. Push 1 `CScriptNum` if there is no overflow.
+   - Define `OP_SUCCESS220` as `OP_LESSTHAN64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a < b`.
+   - Define `OP_SUCCESS221` as `OP_LESSTHANOREQUAL64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a <= b`.
+   - Define `OP_SUCCESS222` as `OP_GREATERTHAN64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a > b`.
+   - Define `OP_SUCCESS223` as `OP_GREATERTHANOREQUAL64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a >= b`.
+   - Define `OP_SUCCESS224` as `OP_EQUAL64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a == b`.
+   - Define `OP_SUCCESS225` as `OP_AND64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a & b`.
+   - Define `OP_SUCCESS226` as `OP_OR64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a | b`.
+   - Define `OP_SUCCESS227` as `OP_XOR64`(cannot fail!): pop the first number(8 byte LE) as `b` followed another pop for `a`(8 byte LE). Push ` a ^ b`.
+   - Define `OP_SUCCESS228` as `OP_NOT64`(cannot fail!): pop the first number(8 byte LE) as `a`. Push `~a`.
+   - Define `OP_SUCCESS229` as `OP_LSHIFT`: first pop `a` (8 byte LE) followed by another pop for `CScriptNum` `l`(abort if `l` < 0 or `l` > 63). Abort if `a<0`. Push `a << l` otherwise
+   - Define `OP_SUCCESS230` as `OP_RSHIFT`: first pop `a` (8 byte LE) followed by another pop for `CScriptNum` `r`(abort if `r` < 0 or `r` > 63). Abort if `a<0`. Push `a >> r` otherwise.
 
 4. **Conversion opcodes:** Methods for conversion from `CScriptNum` to `8-byte LE`, `4-byte LE`.
-   - Define `OP_SUCCESS233` as `OP_SCIPTNUMTOLE64`: pop the stack as minimal `CSciptNum`, push 8 byte signed LE corresponding to that number.
-   - Define `OP_SUCCESS234` as `OP_LE64TOSCIPTNUM`: pop the stack as a 8 byte signed LE. Convert to `CScriptNum` and push it, abort on fail.
-   - Define `OP_SUCCESS235` as `OP_LE32TOLE64`: pop the stack as a 4 byte _unsigned_ LE. Push the corresponding 8 byte _signed_ LE number. Cannot fail, useful for operating of version, locktime, sequence, number of inputs, number of outputs, weight etc.
+   - Define `OP_SUCCESS231` as `OP_SCIPTNUMTOLE64`: pop the stack as minimal `CSciptNum`, push 8 byte signed LE corresponding to that number.
+   - Define `OP_SUCCESS232` as `OP_LE64TOSCIPTNUM`: pop the stack as a 8 byte signed LE. Convert to `CScriptNum` and push it, abort on fail.
+   - Define `OP_SUCCESS233` as `OP_LE32TOLE64`: pop the stack as a 4 byte _unsigned_ LE. Push the corresponding 8 byte _signed_ LE number. Cannot fail, useful for operating of version, locktime, sequence, number of inputs, number of outputs, weight etc.
+
+5. **Crypto**: In order to allow more complex operations on elements, we introduce the following new crypto-operators. Each opcode counts as 50 towards the sigops budget.
+   - Define `OP_SUCCESS234` as `OP_ECMULSCALAREXPVERIFY`which pops three elements from stack as described below: 1) a 32 byte scalar `k`. 2) Compressed EC point `P`, and 3) compressed EC point `Q`. Abort if `P`, `Q` is invalid or `k` is not 32 bytes and outside of secp256k1 curve order(TODO: confirm this). Abort if `Q != k*P`.
+   - Define `OP_SUCCESS235` as `OP_TAPTWEAKVERIFY` with the following semantics: Pop the three elements as: 1) 32 byte X-only internal key `P`, 2) 32 byte scalar `k` and 3) 33 byte compressed point `Q`. Abort if `P`, `Q` is invalid or `k` is not 32 bytes and outside of secp256k1 curve order(TODO: confirm this). Abort if `Q != P + k*G` where `G` is the generator for secp256k1.
 
 6. **Changes to existing Opcodes**:
    - Add `OP_CHECKSIGFROMSTACK` and `OP_CHECKSIGFROMSTACKVERIFY` to follow the semantics from bip340 when witness program is v1. In more detail, the opcodes pops three elements stack 1) 32 byte `pk` Xonly public key 2) Variable length message `msg` and 3) 64 byte Schnorr signature `sig`. Let `res = BIP340_verify(pk, msg, sig)` where `BIP340_verify` is defined for elements [here](https://github.com/ElementsProject/elements/blob/master/doc/taproot-sighash.mediawiki). Note that this is different form bitcoin BIP340 as it uses different tagged hashes. If opcode is `OP_CHECKSIGFROMSTACKVERIFY`, abort if the verification fails.
    - If the opcode is `OP_CHECKSIGFROMSTACK`, push `0` if an empty sig is provided and push `1` if the verification succeeds. Abort if provided with a non-empty signature that fails the verification. Both `OP_CHECKSIGFROMSTACK` and `OP_CHECKSIGFROMSTACKVERIFY` count as 50 towards the sigops budget.
-   - Abort if the pubkey is empty, but allow success for non-empty non-byte keys for future extension of tagged keys.
+   - Abort if the pubkey is empty, but allow success for non-empty non-32byte keys for future extension of tagged keys.
 
 # General tips, suggestions and quirks for using Taproot opcodes
 
