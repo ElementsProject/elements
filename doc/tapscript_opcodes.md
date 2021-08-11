@@ -74,7 +74,7 @@ When defining the opcodes which can fail, we only define the success path, and a
 4. **Conversion opcodes:** Methods for conversion from `CScriptNum` to `8-byte LE`, `4-byte LE`.
    - Define `OP_SUCCESS233` as `OP_SCIPTNUMTOLE64`: pop the stack as minimal `CSciptNum`, push 8 byte signed LE corresponding to that number.
    - Define `OP_SUCCESS234` as `OP_LE64TOSCIPTNUM`: pop the stack as a 8 byte signed LE. Convert to `CScriptNum` and push it, abort on fail.
-   - Define `OP_SUCCESS235` as `OP_LE32TOLE64`: pop the stack as a 4 byte signed LE. Push the corresponding 8 byte LE number. Cannot fail, useful for conversion of version/sequence.
+   - Define `OP_SUCCESS235` as `OP_LE32TOLE64`: pop the stack as a 4 byte _unsigned_ LE. Push the corresponding 8 byte _signed_ LE number. Cannot fail, useful for operating of version, locktime, sequence, number of inputs, number of outputs, weight etc.
 
 6. **Changes to existing Opcodes**:
    - Add `OP_CHECKSIGFROMSTACK` and `OP_CHECKSIGFROMSTACKVERIFY` to follow the semantics from bip340 when witness program is v1. In more detail, the opcodes pops three elements stack 1) 32 byte `pk` Xonly public key 2) Variable length message `msg` and 3) 64 byte Schnorr signature `sig`. Let `res = BIP340_verify(pk, msg, sig)` where `BIP340_verify` is defined for elements [here](https://github.com/ElementsProject/elements/blob/master/doc/taproot-sighash.mediawiki). Note that this is different form bitcoin BIP340 as it uses different tagged hashes. If opcode is `OP_CHECKSIGFROMSTACKVERIFY`, abort if the verification fails.
