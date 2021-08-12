@@ -212,7 +212,7 @@ static void ApproximateBestSubset(const std::vector<OutputGroup>& groups, const 
                 //the selection random.
                 if (nPass == 0 ? insecure_rand.randbool() : !vfIncluded[i])
                 {
-                    nTotal += groups[i].m_value;
+                    nTotal += groups[i].GetSelectionAmount();
                     vfIncluded[i] = true;
                     if (nTotal >= nTargetValue)
                     {
@@ -222,7 +222,7 @@ static void ApproximateBestSubset(const std::vector<OutputGroup>& groups, const 
                             nBest = nTotal;
                             vfBest = vfIncluded;
                         }
-                        nTotal -= groups[i].m_value;
+                        nTotal -= groups[i].GetSelectionAmount();
                         vfIncluded[i] = false;
                     }
                 }
