@@ -1941,6 +1941,35 @@ uint256 GetSpentScriptsSHA256(const std::vector<CTxOut>& outputs_spent)
     return ss.GetSHA256();
 }
 
+/** Compute the vector where each element is SHA256 of scriptPubKeys spent by a tx. */
+std::vector<uint256> GetSpentScriptPubKeysSHA256(const std::vector<CTxOut>& outputs_spent)
+{
+    std::vector<uint256> spent_spk_single_hashes;
+    spent_spk_single_hashes.reserve(outputs_spent.size());
+    for (const auto& txout : outputs_spent) {
+        // Normal serialization using the << operater would also serialize the length, therefore we directly write using CSHA256
+        uint256 spent_spk_single_hash;
+        CSHA256().Write(txout.scriptPubKey.data(), txout.scriptPubKey.size()).Finalize(spent_spk_single_hash.data());
+        spent_spk_single_hashes.push_back(std::move(spent_spk_single_hash));
+    }
+    return spent_spk_single_hashes;
+}
+
+/** Compute the vector where each element is SHA256 of output scriptPubKey of a tx. */
+template <class T>
+std::vector<uint256> GetOutputScriptPubKeysSHA256(const T& txTo)
+{
+    std::vector<uint256> out_spk_single_hashes;
+    out_spk_single_hashes.reserve(txTo.vout.size());
+    for (const auto& txout : txTo.vout) {
+        // Normal serialization using the << operater would also serialize the length, therefore we directly write using CSHA256
+        uint256 out_spk_single_hash;
+        CSHA256().Write(txout.scriptPubKey.data(), txout.scriptPubKey.size()).Finalize(out_spk_single_hash.data());
+        out_spk_single_hashes.push_back(std::move(out_spk_single_hash));
+    }
+    return out_spk_single_hashes;
+}
+
 template <class T>
 uint256 GetRangeproofsHash(const T& txTo) {
     CHashWriter ss(SER_GETHASH, 0);
@@ -2012,6 +2041,8 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
         m_issuance_rangeproofs_single_hash = GetIssuanceRangeproofsSHA256(txTo);
         m_output_witnesses_single_hash = GetOutputWitnessesSHA256(txTo);
         m_spent_scripts_single_hash = GetSpentScriptsSHA256(m_spent_outputs);
+        m_spent_output_spk_single_hashes = GetSpentScriptPubKeysSHA256(m_spent_outputs);
+        m_output_spk_single_hashes = GetOutputScriptPubKeysSHA256(txTo);
         m_bip341_taproot_ready = true;
     }
 }

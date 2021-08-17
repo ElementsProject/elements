@@ -173,7 +173,9 @@ struct PrecomputedTransactionData
     uint256 m_issuances_single_hash;
     uint256 m_output_witnesses_single_hash;
     uint256 m_issuance_rangeproofs_single_hash;
-    //! Whether the 10 fields above are initialized.
+    //! transaction outputs scriptpubkey sha single hash
+    std::vector<uint256> m_output_spk_single_hashes;
+    //! Whether the 11 fields above are initialized.
     bool m_bip341_taproot_ready = false;
 
     // BIP143 precomputed data (double-SHA256).
@@ -182,6 +184,8 @@ struct PrecomputedTransactionData
     bool m_bip143_segwit_ready = false;
 
     std::vector<CTxOut> m_spent_outputs;
+    //! ELEMENTS: spent outputs scriptpubkey sha single hash
+    std::vector<uint256> m_spent_output_spk_single_hashes;
     //! Whether m_spent_outputs is initialized.
     bool m_spent_outputs_ready = false;
 
