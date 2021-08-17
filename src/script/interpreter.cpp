@@ -1757,13 +1757,21 @@ public:
     }
 };
 
+/** Compute the outpoint flag(u8) for a given txin **/
+template <class T>
+inline unsigned char GetOutpointFlag(const T& txin)
+{
+    return (unsigned char) ((!txin.assetIssuance.IsNull() ? (COutPoint::OUTPOINT_ISSUANCE_FLAG >> 24) : 0) |
+            (txin.m_is_pegin ? (COutPoint::OUTPOINT_PEGIN_FLAG >> 24) : 0));
+}
+
 /** Compute the (single) SHA256 of the concatenation of all outpoint flags of a tx. */
 template <class T>
 uint256 GetOutpointFlagsSHA256(const T& txTo)
 {
     CHashWriter ss(SER_GETHASH, 0);
     for (const auto& txin : txTo.vin) {
-        ss << (unsigned char) ((!txin.assetIssuance.IsNull() << 7) + (txin.m_is_pegin << 6));
+        ss << GetOutpointFlag(txin);
     }
     return ss.GetSHA256();
 }
@@ -2004,6 +2012,11 @@ bool SignatureHashSchnorr(uint256& hash_out, const ScriptExecutionData& execdata
         ss << cache.m_outpoints_flag_single_hash;
         ss << cache.m_prevouts_single_hash;
         ss << cache.m_spent_asset_amounts_single_hash;
+        // Why is nNonce not included in sighash?(both in ACP and non ACP case)
+        //
+        // Nonces are not serialized into utxo database. As a consequence, after restarting the node,
+        // all nonces in the utxoset are cleared which results in a inconsistent view for nonces for
+        // nodes that did not restart. See https://github.com/ElementsProject/elements/issues/1004 for details
         ss << cache.m_spent_scripts_single_hash;
         ss << cache.m_sequences_single_hash;
         ss << cache.m_issuances_single_hash;
@@ -2019,7 +2032,7 @@ bool SignatureHashSchnorr(uint256& hash_out, const ScriptExecutionData& execdata
     const uint8_t spend_type = (ext_flag << 1) + (have_annex ? 1 : 0); // The low bit indicates whether an annex is present.
     ss << spend_type;
     if (input_type == SIGHASH_ANYONECANPAY) {
-        ss << (unsigned char) ((!tx_to.vin[in_pos].assetIssuance.IsNull() << 7) + (tx_to.vin[in_pos].m_is_pegin << 6));
+        ss << GetOutpointFlag(tx_to.vin[in_pos]);
         ss << tx_to.vin[in_pos].prevout;
         ss << cache.m_spent_outputs[in_pos].nAsset;
         ss << cache.m_spent_outputs[in_pos].nValue;
