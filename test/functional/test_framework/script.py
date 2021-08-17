@@ -35,7 +35,7 @@ ANNEX_TAG = 0x50
 
 OPCODE_NAMES = {}  # type: Dict[CScriptOp, str]
 
-LEAF_VERSION_TAPSCRIPT = 0xc0
+LEAF_VERSION_TAPSCRIPT = 0xc4
 
 def hash160(s):
     return hashlib.new('ripemd160', sha256(s)).digest()
