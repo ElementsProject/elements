@@ -569,7 +569,6 @@ static bool EvalChecksig(const valtype& sig, const valtype& pubkey, CScript::con
 
 static const CHashWriter HASHER_TAPLEAF_ELEMENTS = TaggedHash("TapLeaf/elements");
 static const CHashWriter HASHER_TAPBRANCH_ELEMENTS = TaggedHash("TapBranch/elements");
-static const CHashWriter HASHER_TAPTWEAK_ELEMENTS = TaggedHash("TapTweak/elements");
 static const CHashWriter HASHER_TAPSIGHASH_ELEMENTS = TaggedHash("TapSighash/elements");
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, SigVersion sigversion, ScriptExecutionData& execdata, ScriptError* serror)
@@ -3074,8 +3073,8 @@ static bool VerifyTaprootCommitment(const std::vector<unsigned char>& control, c
         }
         k = ss_branch.GetSHA256();
     }
-    k = (CHashWriter(HASHER_TAPTWEAK_ELEMENTS) << MakeSpan(p) << k).GetSHA256();
-    return q.CheckPayToContract(p, k, control[0] & 1);
+    // Verify that the output pubkey matches the tweaked internal pubkey, after correcting for parity.
+    return q.CheckTapTweak(p, k, control[0] & 1);
 }
 
 static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, const std::vector<unsigned char>& program, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror, bool is_p2sh)

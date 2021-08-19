@@ -181,11 +181,33 @@ bool XOnlyPubKey::VerifySchnorr(const Span<const unsigned char> msg, Span<const 
     return secp256k1_schnorrsig_verify(secp256k1_context_verify, sigbytes.data(), msg.data(), msg.size(), &pubkey);
 }
 
+// ELEMENTS: this is preserved from an old version of the Taproot code for use in OP_TWEAKVERIFY
 bool XOnlyPubKey::CheckPayToContract(const XOnlyPubKey& base, const uint256& hash, bool parity) const
 {
     secp256k1_xonly_pubkey base_point;
     if (!secp256k1_xonly_pubkey_parse(secp256k1_context_verify, &base_point, base.data())) return false;
     return secp256k1_xonly_pubkey_tweak_add_check(secp256k1_context_verify, m_keydata.begin(), parity, &base_point, hash.begin());
+}
+
+static const CHashWriter HASHER_TAPTWEAK_ELEMENTS = TaggedHash("TapTweak/elements");
+
+uint256 XOnlyPubKey::ComputeTapTweakHash(const uint256* merkle_root) const
+{
+    if (merkle_root == nullptr) {
+        // We have no scripts. The actual tweak does not matter, but follow BIP341 here to
+        // allow for reproducible tweaking.
+        return (CHashWriter(HASHER_TAPTWEAK_ELEMENTS) << m_keydata).GetSHA256();
+    } else {
+        return (CHashWriter(HASHER_TAPTWEAK_ELEMENTS) << m_keydata << *merkle_root).GetSHA256();
+    }
+}
+
+bool XOnlyPubKey::CheckTapTweak(const XOnlyPubKey& internal, const uint256& merkle_root, bool parity) const
+{
+    secp256k1_xonly_pubkey internal_key;
+    if (!secp256k1_xonly_pubkey_parse(secp256k1_context_verify, &internal_key, internal.data())) return false;
+    uint256 tweak = internal.ComputeTapTweakHash(&merkle_root);
+    return secp256k1_xonly_pubkey_tweak_add_check(secp256k1_context_verify, m_keydata.begin(), parity, &internal_key, tweak.begin());
 }
 
 bool CPubKey::TweakMulVerify(const CPubKey& untweaked, const uint256& tweak) const
