@@ -8,6 +8,7 @@
 #define BITCOIN_PUBKEY_H
 
 #include <hash.h>
+#include <optional.h>
 #include <serialize.h>
 #include <span.h>
 #include <uint256.h>
@@ -248,6 +249,9 @@ public:
      *  Merkle root, and parity. */
     bool CheckTapTweak(const XOnlyPubKey& internal, const uint256& merkle_root, bool parity) const;
 
+    /** Construct a Taproot tweaked output point with this point as internal key. */
+    Optional<std::pair<XOnlyPubKey, bool>> CreateTapTweak(const uint256* merkle_root) const;
+
     const unsigned char& operator[](int pos) const { return *(m_keydata.begin() + pos); }
     const unsigned char* data() const { return m_keydata.begin(); }
     static constexpr size_t size() { return decltype(m_keydata)::size(); }
@@ -255,6 +259,7 @@ public:
     const unsigned char* end() const { return m_keydata.end(); }
     unsigned char* begin() { return m_keydata.begin(); }
     unsigned char* end() { return m_keydata.end(); }
+    unsigned char* data() { return m_keydata.begin(); }
     bool operator==(const XOnlyPubKey& other) const { return m_keydata == other.m_keydata; }
     bool operator!=(const XOnlyPubKey& other) const { return m_keydata != other.m_keydata; }
     bool operator<(const XOnlyPubKey& other) const { return m_keydata < other.m_keydata; }

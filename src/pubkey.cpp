@@ -222,6 +222,24 @@ bool CPubKey::TweakMulVerify(const CPubKey& untweaked, const uint256& tweak) con
     return *this == CPubKey(out_pk, out_pk + out_len);
 }
 
+Optional<std::pair<XOnlyPubKey, bool>> XOnlyPubKey::CreateTapTweak(const uint256* merkle_root) const
+{
+    secp256k1_xonly_pubkey base_point;
+    if (!secp256k1_xonly_pubkey_parse(secp256k1_context_verify, &base_point, data())) return nullopt;
+    secp256k1_pubkey out;
+    uint256 tweak = ComputeTapTweakHash(merkle_root);
+    if (!secp256k1_xonly_pubkey_tweak_add(secp256k1_context_verify, &out, &base_point, tweak.data())) return nullopt;
+    int parity = -1;
+    std::pair<XOnlyPubKey, bool> ret;
+    secp256k1_xonly_pubkey out_xonly;
+    if (!secp256k1_xonly_pubkey_from_pubkey(secp256k1_context_verify, &out_xonly, &parity, &out)) return nullopt;
+    secp256k1_xonly_pubkey_serialize(secp256k1_context_verify, ret.first.data(), &out_xonly);
+    assert(parity == 0 || parity == 1);
+    ret.second = parity;
+    return ret;
+}
+
+
 bool CPubKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchSig) const {
     if (!IsValid())
         return false;
