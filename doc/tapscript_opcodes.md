@@ -16,8 +16,8 @@ Taproot already increases a lot of resource limitations from segwitv0, so there 
 
 1. **Streaming Opcodes for streaming hashes**: There is an existing limitation of `MAX_SCRIPT_ELEMENT_SIZE`(520 bytes) because of which we cannot operate hash functions like `OP_SHA256` on messages more than 520 bytes. This allows hashing on more than 520 bytes while still preserving the existing security against resource exhaustion attacks. The proposal for this  by Russell O'Connor can be found in the description [here](https://github.com/ElementsProject/elements/pull/817).
    1. Define `OP_SUCCESS196` as `OP_SHA256INITIALIZE` which pops a bytestring and push SHA256 context creating by adding the bytestring to the initial SHA256 context.
-   1. Define `OP_SUCCESS197` as `OP_SHA256UPDATE` which frist pops a SHA256 contextm then pops another bytestring and pushes an updated context by adding the bytestring to the data stream being hashed.
-   1. Define `OP_SUCCESS198` as `OP_SHA256FINALIZE` which first pops a SHA256 context, then pops another bytestring and finally pushes a SHA256 hash value after adding the bytestring and completing the padding.
+   1. Define `OP_SUCCESS197` as `OP_SHA256UPDATE` which first pops a bytestring followed by another pop for SHA256 context and pushes an updated context by adding the bytestring to the data stream being hashed.
+   1. Define `OP_SUCCESS198` as `OP_SHA256FINALIZE` which first pops a pops a bytestring followed by another pop for SHA256 context and finally pushes a SHA256 hash value after adding the bytestring and completing the padding.
 
 
 2. **Transaction Introspection codes**: Transaction introspection is already possible in elements script by use of `OP_CHECKSIGFROMSTACKVERIFY`, however the current solutions are really expensive in applications like [covenants](https://github.com/sanket1729/covenants-demo). Therefore, we are not adding any new functionality by supporting introspection, only making it easier to use. The warning still remains the same as with covenants, if the user is inspecting data from parts of the transaction that are not signed, the script can cause unexpected behavior.
