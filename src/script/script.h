@@ -243,11 +243,27 @@ enum opcodetype
     OP_INSPECTNUMOUTPUTS = 0xd5,
     OP_TXWEIGHT = 0xd6,
 
+    // Arithmetic opcodes
+    OP_ADD64 = 0xd7,
+    OP_SUB64 = 0xd8,
+    OP_MUL64 = 0xd9,
+    OP_DIV64 = 0xda,
+    OP_NEG64 = 0xdb,
+    OP_LESSTHAN64 = 0xdc,
+    OP_LESSTHANOREQUAL64 = 0xdd,
+    OP_GREATERTHAN64 = 0xde,
+    OP_GREATERTHANOREQUAL64 = 0xdf,
+
+    // Conversion opcodes
+    OP_SCRIPTNUMTOLE64 = 0xe0,
+    OP_LE64TOSCRIPTNUM = 0xe1,
+    OP_LE32TOLE64 = 0xe2,
+
     OP_INVALIDOPCODE = 0xff,
 };
 
 // Maximum value that an opcode can be
-static const unsigned int MAX_OPCODE = OP_TXWEIGHT; // 0xd7
+static const unsigned int MAX_OPCODE = OP_LE32TOLE64; // 0xe6
 
 std::string GetOpName(opcodetype opcode);
 
