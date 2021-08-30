@@ -115,6 +115,20 @@ std::string ScriptErrorString(const ScriptError serror)
             return "Using OP_CODESEPARATOR in non-witness script";
         case SCRIPT_ERR_SIG_FINDANDDELETE:
             return "Signature is found in scriptCode";
+        case SCRIPT_ERR_SHA2_CONTEXT_LOAD:
+            return "Invalid Sha256 context object read";
+        case SCRIPT_ERR_SHA2_CONTEXT_WRITE:
+            return "Invalid Sha256 context object write";
+        case SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE:
+            return "Introspection opcode used without correct evaluation context";
+        case SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS:
+            return "Introspection index out of bounds";
+        case SCRIPT_ERR_EXPECTED_8BYTES:
+            return "Arithmetic opcodes expect 8 bytes operands";
+        case SCRIPT_ERR_ARITHMETIC64:
+            return "Arithmetic opcode error";
+        case SCRIPT_ERR_ECMULTVERIFYFAIL:
+            return "EC scalar mult verify fail";
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;

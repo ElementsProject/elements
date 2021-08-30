@@ -157,7 +157,8 @@ FUZZ_TARGETS = \
   test/fuzz/txrequest \
   test/fuzz/txundo_deserialize \
   test/fuzz/uint160_deserialize \
-  test/fuzz/uint256_deserialize
+  test/fuzz/uint256_deserialize \
+  test/fuzz/witness_program
 
 if ENABLE_FUZZ
 noinst_PROGRAMS += $(FUZZ_TARGETS:=)
@@ -1266,6 +1267,12 @@ test_fuzz_uint256_deserialize_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 test_fuzz_uint256_deserialize_LDADD = $(FUZZ_SUITE_LD_COMMON)
 test_fuzz_uint256_deserialize_LDFLAGS = $(FUZZ_SUITE_LDFLAGS_COMMON)
 test_fuzz_uint256_deserialize_SOURCES = test/fuzz/deserialize.cpp
+
+test_fuzz_witness_program_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) -DUINT256_DESERIALIZE=1
+test_fuzz_witness_program_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+test_fuzz_witness_program_LDADD = $(FUZZ_SUITE_LD_COMMON)
+test_fuzz_witness_program_LDFLAGS = $(FUZZ_SUITE_LDFLAGS_COMMON)
+test_fuzz_witness_program_SOURCES = test/fuzz/witness_program.cpp
 
 endif # ENABLE_FUZZ
 

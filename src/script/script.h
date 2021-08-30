@@ -213,11 +213,61 @@ enum opcodetype
     // Opcode added by BIP 342 (Tapscript)
     OP_CHECKSIGADD = 0xba,
 
+    // Elements: Tapscript (Streaming sha2 opcodes)
+    OP_SHA256INITIALIZE = 0xc4,
+    OP_SHA256UPDATE = 0xc5,
+    OP_SHA256FINALIZE = 0xc6,
+
+    // Introspection opcodes
+    //inputs
+    OP_INSPECTINPUTOUTPOINT = 0xc7,
+    OP_INSPECTINPUTASSET = 0xc8,
+    OP_INSPECTINPUTVALUE = 0xc9,
+    OP_INSPECTINPUTSCRIPTPUBKEY = 0xca,
+    OP_INSPECTINPUTSEQUENCE = 0xcb,
+    OP_INSPECTINPUTISSUANCE = 0xcc,
+
+    // current index
+    OP_PUSHCURRENTINPUTINDEX = 0xcd,
+
+    // outputs
+    OP_INSPECTOUTPUTASSET = 0xce,
+    OP_INSPECTOUTPUTVALUE = 0xcf,
+    OP_INSPECTOUTPUTNONCE = 0xd0,
+    OP_INSPECTOUTPUTSCRIPTPUBKEY = 0xd1,
+
+    // transaction
+    OP_INSPECTVERSION = 0xd2,
+    OP_INSPECTLOCKTIME = 0xd3,
+    OP_INSPECTNUMINPUTS = 0xd4,
+    OP_INSPECTNUMOUTPUTS = 0xd5,
+    OP_TXWEIGHT = 0xd6,
+
+    // Arithmetic opcodes
+    OP_ADD64 = 0xd7,
+    OP_SUB64 = 0xd8,
+    OP_MUL64 = 0xd9,
+    OP_DIV64 = 0xda,
+    OP_NEG64 = 0xdb,
+    OP_LESSTHAN64 = 0xdc,
+    OP_LESSTHANOREQUAL64 = 0xdd,
+    OP_GREATERTHAN64 = 0xde,
+    OP_GREATERTHANOREQUAL64 = 0xdf,
+
+    // Conversion opcodes
+    OP_SCRIPTNUMTOLE64 = 0xe0,
+    OP_LE64TOSCRIPTNUM = 0xe1,
+    OP_LE32TOLE64 = 0xe2,
+
+    // Crypto opcodes
+    OP_ECMULSCALARVERIFY = 0xe3,
+    OP_TWEAKVERIFY = 0xe4,
+
     OP_INVALIDOPCODE = 0xff,
 };
 
 // Maximum value that an opcode can be
-static const unsigned int MAX_OPCODE = OP_SUBSTR_LAZY; // 0xc3
+static const unsigned int MAX_OPCODE = OP_TWEAKVERIFY; // 0xe4
 
 std::string GetOpName(opcodetype opcode);
 

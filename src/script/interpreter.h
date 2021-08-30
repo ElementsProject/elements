@@ -173,7 +173,9 @@ struct PrecomputedTransactionData
     uint256 m_issuances_single_hash;
     uint256 m_output_witnesses_single_hash;
     uint256 m_issuance_rangeproofs_single_hash;
-    //! Whether the 10 fields above are initialized.
+    //! transaction outputs scriptpubkey sha single hash
+    std::vector<uint256> m_output_spk_single_hashes;
+    //! Whether the 11 fields above are initialized.
     bool m_bip341_taproot_ready = false;
 
     // BIP143 precomputed data (double-SHA256).
@@ -182,6 +184,8 @@ struct PrecomputedTransactionData
     bool m_bip143_segwit_ready = false;
 
     std::vector<CTxOut> m_spent_outputs;
+    //! ELEMENTS: spent outputs scriptpubkey sha single hash
+    std::vector<uint256> m_spent_output_spk_single_hashes;
     //! Whether m_spent_outputs is initialized.
     bool m_spent_outputs_ready = false;
 
@@ -237,7 +241,7 @@ static constexpr size_t WITNESS_V0_KEYHASH_SIZE = 20;
 static constexpr size_t WITNESS_V1_TAPROOT_SIZE = 32;
 
 static constexpr uint8_t TAPROOT_LEAF_MASK = 0xfe;
-static constexpr uint8_t TAPROOT_LEAF_TAPSCRIPT = 0xc0;
+static constexpr uint8_t TAPROOT_LEAF_TAPSCRIPT = 0xc4;
 static constexpr size_t TAPROOT_CONTROL_BASE_SIZE = 33;
 static constexpr size_t TAPROOT_CONTROL_NODE_SIZE = 32;
 static constexpr size_t TAPROOT_CONTROL_MAX_NODE_COUNT = 128;
@@ -269,6 +273,41 @@ public:
          return false;
     }
 
+    virtual const std::vector<CTxIn>* GetTxvIn() const
+    {
+        return nullptr;
+    }
+
+    virtual const std::vector<CTxOut>* GetTxvOut() const
+    {
+        return nullptr;
+    }
+
+    virtual uint32_t GetLockTime() const
+    {
+        return 0;
+    }
+
+    virtual int32_t GetTxVersion() const
+    {
+        return 0;
+    }
+
+    virtual uint64_t GetTxWeight() const
+    {
+        return 0;
+    }
+
+    virtual const PrecomputedTransactionData* GetPrecomputedTransactionData() const
+    {
+        return nullptr;
+    }
+
+    virtual uint32_t GetnIn() const
+    {
+        return std::numeric_limits<uint32_t>::max();
+    }
+
     virtual ~BaseSignatureChecker() {}
 };
 
@@ -292,6 +331,14 @@ public:
     bool CheckSchnorrSignature(Span<const unsigned char> sig, Span<const unsigned char> pubkey, SigVersion sigversion, const ScriptExecutionData& execdata, ScriptError* serror = nullptr) const override;
     bool CheckLockTime(const CScriptNum& nLockTime) const override;
     bool CheckSequence(const CScriptNum& nSequence) const override;
+    const std::vector<CTxIn>* GetTxvIn() const override;
+    const std::vector<CTxOut>* GetTxvOut() const override;
+    uint32_t GetLockTime() const override;
+    int32_t GetTxVersion() const override;
+    uint64_t GetTxWeight() const override;
+
+    const PrecomputedTransactionData* GetPrecomputedTransactionData() const override;
+    uint32_t GetnIn() const override;
 };
 
 using TransactionSignatureChecker = GenericTransactionSignatureChecker<CTransaction>;
