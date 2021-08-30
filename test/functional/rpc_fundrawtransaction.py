@@ -95,6 +95,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.test_address_reuse()
         self.test_option_subtract_fee_from_outputs()
         self.test_subtract_fee_with_presets()
+        self.test_surjectionproof_many_inputs()
 
     def test_change_position(self):
         """Ensure setting changePosition in fundraw with an exact match is handled properly."""
@@ -966,6 +967,34 @@ class RawTransactionsTest(BitcoinTestFramework):
         blindedtx = self.nodes[0].blindrawtransaction(fundedtx['hex'])
         signedtx = self.nodes[0].signrawtransactionwithwallet(blindedtx)
         self.nodes[0].sendrawtransaction(signedtx['hex'])
+
+    def test_surjectionproof_many_inputs(self):
+        self.log.info("Test fundrawtx with more than 256 inputs")
+
+        self.nodes[0].createwallet("surjection")
+        wallet = self.nodes[0].get_wallet_rpc(self.default_wallet_name)
+        recipient = self.nodes[0].get_wallet_rpc("surjection")
+
+        # Make 500 0.1 BTC outputs...
+        for j in range(0, 10):
+            outputs = {}
+            for i in range(0, 50):
+                outputs[recipient.getnewaddress()] = 0.1
+            wallet.sendmany("", outputs)
+        self.nodes[0].generate(10)
+
+        # ...and try to send them all in one transaction
+        # This should fail but we should not see an assertation failure.
+        rawtx = recipient.createrawtransaction([], {wallet.getnewaddress(): 49.99})
+        assert_raises_rpc_error(-4, "Unable to blind the transaction properly. This should not happen.", recipient.fundrawtransaction, rawtx)
+
+        # Try to send them across two transactions. This should succeed.
+        rawtx = recipient.createrawtransaction([], {wallet.getnewaddress(): 24.99})
+        for i in range(0, 2):
+            fundedtx = recipient.fundrawtransaction(rawtx)
+            blindedtx = recipient.blindrawtransaction(fundedtx['hex'])
+            signedtx = recipient.signrawtransactionwithwallet(blindedtx)
+            self.nodes[0].sendrawtransaction(signedtx['hex'])
 
 if __name__ == '__main__':
     RawTransactionsTest().main()
