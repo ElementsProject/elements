@@ -126,6 +126,7 @@ class FedPegTest(BitcoinTestFramework):
                 '-parent_bech32_hrp=bcrt',
                 # Turn of consistency checks that can cause assert when parent node stops
                 # and a peg-in transaction fails this belt-and-suspenders check.
+                # NOTE: This can cause spurious problems in regtest, and should be dealt with in a better way.
                 '-checkmempool=0',
             ]
             if not self.options.parent_bitcoin:
@@ -540,9 +541,12 @@ class FedPegTest(BitcoinTestFramework):
         self.start_node(1)
         self.connect_nodes(0, 1)
 
-        # Don't make a block, race condition when pegin-invalid block
-        # is awaiting further validation, nodes reject subsequent blocks
-        # even ones they create
+        # Make a bunch of blocks while catching up, as a regression test for
+        # https://github.com/ElementsProject/elements/issues/891 (sporadic
+        # failures when catching up after loss of parent daemon connectivity.)
+        print("Generating some blocks, to stress-test handling of parent daemon reconnection")
+        sidechain.generate(10)
+
         print("Now waiting for node to re-evaluate peg-in witness failed block... should take a few seconds")
         for node_group in self.node_groups:
             self.sync_all(node_group)
