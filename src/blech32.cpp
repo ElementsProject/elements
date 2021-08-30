@@ -1,9 +1,10 @@
-// Copyright (c) 2017 Pieter Wuille
+// Copyright (c) 2017, 2021 Pieter Wuille
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <blech32.h>
 
+#include <assert.h>
 /*
  * IMPORTANT NOTE: Comments below may largely pertain for bech32, not blech32.
  * Some of these magic constants have changes.
@@ -16,10 +17,10 @@ namespace blech32
 
 typedef std::vector<uint8_t> data;
 
-/** The Blech32 character set for encoding. */
+/** The Blech32 and Blech32m character set for encoding. */
 const char* CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
-/** The Blech32 character set for decoding. */
+/** The Blech32 and Blech32m character set for decoding. */
 const int8_t CHARSET_REV[128] = {
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
@@ -30,6 +31,23 @@ const int8_t CHARSET_REV[128] = {
     -1, 29, -1, 24, 13, 25,  9,  8, 23, -1, 18, 22, 31, 27, 19, -1,
      1,  0,  3, 16, 11, 28, 12, 14,  6,  4,  2, -1, -1, -1, -1, -1
 };
+
+// ELEMENTS: this encoding constant is a random 60-byte number generated
+//  in sage. For bech32m, Pieter did a fair bit of grinding to choose
+//  an optimal constant. For blech32m we did no such grinding ... but
+//  having said this, our only hard design constraint is that we need to
+//  avoid 1, which has special algebraic structure that leads to extension
+//  attacks.
+//
+//  Further, because blech32m is a longer code than bech32m, doing an
+//  analogous grinding project would be intractable, even if we were
+//  willing to put the time and effort in.
+
+/* Determine the final constant to use for the specified encoding. */
+uint64_t EncodingConstant(Encoding encoding) {
+    assert(encoding == Encoding::BLECH32 || encoding == Encoding::BLECH32M);
+    return encoding == Encoding::BLECH32 ? 1 : 0x455972a3350f7a1;
+}
 
 /** Concatenate two byte arrays. */
 data Cat(data x, const data& y)
@@ -65,7 +83,7 @@ uint64_t PolyMod(const data& v)
 
     // During the course of the loop below, `c` contains the bitpacked coefficients of the
     // polynomial constructed from just the values of v that were processed so far, mod g(x). In
-    // the above example, `c` initially corresponds to 1 mod (x), and after processing 2 inputs of
+    // the above example, `c` initially corresponds to 1 mod g(x), and after processing 2 inputs of
     // v, it corresponds to x^2 + v0*x + v1 mod g(x). As 1 mod g(x) = 1, that is the starting value
     // for `c`.
     uint64_t c = 1;
@@ -122,21 +140,24 @@ data ExpandHRP(const std::string& hrp)
 }
 
 /** Verify a checksum. */
-bool VerifyChecksum(const std::string& hrp, const data& values)
+Encoding VerifyChecksum(const std::string& hrp, const data& values)
 {
     // PolyMod computes what value to xor into the final values to make the checksum 0. However,
     // if we required that the checksum was 0, it would be the case that appending a 0 to a valid
     // list of values would result in a new valid list. For that reason, Blech32 requires the
-    // resulting checksum to be 1 instead.
-    return PolyMod(Cat(ExpandHRP(hrp), values)) == 1;
+    // resulting checksum to be 1 instead. In Blech32m, this constant was amended.
+    const uint64_t check = PolyMod(Cat(ExpandHRP(hrp), values));
+    if (check == EncodingConstant(Encoding::BLECH32)) return Encoding::BLECH32;
+    if (check == EncodingConstant(Encoding::BLECH32M)) return Encoding::BLECH32M;
+    return Encoding::INVALID;
 }
 
 /** Create a checksum. */
-data CreateChecksum(const std::string& hrp, const data& values)
+data CreateChecksum(Encoding encoding, const std::string& hrp, const data& values)
 {
     data enc = Cat(ExpandHRP(hrp), values);
     enc.resize(enc.size() + 12); // ELEMENTS: Append 6->12 zeroes
-    uint64_t mod = PolyMod(enc) ^ 1; // Determine what to XOR into those 6 zeroes.
+    uint64_t mod = PolyMod(enc) ^ EncodingConstant(encoding); // Determine what to XOR into those 6 zeroes.
     data ret(12); // ELEMENTS: 6->12
     for (size_t i = 0; i < 12; ++i) { // ELEMENTS: 6->12
         // Convert the 5-bit groups in mod to checksum values.
@@ -145,9 +166,13 @@ data CreateChecksum(const std::string& hrp, const data& values)
     return ret;
 }
 
-/** Encode a Blech32 string. */
-std::string Encode(const std::string& hrp, const data& values) {
-    data checksum = CreateChecksum(hrp, values);
+/** Encode a Blech32 or Blech32m string. */
+std::string Encode(Encoding encoding, const std::string& hrp, const data& values) {
+    // First ensure that the HRP is all lowercase. BIP-173 and BIP350 require an encoder
+    // to return a lowercase Blech32/Blech32m string, but if given an uppercase HRP, the
+    // result will always be invalid.
+    for (const char& c : hrp) assert(c < 'A' || c > 'Z');
+    data checksum = CreateChecksum(encoding, hrp, values);
     data combined = Cat(values, checksum);
     std::string ret = hrp + '1';
     ret.reserve(ret.size() + combined.size());
@@ -157,8 +182,8 @@ std::string Encode(const std::string& hrp, const data& values) {
     return ret;
 }
 
-/** Decode a Blech32 string. */
-std::pair<std::string, data> Decode(const std::string& str) {
+/** Decode a Blech32 or Blech32m string. */
+DecodeResult Decode(const std::string& str) {
     bool lower = false, upper = false;
     for (size_t i = 0; i < str.size(); ++i) {
         unsigned char c = str[i];
@@ -185,10 +210,9 @@ std::pair<std::string, data> Decode(const std::string& str) {
     for (size_t i = 0; i < pos; ++i) {
         hrp += LowerCase(str[i]);
     }
-    if (!VerifyChecksum(hrp, values)) {
-        return {};
-    }
-    return {hrp, data(values.begin(), values.end() - 12)};
+    Encoding result = VerifyChecksum(hrp, values);
+    if (result == Encoding::INVALID) return {};
+    return {result, std::move(hrp), data(values.begin(), values.end() - 12)};
 }
 
 } // namespace blech32

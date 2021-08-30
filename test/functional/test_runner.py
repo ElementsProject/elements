@@ -159,6 +159,7 @@ BASE_SCRIPTS = [
     'wallet_keypool_topup.py',
     'wallet_keypool_topup.py --descriptors',
     'interface_zmq.py',
+    'rpc_invalid_address_message.py',
     'interface_bitcoin_cli.py',
     'mempool_resurrect.py',
     'wallet_txn_doublespend.py --mineblock',
