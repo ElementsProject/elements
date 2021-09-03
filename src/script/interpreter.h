@@ -168,6 +168,7 @@ struct PrecomputedTransactionData
     uint256 m_spent_amounts_single_hash;
     uint256 m_spent_scripts_single_hash;
     // Elements
+    uint64_t m_tx_weight;
     uint256 m_outpoints_flag_single_hash;
     uint256 m_spent_asset_amounts_single_hash;
     uint256 m_issuances_single_hash;
@@ -293,11 +294,6 @@ public:
         return 0;
     }
 
-    virtual uint64_t GetTxWeight() const
-    {
-        return 0;
-    }
-
     virtual const PrecomputedTransactionData* GetPrecomputedTransactionData() const
     {
         return nullptr;
@@ -335,7 +331,6 @@ public:
     const std::vector<CTxOut>* GetTxvOut() const override;
     uint32_t GetLockTime() const override;
     int32_t GetTxVersion() const override;
-    uint64_t GetTxWeight() const override;
 
     const PrecomputedTransactionData* GetPrecomputedTransactionData() const override;
     uint32_t GetnIn() const override;
