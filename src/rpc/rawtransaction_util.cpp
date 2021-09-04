@@ -561,7 +561,7 @@ void SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, 
     std::map<int, std::string> input_errors;
 
     bool immature_pegin = ValidateTransactionPeginInputs(mtx, active_chain_tip, input_errors);
-    bool complete = SignTransaction(mtx, keystore, coins, nHashType, input_errors);
+    bool complete = SignTransaction(mtx, keystore, coins, nHashType, Params().HashGenesisBlock(), input_errors);
     SignTransactionResultToJSON(mtx, complete, coins, input_errors, immature_pegin, result);
 }
 

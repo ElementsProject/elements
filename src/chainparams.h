@@ -128,7 +128,8 @@ public:
 
     const ChainTxData& TxData() const { return chainTxData; }
     // ELEMENTS extra fields:
-    const uint256 ParentGenesisBlockHash() const { return parentGenesisBlockHash; }
+    const uint256& ParentGenesisBlockHash() const { return parentGenesisBlockHash; }
+    const uint256& HashGenesisBlock() const { return consensus.hashGenesisBlock; }
     bool anyonecanspend_aremine;
     const std::string& ParentBech32HRP() const { return parent_bech32_hrp; }
     const std::string& ParentBlech32HRP() const { return parent_blech32_hrp; }

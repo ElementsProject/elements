@@ -139,7 +139,8 @@ FUZZ_TARGET_INIT(script_sign, initialize_script_sign)
                 coins[*outpoint] = *coin;
             }
             std::map<int, std::string> input_errors;
-            (void)SignTransaction(sign_transaction_tx_to, &provider, coins, fuzzed_data_provider.ConsumeIntegral<int>(), input_errors);
+            auto genesis_hash = ConsumeUInt256(fuzzed_data_provider);
+            (void)SignTransaction(sign_transaction_tx_to, &provider, coins, fuzzed_data_provider.ConsumeIntegral<int>(), genesis_hash, input_errors);
         }
     }
 

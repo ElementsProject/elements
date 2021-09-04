@@ -179,7 +179,7 @@ static bool SignTaprootScript(const SigningProvider& provider, const BaseSignatu
     if (leaf_version != TAPROOT_LEAF_TAPSCRIPT) return false;
     SigVersion sigversion = SigVersion::TAPSCRIPT;
 
-    uint256 leaf_hash = (CHashWriter(HASHER_TAPLEAF) << uint8_t(leaf_version) << script).GetSHA256();
+    uint256 leaf_hash = (CHashWriter(HASHER_TAPLEAF_ELEMENTS) << uint8_t(leaf_version) << script).GetSHA256();
 
     // <xonly pubkey> OP_CHECKSIG
     if (script.size() == 34 && script[33] == OP_CHECKSIG && script[0] == 0x20) {
@@ -653,7 +653,7 @@ bool IsSegWitOutput(const SigningProvider& provider, const CScript& script)
     return false;
 }
 
-bool SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, int nHashType, std::map<int, std::string>& input_errors)
+bool SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, int nHashType, const uint256& hash_genesis_block, std::map<int, std::string>& input_errors)
 {
     bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
 
@@ -661,7 +661,7 @@ bool SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, 
     // transaction to avoid rehashing.
     const CTransaction txConst(mtx);
 
-    PrecomputedTransactionData txdata;
+    PrecomputedTransactionData txdata{hash_genesis_block};
     std::vector<CTxOut> spent_outputs;
     spent_outputs.resize(mtx.vin.size());
     bool have_all_spent_outputs = true;

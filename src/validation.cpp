@@ -1109,7 +1109,7 @@ MempoolAcceptResult MemPoolAccept::AcceptSingleTransaction(const CTransactionRef
     // scripts (ie, other policy checks pass). We perform the inexpensive
     // checks first and avoid hashing and signature verification unless those
     // checks pass, to mitigate CPU exhaustion denial-of-service attacks.
-    PrecomputedTransactionData txdata;
+    PrecomputedTransactionData txdata(args.m_chainparams.HashGenesisBlock());
 
     if (!PolicyScriptChecks(args, ws, txdata)) return MempoolAcceptResult::Failure(ws.m_state);
 
@@ -2037,7 +2037,10 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
     // doesn't invalidate pointers into the vector, and keep txsdata in scope
     // for as long as `control`.
     CCheckQueueControl<CCheck> control(fScriptChecks && g_parallel_script_checks ? &scriptcheckqueue : nullptr);
-    std::vector<PrecomputedTransactionData> txsdata(block.vtx.size());
+    std::vector<PrecomputedTransactionData> txsdata;
+    for (unsigned int i = 0; i< block.vtx.size(); i++ ){
+        txsdata.push_back(PrecomputedTransactionData(m_params.HashGenesisBlock()));
+    }
 
     std::vector<int> prevheights;
     CAmountMap fee_map;

@@ -578,7 +578,7 @@ PrecomputedTransactionData PrecomputePSBTData(const PartiallySignedTransaction& 
     for (size_t idx = 0; idx < psbt.inputs.size(); ++idx) {
         if (!psbt.inputs[idx].GetUTXO(utxos[idx])) have_all_spent_outputs = false;
     }
-    PrecomputedTransactionData txdata;
+    PrecomputedTransactionData txdata{Params().HashGenesisBlock()};
     if (have_all_spent_outputs) {
         txdata.Init(tx, std::move(utxos), true);
     } else {
