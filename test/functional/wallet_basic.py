@@ -145,7 +145,7 @@ class WalletTest(BitcoinTestFramework):
         # The lock on a manually selected output is ignored
         unspent_0 = self.nodes[1].listunspent()[0]
         self.nodes[1].lockunspent(False, [unspent_0])
-        tx = self.nodes[1].createrawtransaction([unspent_0], { self.nodes[1].getnewaddress() : 1 })
+        tx = self.nodes[1].createrawtransaction([unspent_0], [{ self.nodes[1].getnewaddress() : 1 }])
         self.nodes[1].fundrawtransaction(tx,{"lockUnspents": True})
 
         # fundrawtransaction can lock an input
@@ -178,10 +178,8 @@ class WalletTest(BitcoinTestFramework):
         txns_to_send = []
         for utxo in node0utxos:
             inputs = []
-            outputs = {}
             inputs.append({"txid": utxo["txid"], "vout": utxo["vout"]})
-            outputs[self.nodes[2].getnewaddress()] = utxo["amount"] - 3
-            outputs["fee"] = 3
+            outputs = [{self.nodes[2].getnewaddress(): utxo["amount"] - 3}, {"fee": 3}]
             raw_tx = self.nodes[0].createrawtransaction(inputs, outputs)
             txns_to_send.append(self.nodes[0].signrawtransactionwithwallet(raw_tx))
 
@@ -307,7 +305,7 @@ class WalletTest(BitcoinTestFramework):
         # 4. check if recipient (node0) can list the zero value tx
         usp = self.nodes[1].listunspent(query_options={'minimumAmount': '49.998'})[0]
         inputs = [{"txid": usp['txid'], "vout": usp['vout']}]
-        outputs = {self.nodes[1].getnewaddress(): 49.998, self.nodes[0].getnewaddress(): 11.11}
+        outputs = [{self.nodes[1].getnewaddress(): 49.998}, {self.nodes[0].getnewaddress(): 11.11}]
 
         raw_tx = self.nodes[1].createrawtransaction(inputs, outputs).replace("c0833842", "00000000")  # replace 11.11 with 0.0 (int32)
         signed_raw_tx = self.nodes[1].signrawtransactionwithwallet(raw_tx)
@@ -582,7 +580,7 @@ class WalletTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         node0_balance = self.nodes[0].getbalance()['bitcoin']
         # Split into two chains
-        rawtx = self.nodes[0].createrawtransaction([{"txid": singletxid, "vout": 0}], {chain_addrs[0]: node0_balance / 2 - Decimal('0.01'), chain_addrs[1]: node0_balance / 2 - Decimal('0.01'), "fee": Decimal('0.02')})
+        rawtx = self.nodes[0].createrawtransaction([{"txid": singletxid, "vout": 0}], [{chain_addrs[0]: node0_balance / 2 - Decimal('0.01')}, {chain_addrs[1]: node0_balance / 2 - Decimal('0.01')}, {"fee": Decimal('0.02')}])
         signedtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
         singletxid = self.nodes[0].sendrawtransaction(hexstring=signedtx["hex"], maxfeerate=0)
         self.nodes[0].generate(1)

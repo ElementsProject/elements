@@ -8,15 +8,21 @@
 #include <wallet/transaction.h>
 #include <wallet/wallet.h>
 
-isminetype CWallet::IsMine(const CTxIn &txin) const
+isminetype CWallet::IsMine(const CTxIn& txin) const
 {
     AssertLockHeld(cs_wallet);
-    std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txin.prevout.hash);
+    return IsMine(txin.prevout);
+}
+
+isminetype CWallet::IsMine(const COutPoint &outpoint) const
+{
+    AssertLockHeld(cs_wallet);
+    std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(outpoint.hash);
     if (mi != mapWallet.end())
     {
         const CWalletTx& prev = (*mi).second;
-        if (txin.prevout.n < prev.tx->vout.size())
-            return IsMine(prev.tx->vout[txin.prevout.n]);
+        if (outpoint.n < prev.tx->vout.size())
+            return IsMine(prev.tx->vout[outpoint.n]);
     }
     return ISMINE_NO;
 }

@@ -195,17 +195,11 @@ def create_raw_transaction(node, txid, to_address, *, amount, fee, locktime=0):
         input txid. Note that the node must have a wallet that can sign
         for the output that is being spent.
     """
-    psbt = node.createpsbt(inputs=[{"txid": txid, "vout": 0}], outputs={to_address: amount, "fee": fee}, locktime=locktime)
-    for _ in range(2):
+    psbt = node.createpsbt(inputs=[{"txid": txid, "vout": 0}], outputs=[{to_address: amount}, {"fee": fee}], locktime=locktime)
+    for sign in [False, True]:
         for w in node.listwallets():
             wrpc = node.get_wallet_rpc(w)
-            filled_psbt = wrpc.walletfillpsbtdata(psbt)
-            blinded_psbt = wrpc.blindpsbt(filled_psbt['psbt'])
-            try: # ELEMENTS: if we are missing UTXOs we will refuse to sign as we cannot check tx balance. Post-#900 we should review this
-                signed_psbt = wrpc.walletsignpsbt(blinded_psbt)
-                psbt = signed_psbt['psbt']
-            except:
-                pass
+            psbt = wrpc.walletprocesspsbt(psbt, sign)["psbt"]
     final_psbt = node.finalizepsbt(psbt)
     assert_equal(final_psbt["complete"], True)
     return final_psbt['hex']
@@ -253,7 +247,7 @@ def create_witness_tx(node, use_p2wsh, utxo, pubkey, encode_p2sh, amount):
         assert_equal(node.getaddressinfo(addr)['scriptPubKey'], witness_script(use_p2wsh, pubkey))
     if "amount" not in utxo:
         utxo["amount"] = node.gettxout(utxo["txid"], utxo["vout"])["value"]
-    return node.createrawtransaction([utxo], {addr: amount, "fee": utxo["amount"]-amount})
+    return node.createrawtransaction([utxo], [{addr: amount}, {"fee": utxo["amount"]-amount}])
 
 def send_to_witness(use_p2wsh, node, utxo, pubkey, encode_p2sh, amount, sign=True, insert_redeem_script=""):
     """Create a transaction spending a given utxo to a segwit output.

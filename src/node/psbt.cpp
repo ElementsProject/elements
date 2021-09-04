@@ -17,14 +17,15 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
     // Go through each input and build status
     PSBTAnalysis result;
 
-    bool calc_fee = true;
-    CAmountMap in_amts;
+    // Elements things
+    bool needs_blinded_outputs = false;
+    bool has_blinded_outputs = false;
 
-    result.inputs.resize(psbtx.tx->vin.size());
+    result.inputs.resize(psbtx.inputs.size());
 
     const PrecomputedTransactionData txdata = PrecomputePSBTData(psbtx);
 
-    for (unsigned int i = 0; i < psbtx.tx->vin.size(); ++i) {
+    for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
         PSBTInput& input = psbtx.inputs[i];
         PSBTInputAnalysis& input_analysis = result.inputs[i];
 
@@ -33,23 +34,24 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
 
         // Check for a UTXO
         CTxOut utxo;
-        if (psbtx.GetInputUTXO(utxo, i)) {
-            //TODO(gwillen) do PSBT inputs always have explicit assets & amounts?
-            if (!MoneyRange(utxo.nValue.GetAmount()) || !MoneyRange(in_amts[utxo.nAsset.GetAsset()] + utxo.nValue.GetAmount())) {
-                result.SetInvalid(strprintf("PSBT is not valid. Input %u has invalid value", i));
-                return result;
+        if (input.GetUTXO(utxo)) {
+            if (utxo.nValue.IsExplicit()) {
+                if (!MoneyRange(utxo.nValue.GetAmount())) {
+                    result.SetInvalid(strprintf("PSBT is not valid. Input %u has invalid value", i));
+                    return result;
+                }
+            } else {
+                needs_blinded_outputs = true;
             }
-            in_amts[utxo.nAsset.GetAsset()] += utxo.nValue.GetAmount();
             input_analysis.has_utxo = true;
         } else {
-            if (input.non_witness_utxo && psbtx.tx->vin[i].prevout.n >= input.non_witness_utxo->vout.size()) {
+            if (input.non_witness_utxo && *input.prev_out >= input.non_witness_utxo->vout.size()) {
                 result.SetInvalid(strprintf("PSBT is not valid. Input %u specifies invalid prevout", i));
                 return result;
             }
             input_analysis.has_utxo = false;
             input_analysis.is_final = false;
             input_analysis.next = PSBTRole::UPDATER;
-            calc_fee = false;
         }
 
         if (!utxo.IsNull() && utxo.scriptPubKey.IsUnspendable()) {
@@ -86,70 +88,76 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
         }
     }
 
+    for (const PSBTOutput& output : psbtx.outputs) {
+        CTxOut txout = output.GetTxOut();
+        if (output.IsBlinded()) {
+            has_blinded_outputs = true;
+            if (!output.IsFullyBlinded()) {
+                result.next = PSBTRole::BLINDER;
+            }
+        } else {
+            // Find the fee output
+            if (txout.IsFee()) {
+                if (result.fee != std::nullopt) {
+                    result.SetInvalid("There is more than one fee output");
+                    return result;
+                }
+                result.fee = output.amount;
+            }
+        }
+        if (txout.nValue.IsExplicit() && !MoneyRange(txout.nValue.GetAmount())) {
+            result.SetInvalid("PSBT is not valid. Output amount invalid");
+            return result;
+        }
+    }
+
+    if (result.fee == std::nullopt) {
+        result.SetInvalid("PSBT missing required fee output");
+        return result;
+    }
+
+    if (needs_blinded_outputs && !has_blinded_outputs) {
+        result.SetInvalid("PSBT has blinded inputs but no blinded outputs. Must have at least one blinded output to balance with the inputs");
+        return result;
+    }
+
+    // Estimate the size
+    CMutableTransaction mtx(psbtx.GetUnsignedTx());
+    CCoinsView view_dummy;
+    CCoinsViewCache view(&view_dummy);
+    bool success = true;
+
+    for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
+        PSBTInput& input = psbtx.inputs[i];
+        Coin newcoin;
+
+        if (!SignPSBTInput(DUMMY_SIGNING_PROVIDER, psbtx, i, nullptr, 1) || !input.GetUTXO(newcoin.out)) {
+            success = false;
+            break;
+        } else {
+            mtx.vin[i].scriptSig = input.final_script_sig;
+            mtx.witness.vtxinwit[i].scriptWitness = input.final_script_witness;
+            newcoin.nHeight = 1;
+            view.AddCoin(input.GetOutPoint(), std::move(newcoin), true);
+        }
+    }
+
+    if (success) {
+        CTransaction ctx = CTransaction(mtx);
+        size_t size = GetVirtualTransactionSize(ctx, GetTransactionSigOpCost(ctx, view, STANDARD_SCRIPT_VERIFY_FLAGS));
+        result.estimated_vsize = size;
+        // Estimate fee rate
+        CFeeRate feerate(*result.fee, size);
+        result.estimated_feerate = feerate;
+    }
+
     // Calculate next role for PSBT by grabbing "minimum" PSBTInput next role
     result.next = PSBTRole::EXTRACTOR;
-    for (unsigned int i = 0; i < psbtx.tx->vin.size(); ++i) {
+    for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
         PSBTInputAnalysis& input_analysis = result.inputs[i];
         result.next = std::min(result.next, input_analysis.next);
     }
     assert(result.next > PSBTRole::CREATOR);
-
-    if (calc_fee) {
-        // Get the output amount
-        CAmountMap out_amts = std::accumulate(psbtx.tx->vout.begin(), psbtx.tx->vout.end(), CAmountMap(),
-            [](CAmountMap a, const CTxOut& b) {
-                CAmount acc = a[b.nAsset.GetAsset()];
-                CAmount add = b.nValue.GetAmount();
-
-                if (!MoneyRange(acc) || !MoneyRange(add) || !MoneyRange(acc + add)) {
-                    CAmountMap invalid;
-                    invalid[::policyAsset] = CAmount(-1);
-                    return invalid;
-                }
-                a[b.nAsset.GetAsset()] += add;
-                return a;
-            }
-        );
-        if (!MoneyRange(out_amts)) {
-            result.SetInvalid(strprintf("PSBT is not valid. Output amount invalid"));
-            return result;
-        }
-
-        // Get the fee
-        CAmountMap fee = in_amts - out_amts;
-        result.fee = fee;
-
-        // Estimate the size
-        CMutableTransaction mtx(*psbtx.tx);
-        CCoinsView view_dummy;
-        CCoinsViewCache view(&view_dummy);
-        bool success = true;
-
-        for (unsigned int i = 0; i < psbtx.tx->vin.size(); ++i) {
-            PSBTInput& input = psbtx.inputs[i];
-            Coin newcoin;
-
-            if (!SignPSBTInput(DUMMY_SIGNING_PROVIDER, psbtx, i, nullptr, 1) || !psbtx.GetInputUTXO(newcoin.out, i)) {
-                success = false;
-                break;
-            } else {
-                mtx.vin[i].scriptSig = input.final_script_sig;
-                mtx.witness.vtxinwit[i].scriptWitness = input.final_script_witness;
-                newcoin.nHeight = 1;
-                view.AddCoin(psbtx.tx->vin[i].prevout, std::move(newcoin), true);
-            }
-        }
-
-        if (success) {
-            CTransaction ctx = CTransaction(mtx);
-            size_t size = GetVirtualTransactionSize(ctx, GetTransactionSigOpCost(ctx, view, STANDARD_SCRIPT_VERIFY_FLAGS));
-            result.estimated_vsize = size;
-            // Estimate fee rate
-            CFeeRate feerate(fee[::policyAsset], size);
-            result.estimated_feerate = feerate;
-        }
-
-    }
 
     return result;
 }

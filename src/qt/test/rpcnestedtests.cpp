@@ -75,10 +75,10 @@ void RPCNestedTests::rpcNestedTests()
     RPCConsole::RPCExecuteCommandLine(m_node, result, "getblockchaininfo()[\"chain\"]"); //Quote path identifier are allowed, but look after a child containing the quotes in the key
     QVERIFY(result == "null");
 
-    RPCConsole::RPCExecuteCommandLine(m_node, result, "createrawtransaction [] {} 0"); //parameter not in brackets are allowed
-    RPCConsole::RPCExecuteCommandLine(m_node, result2, "createrawtransaction([],{},0)"); //parameter in brackets are allowed
+    RPCConsole::RPCExecuteCommandLine(m_node, result, "createrawtransaction [] [] 0"); //parameter not in brackets are allowed
+    RPCConsole::RPCExecuteCommandLine(m_node, result2, "createrawtransaction([],[],0)"); //parameter in brackets are allowed
     QVERIFY(result == result2);
-    RPCConsole::RPCExecuteCommandLine(m_node, result2, "createrawtransaction( [],  {} , 0   )"); //whitespace between parameters is allowed
+    RPCConsole::RPCExecuteCommandLine(m_node, result2, "createrawtransaction( [],  [] , 0   )"); //whitespace between parameters is allowed
     QVERIFY(result == result2);
 
     RPCConsole::RPCExecuteCommandLine(m_node, result, "getblock(getbestblockhash())[tx][0]", &filtered);

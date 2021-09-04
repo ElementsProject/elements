@@ -143,7 +143,7 @@ void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, Sidechain::B
     CreatePegInInputInner(mtx, input_idx, tx_btc, merkle_block, claim_scripts, txData, txOutProofData, active_chain_tip);
 }
 
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const CBlockIndex* active_chain_tip, const UniValue& assets_in, std::vector<CPubKey>* output_pubkeys_out, bool allow_peg_in)
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const CBlockIndex* active_chain_tip, std::map<CTxOut, PSBTOutput>* outputs_aux, bool allow_peg_in, bool allow_issuance)
 {
     if (outputs_in.isNull()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output argument must be non-null");
@@ -156,8 +156,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         inputs = inputs_in.get_array();
     }
 
-    const bool outputs_is_obj = outputs_in.isObject();
-    UniValue outputs = outputs_is_obj ? outputs_in.get_obj() : outputs_in.get_array();
+    UniValue outputs = outputs_in.get_array();
 
     CMutableTransaction rawTx;
 
@@ -166,11 +165,6 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         if (nLockTime < 0 || nLockTime > LOCKTIME_MAX)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, locktime out of range");
         rawTx.nLockTime = nLockTime;
-    }
-
-    UniValue assets;
-    if (!assets_in.isNull()) {
-        assets = assets_in.get_obj();
     }
 
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
@@ -207,6 +201,42 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         }
 
         CTxIn in(COutPoint(txid, nOutput), CScript(), nSequence);
+
+        // Get issuance stuff if it's there
+        const UniValue& blinding_nonce_v = find_value(o, "asset_blinding_nonce");
+        const UniValue& entropy_v = find_value(o, "asset_entropy");
+        const UniValue& amount_v = find_value(o, "issuance_amount");
+        const UniValue& issuance_tokens_v = find_value(o, "issuance_tokens");
+        const UniValue& blind_reissuance_v = find_value(o, "blind_reissuance");
+        if (!amount_v.isNull() && allow_issuance) {
+            if (!amount_v.isNum()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "issuance_amount is not a number");
+            }
+            CAmount amt = AmountFromValue(amount_v);
+            // issuance_tokens may be null for reissuance
+            if (!issuance_tokens_v.isNull()) {
+                if (!issuance_tokens_v.isNum()) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "issuance_tokens is not a number");
+                }
+                CAmount num_inflation = AmountFromValue(issuance_tokens_v);
+                in.assetIssuance.nInflationKeys.SetToAmount(num_inflation);
+            }
+            uint256 blinding_nonce;
+            if (!blinding_nonce_v.isNull()) {
+                blinding_nonce = ParseHashV(blinding_nonce_v, "asset_blinding_nonce");
+            }
+            uint256 entropy;
+            if (!entropy_v.isNull()) {
+                entropy = ParseHashV(entropy_v, "asset_entropy");
+            }
+            in.assetIssuance.nAmount.SetToAmount(amt);
+            in.assetIssuance.assetBlindingNonce = blinding_nonce;
+            in.assetIssuance.assetEntropy = entropy;
+        } else if (!blinding_nonce_v.isNull() || !entropy_v.isNull() || !issuance_tokens_v.isNull() || !blind_reissuance_v.isNull()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "auxiliary issuance arguments provided without issuance amount");
+        }
+
+        // Add to the tx
         rawTx.vin.push_back(in);
 
         // Get the pegin stuff if it's there
@@ -244,23 +274,9 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "pegin_ arguments provided but this command does not support peg-ins");
             }
         }
+
     }
 
-    if (!outputs_is_obj) {
-        // Translate array of key-value pairs into dict
-        UniValue outputs_dict = UniValue(UniValue::VOBJ);
-        for (size_t i = 0; i < outputs.size(); ++i) {
-            const UniValue& output = outputs[i];
-            if (!output.isObject()) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, key-value pair not an object as expected");
-            }
-            if (output.size() != 1) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, key-value pair must contain exactly one key");
-            }
-            outputs_dict.pushKVs(output);
-        }
-        outputs = std::move(outputs_dict);
-    }
     // Keep track of the fee output so we can add it in the very end of the transaction.
     CTxOut fee_out;
 
@@ -268,88 +284,100 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
     std::set<CTxDestination> destinations;
     bool has_data{false};
 
-    for (const std::string& name_ : outputs.getKeys()) {
+    std::vector<PSBTOutput> psbt_outs;
+    for (unsigned int i = 0; i < outputs.size(); ++i) {
+        const UniValue& output = outputs[i].get_obj();
+        // New PSBTOutput with version 2
+        PSBTOutput psbt_out(2);
+
         // ELEMENTS:
         // Asset defaults to policyAsset
-        CAsset asset(::policyAsset);
-        if (!assets.isNull()) {
-            if (!find_value(assets, name_).isNull()) {
-                asset = CAsset(ParseHashO(assets, name_));
+        CTxOut out(::policyAsset, 0, CScript());
+
+        bool is_fee = false;
+        for (const std::string& name_ : output.getKeys()) {
+            if (name_ == "data") {
+                if (has_data) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, duplicate key: data");
+                }
+                has_data = true;
+                std::vector<unsigned char> data = ParseHexV(output[name_].getValStr(), "Data");
+
+                out.nValue = 0;
+                out.scriptPubKey = CScript() << OP_RETURN << data;
+            } else if (name_ == "vdata") {
+                // ELEMENTS: support multi-push OP_RETURN
+                UniValue vdata = output[name_].get_array();
+                CScript datascript = CScript() << OP_RETURN;
+                for (size_t i = 0; i < vdata.size(); i++) {
+                    std::vector<unsigned char> data = ParseHexV(vdata[i].get_str(), "Data");
+                    datascript << data;
+                }
+
+                out.nValue = 0;
+                out.scriptPubKey = datascript;
+            } else if (name_ == "fee") {
+                // ELEMENTS: explicit fee outputs
+                CAmount nAmount = AmountFromValue(output[name_]);
+                out.nValue = nAmount;
+                out.scriptPubKey = CScript();
+                is_fee = true;
+                break;
+            } else if (name_ == "burn") {
+                CScript datascript = CScript() << OP_RETURN;
+                CAmount nAmount = AmountFromValue(output[name_]);
+                out.nValue = nAmount;
+                out.scriptPubKey = datascript;
+            } else if (name_ == "asset") {
+                // ELEMENTS: Assets are specified
+                out.nAsset = CAsset(ParseHashO(output, name_));
+            } else if (name_ == "blinder_index") {
+                // For PSET
+                psbt_out.m_blinder_index = find_value(output, name_).get_int();
+            } else {
+                CTxDestination destination = DecodeDestination(name_);
+                if (!IsValidDestination(destination)) {
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Bitcoin address: ") + name_);
+                }
+
+                if (!destinations.insert(destination).second) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + name_);
+                }
+
+                CScript scriptPubKey = GetScriptForDestination(destination);
+                CAmount nAmount = AmountFromValue(output[name_]);
+
+                out.nValue = nAmount;
+                out.scriptPubKey = scriptPubKey;
+                CPubKey blind_pub;
+                if (IsBlindDestination(destination)) {
+                    blind_pub = GetDestinationBlindingKey(destination);
+                    if (!outputs_aux) {
+                        // Only use the pubkey-in-nonce hack if the caller is not getting the pubkeys the nice way.
+                        out.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
+                    }
+                }
+                psbt_out.m_blinding_pubkey = blind_pub;
             }
         }
-
-        if (name_ == "data") {
-            if (has_data) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, duplicate key: data");
-            }
-            has_data = true;
-            std::vector<unsigned char> data = ParseHexV(outputs[name_].getValStr(), "Data");
-
-            CTxOut out(asset, 0, CScript() << OP_RETURN << data);
-            rawTx.vout.push_back(out);
-            if (output_pubkeys_out) {
-                output_pubkeys_out->push_back(CPubKey());
-            }
-        } else if (name_ == "vdata") {
-            // ELEMENTS: support multi-push OP_RETURN
-            UniValue vdata = outputs[name_].get_array();
-            CScript datascript = CScript() << OP_RETURN;
-            for (size_t i = 0; i < vdata.size(); i++) {
-                std::vector<unsigned char> data = ParseHexV(vdata[i].get_str(), "Data");
-                datascript << data;
-            }
-
-            CTxOut out(asset, 0, datascript);
-            rawTx.vout.push_back(out);
-            if (output_pubkeys_out) {
-                output_pubkeys_out->push_back(CPubKey());
-            }
-        } else if (name_ == "fee") {
-            // ELEMENTS: explicit fee outputs
-            CAmount nAmount = AmountFromValue(outputs[name_]);
-            fee_out = CTxOut(asset, nAmount, CScript());
-        } else if (name_ == "burn") {
-            CScript datascript = CScript() << OP_RETURN;
-            CAmount nAmount = AmountFromValue(outputs[name_]);
-            CTxOut out(asset, nAmount, datascript);
-            rawTx.vout.push_back(out);
-            if (output_pubkeys_out) {
-                output_pubkeys_out->push_back(CPubKey());
-            }
+        if (is_fee) {
+            fee_out = out;
         } else {
-            CTxDestination destination = DecodeDestination(name_);
-            if (!IsValidDestination(destination)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Bitcoin address: ") + name_);
-            }
-
-            if (!destinations.insert(destination).second) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + name_);
-            }
-
-            CScript scriptPubKey = GetScriptForDestination(destination);
-            CAmount nAmount = AmountFromValue(outputs[name_]);
-
-            CTxOut out(asset, nAmount, scriptPubKey);
-            CPubKey blind_pub;
-            if (IsBlindDestination(destination)) {
-                blind_pub = GetDestinationBlindingKey(destination);
-                if (!output_pubkeys_out) {
-                    // Only use the pubkey-in-nonce hack if the caller is not getting the pubkeys the nice way.
-                    out.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
-                }
-            }
             rawTx.vout.push_back(out);
-            if (output_pubkeys_out) {
-                output_pubkeys_out->push_back(blind_pub);
-            }
+            psbt_outs.push_back(psbt_out);
         }
     }
 
     // Add fee output in the end.
     if (!fee_out.nValue.IsNull() && fee_out.nValue.GetAmount() > 0) {
         rawTx.vout.push_back(fee_out);
-        if (output_pubkeys_out) {
-            output_pubkeys_out->push_back(CPubKey());
+        // New PSBTOutput with version 2
+        psbt_outs.emplace_back(2);
+    }
+
+    if (outputs_aux) {
+        for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
+            outputs_aux->insert(std::make_pair(rawTx.vout[i], psbt_outs[i]));
         }
     }
 

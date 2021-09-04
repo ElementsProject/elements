@@ -61,7 +61,7 @@ FUZZ_TARGET_INIT(psbt, initialize_psbt)
 
     for (size_t i = 0; i < psbt.tx->vin.size(); ++i) {
         CTxOut tx_out;
-        if (psbt.GetInputUTXO(tx_out, i)) {
+        if (psbt.inputs.at(i).GetUTXO(tx_out)) {
             (void)tx_out.IsNull();
             (void)tx_out.ToString();
         }
@@ -86,10 +86,10 @@ FUZZ_TARGET_INIT(psbt, initialize_psbt)
     (void)CombinePSBTs(psbt_mut, {psbt_mut, psbt_merge});
     psbt_mut = psbt;
     for (unsigned int i = 0; i < psbt_merge.tx->vin.size(); ++i) {
-        (void)psbt_mut.AddInput(psbt_merge.tx->vin[i], psbt_merge.inputs[i]);
+        (void)psbt_mut.AddInput(psbt_merge.inputs[i]);
     }
     for (unsigned int i = 0; i < psbt_merge.tx->vout.size(); ++i) {
-        Assert(psbt_mut.AddOutput(psbt_merge.tx->vout[i], psbt_merge.outputs[i]));
+        Assert(psbt_mut.AddOutput(psbt_merge.outputs[i]));
     }
     psbt_mut.unknown.insert(psbt_merge.unknown.begin(), psbt_merge.unknown.end());
 }

@@ -77,7 +77,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
              'scriptPubKey': '76a914669b857c03a5ed269d5d85a1ffac9ed5d663072788ac'},
         ]
 
-        outputs = {'mpLQjfK79b7CCV4VMJWEWAj5Mpx8Up5zxB': 0.1}
+        outputs = [{'mpLQjfK79b7CCV4VMJWEWAj5Mpx8Up5zxB': 0.1}]
 
         rawTx = self.nodes[0].createrawtransaction(inputs, outputs)
         rawTxSigned = self.nodes[0].signrawtransactionwithkey(rawTx, privKeys, inputs)
@@ -126,7 +126,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
              'scriptPubKey': 'badbadbadbad'}
         ]
 
-        outputs = {'mpLQjfK79b7CCV4VMJWEWAj5Mpx8Up5zxB': 0.1}
+        outputs = [{'mpLQjfK79b7CCV4VMJWEWAj5Mpx8Up5zxB': 0.1}]
 
         rawTx = self.nodes[0].createrawtransaction(inputs, outputs)
 
@@ -220,7 +220,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         unspent_output['redeemScript'] = script_to_p2wsh_script(unspent_output['witnessScript']).hex()
         assert_equal(spk, unspent_output['scriptPubKey'])
         # Now create and sign a transaction spending that output on node[0], which doesn't know the scripts or keys
-        spending_tx = self.nodes[0].createrawtransaction([unspent_output], {self.nodes[1].get_wallet_rpc(self.default_wallet_name).getnewaddress(): Decimal("49.998")})
+        spending_tx = self.nodes[0].createrawtransaction([unspent_output], [{self.nodes[1].get_wallet_rpc(self.default_wallet_name).getnewaddress(): Decimal("49.998")}])
         spending_tx_signed = self.nodes[0].signrawtransactionwithkey(spending_tx, [embedded_privkey], [unspent_output])
         # Check the signing completed successfully
         assert 'complete' in spending_tx_signed

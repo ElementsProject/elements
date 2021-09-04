@@ -63,8 +63,8 @@ BOOST_AUTO_TEST_CASE(rpc_rawparams)
     BOOST_CHECK_THROW(CallRPC("createrawtransaction null null"), std::runtime_error);
     BOOST_CHECK_THROW(CallRPC("createrawtransaction not_array"), std::runtime_error);
     BOOST_CHECK_THROW(CallRPC("createrawtransaction {} {}"), std::runtime_error);
-    BOOST_CHECK_NO_THROW(CallRPC("createrawtransaction [] {}"));
-    BOOST_CHECK_THROW(CallRPC("createrawtransaction [] {} extra"), std::runtime_error);
+    BOOST_CHECK_THROW(CallRPC("createrawtransaction [] {}"), std::runtime_error);
+    BOOST_CHECK_THROW(CallRPC("createrawtransaction [] [] extra"), std::runtime_error);
 
     BOOST_CHECK_THROW(CallRPC("decoderawtransaction"), std::runtime_error);
     BOOST_CHECK_THROW(CallRPC("decoderawtransaction null"), std::runtime_error);
@@ -116,7 +116,7 @@ BOOST_AUTO_TEST_CASE(rpc_rawsign)
       "\"vout\":1,\"scriptPubKey\":\"a914b10c9df5f7edf436c697f02f1efdba4cf399615187\","
       "\"redeemScript\":\"512103debedc17b3df2badbcdd86d5feb4562b86fe182e5998abd8bcd4f122c6155b1b21027e940bb73ab8732bfdf7f9216ecefca5b94d6df834e77e108f68e66f126044c052ae\"}]";
     r = CallRPC(std::string("createrawtransaction ")+prevout+" "+
-      "{\"3HqAe9LtNBjnsfM4CyYaWTnvCaUYT7v4oZ\":11}");
+      "[{\"3HqAe9LtNBjnsfM4CyYaWTnvCaUYT7v4oZ\":11}]");
     std::string notsigned = r.get_str();
     std::string privkey1 = "\"KzsXybp9jX64P5ekX1KUxRQ79Jht9uzW7LorgwE65i5rWACL6LQe\"";
     std::string privkey2 = "\"Kyhdf5LuKTRx4ge69ybABsiUAWjVRK4XGxAKk2FQLp2HjGMy87Z4\"";
@@ -128,17 +128,17 @@ BOOST_AUTO_TEST_CASE(rpc_rawsign)
 
 BOOST_AUTO_TEST_CASE(rpc_createraw_op_return)
 {
-    BOOST_CHECK_NO_THROW(CallRPC("createrawtransaction [{\"txid\":\"a3b807410df0b60fcb9736768df5823938b2f838694939ba45f3c0a1bff150ed\",\"vout\":0}] {\"data\":\"68656c6c6f776f726c64\"}"));
+    BOOST_CHECK_NO_THROW(CallRPC("createrawtransaction [{\"txid\":\"a3b807410df0b60fcb9736768df5823938b2f838694939ba45f3c0a1bff150ed\",\"vout\":0}] [{\"data\":\"68656c6c6f776f726c64\"}]"));
 
     // Key not "data" (bad address)
-    BOOST_CHECK_THROW(CallRPC("createrawtransaction [{\"txid\":\"a3b807410df0b60fcb9736768df5823938b2f838694939ba45f3c0a1bff150ed\",\"vout\":0}] {\"somedata\":\"68656c6c6f776f726c64\"}"), std::runtime_error);
+    BOOST_CHECK_THROW(CallRPC("createrawtransaction [{\"txid\":\"a3b807410df0b60fcb9736768df5823938b2f838694939ba45f3c0a1bff150ed\",\"vout\":0}] [{\"somedata\":\"68656c6c6f776f726c64\"}]"), std::runtime_error);
 
     // Bad hex encoding of data output
-    BOOST_CHECK_THROW(CallRPC("createrawtransaction [{\"txid\":\"a3b807410df0b60fcb9736768df5823938b2f838694939ba45f3c0a1bff150ed\",\"vout\":0}] {\"data\":\"12345\"}"), std::runtime_error);
-    BOOST_CHECK_THROW(CallRPC("createrawtransaction [{\"txid\":\"a3b807410df0b60fcb9736768df5823938b2f838694939ba45f3c0a1bff150ed\",\"vout\":0}] {\"data\":\"12345g\"}"), std::runtime_error);
+    BOOST_CHECK_THROW(CallRPC("createrawtransaction [{\"txid\":\"a3b807410df0b60fcb9736768df5823938b2f838694939ba45f3c0a1bff150ed\",\"vout\":0}] [{\"data\":\"12345\"}]"), std::runtime_error);
+    BOOST_CHECK_THROW(CallRPC("createrawtransaction [{\"txid\":\"a3b807410df0b60fcb9736768df5823938b2f838694939ba45f3c0a1bff150ed\",\"vout\":0}] [{\"data\":\"12345g\"}]"), std::runtime_error);
 
     // Data 81 bytes long
-    BOOST_CHECK_NO_THROW(CallRPC("createrawtransaction [{\"txid\":\"a3b807410df0b60fcb9736768df5823938b2f838694939ba45f3c0a1bff150ed\",\"vout\":0}] {\"data\":\"010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081\"}"));
+    BOOST_CHECK_NO_THROW(CallRPC("createrawtransaction [{\"txid\":\"a3b807410df0b60fcb9736768df5823938b2f838694939ba45f3c0a1bff150ed\",\"vout\":0}] [{\"data\":\"010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081\"}]"));
 }
 
 BOOST_AUTO_TEST_CASE(rpc_format_monetary_values)

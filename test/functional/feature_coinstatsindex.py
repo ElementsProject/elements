@@ -153,7 +153,7 @@ class CoinStatsIndexTest(BitcoinTestFramework):
 
         # Generate and send a normal tx with two outputs
         tx1_inputs = []
-        tx1_outputs = {self.nodes[0].getnewaddress(): 21, self.nodes[0].getnewaddress(): 42}
+        tx1_outputs = [{self.nodes[0].getnewaddress(): 21}, {self.nodes[0].getnewaddress(): 42}]
         raw_tx1 = self.nodes[0].createrawtransaction(tx1_inputs, tx1_outputs)
         funded_tx1 = self.nodes[0].fundrawtransaction(raw_tx1)
         signed_tx1 = self.nodes[0].signrawtransactionwithwallet(funded_tx1['hex'])

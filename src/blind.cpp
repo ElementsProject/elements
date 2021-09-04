@@ -11,7 +11,7 @@
 #include <random.h>
 #include <util/system.h>
 
-static secp256k1_context* secp256k1_blind_context = NULL;
+secp256k1_context* secp256k1_blind_context = NULL;
 
 class Blind_ECC_Init {
 public:
@@ -192,7 +192,7 @@ bool SurjectOutput(CTxOutWitness& txoutwit, const std::vector<secp256k1_fixed_as
 {
     int ret;
     // 1 to 3 targets
-    size_t nInputsToSelect = std::min((size_t)3, surjection_targets.size());
+    size_t nInputsToSelect = std::min(MAX_SURJECTION_TARGETS, surjection_targets.size());
     unsigned char randseed[32];
     GetStrongRandBytes(randseed, 32);
     size_t input_index;

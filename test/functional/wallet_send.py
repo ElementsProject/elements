@@ -49,9 +49,9 @@ class WalletSendTest(BitcoinTestFramework):
 
         if amount:
             dest = to_wallet.getnewaddress()
-            outputs = {dest: amount}
+            outputs = [{dest: amount}]
         else:
-            outputs = {"data": data}
+            outputs = [{"data": data}]
 
         # Construct options dictionary
         options = {}
@@ -342,9 +342,9 @@ class WalletSendTest(BitcoinTestFramework):
         self.test_send(from_wallet=w0, to_wallet=w1, amount=1, arg_fee_rate=1, fee_rate=1, add_to_wallet=False,
                        expect_error=(-8, "Pass the fee_rate either as an argument, or in the options object, but not both"))
 
-        assert_raises_rpc_error(-8, "Use fee_rate (sat/vB) instead of feeRate", w0.send, {w1.getnewaddress(): 1}, 6, "conservative", 1, {"feeRate": 0.01})
+        assert_raises_rpc_error(-8, "Use fee_rate (sat/vB) instead of feeRate", w0.send, [{w1.getnewaddress(): 1}], 6, "conservative", 1, {"feeRate": 0.01})
 
-        assert_raises_rpc_error(-3, "Unexpected key totalFee", w0.send, {w1.getnewaddress(): 1}, 6, "conservative", 1, {"totalFee": 0.01})
+        assert_raises_rpc_error(-3, "Unexpected key totalFee", w0.send, [{w1.getnewaddress(): 1}], 6, "conservative", 1, {"totalFee": 0.01})
 
         for target, mode in product([-1, 0, 1009], ["economical", "conservative"]):
             self.test_send(from_wallet=w0, to_wallet=w1, amount=1, conf_target=target, estimate_mode=mode,
@@ -355,7 +355,7 @@ class WalletSendTest(BitcoinTestFramework):
         for mode in ["", "foo", Decimal("3.141592")]:
             self.test_send(from_wallet=w0, to_wallet=w1, amount=1, conf_target=0.1, estimate_mode=mode, expect_error=(-8, msg))
             self.test_send(from_wallet=w0, to_wallet=w1, amount=1, arg_conf_target=0.1, arg_estimate_mode=mode, expect_error=(-8, msg))
-            assert_raises_rpc_error(-8, msg, w0.send, {w1.getnewaddress(): 1}, 0.1, mode)
+            assert_raises_rpc_error(-8, msg, w0.send, [{w1.getnewaddress(): 1}], 0.1, mode)
 
         for mode in ["economical", "conservative"]:
             for k, v in {"string": "true", "bool": True, "object": {"foo": "bar"}}.items():
@@ -422,10 +422,10 @@ class WalletSendTest(BitcoinTestFramework):
         assert res["complete"]
         res = self.test_send(from_wallet=w0, to_wallet=w1, amount=1, add_to_wallet=False, change_address=change_address, change_position=0)
         assert res["complete"]
-        assert_equal(self.nodes[0].decodepsbt(res["psbt"])["tx"]["vout"][0]["scriptPubKey"]["address"], change_address)
+        assert_equal(self.nodes[0].decodepsbt(res["psbt"])["outputs"][0]["script"]["address"], change_address)
         res = self.test_send(from_wallet=w0, to_wallet=w1, amount=1, add_to_wallet=False, change_type="legacy", change_position=0)
         assert res["complete"]
-        change_address = self.nodes[0].decodepsbt(res["psbt"])["tx"]["vout"][0]["scriptPubKey"]["address"]
+        change_address = self.nodes[0].decodepsbt(res["psbt"])["outputs"][0]["script"]["address"]
         assert_equal(change_address[0], "2")
 
         self.log.info("Set lock time...")

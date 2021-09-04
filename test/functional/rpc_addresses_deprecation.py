@@ -30,7 +30,7 @@ class AddressesDeprecationTest(BitcoinTestFramework):
         coin = node.listunspent().pop()
 
         inputs = [{'txid': coin['txid'], 'vout': coin['vout']}]
-        outputs = {node.getnewaddress(): 0.99, "fee": 49.01}
+        outputs = [{node.getnewaddress(): 0.99}, {"fee": 49.01}]
         raw = node.createrawtransaction(inputs, outputs)
         signed = node.signrawtransactionwithwallet(raw)['hex']
 

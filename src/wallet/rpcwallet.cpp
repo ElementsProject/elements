@@ -6,6 +6,7 @@
 #include <amount.h>
 #include <asset.h>
 #include <assetsdir.h>
+#include <blindpsbt.h>
 #include <block_proof.h>
 #include <consensus/validation.h>
 #include <core_io.h>
@@ -3885,7 +3886,7 @@ static RPCHelpMan bumpfee_helper(std::string method_name)
 
         result.pushKV("txid", txid.GetHex());
     } else {
-        PartiallySignedTransaction psbtx(mtx);
+        PartiallySignedTransaction psbtx(mtx, 2 /* version */);
         bool complete = false;
         const TransactionError err = pwallet->FillPSBT(psbtx, complete, SIGHASH_DEFAULT, false /* sign */, true /* bip32derivs */);
         CHECK_NONFATAL(err == TransactionError::OK);
@@ -4612,7 +4613,7 @@ static RPCHelpMan send()
             if (options.exists("replaceable")) {
                 rbf = options["replaceable"].get_bool();
             }
-            CMutableTransaction rawTx = ConstructTransaction(options["inputs"], request.params[0], options["locktime"], rbf, pwallet->chain().getTip(), NullUniValue /* CA: assets_in */, nullptr /* output_pubkey_out */, true /* allow_peg_in */);
+            CMutableTransaction rawTx = ConstructTransaction(options["inputs"], request.params[0], options["locktime"], rbf, pwallet->chain().getTip(), nullptr /* output_pubkey_out */, true /* allow_peg_in */);
             CCoinControl coin_control;
             // Automatically select coins, unless at least one is manually selected. Can
             // be overridden by options.add_inputs.
@@ -4625,7 +4626,7 @@ static RPCHelpMan send()
             }
 
             // Make a blank psbt
-            PartiallySignedTransaction psbtx(rawTx);
+            PartiallySignedTransaction psbtx(rawTx, 2 /* version */);
 
             // First fill transaction with our data without signing,
             // so external signers are not asked sign more than once.
@@ -4737,132 +4738,6 @@ static RPCHelpMan sethdseed()
     };
 }
 
-static RPCHelpMan walletfillpsbtdata()
-{
-    return RPCHelpMan{"walletfillpsbtdata",
-                "\nUpdate a PSBT with input information from our wallet\n" +
-        HELP_REQUIRING_PASSPHRASE,
-                {
-                    {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
-                    {"bip32derivs", RPCArg::Type::BOOL, RPCArg::Default{true}, "Include BIP 32 derivation paths for public keys if we know them"},
-                },
-                RPCResult{
-                    RPCResult::Type::OBJ, "", "",
-                    {
-                        {RPCResult::Type::STR, "psbt", "The base64-encoded partially signed transaction"},
-                    }
-                },
-                RPCExamples{
-                    HelpExampleCli("walletfillpsbtdata", "\"psbt\"")
-                    + HelpExampleRpc("walletfillpsbtdata", "\"psbt\"")
-                },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
-    if (!g_con_elementsmode)
-        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
-
-    std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
-    if (!pwallet) return NullUniValue;
-
-    const CWallet& wallet{*pwallet};
-    // Make sure the results are valid at least up to the most recent block
-    // the user could have gotten from another RPC command prior to now
-    wallet.BlockUntilSyncedToCurrentChain();
-
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL});
-
-    // Unserialize the transaction
-    PartiallySignedTransaction psbtx;
-    std::string error;
-    if (!DecodeBase64PSBT(psbtx, request.params[0].get_str(), error)) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
-    }
-
-    bool bip32derivs = request.params[1].isNull() ? true : request.params[1].get_bool();
-    const TransactionError err = wallet.FillPSBTData(psbtx, bip32derivs);
-    if (err != TransactionError::OK) {
-        throw JSONRPCTransactionError(err);
-    }
-
-    UniValue result(UniValue::VOBJ);
-    result.pushKV("psbt", EncodePSBT(psbtx));
-    return result;
-},
-    };
-}
-
-static RPCHelpMan walletsignpsbt()
-{
-    return RPCHelpMan{"walletsignpsbt",
-                "\nSign all PSBT iputs that we can sign for.\n"
-                + HELP_REQUIRING_PASSPHRASE,
-                {
-                    {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
-                    {"sighashtype", RPCArg::Type::STR, RPCArg::Default{"DEFAULT"}, "The signature hash type to sign with if not specified by the PSBT. Must be one of\n"
-                        "       \"DEFAULT\"\n"
-                        "       \"ALL\"\n"
-                        "       \"NONE\"\n"
-                        "       \"SINGLE\"\n"
-                        "       \"ALL|ANYONECANPAY\"\n"
-                        "       \"NONE|ANYONECANPAY\"\n"
-                        "       \"SINGLE|ANYONECANPAY\""},
-                    {"imbalance_ok", RPCArg::Type::BOOL, RPCArg::Default{false}, "Sign even if the transaction amounts do not balance"},
-                },
-                RPCResult{
-                    RPCResult::Type::OBJ, "", "",
-                    {
-                        {RPCResult::Type::STR, "psbt", "the base64-encoded partially signed transaction"},
-                        {RPCResult::Type::BOOL, "complete", "whether the transaction has a complete set of signatures"},
-                    },
-                },
-                RPCExamples{
-                    HelpExampleCli("walletsignpsbt", "\"psbt\"")
-                    + HelpExampleRpc("walletsignpsbt", "\"psbt\"")
-                },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
-    if (!g_con_elementsmode)
-        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
-
-    std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
-    if (!pwallet) return NullUniValue;
-
-    const CWallet& wallet{*pwallet};
-    // Make sure the results are valid at least up to the most recent block
-    // the user could have gotten from another RPC command prior to now
-    wallet.BlockUntilSyncedToCurrentChain();
-
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VBOOL});
-
-    // Unserialize the transaction
-    PartiallySignedTransaction psbtx;
-    std::string error;
-    if (!DecodeBase64PSBT(psbtx, request.params[0].get_str(), error)) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
-    }
-    if (!CheckPSBTBlinding(psbtx, error)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, error);
-    }
-
-    // Get the sighash type
-    int nHashType = ParseSighashString(request.params[1]);
-    bool imbalance_ok = request.params[2].isNull() ? false : request.params[2].get_bool();
-
-    bool complete;
-    const TransactionError err{wallet.SignPSBT(psbtx, complete, nHashType, true, imbalance_ok)};
-    if (err != TransactionError::OK) {
-        throw JSONRPCTransactionError(err);
-    }
-
-    UniValue result(UniValue::VOBJ);
-    result.pushKV("psbt", EncodePSBT(psbtx));
-    result.pushKV("complete", complete);
-
-    return result;
-},
-    };
-}
-
 static RPCHelpMan walletprocesspsbt()
 {
     return RPCHelpMan{"walletprocesspsbt",
@@ -4873,8 +4748,7 @@ static RPCHelpMan walletprocesspsbt()
                 "it. This RPC will fail when working with such transaction. Instead of using\n"
                 "this RPC, use the following sequence:\n"
                 " - walletfillpsbtdata\n"
-                " - blindpsbt\n"
-                " - walletsignpsbt\n" +
+                " - blindpsbt\n" +
                     HELP_REQUIRING_PASSPHRASE,
                 {
                     {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
@@ -4924,13 +4798,38 @@ static RPCHelpMan walletprocesspsbt()
     // Get the sighash type
     int nHashType = ParseSighashString(request.params[2]);
 
-    // Fill transaction with our data and also sign
-    bool sign = request.params[1].isNull() ? true : request.params[1].get_bool();
+    // Don't sign, just fill data.
     bool bip32derivs = request.params[3].isNull() ? true : request.params[3].get_bool();
     bool complete = true;
-    const TransactionError err{wallet.FillPSBT(psbtx, complete, nHashType, sign, bip32derivs)};
+    const TransactionError err{wallet.FillPSBT(psbtx, complete, nHashType, false, bip32derivs, true)};
     if (err != TransactionError::OK) {
         throw JSONRPCTransactionError(err);
+    }
+
+    // If not blinded but needs blinding, blind
+    bool needs_blinding = false;
+    for (const PSBTOutput& output : psbtx.outputs) {
+        if (output.IsBlinded() && !output.IsFullyBlinded()) {
+            needs_blinding = true;
+            break;
+        }
+    }
+    if (needs_blinding) {
+        BlindingStatus status = pwallet->WalletBlindPSBT(psbtx);
+        if (status != BlindingStatus::OK) {
+            throw JSONRPCError(RPC_WALLET_ERROR, GetBlindingStatusError(status));
+        }
+    }
+
+    // If fully blinded, sign if we want to
+    if (psbtx.IsFullyBlinded()) {
+        bool sign = request.params[1].isNull() ? true : request.params[1].get_bool();
+        if (sign) {
+            const TransactionError err = pwallet->FillPSBT(psbtx, complete, nHashType, sign, bip32derivs, false);
+            if (err != TransactionError::OK) {
+                throw JSONRPCTransactionError(err);
+            }
+        }
     }
 
     UniValue result(UniValue::VOBJ);
@@ -4960,6 +4859,11 @@ static RPCHelpMan walletcreatefundedpsbt()
                                     {"pegin_bitcoin_tx", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress"},
                                     {"pegin_txout_proof", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A rawtxoutproof (in hex) generated by the mainchain daemon's `gettxoutproof` containing a proof of only bitcoin_tx"},
                                     {"pegin_claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The witness program generated by getpeginaddress."},
+                                    {"issuance_amount", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The amount to be issued"},
+                                    {"issuance_tokens", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The number of asset issuance tokens to generate"},
+                                    {"asset_entropy", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "For new asset issuance, this is any additional entropy to be used in the asset tag calculation. For reissuance, this is the original asaset entropy"},
+                                    {"asset_blinding_nonce", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Do not set for new asset issuance. For reissuance, this is the blinding factor for reissuance token output for the asset being reissued"},
+                                    {"blind_reissuance",  RPCArg::Type::BOOL, RPCArg::Default{true}, "Whether to mark the issuance input for blinding or not. Only affects issuances with re-issuance tokens."},
                                 },
                             },
                         },
@@ -4972,6 +4876,8 @@ static RPCHelpMan walletcreatefundedpsbt()
                             {"", RPCArg::Type::OBJ_USER_KEYS, RPCArg::Optional::OMITTED, "",
                                 {
                                     {"address", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "A key-value pair. The key (string) is the address, the value (float or string) is the amount in " + CURRENCY_UNIT + ""},
+                                    {"blinder_index", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The index of the input whose signer will blind this output. Must be provided if this output is to be blinded"},
+                                    {"asset", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The asset tag for this output if it is not the main chain asset"},
                                 },
                                 },
                             {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -5030,6 +4936,7 @@ static RPCHelpMan walletcreatefundedpsbt()
                             }
                         }
                     },
+                    {"psbt_version", RPCArg::Type::NUM, RPCArg::Default{2}, "The PSBT version number to use."},
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
@@ -5061,7 +4968,9 @@ static RPCHelpMan walletcreatefundedpsbt()
         UniValueType(), // ARR or OBJ, checked later
         UniValue::VNUM,
         UniValue::VOBJ,
-        UniValue::VBOOL
+        UniValue::VBOOL,
+        UniValue::VOBJ,
+        UniValue::VNUM,
         }, true
     );
 
@@ -5076,65 +4985,102 @@ static RPCHelpMan walletcreatefundedpsbt()
     // It's hard to control the behavior of FundTransaction, so we will wait
     //   until after it's done, then extract the blinding keys from the output
     //   nonces.
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, wallet.chain().getTip(), NullUniValue /* CA: assets_in */, nullptr /* output_pubkeys_out */, true /* allow_peg_in */);
+    std::map<CTxOut, PSBTOutput> psbt_outs;
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, wallet.chain().getTip(), &psbt_outs, true /* allow_peg_in */, true /* allow_issuance */);
+
+    // Make a blank psbt
+    uint32_t psbt_version = 2;
+    if (!request.params[6].isNull()) {
+        psbt_version = request.params[6].get_int();
+    }
+    if (psbt_version != 2) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "The PSBT version can only be 2");
+    }
+
+    // Make a blank psbt
+    std::set<uint256> new_assets;
+    std::set<uint256> new_reissuance;
+    for (unsigned int i = 0; i < rawTx.vin.size(); ++i) {
+        if (!rawTx.vin[i].assetIssuance.IsNull()) {
+            const UniValue& blind_reissuance_v = find_value(request.params[0].get_array()[i].get_obj(), "blind_reissuance");
+            bool blind_reissuance = blind_reissuance_v.isNull() ? true : blind_reissuance_v.get_bool();
+            uint256 entropy;
+            CAsset asset;
+            CAsset token;
+
+            if (rawTx.vin[i].assetIssuance.assetBlindingNonce.IsNull()) {
+                // New issuance, calculate the final entropy
+                GenerateAssetEntropy(entropy, rawTx.vin[i].prevout, rawTx.vin[i].assetIssuance.assetEntropy);
+            } else {
+                // Reissuance, use original entropy set in assetEntropy
+                entropy = rawTx.vin[i].assetIssuance.assetEntropy;
+            }
+
+            CalculateAsset(asset, entropy);
+            new_assets.insert(asset.id);
+
+            if (!rawTx.vin[i].assetIssuance.nInflationKeys.IsNull()) {
+                // Calculate reissuance asset tag if there will be reissuance tokens
+                CalculateReissuanceToken(token, entropy, blind_reissuance);
+                new_reissuance.insert(token.id);
+            }
+        }
+    }
     CCoinControl coin_control;
     // Automatically select coins, unless at least one is manually selected. Can
     // be overridden by options.add_inputs.
     coin_control.m_add_inputs = rawTx.vin.size() == 0;
     FundTransaction(wallet, rawTx, fee, change_position, request.params[3], coin_control, /* solving_data */ request.params[5], /* override_min_fee */ true);
-
-    // Make a blank psbt
-    PartiallySignedTransaction psbtx(rawTx);
-    for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
-        if (!psbtx.tx->vout[i].nNonce.IsNull()) {
-            // Extract blinding key and clear the nonce
-            psbtx.outputs[i].blinding_pubkey = CPubKey(psbtx.tx->vout[i].nNonce.vchCommitment);
-            psbtx.tx->vout[i].nNonce.SetNull();
+    PartiallySignedTransaction psbtx(rawTx, psbt_version);
+    // Find an input that is ours
+    unsigned int blinder_index = 0;
+    {
+        LOCK(wallet.cs_wallet);
+        for (; blinder_index < rawTx.vin.size(); ++blinder_index) {
+            const CTxIn& txin = rawTx.vin[blinder_index];
+            if (wallet.IsMine(txin) != ISMINE_NO) {
+                break;
+            }
         }
+    }
+    assert(blinder_index < rawTx.vin.size()); // We added inputs, or existing inputs are ours, we should have a blinder index at this point.
+    for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
+        PSBTOutput& output = psbtx.outputs[i];
+        auto it = psbt_outs.find(rawTx.vout.at(i));
+        if (it != psbt_outs.end()) {
+            PSBTOutput& construct_psbt_out = it->second;
+
+            output.m_blinding_pubkey = construct_psbt_out.m_blinding_pubkey;
+            output.m_blinder_index = construct_psbt_out.m_blinder_index;
+        }
+
+        if (output.m_blinder_index == std::nullopt) {
+            output.m_blinder_index = blinder_index;
+        }
+
+        // Check the asset
+        if (new_assets.count(output.m_asset) > 0) {
+            new_assets.erase(output.m_asset);
+        }
+        if (new_reissuance.count(output.m_asset) > 0) {
+            new_reissuance.erase(output.m_asset);
+        }
+    }
+
+    // Make sure all newly issued assets and reissuance tokens had outputs
+    if (new_assets.size() > 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing output for new assets");
+    }
+    if (new_reissuance.size() > 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing output for reissuance tokens");
     }
 
     // Fill transaction with out data but don't sign
     bool bip32derivs = request.params[4].isNull() ? true : request.params[4].get_bool();
     bool complete = true;
-    const TransactionError err{wallet.FillPSBT(psbtx, complete, 1, false, bip32derivs)};
+    const TransactionError err{wallet.FillPSBT(psbtx, complete, 1, false, bip32derivs, true)};
     if (err != TransactionError::OK) {
         throw JSONRPCTransactionError(err);
-    }
-
-    // Add peg-in stuff if it's there
-    for (unsigned int i = 0; i < rawTx.vin.size(); ++i) {
-        if (psbtx.tx->vin[i].m_is_pegin) {
-            CScriptWitness& pegin_witness = psbtx.tx->witness.vtxinwit[i].m_pegin_witness;
-            CAmount val;
-            VectorReader vr_val(SER_NETWORK, PROTOCOL_VERSION, pegin_witness.stack[0], 0);
-            vr_val >> val;
-            psbtx.inputs[i].value = val;
-            VectorReader vr_asset(SER_NETWORK, PROTOCOL_VERSION, pegin_witness.stack[1], 0);
-            vr_asset >> psbtx.inputs[i].asset;
-            VectorReader vr_genesis(SER_NETWORK, PROTOCOL_VERSION, pegin_witness.stack[2], 0);
-            vr_genesis >> psbtx.inputs[i].genesis_hash;
-            psbtx.inputs[i].claim_script.assign(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end());
-
-            VectorReader vr_tx(SER_NETWORK, PROTOCOL_VERSION, pegin_witness.stack[4], 0);
-            VectorReader vr_proof(SER_NETWORK, PROTOCOL_VERSION, pegin_witness.stack[5], 0);
-            if (Params().GetConsensus().ParentChainHasPow()) {
-                Sidechain::Bitcoin::CTransactionRef tx_btc;
-                vr_tx >> tx_btc;
-                psbtx.inputs[i].peg_in_tx = tx_btc;
-                Sidechain::Bitcoin::CMerkleBlock tx_proof;
-                vr_proof >> tx_proof;
-                psbtx.inputs[i].txout_proof = tx_proof;
-            } else {
-                CTransactionRef tx_btc;
-                vr_tx >> tx_btc;
-                psbtx.inputs[i].peg_in_tx = tx_btc;
-                CMerkleBlock tx_proof;
-                vr_proof >> tx_proof;
-                psbtx.inputs[i].txout_proof = tx_proof;
-            }
-            pegin_witness.SetNull();
-            psbtx.tx->vin[i].m_is_pegin = false;
-        }
     }
 
     // Serialize the PSBT
@@ -7204,8 +7150,6 @@ static const CRPCCommand commands[] =
     { "wallet",             &walletpassphrase,               },
     { "wallet",             &walletpassphrasechange,         },
     { "wallet",             &walletprocesspsbt,              },
-    { "wallet",             &walletfillpsbtdata,             },
-    { "wallet",             &walletsignpsbt,                 },
     // ELEMENTS:
     { "wallet",             &getpeginaddress,                },
     { "wallet",             &claimpegin,                     },

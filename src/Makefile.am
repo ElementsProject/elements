@@ -125,6 +125,7 @@ BITCOIN_CORE_H = \
   bech32.h \
   blech32.h \
   blind.h \
+  blindpsbt.h \
   blockencodings.h \
   blockfilter.h \
   block_proof.h \
@@ -574,6 +575,7 @@ libbitcoin_common_a_SOURCES = \
   bech32.cpp \
   blech32.cpp \
   blind.cpp \
+  blindpsbt.cpp \
   block_proof.cpp \
   bloom.cpp \
   chainparams.cpp \

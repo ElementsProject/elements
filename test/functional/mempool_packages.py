@@ -324,10 +324,10 @@ class MempoolPackagesTest(BitcoinTestFramework):
 
         send_value = satoshi_round((value - fee)/2)
         inputs = [ {'txid' : txid, 'vout' : vout} ]
-        outputs = {}
+        outputs = []
         for _ in range(2):
-            outputs[self.nodes[0].getnewaddress()] = send_value
-        outputs["fee"] = fee
+            outputs.append({self.nodes[0].getnewaddress():send_value})
+        outputs.append({"fee": fee})
         rawtx = self.nodes[0].createrawtransaction(inputs, outputs)
         signedtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
         txid = self.nodes[0].sendrawtransaction(signedtx['hex'])
@@ -351,8 +351,7 @@ class MempoolPackagesTest(BitcoinTestFramework):
 
         # Now generate tx8, with a big fee
         inputs = [ {'txid' : tx1_id, 'vout': 0}, {'txid' : txid, 'vout': 0} ]
-        outputs = { self.nodes[0].getnewaddress() : send_value + value - 4*fee }
-        outputs["fee"] = 3*fee
+        outputs = [{ self.nodes[0].getnewaddress() : send_value + value - 4*fee }, {"fee": 3*fee}]
         rawtx = self.nodes[0].createrawtransaction(inputs, outputs)
         signedtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
         txid = self.nodes[0].sendrawtransaction(signedtx['hex'])

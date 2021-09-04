@@ -61,7 +61,7 @@ class RPCPackagesTest(BitcoinTestFramework):
         for _ in range(3):
             coin = self.coins.pop()
             rawtx = node.createrawtransaction([{"txid": coin["txid"], "vout": 0}],
-                {self.address : coin["amount"] - Decimal("0.0001"), "fee" : Decimal("0.0001") })
+                [{self.address : coin["amount"] - Decimal("0.0001")}, {"fee" : Decimal("0.0001") }])
             signedtx = node.signrawtransactionwithkey(hexstring=rawtx, privkeys=self.privkeys)
             assert signedtx["complete"]
             testres = node.testmempoolaccept([signedtx["hex"]])
@@ -87,7 +87,7 @@ class RPCPackagesTest(BitcoinTestFramework):
         node = self.nodes[0]
         inputs = [{"txid": parent_txid, "vout": n}]
         my_value = parent_value - Decimal("0.0001")
-        outputs = {self.address : my_value, "fee" : Decimal("0.0001")}
+        outputs = [{self.address : my_value}, {"fee" : Decimal("0.0001")}]
         rawtx = node.createrawtransaction(inputs, outputs)
         prevtxs = [{
             "txid": parent_txid,
@@ -107,7 +107,7 @@ class RPCPackagesTest(BitcoinTestFramework):
         self.assert_testres_equal(self.independent_txns_hex, self.independent_txns_testres)
 
         self.log.info("Test an otherwise valid package with an extra garbage tx appended")
-        garbage_tx = node.createrawtransaction([{"txid": "00" * 32, "vout": 5}], {self.address: 1})
+        garbage_tx = node.createrawtransaction([{"txid": "00" * 32, "vout": 5}], [{self.address: 1}])
         tx = tx_from_hex(garbage_tx)
         # Only the txid and wtxids are returned because validation is incomplete for the independent txns.
         # Package validation is atomic: if the node cannot find a UTXO for any single tx in the package,
@@ -119,7 +119,7 @@ class RPCPackagesTest(BitcoinTestFramework):
         self.log.info("Check testmempoolaccept tells us when some transactions completed validation successfully")
         coin = self.coins.pop()
         tx_bad_sig_hex = node.createrawtransaction([{"txid": coin["txid"], "vout": 0}],
-                                           {self.address : coin["amount"] - Decimal("0.0001"), "fee" : Decimal("0.0001") })
+                                           [{self.address : coin["amount"] - Decimal("0.0001")}, {"fee" : Decimal("0.0001") }])
         tx_bad_sig = tx_from_hex(tx_bad_sig_hex)
         testres_bad_sig = node.testmempoolaccept(self.independent_txns_hex + [tx_bad_sig_hex])
         # By the time the signature for the last transaction is checked, all the other transactions
@@ -134,7 +134,7 @@ class RPCPackagesTest(BitcoinTestFramework):
         self.log.info("Check testmempoolaccept reports txns in packages that exceed max feerate")
         coin = self.coins.pop()
         tx_high_fee_raw = node.createrawtransaction([{"txid": coin["txid"], "vout": 0}],
-                                           {self.address : coin["amount"] - Decimal("0.999"), "fee" : Decimal("0.999")})
+                                           [{self.address : coin["amount"] - Decimal("0.999")}, {"fee" : Decimal("0.999")}])
         tx_high_fee_signed = node.signrawtransactionwithkey(hexstring=tx_high_fee_raw, privkeys=self.privkeys)
         assert tx_high_fee_signed["complete"]
         tx_high_fee = tx_from_hex(tx_high_fee_signed["hex"])
@@ -206,7 +206,7 @@ class RPCPackagesTest(BitcoinTestFramework):
         assert not node.testmempoolaccept([tx_child_a_hex])[0]["allowed"]
 
         # Child B
-        rawtx_b = node.createrawtransaction([{"txid": parent_txid, "vout": 1}], {self.address : child_value - Decimal("0.0001"), "fee": Decimal("0.0001")})
+        rawtx_b = node.createrawtransaction([{"txid": parent_txid, "vout": 1}], [{self.address : child_value - Decimal("0.0001")}, {"fee": Decimal("0.0001")}])
         tx_child_b = tx_from_hex(rawtx_b)
         tx_child_b.wit.vtxinwit = [CTxInWitness()]
         tx_child_b.wit.vtxinwit[0].scriptWitness.stack = [CScript([OP_TRUE])]
@@ -232,7 +232,7 @@ class RPCPackagesTest(BitcoinTestFramework):
         num_parents = len(parents_tx)
         total_value = sum(values)
         inputs = [{"txid": tx.rehash(), "vout": 0} for tx in parents_tx]
-        outputs = {self.address : total_value - num_parents * Decimal("0.0001"), "fee" : num_parents * Decimal("0.0001")}
+        outputs = [{self.address : total_value - num_parents * Decimal("0.0001")}, {"fee" : num_parents * Decimal("0.0001")}]
         rawtx_child = self.nodes[0].createrawtransaction(inputs, outputs)
         prevtxs = []
         for i in range(num_parents):
@@ -278,8 +278,8 @@ class RPCPackagesTest(BitcoinTestFramework):
         node = self.nodes[0]
         prevtx = self.coins.pop()
         inputs = [{"txid": prevtx["txid"], "vout": 0}]
-        output1 = {node.get_deterministic_priv_key().address: 50 - 0.00125, "fee" : 0.00125}
-        output2 = {ADDRESS_BCRT1_P2WSH_OP_TRUE: 50 - 0.00125, "fee" : 0.00125}
+        output1 = [{node.get_deterministic_priv_key().address: 50 - 0.00125}, {"fee" : 0.00125}]
+        output2 = [{ADDRESS_BCRT1_P2WSH_OP_TRUE: 50 - 0.00125}, {"fee" : 0.00125}]
 
         # tx1 and tx2 share the same inputs
         rawtx1 = node.createrawtransaction(inputs, output1)
@@ -314,7 +314,7 @@ class RPCPackagesTest(BitcoinTestFramework):
         coin = self.coins.pop()
         inputs = [{"txid": coin["txid"], "vout": 0, "sequence": BIP125_SEQUENCE_NUMBER}]
         fee = Decimal('0.00125000')
-        output = {node.get_deterministic_priv_key().address: 50 - fee, "fee" : fee}
+        output = [{node.get_deterministic_priv_key().address: 50 - fee}, {"fee" : fee}]
         raw_replaceable_tx = node.createrawtransaction(inputs, output)
         signed_replaceable_tx = node.signrawtransactionwithkey(hexstring=raw_replaceable_tx, privkeys=self.privkeys)
         testres_replaceable = node.testmempoolaccept([signed_replaceable_tx["hex"]])

@@ -1493,7 +1493,7 @@ class TaprootTest(BitcoinTestFramework):
                 'txid': i['txid'],
                 'vout': i['vout']
             } for i in unsp],
-            outputs={addr: sum(i['amount'] for i in unsp)}
+            outputs=[{addr: sum(i['amount'] for i in unsp)}]
         )
         rawtx = self.nodes[1].signrawtransactionwithwallet(rawtx)['hex']
 

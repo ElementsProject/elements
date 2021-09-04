@@ -168,6 +168,7 @@ const std::vector<std::string> RPC_COMMANDS_SAFE_FOR_FUZZING{
     // ELEMENTS
     "blindpsbt",
     "calcfastmerkleroot",
+    "calculateasset",
     "combineblocksigs",
     "consumecompactsketch",
     "consumegetblocktxn",
@@ -182,6 +183,7 @@ const std::vector<std::string> RPC_COMMANDS_SAFE_FOR_FUZZING{
     "rawissueasset",
     "rawreissueasset",
     "testproposedblock",
+    "updatepsbtpegin",
 };
 
 std::string ConsumeScalarRPCArgument(FuzzedDataProvider& fuzzed_data_provider)

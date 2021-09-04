@@ -15,10 +15,10 @@ def process_raw_issuance(node, issuance_list):
     if len(issuance_list) > 5:
         raise Exception('Issuance list too long')
     # Make enough outputs for any subsequent spend
-    next_destinations = {}
+    next_destinations = []
     output_values = Decimal('%.8f' % ((node.getbalance()['bitcoin']-1)/5))
     for i in range(5):
-        next_destinations[node.getnewaddress()] = output_values
+        next_destinations.append({node.getnewaddress(): output_values})
 
     raw_tx = node.createrawtransaction([], next_destinations)
     # We "over-fund" these transactions to 50 sat/vbyte since issuances aren't baked in yet
@@ -262,7 +262,7 @@ class IssuanceTest(BitcoinTestFramework):
         total_amount = self.nodes[0].getbalance()['bitcoin']
         self.nodes[0].sendtoaddress(nonblind_addr, total_amount, "", "", True)
         self.nodes[1].generate(1)
-        raw_tx = self.nodes[0].createrawtransaction([], {nonblind_addr: 1})
+        raw_tx = self.nodes[0].createrawtransaction([], [{nonblind_addr: 1}])
         funded_tx = self.nodes[0].fundrawtransaction(raw_tx)['hex']
         issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "blind":False}])[0]["hex"]
         blind_tx = self.nodes[0].blindrawtransaction(issued_tx) # This is a no-op
@@ -294,16 +294,16 @@ class IssuanceTest(BitcoinTestFramework):
 
         # Make sure that fee is checked
         valid_addr = self.nodes[0].getnewaddress()
-        raw_tx = self.nodes[0].createrawtransaction([], {})
+        raw_tx = self.nodes[0].createrawtransaction([], [])
         assert_raises_rpc_error(-8, "Transaction must have at least one output.",
                 self.nodes[0].rawissueasset, raw_tx, [{"asset_amount": 1, "asset_address": valid_addr}])
-        raw_tx = self.nodes[0].createrawtransaction([], {valid_addr: Decimal("1")})
+        raw_tx = self.nodes[0].createrawtransaction([], [{valid_addr: Decimal("1")}])
         assert_raises_rpc_error(-8, "Last transaction output must be fee.",
                 self.nodes[0].rawissueasset, raw_tx, [{"asset_amount": 1, "asset_address": valid_addr}])
 
         # Make sure that invalid addresses are rejected.
         valid_addr = self.nodes[0].getnewaddress()
-        raw_tx = self.nodes[0].createrawtransaction([], {valid_addr: Decimal("1")})
+        raw_tx = self.nodes[0].createrawtransaction([], [{valid_addr: Decimal("1")}])
         funded_tx = self.nodes[0].fundrawtransaction(raw_tx, {"feeRate": Decimal('0.00050000')})['hex']
         assert_raises_rpc_error(-8, "Invalid asset address provided: foobar",
                 self.nodes[0].rawissueasset, funded_tx, [{"asset_amount": 1, "asset_address": "foobar"}])
@@ -316,7 +316,7 @@ class IssuanceTest(BitcoinTestFramework):
                 self.nodes[0].rawissueasset, funded_tx, [{"token_amount": 1, "asset_address": valid_addr}])
 
         # Make sure contract hash is being interpreted as expected, resulting in different asset ids
-        raw_tx = self.nodes[0].createrawtransaction([], {nonblind_addr:self.nodes[0].getbalance()['bitcoin']-1})
+        raw_tx = self.nodes[0].createrawtransaction([], [{nonblind_addr:self.nodes[0].getbalance()['bitcoin']-1}])
         funded_tx = self.nodes[0].fundrawtransaction(raw_tx)['hex']
         id_set = set()
 
@@ -324,22 +324,34 @@ class IssuanceTest(BitcoinTestFramework):
         issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr}])[0]["hex"]
         decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
+        calc_asset = self.nodes[0].calculateasset(decode_tx["vin"][0]["txid"], decode_tx["vin"][0]["vout"])
+        assert_equal(calc_asset["final_asset_entropy"], decode_tx["vin"][0]["issuance"]["assetEntropy"])
+        assert_equal(calc_asset["asset_tag"], decode_tx["vin"][0]["issuance"]["asset"])
 
         # Again with 00..00 argument, which match the no-argument case
         issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"00"*32}])[0]["hex"]
         decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
         assert_equal(len(id_set), 1)
+        calc_asset = self.nodes[0].calculateasset(decode_tx["vin"][0]["txid"], decode_tx["vin"][0]["vout"], "00"*32)
+        assert_equal(calc_asset["final_asset_entropy"], decode_tx["vin"][0]["issuance"]["assetEntropy"])
+        assert_equal(calc_asset["asset_tag"], decode_tx["vin"][0]["issuance"]["asset"])
 
         # Random contract string should again differ
         issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"deadbeef"*8}])[0]["hex"]
         decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
         assert_equal(len(id_set), 2)
+        calc_asset = self.nodes[0].calculateasset(decode_tx["vin"][0]["txid"], decode_tx["vin"][0]["vout"], "deadbeef"*8)
+        assert_equal(calc_asset["final_asset_entropy"], decode_tx["vin"][0]["issuance"]["assetEntropy"])
+        assert_equal(calc_asset["asset_tag"], decode_tx["vin"][0]["issuance"]["asset"])
         issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"deadbeee"*8}])[0]["hex"]
         decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
         assert_equal(len(id_set), 3)
+        calc_asset = self.nodes[0].calculateasset(decode_tx["vin"][0]["txid"], decode_tx["vin"][0]["vout"], "deadbeee"*8)
+        assert_equal(calc_asset["final_asset_entropy"], decode_tx["vin"][0]["issuance"]["assetEntropy"])
+        assert_equal(calc_asset["asset_tag"], decode_tx["vin"][0]["issuance"]["asset"])
 
         # Finally, append an issuance on top of an already-"issued" raw tx
         # Same contract, different utxo being spent results in new asset type
@@ -348,6 +360,10 @@ class IssuanceTest(BitcoinTestFramework):
         decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
         id_set.add(decode_tx["vin"][1]["issuance"]["asset"])
         assert_equal(len(id_set), 4)
+        calc_asset = self.nodes[0].calculateasset(decode_tx["vin"][1]["txid"], decode_tx["vin"][1]["vout"], None, False)
+        assert_equal(calc_asset["final_asset_entropy"], decode_tx["vin"][1]["issuance"]["assetEntropy"])
+        assert_equal(calc_asset["asset_tag"], decode_tx["vin"][1]["issuance"]["asset"])
+        assert_equal(calc_asset["reissuance_asset_tag"], decode_tx["vin"][1]["issuance"]["token"])
         # This issuance should not have changed
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
         assert_equal(len(id_set), 4)
@@ -365,7 +381,7 @@ class IssuanceTest(BitcoinTestFramework):
 
         issued_address = self.nodes[0].getnewaddress()
         # Create transaction spending the reissuance token
-        raw_tx = self.nodes[0].createrawtransaction([], {issued_address:Decimal('0.00000001')}, 0, False, {issued_address:issued_asset["token"]})
+        raw_tx = self.nodes[0].createrawtransaction([], [{issued_address:Decimal('0.00000001'), "asset": issued_asset["token"]}], 0, False)
         funded_tx = self.nodes[0].fundrawtransaction(raw_tx)['hex']
         # Find the reissuance input
         reissuance_index = -1
@@ -410,7 +426,7 @@ class IssuanceTest(BitcoinTestFramework):
         assert utxo_info["amountblinder"] != "0000000000000000000000000000000000000000000000000000000000000000"
 
         # Now make transaction spending that input
-        raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, False, {issued_address:issued_asset["token"]})
+        raw_tx = self.nodes[0].createrawtransaction([], [{issued_address:1, "asset": issued_asset["token"]}], 0, False)
         funded_tx = self.nodes[0].fundrawtransaction(raw_tx)["hex"]
         # Find the reissuance input
         reissuance_index = -1
@@ -429,7 +445,7 @@ class IssuanceTest(BitcoinTestFramework):
 
         # Now make transaction spending a token that had non-null contract_hash
         contract_hash = "deadbeee"*8
-        raw_tx = self.nodes[0].createrawtransaction([], {self.nodes[0].getnewaddress():1})
+        raw_tx = self.nodes[0].createrawtransaction([], [{self.nodes[0].getnewaddress():1}])
         funded_tx = self.nodes[0].fundrawtransaction(raw_tx)["hex"]
         issued_tx = self.nodes[0].rawissueasset(funded_tx, [{"token_amount":1, "token_address":self.nodes[0].getnewaddress(), "contract_hash":contract_hash}])[0]
         blinded_tx = self.nodes[0].blindrawtransaction(issued_tx["hex"])
@@ -447,7 +463,7 @@ class IssuanceTest(BitcoinTestFramework):
         assert utxo_info is not None
 
         # Now spend the token, and create reissuance
-        raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, False, {issued_address:issued_tx["token"]})
+        raw_tx = self.nodes[0].createrawtransaction([], [{issued_address:1, "asset": issued_tx["token"]}], 0, False)
         funded_tx = self.nodes[0].fundrawtransaction(raw_tx)["hex"]
         # Find the reissuance input
         reissuance_index = -1
