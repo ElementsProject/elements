@@ -111,6 +111,7 @@ shift-base:util/bip32.cpp
 # copied from bech32.cpp above
 implicit-integer-sign-change:blech32.cpp
 implicit-signed-integer-truncation:script/interpreter.cpp
+implicit-integer-sign-change:blech32.cpp
 implicit-integer-sign-change:primitives/block.h
 implicit-integer-sign-change:primitives/confidential.cpp
 implicit-integer-sign-change:primitives/confidential.h
