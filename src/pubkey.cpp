@@ -186,12 +186,20 @@ bool XOnlyPubKey::IsFullyValid() const
     return secp256k1_xonly_pubkey_parse(secp256k1_context_verify, &pubkey, m_keydata.data());
 }
 
-bool XOnlyPubKey::VerifySchnorr(const uint256& msg, Span<const unsigned char> sigbytes) const
+bool XOnlyPubKey::VerifySchnorr(const Span<const unsigned char> msg, Span<const unsigned char> sigbytes) const
 {
     assert(sigbytes.size() == 64);
     secp256k1_xonly_pubkey pubkey;
     if (!secp256k1_xonly_pubkey_parse(secp256k1_context_verify, &pubkey, m_keydata.data())) return false;
-    return secp256k1_schnorrsig_verify(secp256k1_context_verify, sigbytes.data(), msg.begin(), 32, &pubkey);
+    return secp256k1_schnorrsig_verify(secp256k1_context_verify, sigbytes.data(), msg.data(), msg.size(), &pubkey);
+}
+
+// ELEMENTS: this is preserved from an old version of the Taproot code for use in OP_TWEAKVERIFY
+bool XOnlyPubKey::CheckPayToContract(const XOnlyPubKey& base, const uint256& hash, bool parity) const
+{
+    secp256k1_xonly_pubkey base_point;
+    if (!secp256k1_xonly_pubkey_parse(secp256k1_context_verify, &base_point, base.data())) return false;
+    return secp256k1_xonly_pubkey_tweak_add_check(secp256k1_context_verify, m_keydata.begin(), parity, &base_point, hash.begin());
 }
 
 static const CHashWriter HASHER_TAPTWEAK_ELEMENTS = TaggedHash("TapTweak/elements");
@@ -215,6 +223,18 @@ bool XOnlyPubKey::CheckTapTweak(const XOnlyPubKey& internal, const uint256& merk
     return secp256k1_xonly_pubkey_tweak_add_check(secp256k1_context_verify, m_keydata.begin(), parity, &internal_key, tweak.begin());
 }
 
+bool CPubKey::TweakMulVerify(const CPubKey& untweaked, const uint256& tweak) const
+{
+    assert(this->IsCompressed());
+    secp256k1_pubkey pk;
+    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pk, untweaked.data(), untweaked.size())) return false;
+    if (!secp256k1_ec_pubkey_tweak_mul(secp256k1_context_verify, &pk, tweak.data())) return false;
+    unsigned char out_pk[CPubKey::COMPRESSED_SIZE];
+    size_t out_len = CPubKey::COMPRESSED_SIZE;
+    if (!secp256k1_ec_pubkey_serialize(secp256k1_context_verify, out_pk, &out_len, &pk, SECP256K1_EC_COMPRESSED)) return false;
+    return *this == CPubKey(out_pk, out_pk + out_len);
+}
+
 std::optional<std::pair<XOnlyPubKey, bool>> XOnlyPubKey::CreateTapTweak(const uint256* merkle_root) const
 {
     secp256k1_xonly_pubkey base_point;
@@ -226,7 +246,7 @@ std::optional<std::pair<XOnlyPubKey, bool>> XOnlyPubKey::CreateTapTweak(const ui
     std::pair<XOnlyPubKey, bool> ret;
     secp256k1_xonly_pubkey out_xonly;
     if (!secp256k1_xonly_pubkey_from_pubkey(secp256k1_context_verify, &out_xonly, &parity, &out)) return std::nullopt;
-    secp256k1_xonly_pubkey_serialize(secp256k1_context_verify, ret.first.begin(), &out_xonly);
+    secp256k1_xonly_pubkey_serialize(secp256k1_context_verify, ret.first.data(), &out_xonly);
     assert(parity == 0 || parity == 1);
     ret.second = parity;
     return ret;

@@ -216,6 +216,9 @@ public:
 
     //! Derive BIP32 child pubkey.
     bool Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc, std::vector<unsigned char>* tweak = nullptr /* ELEMENTS: vector of key tweak values that are filled out if non-null */) const;
+
+    //! Verify that when this public key is tweaked with tweak, the result is res
+    bool TweakMulVerify(const CPubKey& res, const uint256& tweak) const;
 };
 
 class XOnlyPubKey
@@ -249,7 +252,10 @@ public:
      *
      * sigbytes must be exactly 64 bytes.
      */
-    bool VerifySchnorr(const uint256& msg, Span<const unsigned char> sigbytes) const;
+    bool VerifySchnorr(const Span<const unsigned char> msg, Span<const unsigned char> sigbytes) const;
+
+    // ELEMENTS: this is preserved from an old version of the Taproot code for use in OP_TWEAKVERIFY
+    bool CheckPayToContract(const XOnlyPubKey& base, const uint256& hash, bool parity) const;
 
     /** Compute the Taproot tweak as specified in BIP341, with *this as internal
      * key:
@@ -275,6 +281,7 @@ public:
     const unsigned char* end() const { return m_keydata.end(); }
     unsigned char* begin() { return m_keydata.begin(); }
     unsigned char* end() { return m_keydata.end(); }
+    unsigned char* data() { return m_keydata.begin(); }
     bool operator==(const XOnlyPubKey& other) const { return m_keydata == other.m_keydata; }
     bool operator!=(const XOnlyPubKey& other) const { return m_keydata != other.m_keydata; }
     bool operator<(const XOnlyPubKey& other) const { return m_keydata < other.m_keydata; }
