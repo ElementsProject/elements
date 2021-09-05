@@ -369,7 +369,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(secp256k1_scalar *
     secp256k1_scalar stmp;
     unsigned char prep[4096];
     unsigned char tmp[32];
-    uint64_t value;
+    uint64_t value = 0;
     size_t offset;
     size_t i;
     size_t j;

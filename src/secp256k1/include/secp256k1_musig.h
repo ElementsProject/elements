@@ -25,6 +25,8 @@ extern "C" {
  *        magic: Set during initialization in `pubkey_combine` to allow
  *               detecting an uninitialized object.
  *      pk_hash: The 32-byte hash of the original public keys
+ *    second_pk: Serialized x-coordinate of the second public key in the list.
+ *               Filled with zeros if there is none.
  *    pk_parity: Whether the MuSig-aggregated point was negated when
  *               converting it to the combined xonly pubkey.
  *     is_tweaked: Whether the combined pubkey was tweaked
@@ -35,6 +37,7 @@ extern "C" {
 typedef struct {
     uint64_t magic;
     unsigned char pk_hash[32];
+    unsigned char second_pk[32];
     int pk_parity;
     int is_tweaked;
     unsigned char tweak[32];
@@ -94,7 +97,7 @@ typedef struct {
  * The workflow for this structure is as follows:
  *
  * 1. This structure is initialized with `musig_session_init` or
- *    `musig_session_init_verifier`, which set the `index` field, and zero out
+ *    `musig_session_init_verifier`, which initializes
  *    all other fields. The public session is initialized with the signers'
  *    nonce_commitments.
  *
@@ -111,14 +114,12 @@ typedef struct {
  *
  * Fields:
  *   present: indicates whether the signer's nonce is set
- *     index: index of the signer in the MuSig key aggregation
  *     nonce: public nonce, must be a valid curvepoint if the signer is `present`
  * nonce_commitment: commitment to the nonce, or all-bits zero if a commitment
  *                   has not yet been set
  */
 typedef struct {
     int present;
-    uint32_t index;
     secp256k1_xonly_pubkey nonce;
     unsigned char nonce_commitment[32];
 } secp256k1_musig_session_signer_data;
@@ -137,7 +138,13 @@ typedef struct {
 } secp256k1_musig_partial_signature;
 
 /** Computes a combined public key and the hash of the given public keys.
+ *
  *  Different orders of `pubkeys` result in different `combined_pk`s.
+ *
+ *  The pubkeys can be sorted before combining with `secp256k1_xonly_sort` which
+ *  ensures the same resulting `combined_pk` for the same multiset of pubkeys.
+ *  This is useful to do before pubkey_combine, such that the order of pubkeys
+ *  does not affect the combined public key.
  *
  *  Returns: 1 if the public keys were successfully combined, 0 otherwise
  *  Args:        ctx: pointer to a context object initialized for verification
@@ -147,9 +154,9 @@ typedef struct {
  *  Out: combined_pk: the MuSig-combined xonly public key (cannot be NULL)
  *       pre_session: if non-NULL, pointer to a musig_pre_session struct to be used in
  *                    `musig_session_init` or `musig_pubkey_tweak_add`.
- *   In:     pubkeys: input array of public keys to combine. The order is important;
- *                    a different order will result in a different combined public
- *                    key (cannot be NULL)
+ *   In:     pubkeys: input array of pointers to public keys to combine. The order
+ *                    is important; a different order will result in a different
+ *                    combined public key (cannot be NULL)
  *         n_pubkeys: length of pubkeys array. Must be greater than 0.
  */
 SECP256K1_API int secp256k1_musig_pubkey_combine(
@@ -157,7 +164,7 @@ SECP256K1_API int secp256k1_musig_pubkey_combine(
     secp256k1_scratch_space *scratch,
     secp256k1_xonly_pubkey *combined_pk,
     secp256k1_musig_pre_session *pre_session,
-    const secp256k1_xonly_pubkey *pubkeys,
+    const secp256k1_xonly_pubkey * const* pubkeys,
     size_t n_pubkeys
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);
 
@@ -221,8 +228,6 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_pubkey_tweak_add(
  *                     `musig_pubkey_tweak_add` (cannot be NULL).
  *          n_signers: length of signers array. Number of signers participating in
  *                     the MuSig. Must be greater than 0 and at most 2^32 - 1.
- *           my_index: index of this signer in the signers array. Must be less
- *                     than `n_signers`.
  *             seckey: the signer's 32-byte secret key (cannot be NULL)
  */
 SECP256K1_API int secp256k1_musig_session_init(
@@ -235,7 +240,6 @@ SECP256K1_API int secp256k1_musig_session_init(
     const secp256k1_xonly_pubkey *combined_pk,
     const secp256k1_musig_pre_session *pre_session,
     size_t n_signers,
-    size_t my_index,
     const unsigned char *seckey
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8) SECP256K1_ARG_NONNULL(11);
 
