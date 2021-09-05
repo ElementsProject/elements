@@ -2020,7 +2020,12 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                         }
                         case OP_TXWEIGHT:
                         {
-                            push8_le(stack, checker.GetTxWeight());
+                            const PrecomputedTransactionData *cache = checker.GetPrecomputedTransactionData();
+                            // Return error if the evaluation context is unavailable
+                            // TODO: Handle accoding to MissingDataBehavior
+                            if (!cache || !cache->m_bip341_taproot_ready)
+                                return set_error(serror, SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE);
+                            push8_le(stack, cache->m_tx_weight);
                             break;
                         }
                         default: assert(!"invalid opcode"); break;
@@ -2581,6 +2586,9 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
         m_bip143_segwit_ready = true;
     }
     if (uses_bip341_taproot) {
+        // line copied from GetTransactionWeight() in src/consensus/validation.h
+        // (we cannot directly use that function for type reasons)
+        m_tx_weight = ::GetSerializeSize(txTo, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR - 1) + ::GetSerializeSize(txTo, PROTOCOL_VERSION);
         m_outpoints_flag_single_hash = GetOutpointFlagsSHA256(txTo);
         m_spent_asset_amounts_single_hash = GetSpentAssetsAmountsSHA256(m_spent_outputs);
         m_issuance_rangeproofs_single_hash = GetIssuanceRangeproofsSHA256(txTo);
@@ -2991,13 +2999,6 @@ template <class T>
 const std::vector<CTxOut>* GenericTransactionSignatureChecker<T>::GetTxvOut() const
 {
     return &(txTo->vout);
-}
-
-template <class T>
-uint64_t GenericTransactionSignatureChecker<T>::GetTxWeight() const
-{
-    // line copied from GetTransactionWeight() in src/consensus/validation.h
-    return ::GetSerializeSize(*txTo, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR - 1) + ::GetSerializeSize(*txTo, PROTOCOL_VERSION);
 }
 
 template <class T>
