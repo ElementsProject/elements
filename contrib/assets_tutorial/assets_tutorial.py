@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from test_framework.authproxy import AuthServiceProxy, JSONRPCException
+import argparse
 import os
 import random
 import sys
@@ -8,23 +9,28 @@ import time
 import subprocess
 import shutil
 from decimal import Decimal
-ELEMENTSPATH=""
-BITCOINPATH=""
 
-if len(sys.argv) == 2:
-    ELEMENTSPATH=sys.argv[0]
-    BITCOINPATH=sys.argv[1]
-else:
-    ELEMENTSPATH="./src"
-    BITCOINPATH="./../bitcoin/src"
+parser = argparse.ArgumentParser()
+parser.add_argument('--elementsd-dir', default='./src')
+parser.add_argument('--bitcoind-dir', default='../bitcoin/src')
 
-def startbitcoind(datadir, conf, args=""):
-    subprocess.Popen((BITCOINPATH+"/bitcoind -datadir="+datadir+" "+args).split(), stdout=subprocess.PIPE)
-    return AuthServiceProxy("http://"+conf["rpcuser"]+":"+conf["rpcpassword"]+"@127.0.0.1:"+conf["regtest.rpcport"])
+args = parser.parse_args()
 
-def startelementsd(datadir, conf, args=""):
-    subprocess.Popen((ELEMENTSPATH+"/elementsd  -datadir="+datadir+" "+args).split(), stdout=subprocess.PIPE)
-    return AuthServiceProxy("http://"+conf["rpcuser"]+":"+conf["rpcpassword"]+"@127.0.0.1:"+conf["elementsregtest.rpcport"])
+def startbitcoind(datadir, conf, ext_args=None):
+    if ext_args is None:
+        ext_args = []
+
+    bitcoind_path = args.bitcoind_dir + '/bitcoind'
+    subprocess.Popen([bitcoind_path, "-datadir=" + datadir] + ext_args, stdout=subprocess.PIPE)
+    return AuthServiceProxy("http://" + conf["rpcuser"] + ":" + conf["rpcpassword"] + "@127.0.0.1:" + conf["regtest.rpcport"])
+
+def startelementsd(datadir, conf, ext_args=None):
+    if ext_args is None:
+        ext_args = []
+
+    elementsd_path = args.elementsd_dir + '/elementsd'
+    subprocess.Popen([elementsd_path, "-datadir=" + datadir] + ext_args, stdout=subprocess.PIPE)
+    return AuthServiceProxy("http://" + conf["rpcuser"] + ":" + conf["rpcpassword"] + "@127.0.0.1:" + conf["elementsregtest.rpcport"])
 
 def loadConfig(filename):
     conf = {}
@@ -236,7 +242,7 @@ e1.stop()
 time.sleep(5)
 
 # Restart with a new asset label
-e1 = startelementsd(e1_datadir, e1conf, assetentry)
+e1 = startelementsd(e1_datadir, e1conf, [assetentry])
 time.sleep(5)
 
 e1.getwalletinfo()
@@ -313,7 +319,11 @@ signblockarg="-signblockscript=5221"+pubkey1+"21"+pubkey2+"52ae"
 # Anti-DoS argument, custom chain default is ~1 sig so let's make it at least 2 sigs
 blocksign_max_size="-con_max_block_sig_size=150"
 dyna_deploy_start="-con_dyna_deploy_start=0"
-extra_args=signblockarg+" "+blocksign_max_size+" "+dyna_deploy_start
+extra_args = [
+    signblockarg,
+    blocksign_max_size,
+    dyna_deploy_start,
+]
 
 # Wipe out datadirs, start over
 shutil.rmtree(e1_datadir)
@@ -410,8 +420,8 @@ fedpegarg="-fedpegscript=5221"+pubkey1+"21"+pubkey2+"52ae"
 
 # Back to OP_TRUE blocks, re-using pubkeys for pegin pool instead
 # Keys can be the same or different, doesn't matter
-e1 = startelementsd(e1_datadir, e1conf, fedpegarg)
-e2 = startelementsd(e2_datadir, e2conf, fedpegarg)
+e1 = startelementsd(e1_datadir, e1conf, [fedpegarg])
+e2 = startelementsd(e2_datadir, e2conf, [fedpegarg])
 time.sleep(5)
 
 # Mature some outputs on each side
