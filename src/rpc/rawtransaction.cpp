@@ -2909,7 +2909,7 @@ static RPCHelpMan calculateasset()
                 {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Transaction id of the output that will be spent for this issuance."},
                 {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "Output index of the output that will be spent for this issuance."},
                 {"asset_entropy", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Additional asset entropy to be included in the asset tag. This is the contract hash."},
-                {"blind_reissuance", RPCArg::Type::STR_HEX, /* default */ "true", "Whether the reissuance asset tag will be blinded"},
+                {"blind_reissuance", RPCArg::Type::BOOL, /* default */ "true", "Whether the reissuance asset tag will be blinded"},
             },
             RPCResult{
                 RPCResult::Type::OBJ, "", "",
