@@ -3,111 +3,185 @@
 from test_framework.authproxy import AuthServiceProxy, JSONRPCException
 import argparse
 import os
-import random
+import pathlib
 import sys
+import tempfile
 import time
 import subprocess
 import shutil
 from decimal import Decimal
 
+## 0. Boilerplate to make the tutorial executable as a script
+#
+# Skip ahead to step 1 if you are reading
+#
+
+# Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument('--elementsd-dir', default='./src')
-parser.add_argument('--bitcoind-dir', default='../bitcoin/src')
+parser.add_argument('--elementsd-dir', type=str, default='./src')
+parser.add_argument('--bitcoind-dir', type=str, default='../bitcoin/src')
+parser.add_argument('--no-cleanup', default=False, action="store_true")
 
 args = parser.parse_args()
 
-def startbitcoind(datadir, conf, ext_args=None):
-    if ext_args is None:
-        ext_args = []
+class Daemon():
+    """
+    A class for representing a bitcoind or elementsd node.
 
-    bitcoind_path = args.bitcoind_dir + '/bitcoind'
-    subprocess.Popen([bitcoind_path, "-datadir=" + datadir] + ext_args, stdout=subprocess.PIPE)
-    return AuthServiceProxy("http://" + conf["rpcuser"] + ":" + conf["rpcpassword"] + "@127.0.0.1:" + conf["regtest.rpcport"])
+    Wraps the process management, creation and deletion of datadirs, and
+    RPC connectivity, into a simple object that will clean itself up on
+    exit. The `cleanup_on_exit` parameter can be set to False to prevent
+    the node from deleting its datadir on restart (and can be set by
+    passing --no-cleanup to the main program).
+    """
 
-def startelementsd(datadir, conf, ext_args=None):
-    if ext_args is None:
-        ext_args = []
+    def __init__(self, name, daemon, path, conf_path, cleanup_on_exit = True):
+        self.name = name
+        self.daemon = daemon
+        self.conf_path = path
+        self.path = path
+        self.cleanup_on_exit = cleanup_on_exit
+        self.conf_path = conf_path
+        self.datadir_path = None
+        self.proc = None
+        self.rpc = None
 
-    elementsd_path = args.elementsd_dir + '/elementsd'
-    subprocess.Popen([elementsd_path, "-datadir=" + datadir] + ext_args, stdout=subprocess.PIPE)
-    return AuthServiceProxy("http://" + conf["rpcuser"] + ":" + conf["rpcpassword"] + "@127.0.0.1:" + conf["elementsregtest.rpcport"])
+        # Parse config
+        self.config = {}
+        with open(self.conf_path, encoding="utf8") as f:
+            for line in f:
+                if len(line) == 0 or line[0] == "#" or len(line.split("=")) != 2:
+                    continue
+                self.config[line.split("=")[0]] = line.split("=")[1].strip()
 
-def loadConfig(filename):
-    conf = {}
-    with open(filename, encoding="utf8") as f:
-        for line in f:
-            if len(line) == 0 or line[0] == "#" or len(line.split("=")) != 2:
-                continue
-            conf[line.split("=")[0]] = line.split("=")[1].strip()
-    conf["filename"] = filename
-    return conf
+    def shutdown(self):
+        if self.proc is not None:
+            self.proc.kill()
+            self.proc = None
 
-def sync_all(e1, e2):
-    totalWait = 10
-    while e1.getblockcount() != e2.getblockcount() or len(e1.getrawmempool()) != len(e2.getrawmempool()):
-        totalWait -= 1
-        if totalWait == 0:
-            raise Exception("Nodes cannot sync blocks or mempool!")
-        time.sleep(1)
-    return
+        if self.datadir_path is not None:
+            if self.cleanup_on_exit:
+                shutil.rmtree(self.datadir_path)
+            else:
+                print ("Leaving %s datadir at %s." % (self.name, self.datadir_path))
 
-# Preparations
+    def start(self, ext_args = None):
+        self.shutdown()
 
-# Make data directories for each daemon
-b_datadir="/tmp/"+''.join(random.choice('0123456789ABCDEF') for i in range(5))
-e1_datadir="/tmp/"+''.join(random.choice('0123456789ABCDEF') for i in range(5))
-e2_datadir="/tmp/"+''.join(random.choice('0123456789ABCDEF') for i in range(5))
+        if ext_args is None:
+            ext_args = []
+        # Create datadir and copy config into place
+        self.datadir_path = tempfile.mkdtemp()
+        shutil.copyfile(self.conf_path, self.datadir_path + '/' + self.daemon + '.conf')
+        print("%s datadir: %s" % (self.name, self.datadir_path))
+        # Start process
+        self.proc = subprocess.Popen([self.path, "-datadir=" + self.datadir_path] + ext_args, stdout=subprocess.PIPE)
+        self.rpc = AuthServiceProxy("http://" + self.config["rpcuser"] + ":" + self.config["rpcpassword"] + "@127.0.0.1:" + self.config["rpcport"])
 
-os.makedirs(b_datadir)
-os.makedirs(e1_datadir)
-os.makedirs(e2_datadir)
+    def restart(self, ext_args = None):
+        self.start(ext_args)
 
-print("Bitcoin datadir: "+b_datadir)
-print("Elements1 datadir: "+e1_datadir)
-print("Elements2 datadir: "+e2_datadir)
+    def __del__(self):
+        self.shutdown()
 
-# Also configure the nodes by copying the configuration files from
-# this directory (and read them back for arguments):
-shutil.copyfile("contrib/assets_tutorial/bitcoin.conf", b_datadir+"/bitcoin.conf")
-shutil.copyfile("contrib/assets_tutorial/elements1.conf", e1_datadir+"/elements.conf")
-shutil.copyfile("contrib/assets_tutorial/elements2.conf", e2_datadir+"/elements.conf")
+    def __getattr__(self, name):
+        """Dispatches any unrecognised messages to the RPC connection or a CLI instance."""
+        return self.rpc.__getattr__(name)
 
-bconf = loadConfig("contrib/assets_tutorial/bitcoin.conf")
-e1conf = loadConfig("contrib/assets_tutorial/elements1.conf")
-e2conf = loadConfig("contrib/assets_tutorial/elements2.conf")
+    def __getitem__(self, key):
+        """Dispatches any keys to the underlying config file"""
+        return self.config[key]
 
-# Startup
+def sync_all(nodes, timeout_sec = 10):
+    totalWait = timeout_sec
 
-# Can not start since bitcoind isn't running and validatepegin is set
-# elementsd attempts to connect to bitcoind to check if peg-in transactions
-# are confirmed in the Bitcoin chain.
-e1 = startelementsd(e1_datadir, e1conf)
-time.sleep(2)
+    stop_time = time.time() + timeout
+    while time.time() <= stop_time:
+        best_hash = [x.getbestblockhash() for x in nodes]
+        if best_hash.count(best_hash[0]) == len(nodes):
+            return
+    raise Exception("Nodes cannot sync blocks or mempool!")
+
+# Setup daemons
+bitcoin = Daemon(
+    "Bitcoin",
+    "bitcoin",
+    args.bitcoind_dir + "/bitcoind",
+    "contrib/assets_tutorial/bitcoin.conf",
+    not args.no_cleanup,
+)
+
+e1 = Daemon(
+    "Elements1",
+    "elements",
+    args.elementsd_dir + "/elementsd",
+    "contrib/assets_tutorial/elements1.conf",
+    not args.no_cleanup,
+)
+
+e2 = Daemon(
+    "Elements2",
+    "elements",
+    args.elementsd_dir + "/elementsd",
+    "contrib/assets_tutorial/elements2.conf",
+    not args.no_cleanup,
+)
+
+## 1. Start nodes
+#
+# 1a. Confirm that we not start an elements node if validatepegin is set and there
+#     is no bitcoind. When validatepegin is set, elementsd attempts to connect to
+#     bitcoind to check if peg-in transactions are confirmed in the Bitcoin chain.
+#
+# Alternatively, you can set validatepegin=0 (it defaults to being on) in the
+# elementsd config, and run it without a Bitcoin node, but this means that you
+# will not be fully validating the two-way peg.
+
+assert e1["validatepegin"] == "1"
+
+e1.start()
+time.sleep(1) ## give daemon a moment to start up (or not)
 try:
     e1.getinfo()
-    raise AssertionError("This should fail unless working bitcoind can be reached via JSON RPC")
+    print ("ERROR: was able to start an elementsd without a working bitcoind")
+    sys.exit(1)
 except:
     pass
 
-# Start bitcoind, then elementsd. As long as bitcoind is in RPC warmup, elementsd will connect
-bitcoin = startbitcoind(b_datadir, bconf)
-e1 = startelementsd(e1_datadir, e1conf)
-e2 = startelementsd(e2_datadir, e2conf)
+# 1b. Start bitcoind, then elementsd. Initially, the bitcoind may be warming up and
+#     inaccessible over RPC. elementsd can detect this case and will stall until the
+#     bitcoind is warmed up.
 
-time.sleep(3)
+bitcoin.start()
+e1.start()
+e2.start()
 
-# Alternatively, you can set validatepegin=0 in their configs and not
-# run the bitcoin node, but it is necessary for fully validating the two way peg.
+time.sleep(1) ## give daemons a moment to start up
 
-# Regtest chain starts with 21M bitcoins as OP_TRUE which the wallet
-# understands. This is useful for testing basic functionality and for
-# blockchains that have no pegging functionality. A fee currency is required
-# for anti-DoS purposes as well as asset issuance, which consumes inputs for entropy.
-# In Elements there is no block subsidy. In a production sidechain it can
-# be configured to start with no outputs, necessitating peg-in functionality
-# for asset issuance.
-e1.getwalletinfo()
+# 1c. Create a wallet on the Elements nodes. This is needed since version 0.21
+#     of the daemon; previously a wallet was created by default if one does not
+#     already exist.
+e1.createwallet("wallet1")
+e2.createwallet("wallet2")
 
+# We have configured this regtest chain to start with 21M bitcoins, which are initally
+# in a single OP_TRUE output. All Elements wallets recognize OP_TRUE outputs as their
+# own (this differs from Bitcoin), so the 21M bitcoins are immediately available for
+# use.
+#
+# This is useful for testing basic functionality and for blockchains that have no peg,
+# since every blockchain needs a default "policy asset". This policy asset is used
+# for transaction fees (which are required for anti-DoS purposes). Also, asset
+# issuances require some pre-existing asset, since they consume inputs for entropy.
+#
+# In Elements there is no block subsidy. In a production sidechain, `initialfreecoins`
+# will likely be set to zero, necessitating peg-in functionality to get a policy asset.
+assert e1["initialfreecoins"] == "2100000000000000"
+print (e1.getwalletinfo())
+
+print ("Waiting 2 mins")
+time.sleep(120) ## give daemons a moment to start up
+sys.exit(0)
 # In regtest mining "target" is OP_TRUE since we have not set `-signblockscript` argument
 # Generate simply works.
 e1.generatetoaddress(101, e1.getnewaddress())
