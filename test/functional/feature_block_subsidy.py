@@ -6,6 +6,7 @@
 
 from binascii import b2a_hex
 from decimal import Decimal
+from time import time
 
 from test_framework.blocktools import create_coinbase
 from test_framework.messages import CBlock, CProof, CTxOutValue
@@ -16,6 +17,9 @@ def b2x(b):
     return b2a_hex(b).decode('ascii')
 
 def assert_template(node, block, expect, rehash=True):
+    # Re-set the block timestamp before every submission to avoid
+    # intermittent "time too old" failures in slow CI boxes
+    block.nTime = int(time()) + 1
     if rehash:
         block.hashMerkleRoot = block.calc_merkle_root()
         block.calc_sha256()
