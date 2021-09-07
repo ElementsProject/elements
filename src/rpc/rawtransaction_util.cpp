@@ -545,8 +545,9 @@ bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, std::map<int
             continue;
         }
         // Report warning about immature peg-in though
-        if(txin.m_is_pegin && !IsValidPeginWitness(mtx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, true)) {
-            CHECK_NONFATAL(err == "Needs more confirmations.");
+        bool depth_failed = false;
+        if(txin.m_is_pegin && !IsValidPeginWitness(mtx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, true, &depth_failed)) {
+            CHECK_NONFATAL(depth_failed);
             immature_pegin = true;
         }
     }

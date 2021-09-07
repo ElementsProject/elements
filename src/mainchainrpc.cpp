@@ -153,18 +153,24 @@ UniValue CallMainChainRPC(const std::string& strMethod, const UniValue& params)
 
 bool IsConfirmedBitcoinBlock(const uint256& hash, const int nMinConfirmationDepth, const int nbTxs)
 {
+    LogPrintf("Checking for confirmed bitcoin block with hash %s, mindepth %d, nbtxs %d\n", hash.ToString().c_str(), nMinConfirmationDepth, nbTxs);
     try {
         UniValue params(UniValue::VARR);
         params.push_back(hash.GetHex());
         UniValue reply = CallMainChainRPC("getblockheader", params);
-        if (!find_value(reply, "error").isNull())
+        if (!find_value(reply, "error").isNull()) {
+            LogPrintf("ERROR: Got error reply from bitcoind getblockheader.\n");
             return false;
+        }
         UniValue result = find_value(reply, "result");
-        if (!result.isObject())
+        if (!result.isObject()) {
+            LogPrintf("ERROR: bitcoind getblockheader result was malformed (not object).\n");
             return false;
+        }
 
         UniValue confirmations = find_value(result.get_obj(), "confirmations");
         if (!confirmations.isNum() || confirmations.get_int64() < nMinConfirmationDepth) {
+            LogPrintf("Insufficient confirmations (got %s).\n", confirmations.write());
             return false;
         }
 
