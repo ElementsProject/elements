@@ -3775,6 +3775,7 @@ bool CWallet::CreateTransactionInternal(
                         CAmount minimum_value_for_change = GetDustThreshold(change_prototype_txout, discard_rate);
                         if (nFeeRet >= fee_needed_with_change + minimum_value_for_change) {
                             pick_new_inputs = false;
+                            one_more_try_20347 = bnb_used;
                             nFeeRet = fee_needed_with_change;
                             continue;
                         }
