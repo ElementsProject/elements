@@ -4686,14 +4686,8 @@ static RPCHelpMan walletprocesspsbt()
 {
     return RPCHelpMan{"walletprocesspsbt",
                 "\nUpdate a PSBT with input information from our wallet and then sign inputs\n"
-                "that we can sign for.\n\n"
-                "NOTE: When working with Confidential Assets transactions, it is necessary to\n"
-                "blind the transaction after filling it in from the wallet and before signing\n"
-                "it. This RPC will fail when working with such transaction. Instead of using\n"
-                "this RPC, use the following sequence:\n"
-                " - walletfillpsbtdata\n"
-                " - blindpsbt\n" +
-                    HELP_REQUIRING_PASSPHRASE,
+                "that we can sign for." +
+        HELP_REQUIRING_PASSPHRASE,
                 {
                     {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
                     {"sign", RPCArg::Type::BOOL, /* default */ "true", "Also sign the transaction when updating"},
@@ -4709,8 +4703,8 @@ static RPCHelpMan walletprocesspsbt()
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
                     {
-                        {RPCResult::Type::STR, "psbt", "the base64-encoded partially signed transaction"},
-                        {RPCResult::Type::BOOL, "complete", "whether the transaction has a complete set of signatures"},
+                        {RPCResult::Type::STR, "psbt", "The base64-encoded partially signed transaction"},
+                        {RPCResult::Type::BOOL, "complete", "If the transaction has a complete set of signatures"},
                     },
                 },
                 RPCExamples{
@@ -5097,7 +5091,7 @@ static RPCHelpMan signblock()
                 "\nSigns a block proposal, checking that it would be accepted first. Errors if it cannot sign the block. Note that this call adds the witnessScript to your wallet for signing purposes! This function is intended for QA and testing.\n",
                 {
                     {"blockhex", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded block from getnewblockhex"},
-                    {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded witness script. Required for dynamic federation blocks. Argument is \"\" when the block is P2WPKH."},
+                    {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The hex-encoded witness script. Required for dynamic federation blocks. Argument is \"\" when the block is P2WPKH."},
                 },
                 RPCResult{
                     RPCResult::Type::ARR, "", "",
