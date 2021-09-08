@@ -34,11 +34,11 @@ std::string GetBlindingStatusError(const BlindingStatus& status)
 }
 
 // Create surjection proof
-bool CreateAssetSurjectionProof(std::vector<unsigned char>& output_proof, const std::vector<secp256k1_fixed_asset_tag>& fixed_input_tags, const std::vector<secp256k1_generator>& ephemeral_input_tags, const std::vector<uint256>& input_asset_blinders, const uint256& output_asset_blinder, const secp256k1_generator& output_asset_tag, const CAsset& asset)
+bool CreateAssetSurjectionProof(std::vector<unsigned char>& output_proof, const std::vector<secp256k1_fixed_asset_tag>& fixed_input_tags, const std::vector<secp256k1_generator>& ephemeral_input_tags, const std::vector<uint256>& input_asset_blinders, const uint256& output_asset_blinder, const secp256k1_generator& output_asset_tag, const CAsset& asset, size_t num_targets)
 {
     int ret;
     // 1 to 3 targets
-    size_t inputs_to_select = std::min(MAX_SURJECTION_TARGETS, fixed_input_tags.size());
+    size_t inputs_to_select = std::min(num_targets, fixed_input_tags.size());
     unsigned char randseed[32];
     GetStrongRandBytes(randseed, 32);
     size_t input_index;
@@ -96,6 +96,23 @@ bool CreateValueRangeProof(std::vector<unsigned char>& rangeproof, const uint256
     int res = secp256k1_rangeproof_sign(secp256k1_blind_context, rangeproof.data(), &rangeproof_len, min_value, &value_commit, value_blinder.begin(), nonce.begin(), ct_exponent, ct_bits, amount, asset_message, sizeof(asset_message), scriptPubKey.size() ? &scriptPubKey.front() : NULL, scriptPubKey.size(), &gen);
     rangeproof.resize(rangeproof_len);
     return (res == 1);
+}
+
+// Create an explicit value rangeproof which proves that the commitment commits to an explicit value
+bool CreateBlindValueProof(std::vector<unsigned char>& rangeproof, const uint256& value_blinder, const CAmount amount, const secp256k1_pedersen_commitment& value_commit, const secp256k1_generator& gen)
+{
+    // Prep rangeproof
+    size_t rangeproof_len = 5134;
+    rangeproof.resize(rangeproof_len);
+
+    // Generate a new random nonce
+    uint256 nonce;
+    GetStrongRandBytes(nonce.begin(), nonce.size());
+
+    // Make the rangeproof
+    int res = secp256k1_rangeproof_sign(secp256k1_blind_context, rangeproof.data(), &rangeproof_len, /* min_value */ amount, &value_commit, value_blinder.begin(), nonce.begin(), /* exp */ -1, /* min_bits */ 0, amount, /* message */ nullptr, /* message_len */ 0, /* extra_commit */ nullptr, /* extra_commit_len */ 0, &gen);
+    rangeproof.resize(rangeproof_len);
+    return res == 1;
 }
 
 void CreateAssetCommitment(CConfidentialAsset& conf_asset, secp256k1_generator& asset_gen, const CAsset& asset, const uint256& asset_blinder)
@@ -310,12 +327,19 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
                         bool rangeresult = CreateValueRangeProof(rangeproof, value_blinder, nonce, value, CScript(), value_commit, asset_gen, asset, asset_blinder);
                         assert(rangeresult);
 
+                        // Create explicit value rangeproofs
+                        std::vector<unsigned char> blind_value_proof;
+                        rangeresult = CreateBlindValueProof(blind_value_proof, value_blinder, value, value_commit, asset_gen);
+                        assert(rangeresult);
+
                         if (blind_value) {
                             input.m_issuance_value_commitment = conf_value;
                             input.m_issuance_rangeproof = rangeproof;
+                            input.m_blind_issuance_value_proof = blind_value_proof;
                         } else {
                             input.m_issuance_inflation_keys_commitment = conf_value;
                             input.m_issuance_inflation_keys_rangeproof = rangeproof;
+                            input.m_blind_issuance_inflation_keys_proof = blind_value_proof;
                         }
                     }
                 }
@@ -394,8 +418,19 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
         bool rangeresult = CreateValueRangeProof(rangeproof, value_blinder, nonce, *output.amount, *output.script, value_commit, asset_generator, asset, asset_blinder);
         assert(rangeresult);
 
+        // Create explicit value rangeproof
+        std::vector<unsigned char> blind_value_proof;
+        rangeresult = CreateBlindValueProof(blind_value_proof, value_blinder, *output.amount, value_commit, asset_generator);
+        assert(rangeresult);
+
         // Create surjection proof for this output
         if (!CreateAssetSurjectionProof(asp, fixed_input_tags, ephemeral_input_tags, input_asset_blinders, asset_blinder, asset_generator, asset)) {
+            return BlindingStatus::ASP_UNABLE;
+        }
+
+        // Create explicit asset surjection proof
+        std::vector<unsigned char> blind_asset_proof;
+        if (!CreateAssetSurjectionProof(blind_asset_proof, fixed_input_tags, ephemeral_input_tags, input_asset_blinders, asset_blinder, asset_generator, asset, /* num_targets */ 1)) {
             return BlindingStatus::ASP_UNABLE;
         }
 
@@ -405,6 +440,8 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
         output.m_ecdh_pubkey = ecdh_key;
         output.m_value_rangeproof = rangeproof;
         output.m_asset_surjection_proof = asp;
+        output.m_blind_value_proof = blind_value_proof;
+        output.m_blind_asset_proof = blind_asset_proof;
     }
 
     if (!did_last_blind) {
