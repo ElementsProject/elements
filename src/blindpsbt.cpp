@@ -313,11 +313,9 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
                         if (blind_value) {
                             input.m_issuance_value_commitment = conf_value;
                             input.m_issuance_rangeproof = rangeproof;
-                            input.m_issuance_value = nullopt;
                         } else {
                             input.m_issuance_inflation_keys_commitment = conf_value;
                             input.m_issuance_inflation_keys_rangeproof = rangeproof;
-                            input.m_issuance_inflation_keys_amount = nullopt;
                         }
                     }
                 }
@@ -407,10 +405,6 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
         output.m_ecdh_pubkey = ecdh_key;
         output.m_value_rangeproof = rangeproof;
         output.m_asset_surjection_proof = asp;
-
-        // Drop explicit value and asset
-        output.amount = nullopt;
-        output.m_asset.SetNull();
     }
 
     if (!did_last_blind) {

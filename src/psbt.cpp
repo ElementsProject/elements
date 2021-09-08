@@ -514,10 +514,9 @@ bool PSBTOutput::IsBlinded() const
 
 bool PSBTOutput::IsPartiallyBlinded() const
 {
-    return IsBlinded() && (!amount ||
+    return IsBlinded() && (
         !m_value_commitment.IsNull() ||
         !m_asset_commitment.IsNull() ||
-        m_asset.IsNull() ||
         !m_value_rangeproof.empty() ||
         !m_asset_surjection_proof.empty() ||
         m_ecdh_pubkey.IsValid());
@@ -525,10 +524,9 @@ bool PSBTOutput::IsPartiallyBlinded() const
 
 bool PSBTOutput::IsFullyBlinded() const
 {
-    return IsBlinded() && !amount &&
+    return IsBlinded() &&
         !m_value_commitment.IsNull() &&
         !m_asset_commitment.IsNull() &&
-        m_asset.IsNull() &&
         !m_value_rangeproof.empty() &&
         !m_asset_surjection_proof.empty() &&
         m_ecdh_pubkey.IsValid();

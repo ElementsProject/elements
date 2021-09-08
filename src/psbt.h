@@ -337,11 +337,11 @@ struct PSBTInput
 
             // Elements proprietary fields are only allowed with v2
             // Issuance value
-            // We shouldn't have both value and value commitment. If we do, ignore the explicit value
             if (!m_issuance_value_commitment.IsNull()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_VALUE_COMMITMENT));
                 SerializeToVector(s, m_issuance_value_commitment);
-            } else if (m_issuance_value != nullopt) {
+            }
+            if (m_issuance_value != nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_VALUE));
                 SerializeToVector(s, *m_issuance_value);
             }
@@ -888,17 +888,17 @@ struct PSBTInput
             if (prev_out == nullopt) {
                 throw std::ios_base::failure("Previous output's index is required in PSBTv2");
             }
-            if (m_issuance_value != nullopt && !m_issuance_value_commitment.IsNull()) {
-                throw std::ios_base::failure("Both issuance value and issuance value commitment cannot be provided at the same time");
+            if (!m_issuance_value_commitment.IsNull() && m_issuance_value == nullopt) {
+                throw std::ios_base::failure("Explicit issuance value must be provided if its commitment is provided too");
             }
-            if (m_issuance_inflation_keys_amount != nullopt && !m_issuance_inflation_keys_commitment.IsNull()) {
-                throw std::ios_base::failure("Both issuance inflations keys amount and issuance inflations keys commitment cannot be provided at the same time");
+            if (!m_issuance_inflation_keys_commitment.IsNull() && m_issuance_inflation_keys_amount == nullopt) {
+                throw std::ios_base::failure("Explicit issuance inflation keys amount must be provided if its commitment is provided too");
             }
             if (!m_issuance_value_commitment.IsNull() && m_issuance_rangeproof.empty()) {
                 throw std::ios_base::failure("Issuance value commitment provided without value rangeproof");
             }
             if (!m_issuance_inflation_keys_commitment.IsNull() && m_issuance_inflation_keys_rangeproof.empty()) {
-                throw std::ios_base::failure("Issuance inflatio nkeys commitment provided without inflation keys rangeproof");
+                throw std::ios_base::failure("Issuance inflation keys commitment provided without inflation keys rangeproof");
             }
         }
     }
@@ -968,21 +968,21 @@ struct PSBTOutput
 
             // Elements proprietary fields are v2 only
             // Amount
-            // We shouldn't have both amount and amount commitment. If we do, only write the amount commitment
             if (!m_value_commitment.IsNull()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_VALUE_COMMITMENT));
                 SerializeToVector(s, m_value_commitment);
-            } else if (amount != nullopt) {
+            }
+            if (amount != nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_AMOUNT));
                 SerializeToVector(s, *amount);
             }
 
             // Asset
-            // We shouldn't have both asset and asset commitment, but if we do, write only the asset commitment
             if (!m_asset_commitment.IsNull()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_ASSET_COMMITMENT));
                 SerializeToVector(s, m_asset_commitment);
-            } else if (!m_asset.IsNull()) {
+            }
+            if (!m_asset.IsNull()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_ASSET));
                 SerializeToVector(s, m_asset);
             }
@@ -1236,20 +1236,14 @@ struct PSBTOutput
 
         // Make sure required PSBTv2 fields are present
         if (m_psbt_version >= 2) {
-            if (amount == nullopt && m_value_commitment.IsNull()) {
+            if (amount == nullopt) {
                 throw std::ios_base::failure("Output amount is required in PSBTv2");
             }
             if (script == nullopt) {
                 throw std::ios_base::failure("Output script is required in PSBTv2");
             }
-            if (amount != nullopt && !m_value_commitment.IsNull()) {
-                throw std::ios_base::failure("Both output amount and output value commitment cannot be specified at the same time");
-            }
-            if (m_asset.IsNull() && m_asset_commitment.IsNull()) {
+            if (m_asset.IsNull()) {
                 throw std::ios_base::failure("Output asset is required in PSET");
-            }
-            if (!m_asset.IsNull() && !m_asset_commitment.IsNull()) {
-                throw std::ios_base::failure("Both output asset and output asset commitment cannot be specified at the same time");
             }
             if (m_blinding_pubkey.IsValid() && m_blinder_index == nullopt) {
                 throw std::ios_base::failure("Output is blinded but does not have a blinder index");
