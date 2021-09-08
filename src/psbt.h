@@ -70,6 +70,8 @@ static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_COMMITMENT = 0
 static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_BLINDING_NONCE = 0x0c;
 static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_ASSET_ENTROPY = 0x0d;
 static constexpr uint8_t PSBT_ELEMENTS_IN_UTXO_RANGEPROOF = 0x0e;
+static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_BLIND_VALUE_PROOF = 0x0f;
+static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_BLIND_INFLATION_KEYS_PROOF = 0x10;
 
 // Output types
 static constexpr uint8_t PSBT_OUT_REDEEMSCRIPT = 0x00;
@@ -87,6 +89,8 @@ static constexpr uint8_t PSBT_ELEMENTS_OUT_ASSET_SURJECTION_PROOF = 0x05;
 static constexpr uint8_t PSBT_ELEMENTS_OUT_BLINDING_PUBKEY = 0x06;
 static constexpr uint8_t PSBT_ELEMENTS_OUT_ECDH_PUBKEY = 0x07;
 static constexpr uint8_t PSBT_ELEMENTS_OUT_BLINDER_INDEX = 0x08;
+static constexpr uint8_t PSBT_ELEMENTS_OUT_BLIND_VALUE_PROOF = 0x09;
+static constexpr uint8_t PSBT_ELEMENTS_OUT_BLIND_ASSET_PROOF = 0x0a;
 
 // Proprietary type identifer string
 static const std::vector<unsigned char> PSBT_ELEMENTS_ID = {'p', 's', 'e', 't'};
@@ -238,6 +242,8 @@ struct PSBTInput
     CConfidentialValue m_issuance_inflation_keys_commitment;
     uint256 m_issuance_blinding_nonce;
     uint256 m_issuance_asset_entropy;
+    std::vector<unsigned char> m_blind_issuance_value_proof;
+    std::vector<unsigned char> m_blind_issuance_inflation_keys_proof;
 
     // Peg-in
     boost::variant<boost::blank, Sidechain::Bitcoin::CTransactionRef, CTransactionRef> m_peg_in_tx;
@@ -450,6 +456,18 @@ struct PSBTInput
             if (!m_utxo_rangeproof.empty()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_UTXO_RANGEPROOF));
                 s << m_utxo_rangeproof;
+            }
+
+            // Blind issuance value proof
+            if (!m_blind_issuance_value_proof.empty()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_BLIND_VALUE_PROOF));
+                s << m_blind_issuance_value_proof;
+            }
+
+            // Blind issuance inflation keys value proof
+            if (!m_blind_issuance_inflation_keys_proof.empty()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_BLIND_INFLATION_KEYS_PROOF));
+                s << m_blind_issuance_inflation_keys_proof;
             }
         }
 
@@ -844,6 +862,26 @@ struct PSBTInput
                                 s >> m_utxo_rangeproof;
                                 break;
                             }
+                            case PSBT_ELEMENTS_IN_ISSUANCE_BLIND_VALUE_PROOF:
+                            {
+                                if (!m_blind_issuance_value_proof.empty()) {
+                                    throw std::ios_base::failure("Duplicate Key, input blind issuance value proof already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input blind issuance value key is more than one byte type");
+                                }
+                                s >> m_blind_issuance_value_proof;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_ISSUANCE_BLIND_INFLATION_KEYS_PROOF:
+                            {
+                                if (!m_blind_issuance_inflation_keys_proof.empty()) {
+                                    throw std::ios_base::failure("Duplicate Key, input blind issuance inflation keys value proof already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input blind issuance inflation keys value proof key is more than one byte type");
+                                }
+                                s >> m_blind_issuance_inflation_keys_proof;
+                                break;
+                            }
                             default:
                             {
                                 known = false;
@@ -891,8 +929,14 @@ struct PSBTInput
             if (!m_issuance_value_commitment.IsNull() && m_issuance_value == nullopt) {
                 throw std::ios_base::failure("Explicit issuance value must be provided if its commitment is provided too");
             }
+            if (!m_issuance_value_commitment.IsNull() && m_blind_issuance_value_proof.empty()) {
+                throw std::ios_base::failure("Blind issuance value proof must be provided if its commitment is provided too");
+            }
             if (!m_issuance_inflation_keys_commitment.IsNull() && m_issuance_inflation_keys_amount == nullopt) {
                 throw std::ios_base::failure("Explicit issuance inflation keys amount must be provided if its commitment is provided too");
+            }
+            if (!m_issuance_inflation_keys_commitment.IsNull() && m_blind_issuance_inflation_keys_proof.empty()) {
+                throw std::ios_base::failure("Blind issuance inflation keys value proof must be provided if its commitment is provided too");
             }
             if (!m_issuance_value_commitment.IsNull() && m_issuance_rangeproof.empty()) {
                 throw std::ios_base::failure("Issuance value commitment provided without value rangeproof");
@@ -931,6 +975,8 @@ struct PSBTOutput
     CPubKey m_ecdh_pubkey;
     CPubKey m_blinding_pubkey;
     Optional<uint32_t> m_blinder_index{nullopt};
+    std::vector<unsigned char> m_blind_value_proof;
+    std::vector<unsigned char> m_blind_asset_proof;
 
     bool IsNull() const;
     void FillSignatureData(SignatureData& sigdata) const;
@@ -1015,6 +1061,18 @@ struct PSBTOutput
             if (m_blinder_index != nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_BLINDER_INDEX));
                 SerializeToVector(s, *m_blinder_index);
+            }
+
+            // BLind value proof
+            if (!m_blind_value_proof.empty()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_BLIND_VALUE_PROOF));
+                s << m_blind_value_proof;
+            }
+
+            // BLind asset proof
+            if (!m_blind_asset_proof.empty()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_BLIND_ASSET_PROOF));
+                s << m_blind_asset_proof;
             }
         }
 
@@ -1202,6 +1260,31 @@ struct PSBTOutput
                                 m_blinder_index = i;
                                 break;
                             }
+                            case PSBT_ELEMENTS_OUT_BLIND_VALUE_PROOF:
+                            {
+                                if (!m_blind_value_proof.empty()) {
+                                    throw std::ios_base::failure("Duplicate Key, output blind value proof already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Output blind value proof key is more than one byte type");
+                                }
+                                s >> m_blind_value_proof;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_OUT_BLIND_ASSET_PROOF:
+                            {
+                                if (!m_blind_asset_proof.empty()) {
+                                    throw std::ios_base::failure("Duplicate Key, output blind asset proof already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Output blind asset proof key is more than one byte type");
+                                }
+                                s >> m_blind_asset_proof;
+                                break;
+                            }
+                            default:
+                            {
+                                known = false;
+                                break;
+                            }
                         }
                     }
 
@@ -1244,6 +1327,12 @@ struct PSBTOutput
             }
             if (m_asset.IsNull()) {
                 throw std::ios_base::failure("Output asset is required in PSET");
+            }
+            if (!m_value_commitment.IsNull() && m_blind_value_proof.empty()) {
+                throw std::ios_base::failure("Blind value proof must be provided if value commitment is provided");
+            }
+            if (!m_asset_commitment.IsNull() && m_blind_asset_proof.empty()) {
+                throw std::ios_base::failure("Blind asset proof must be provided if asset commitment is provided");
             }
             if (m_blinding_pubkey.IsValid() && m_blinder_index == nullopt) {
                 throw std::ios_base::failure("Output is blinded but does not have a blinder index");
