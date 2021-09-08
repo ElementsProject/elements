@@ -616,6 +616,9 @@ class PSBTTest(BitcoinTestFramework):
         conf_addr_4 = self.get_address(True, 0)
         psbt = self.nodes[2].createpsbt([{"txid": txid_conf_2, "vout": 1}], [{conf_addr_4: 24.998, "blinder_index": 0}, {"fee": 0.001}])
         psbt = self.nodes[2].walletprocesspsbt(psbt)['psbt']
+        decoded = self.nodes[1].decodepsbt(psbt)
+        assert "blind_value_proof" in decoded["outputs"][0]
+        assert "blind_asset_proof" in decoded["outputs"][0]
         hex_tx = self.nodes[2].finalizepsbt(psbt)['hex']
         assert_equal(self.num_blinded_outputs(hex_tx), 1)
         self.nodes[2].sendrawtransaction(hex_tx)
