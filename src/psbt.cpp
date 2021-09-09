@@ -104,7 +104,7 @@ bool PartiallySignedTransaction::ComputeTimeLock(uint32_t& locktime) const
     return true;
 }
 
-CMutableTransaction PartiallySignedTransaction::GetUnsignedTx() const
+CMutableTransaction PartiallySignedTransaction::GetUnsignedTx(bool force_unblinded) const
 {
     if (tx != nullopt) {
         return *tx;
@@ -122,7 +122,7 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx() const
         txin.nSequence = input.sequence.value_or(max_sequence);
         txin.assetIssuance.assetBlindingNonce = input.m_issuance_blinding_nonce;
         txin.assetIssuance.assetEntropy = input.m_issuance_asset_entropy;
-        if (input.m_issuance_value != nullopt && input.m_issuance_inflation_keys_amount != nullopt) {
+        if (input.m_issuance_value != nullopt && input.m_issuance_inflation_keys_amount != nullopt && !force_unblinded) {
             txin.assetIssuance.nAmount.SetToAmount(*input.m_issuance_value);
             txin.assetIssuance.nInflationKeys.SetToAmount(*input.m_issuance_inflation_keys_amount);
         } else {
@@ -134,7 +134,7 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx() const
     for (const PSBTOutput& output : outputs) {
         CTxOut txout;
         txout.scriptPubKey = *output.script;
-        if (output.IsFullyBlinded()) {
+        if (output.IsFullyBlinded() && !force_unblinded) {
             txout.nValue = output.m_value_commitment;
             txout.nAsset = output.m_asset_commitment;
             txout.nNonce.vchCommitment.insert(txout.nNonce.vchCommitment.end(), output.m_ecdh_pubkey.begin(), output.m_ecdh_pubkey.end());
@@ -156,7 +156,7 @@ uint256 PartiallySignedTransaction::GetUniqueID() const
     }
 
     // Get the unsigned transaction
-    CMutableTransaction mtx = GetUnsignedTx();
+    CMutableTransaction mtx = GetUnsignedTx(/* force_unblinded */ true);
     // Set the locktime to 0
     mtx.nLockTime = 0;
     // Set the sequence numbers to 0

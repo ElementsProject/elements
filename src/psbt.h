@@ -1379,7 +1379,7 @@ struct PartiallySignedTransaction
     void SetupFromTx(const CMutableTransaction& tx);
     void CacheUnsignedTxPieces();
     bool ComputeTimeLock(uint32_t& locktime) const;
-    CMutableTransaction GetUnsignedTx() const;
+    CMutableTransaction GetUnsignedTx(bool foce_unblinded=false) const;
     uint256 GetUniqueID() const;
     PartiallySignedTransaction() {}
     PartiallySignedTransaction(uint32_t version);
