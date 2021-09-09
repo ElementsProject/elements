@@ -64,6 +64,21 @@ bool CreateAssetSurjectionProof(std::vector<unsigned char>& output_proof, const 
     return true;
 }
 
+bool VerifyBlindAssetProof(const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
+{
+    secp256k1_surjectionproof surj_proof;
+    if (secp256k1_surjectionproof_parse(secp256k1_blind_context, &surj_proof, proof.data(), proof.size()) == 0) {
+        return false;
+    }
+
+    secp256k1_generator gen;
+    if (secp256k1_generator_parse(secp256k1_blind_context, &gen, conf_asset.vchCommitment.data()) == 0) {
+        return false;
+    }
+
+    return secp256k1_surjectionproof_verify(secp256k1_blind_context, &surj_proof, &gen, 1, &gen) == 0;
+}
+
 uint256 GenerateRangeproofECDHKey(CPubKey& ephemeral_pubkey, const CPubKey blinding_pubkey)
 {
     // Generate ephemeral key for ECDH nonce generation
@@ -113,6 +128,26 @@ bool CreateBlindValueProof(std::vector<unsigned char>& rangeproof, const uint256
     int res = secp256k1_rangeproof_sign(secp256k1_blind_context, rangeproof.data(), &rangeproof_len, /* min_value */ amount, &value_commit, value_blinder.begin(), nonce.begin(), /* exp */ -1, /* min_bits */ 0, amount, /* message */ nullptr, /* message_len */ 0, /* extra_commit */ nullptr, /* extra_commit_len */ 0, &gen);
     rangeproof.resize(rangeproof_len);
     return res == 1;
+}
+
+bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
+{
+    secp256k1_pedersen_commitment value_commit;
+    if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.vchCommitment.data()) == 0) {
+        return false;
+    }
+
+    secp256k1_generator gen;
+    if (secp256k1_generator_parse(secp256k1_blind_context, &gen, conf_asset.vchCommitment.data()) == 0) {
+        return false;
+    }
+
+    uint64_t min_value;
+    uint64_t max_value;
+    if (secp256k1_rangeproof_verify(secp256k1_blind_context, &min_value, &max_value, &value_commit, proof.data(), proof.size(), /* extra_commit */ nullptr, /* extra_commit_len */ 0, &gen) == 0) {
+        return false;
+    }
+    return min_value == (uint64_t)value;
 }
 
 void CreateAssetCommitment(CConfidentialAsset& conf_asset, secp256k1_generator& asset_gen, const CAsset& asset, const uint256& asset_blinder)

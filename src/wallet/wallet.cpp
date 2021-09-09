@@ -2830,10 +2830,21 @@ BlindingStatus CWallet::WalletBlindPSBT(PartiallySignedTransaction& psbtx) const
 TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool imbalance_ok, bool bip32derivs, size_t* n_signed) const
 {
     // If we're signing, check that the transaction is not still in need of blinding
+    // Also check that the amount and asset proofs are valid
     if (sign) {
         for (const PSBTOutput& o : psbtx.outputs) {
-            if (o.IsBlinded() && !o.IsFullyBlinded()) {
-                return TransactionError::BLINDING_REQUIRED;
+            if (o.IsBlinded()) {
+                if (!o.IsFullyBlinded()) {
+                    return TransactionError::BLINDING_REQUIRED;
+                }
+                assert(!o.m_blind_value_proof.empty());
+                assert(!o.m_blind_asset_proof.empty());
+                if (!VerifyBlindValueProof(*o.amount, o.m_value_commitment, o.m_blind_value_proof, o.m_asset_commitment)) {
+                    return TransactionError::INVALID_VALUE_PROOF;
+                }
+                if (!VerifyBlindAssetProof(o.m_blind_asset_proof, o.m_asset_commitment)) {
+                    return TransactionError::INVALID_ASSET_PROOF;
+                }
             }
         }
     }
