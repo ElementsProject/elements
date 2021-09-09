@@ -59,6 +59,9 @@ bool PartiallySignedTransaction::Merge(const PartiallySignedTransaction& psbt)
             m_xpubs[xpub_pair.first].insert(xpub_pair.second.begin(), xpub_pair.second.end());
         }
     }
+    for (auto& scalar : psbt.m_scalar_offsets) {
+        m_scalar_offsets.insert(scalar);
+    }
     if (fallback_locktime == nullopt && psbt.fallback_locktime != nullopt) fallback_locktime = psbt.fallback_locktime;
     if (m_tx_modifiable == nullopt && psbt.m_tx_modifiable != nullopt) m_tx_modifiable = psbt.m_tx_modifiable;
     unknown.insert(psbt.unknown.begin(), psbt.unknown.end());
@@ -413,6 +416,8 @@ bool PSBTInput::Merge(const PSBTInput& input)
     }
     if (m_issuance_blinding_nonce.IsNull() && !input.m_issuance_blinding_nonce.IsNull()) m_issuance_blinding_nonce = input.m_issuance_blinding_nonce;
     if (m_issuance_asset_entropy.IsNull() && !input.m_issuance_asset_entropy.IsNull()) m_issuance_asset_entropy = input.m_issuance_asset_entropy;
+    if (m_blind_issuance_value_proof.empty() && !input.m_blind_issuance_value_proof.empty()) m_blind_issuance_value_proof = input.m_blind_issuance_value_proof;
+    if (m_blind_issuance_inflation_keys_proof.empty() && !input.m_blind_issuance_inflation_keys_proof.empty()) m_blind_issuance_inflation_keys_proof = input.m_blind_issuance_inflation_keys_proof;
 
     if (m_peg_in_tx.which() == 0 && input.m_peg_in_tx.which() != 0) m_peg_in_tx = input.m_peg_in_tx;
     if (m_peg_in_txout_proof.which() == 0 && input.m_peg_in_txout_proof.which() != 0) m_peg_in_txout_proof = input.m_peg_in_txout_proof;
@@ -420,6 +425,8 @@ bool PSBTInput::Merge(const PSBTInput& input)
     if (m_peg_in_genesis_hash.IsNull() && !input.m_peg_in_genesis_hash.IsNull()) m_peg_in_genesis_hash = input.m_peg_in_genesis_hash;
     if (m_peg_in_value == nullopt && input.m_peg_in_value != nullopt) m_peg_in_value = input.m_peg_in_value;
     if (m_peg_in_witness.IsNull() && !input.m_peg_in_witness.IsNull()) m_peg_in_witness = input.m_peg_in_witness;
+
+    if (m_utxo_rangeproof.empty() && !input.m_utxo_rangeproof.empty()) m_utxo_rangeproof = input.m_utxo_rangeproof;
 
     return true;
 }
@@ -459,8 +466,7 @@ bool PSBTOutput::Merge(const PSBTOutput& output)
 {
     assert(amount == output.amount);
     assert(script == output.script);
-    assert(m_value_commitment == output.m_value_commitment);
-    assert(m_asset_commitment == output.m_asset_commitment);
+    assert(m_asset == output.m_asset);
 
     hd_keypaths.insert(output.hd_keypaths.begin(), output.hd_keypaths.end());
     unknown.insert(output.unknown.begin(), output.unknown.end());
@@ -481,7 +487,6 @@ bool PSBTOutput::Merge(const PSBTOutput& output)
         if (!m_asset_commitment.IsNull() && !output.m_asset_commitment.IsNull() && (m_asset_commitment != output.m_asset_commitment)) return false;
         if (!m_value_rangeproof.empty() && !output.m_value_rangeproof.empty() && (m_value_rangeproof != output.m_value_rangeproof)) return false;
         if (!m_asset_surjection_proof.empty() && !output.m_asset_surjection_proof.empty() && (m_asset_surjection_proof != output.m_asset_surjection_proof)) return false;
-        if (amount|| output.amount || !m_asset.IsNull() || !output.m_asset.IsNull()) return false;
     }
 
     // If output IsFullyBlinded and this is not, copy the blinding data and remove the explicits
@@ -491,6 +496,8 @@ bool PSBTOutput::Merge(const PSBTOutput& output)
         m_value_rangeproof = output.m_value_rangeproof;
         m_asset_surjection_proof = output.m_asset_surjection_proof;
         m_ecdh_pubkey = output.m_ecdh_pubkey;
+        m_blind_value_proof = output.m_blind_value_proof;
+        m_blind_asset_proof = output.m_blind_asset_proof;
     }
 
     return true;

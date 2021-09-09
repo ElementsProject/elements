@@ -1785,7 +1785,7 @@ static RPCHelpMan combinepsbt()
                 is_fully_blinded &= psbt_out.IsFullyBlinded();
             }
         }
-        if (!is_fully_blinded) {
+        if (is_fully_blinded) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Cannot combine PSETs");
         }
     }
