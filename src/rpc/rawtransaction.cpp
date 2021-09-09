@@ -1060,8 +1060,9 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
             continue;
         }
         // Report warning about immature peg-in though
-        if(txin.m_is_pegin && !IsValidPeginWitness(txConst.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, true)) {
-            assert(err == "Needs more confirmations.");
+        bool depth_failed = false;
+        if(txin.m_is_pegin && !IsValidPeginWitness(txConst.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, true, &depth_failed)) {
+            assert(depth_failed);
             immature_pegin = true;
         }
 
