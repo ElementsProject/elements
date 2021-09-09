@@ -29,6 +29,8 @@ std::string GetBlindingStatusError(const BlindingStatus& status)
         return "Computed blinding factor is invalid";
     case BlindingStatus::ASP_UNABLE:
         return "Unable to create an asset surjection proof";
+    case BlindingStatus::NO_BLIND_OUTPUTS:
+        return "Transaction has blind inputs belonging to this blinder but does not have outputs to blind";
     }
     assert(false);
 }
@@ -384,10 +386,14 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
 
     uint256 output_scalar;
     bool did_last_blind = false;
+    int our_blinds = 0;
     for (uint32_t i : to_blind) {
         PSBTOutput& output = psbt.outputs[i];
 
-        if (output.IsFullyBlinded()) continue;
+        if (output.IsFullyBlinded()) {
+            our_blinds++;
+            continue;
+        }
 
         // Check this is our output to blind
         if (output.m_blinder_index == nullopt || our_input_data.count(*output.m_blinder_index) == 0) continue;
@@ -477,15 +483,21 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
         output.m_asset_surjection_proof = asp;
         output.m_blind_value_proof = blind_value_proof;
         output.m_blind_asset_proof = blind_asset_proof;
+
+        our_blinds++;
     }
 
-    if (!did_last_blind) {
+    // Compute scalar and add to PSBT if it isn't null
+    if (!did_last_blind && !output_scalar.IsNull()) {
         // Subtract input scalar from output scalar
         if (!SubtractScalars(output_scalar, input_scalar)) return BlindingStatus::SCALAR_UNABLE;
-        // Now add the scalar to the PSBT if it isn't null
-        if (!output_scalar.IsNull()) {
-            psbt.m_scalar_offsets.insert(output_scalar);
-        }
+        // Add to PSBT
+        psbt.m_scalar_offsets.insert(output_scalar);
+    }
+
+    // Make sure that we blinded some outputs if we have blinded inputs
+    if (our_input_data.size() > 0 && our_blinds == 0) {
+        return BlindingStatus::NO_BLIND_OUTPUTS;
     }
 
     return BlindingStatus::OK;

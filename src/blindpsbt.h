@@ -26,6 +26,7 @@ enum class BlindingStatus
     SCALAR_UNABLE,
     INVALID_BLINDER,
     ASP_UNABLE,
+    NO_BLIND_OUTPUTS,
 };
 
 std::string GetBlindingStatusError(const BlindingStatus& status);

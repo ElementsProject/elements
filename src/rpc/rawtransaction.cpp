@@ -1786,7 +1786,7 @@ static RPCHelpMan combinepsbt()
             }
         }
         if (is_fully_blinded) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Cannot combine PSETs");
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Cannot combine PSETs as the values and blinders would become imbalanced");
         }
     }
 

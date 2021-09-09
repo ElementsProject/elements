@@ -658,6 +658,19 @@ class PSBTTest(BitcoinTestFramework):
         vout3 = find_vout_for_address(self.nodes[2], txid3, w3_addr)
         self.nodes[0].generate(1)
         self.sync_all()
+        # Check that a walletprocesspsbt fails if the wallet has a blind input but no blind outputs
+        created_psbt = self.nodes[0].createpsbt(
+            [
+                {"txid": txid1, "vout": vout1},
+                {"txid": txid2, "vout": vout2},
+            ],
+            [
+                {self.get_address(True, 0): Decimal("19.999"), "blinder_index": 0},
+                {"fee": Decimal("0.001")}
+            ]
+        )
+        up_psbt1 = w1.walletprocesspsbt(psbt=created_psbt, sign=False)["psbt"]
+        assert_raises_rpc_error(-4, "Transaction has blind inputs belonging to this blinder but does not have outputs to blind", w2.walletprocesspsbt, up_psbt1, False)
         # Make the PSBT
         created_psbt = self.nodes[0].createpsbt(
             [
@@ -681,6 +694,12 @@ class PSBTTest(BitcoinTestFramework):
         # 1 and 2 blind
         blind_psbt1 = w1.walletprocesspsbt(psbt=comb_psbt1, sign=False)["psbt"]
         blind_psbt2 = w2.walletprocesspsbt(psbt=comb_psbt1, sign=False)["psbt"]
+        # Check that trying to blind a PSET where our inputs are already blinded results in no change
+        re_blind_psbt2 = w2.walletprocesspsbt(psbt=blind_psbt2, sign=False)["psbt"]
+        assert_equal(blind_psbt2, re_blind_psbt2)
+        # Make sure combinepsbt does not work if the result would have imbalanced values and blinders
+        blind_psbt3 = w3.walletprocesspsbt(psbt=comb_psbt1, sign=False)["psbt"]
+        assert_raises_rpc_error(-22, "Cannot combine PSETs as the values and blinders would become imbalanced", self.nodes[0].combinepsbt, [blind_psbt1, blind_psbt2, blind_psbt3])
         # Combine 1 and 2 blinded
         comb_psbt2 = self.nodes[0].combinepsbt([blind_psbt1, blind_psbt2])
         # 3 Updates and blinds combined
