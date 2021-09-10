@@ -658,7 +658,7 @@ class CCustomParams : public CRegTestParams {
         assert(IsHex(extprvprefix) && extprvprefix.size() == 8 && "-extprvkeyprefix must be hex string of length 8");
         base58Prefixes[EXT_SECRET_KEY] = ParseHex(extprvprefix);
 
-        const std::string magic_str = args.GetArg("-pchmessagestart", "FABFB5DA");
+        const std::string magic_str = args.GetArg("-pchmessagestart", "5319F20E");
         assert(IsHex(magic_str) && magic_str.size() == 8 && "-pchmessagestart must be hex string of length 8");
         const std::vector<unsigned char> magic_byte = ParseHex(magic_str);
         std::copy(begin(magic_byte), end(magic_byte), pchMessageStart);
