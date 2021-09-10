@@ -4905,6 +4905,9 @@ std::shared_ptr<CWallet> CWallet::Create(interfaces::Chain& chain, const std::st
                                _("This is the transaction fee you may pay when fee estimates are not available."));
         }
         walletInstance->m_fallback_fee = CFeeRate(nFeePerK);
+    } else {
+        // ELEMENTS: re-enable fallbackfee at 0.1 sat/byte
+        walletInstance->m_fallback_fee = CFeeRate(100);
     }
     // Disable fallback fee in case value was set to 0, enable if non-null value
     walletInstance->m_allow_fallback_fee = walletInstance->m_fallback_fee.GetFeePerK() != 0;
