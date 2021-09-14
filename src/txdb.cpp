@@ -33,7 +33,7 @@ static const char DB_LAST_BLOCK = 'l';
 
 // ELEMENTS:
 static const char DB_PEGIN_FLAG = 'w';
-static const char DB_INVALID_BLOCK_Q = 'q';
+// static const char DB_INVALID_BLOCK_Q = 'q';  // No longer used, but avoid reuse.
 static const char DB_PAK = 'p';
 
 namespace {
@@ -267,14 +267,6 @@ bool CBlockTreeDB::ReadFlag(const std::string &name, bool &fValue) {
         return false;
     fValue = ch == '1';
     return true;
-}
-
-// ELEMENTS:
-bool CBlockTreeDB::ReadInvalidBlockQueue(std::vector<uint256> &vBlocks) {
-    return Read(std::make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), vBlocks);//FIXME: why uint 56 and not ""
-}
-bool CBlockTreeDB::WriteInvalidBlockQueue(const std::vector<uint256> &vBlocks) {
-    return Write(std::make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), vBlocks);
 }
 
 bool CBlockTreeDB::ReadPAKList(std::vector<std::vector<unsigned char> >& offline_list, std::vector<std::vector<unsigned char> >& online_list, bool& reject)
