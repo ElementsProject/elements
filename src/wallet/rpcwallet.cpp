@@ -4749,7 +4749,8 @@ static RPCHelpMan walletprocesspsbt()
     }
     if (needs_blinding) {
         BlindingStatus status = pwallet->WalletBlindPSBT(psbtx);
-        if (status != BlindingStatus::OK) {
+        // Fail if we couldn't blind, but only if it is for reasons other than needing UTXOs
+        if (status != BlindingStatus::OK && status != BlindingStatus::NEEDS_UTXOS) {
             throw JSONRPCError(RPC_WALLET_ERROR, GetBlindingStatusError(status));
         }
     }

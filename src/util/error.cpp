@@ -37,6 +37,10 @@ bilingual_str TransactionErrorString(const TransactionError err)
             return Untranslated("Transaction values or blinders are not balanced");
         case TransactionError::UTXOS_MISSING_BALANCE_CHECK:
             return Untranslated("Missing UTXOs that are needed to check transaction balance");
+        case TransactionError::INVALID_VALUE_PROOF:
+            return Untranslated("Proof of blinded value is invalid");
+        case TransactionError::INVALID_ASSET_PROOF:
+            return Untranslated("Proof of blinded asset is invalid");
         // no default case, so the compiler can warn about missing cases
     }
     assert(false);

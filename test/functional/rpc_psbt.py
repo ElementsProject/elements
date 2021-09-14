@@ -12,6 +12,7 @@ from test_framework.util import (
     assert_greater_than,
     assert_raises_rpc_error,
     find_output,
+    find_vout_for_address,
 )
 from decimal import Decimal
 
@@ -616,6 +617,9 @@ class PSBTTest(BitcoinTestFramework):
         conf_addr_4 = self.get_address(True, 0)
         psbt = self.nodes[2].createpsbt([{"txid": txid_conf_2, "vout": 1}], [{conf_addr_4: 24.998, "blinder_index": 0}, {"fee": 0.001}])
         psbt = self.nodes[2].walletprocesspsbt(psbt)['psbt']
+        decoded = self.nodes[1].decodepsbt(psbt)
+        assert "blind_value_proof" in decoded["outputs"][0]
+        assert "blind_asset_proof" in decoded["outputs"][0]
         hex_tx = self.nodes[2].finalizepsbt(psbt)['hex']
         assert_equal(self.num_blinded_outputs(hex_tx), 1)
         self.nodes[2].sendrawtransaction(hex_tx)
@@ -631,6 +635,84 @@ class PSBTTest(BitcoinTestFramework):
         hex_tx = self.nodes[0].finalizepsbt(psbt)['hex']
         assert_equal(self.num_blinded_outputs(hex_tx), 2)
         self.nodes[0].sendrawtransaction(hex_tx)
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        # Try a multiparty blinded tx
+        # Prepare wallets and UTXOs for inputs
+        self.nodes[2].createwallet("w1")
+        w1 = self.nodes[2].get_wallet_rpc("w1")
+        self.nodes[2].createwallet("w2")
+        w2 = self.nodes[2].get_wallet_rpc("w2")
+        self.nodes[2].createwallet("w3")
+        w3 = self.nodes[2].get_wallet_rpc("w3")
+        w1_addr = w1.getaddressinfo(w1.getnewaddress())["confidential"]
+        w2_addr = w2.getaddressinfo(w2.getnewaddress())["confidential"]
+        w3_addr = w3.getaddressinfo(w3.getnewaddress())["confidential"]
+        txid1 = self.nodes[0].sendtoaddress(w1_addr, 10)
+        txid2 = self.nodes[0].sendtoaddress(w2_addr, 10)
+        txid3 = self.nodes[0].sendtoaddress(w3_addr, 10)
+        self.sync_all()
+        vout1 = find_vout_for_address(self.nodes[2], txid1, w1_addr)
+        vout2 = find_vout_for_address(self.nodes[2], txid2, w2_addr)
+        vout3 = find_vout_for_address(self.nodes[2], txid3, w3_addr)
+        self.nodes[0].generate(1)
+        self.sync_all()
+        # Check that a walletprocesspsbt fails if the wallet has a blind input but no blind outputs
+        created_psbt = self.nodes[0].createpsbt(
+            [
+                {"txid": txid1, "vout": vout1},
+                {"txid": txid2, "vout": vout2},
+            ],
+            [
+                {self.get_address(True, 0): Decimal("19.999"), "blinder_index": 0},
+                {"fee": Decimal("0.001")}
+            ]
+        )
+        up_psbt1 = w1.walletprocesspsbt(psbt=created_psbt, sign=False)["psbt"]
+        assert_raises_rpc_error(-4, "Transaction has blind inputs belonging to this blinder but does not have outputs to blind", w2.walletprocesspsbt, up_psbt1, False)
+        # Make the PSBT
+        created_psbt = self.nodes[0].createpsbt(
+            [
+                {"txid": txid1, "vout": vout1},
+                {"txid": txid2, "vout": vout2},
+                {"txid": txid3, "vout": vout3},
+            ],
+            [
+                {self.get_address(True, 0): Decimal("9.999"), "blinder_index": 0},
+                {self.get_address(True, 0): Decimal("9.999"), "blinder_index": 1},
+                {self.get_address(True, 0): Decimal("9.999"), "blinder_index": 2},
+                {"fee": Decimal("0.003")}
+            ]
+        )
+        # Update all but don't blind
+        up_psbt1 = w1.walletprocesspsbt(psbt=created_psbt, sign=False)["psbt"]
+        up_psbt2 = w2.walletprocesspsbt(psbt=created_psbt, sign=False)["psbt"]
+        up_psbt3 = w3.walletprocesspsbt(psbt=created_psbt, sign=False)["psbt"]
+        # Combine updated
+        comb_psbt1 = self.nodes[0].combinepsbt([up_psbt1, up_psbt2, up_psbt3])
+        # 1 and 2 blind
+        blind_psbt1 = w1.walletprocesspsbt(psbt=comb_psbt1, sign=False)["psbt"]
+        blind_psbt2 = w2.walletprocesspsbt(psbt=comb_psbt1, sign=False)["psbt"]
+        # Check that trying to blind a PSET where our inputs are already blinded results in no change
+        re_blind_psbt2 = w2.walletprocesspsbt(psbt=blind_psbt2, sign=False)["psbt"]
+        assert_equal(blind_psbt2, re_blind_psbt2)
+        # Make sure combinepsbt does not work if the result would have imbalanced values and blinders
+        blind_psbt3 = w3.walletprocesspsbt(psbt=comb_psbt1, sign=False)["psbt"]
+        assert_raises_rpc_error(-22, "Cannot combine PSETs as the values and blinders would become imbalanced", self.nodes[0].combinepsbt, [blind_psbt1, blind_psbt2, blind_psbt3])
+        # Combine 1 and 2 blinded
+        comb_psbt2 = self.nodes[0].combinepsbt([blind_psbt1, blind_psbt2])
+        # 3 Updates and blinds combined
+        blind_psbt = w3.walletprocesspsbt(psbt=comb_psbt2, sign=False)["psbt"]
+        # All sign
+        sign_psbt1 = w1.walletprocesspsbt(psbt=blind_psbt)["psbt"]
+        sign_psbt2 = w2.walletprocesspsbt(psbt=blind_psbt)["psbt"]
+        sign_psbt3 = w3.walletprocesspsbt(psbt=blind_psbt)["psbt"]
+        # Combine sigs
+        comb_psbt2 = self.nodes[0].combinepsbt([sign_psbt1, sign_psbt2, sign_psbt3])
+        # Finalize and send
+        tx = self.nodes[0].finalizepsbt(comb_psbt2)["hex"]
+        self.nodes[0].sendrawtransaction(tx)
         self.nodes[0].generate(1)
         self.sync_all()
 

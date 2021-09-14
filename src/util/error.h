@@ -33,6 +33,8 @@ enum class TransactionError {
     BLINDING_REQUIRED,
     VALUE_IMBALANCE,
     UTXOS_MISSING_BALANCE_CHECK,
+    INVALID_VALUE_PROOF,
+    INVALID_ASSET_PROOF,
 };
 
 bilingual_str TransactionErrorString(const TransactionError error);

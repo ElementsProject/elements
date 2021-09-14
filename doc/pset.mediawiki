@@ -84,7 +84,7 @@ The currently defined elements per-input proprietary types are as folows:
 | None
 | No key data
 | <tt><64-bit int></tt>
-| The explicit little endian 64-bit integer for the value of this issuance. This is mutually exclusive with <tt>PSBT_ELEMENTS_IN_ISSUANCE_VALUE_COMMITMENT</tt>
+| The explicit little endian 64-bit integer for the value of this issuance.
 |
 | 0
 | 2
@@ -94,7 +94,7 @@ The currently defined elements per-input proprietary types are as folows:
 | None
 | No key data
 | <tt><33 byte commitment></tt>
-| The 33 byte Value Commitment. This is mutually exclusive with <tt>PSBT_IN_ISSUANCE_VALUE</tt>.
+| The 33 byte Value Commitment. If provided, <tt>PSBT_ELEMENTS_IN_ISSUANCE_BLIND_VALUE_PROOF</tt> must be provided too.
 |
 | 0
 | 2
@@ -184,7 +184,7 @@ The currently defined elements per-input proprietary types are as folows:
 | None
 | No key data
 | <tt><64-bit int></tt>
-| The value for the inflation keys output to set in this issuance. This is mutually exclusive with <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS</tt>.
+| The value for the inflation keys output to set in this issuance.
 |
 | 0
 | 2
@@ -194,7 +194,7 @@ The currently defined elements per-input proprietary types are as folows:
 | None
 | No key data
 | <tt><33 byte commitment></tt>
-| The 33 byte commitment to the inflation keys output value in this issuance. This is mutually exclusive with <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS</tt>
+| The 33 byte commitment to the inflation keys output value in this issuance. If provided, <tt>PSBT_ELEMENTS_IN_ISSUANCE_BLIND_INFLATION_KEYS_PROOF</tt> must be provided too.
 |
 | 0
 | 2
@@ -228,6 +228,26 @@ The currently defined elements per-input proprietary types are as folows:
 |
 | 0
 | 2
+|-
+| Issuance Blind Value Proof
+| <tt>PSBT_ELEMENTS_IN_ISSUANCE_BLIND_VALUE_PROOF = 0x0f</tt>
+| None
+| No key data
+| <tt><rangeproof></tt>
+| An explicit value rangeproof that proves that the value commitment in <tt>PSBT_ELEMENTS_IN_ISSUANCE_VALUE_COMMITMENT</tt> matches the explicit value in <tt>PSBT_ELEMENTS_IN_ISSUANCE_VALUE</tt>. If provided, <tt>PSBT_ELEMENTS_IN_ISSUANCE_VALUE_COMMITMENT</tt> must be provided too.
+|
+| 0
+| 2
+|-
+| Issuance Inflation Keys Blind Value Proof
+| <tt>PSBT_ELEMENTS_IN_ISSUANCE_BLIND_INFLATION_KEYS_PROOF = 0x10</tt>
+| None
+| No key data
+| <tt><rangeproof></tt>
+| An explicit value rangeproof that proves that the value commitment in <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_COMMITMENT</tt> matches the explicit value in <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS</tt>. If provided, <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_COMMITMENT</tt> must be provided too.
+|
+| 0
+| 2
 |}
 
 The currently defined elements per-output proprietary types are as follows:
@@ -248,7 +268,7 @@ The currently defined elements per-output proprietary types are as follows:
 | None
 | No key data
 | <tt><33 byte commitment></tt>
-| The 33 byte Value Commitment for this output. This is mutually exclusive with <tt>PSBT_OUT_VALUE</tt>.
+| The 33 byte Value Commitment for this output. If provided, <tt>PSBT_ELEMENTS_OUT_BLIND_VALUE_PROOF</tt> must be provided too.
 |
 | 0
 | 2
@@ -258,7 +278,7 @@ The currently defined elements per-output proprietary types are as follows:
 | None
 | No key data
 | <tt><32 byte asset tag></tt>
-| The explicit 32 byte asset tag for this output. This is mutually exclusive with <tt>PSBT_ELEMENTS_OUT_ASSET_COMMITMENT</tt>.
+| The explicit 32 byte asset tag for this output.
 |
 | 0
 | 2
@@ -268,7 +288,7 @@ The currently defined elements per-output proprietary types are as follows:
 | None
 | No key data
 | <tt><33 byte commitment></tt>
-| The 33 byte Asset Commitment for this output. This is mutually exclusive with <tt>PSBT_ELEMENTS_OUT_ASSET</tt>.
+| The 33 byte Asset Commitment for this output. If provided, <tt>PSBT_ELEMENTS_OUT_BLIND_ASSET_PROOF</tt> must be provided too.
 |
 | 0
 | 2
@@ -322,9 +342,26 @@ The currently defined elements per-output proprietary types are as follows:
 |
 | 0
 | 2
+|-
+| Blind Value Proof
+| <tt>PSBT_ELEMENTS_OUT_BLIND_VALUE_PROOF = 0x09</tt>
+| None
+| No key data
+| <tt><rangeproof></tt>
+| An explicit value rangeproof that proves that the value commitment in <tt>PSBT_ELEMENTS_OUT_VALUE_COMMITMENT</tt> matches the explicit value in <tt>PSBT_OUT_VALUE</tt>. If provided, <tt>PSBT_ELEMENTS_OUT_VALUE_COMMITMENT</tt> must be provided too.
+|
+| 0
+| 2|-
+| Blind Asset Proof
+| <tt>PSBT_ELEMENTS_OUT_BLIND_ASSET_PROOF = 0x0a</tt>
+| None
+| No key data
+| <tt><proof></tt>
+| An asset surjection proof with this output's asset as the only asset in the input set in order to prove that the asset commitment in <tt>PSBT_ELEMENTS_OUT_ASSET_COMMITMENT</tt> matches the explicit asset in <tt>PSBT_ELEMENTS_OUT_ASSET</tt>. If provided, <tt>PSBT_ELEMENTS_OUT_ASSET_COMMITMENT</tt> must be provided too.
+|
+| 0
+| 2
 |}
-
-In addition to these new types, the <tt>PSBT_OUT_AMOUNT</tt> field is no longer required so long as <tt>PSBT_ELEMENTS_OUT_VALUE_COMMITMENT</tt> is present.
 
 The PSET Magic Bytes are <tt>0x70736574</tt>
 
@@ -373,16 +410,15 @@ A single entity is likely to be both a Creator and Updater.
 PSET requires a role not present in PSBT, the Blinder. Blinders are similar to Signers and own inputs.
 The Blinder adds the blinding data to a transaction.
 
-If Bit 0 of <tt>PSBT_ELEMENTS_GLOBAL_TX_MODIFIABLE</tt> is 0, the Blinder must do nothing.
-
 For issuance inputs that belong to the Blinder, the Blinder should generate a random blinding factor and create a value commitment for the issuance value.
-It will then add the value commitment in the <tt>PSBT_ELEMENTS_IN_ISSUANCE_VALUE_COMMITMENT</tt>. When it does so, it must remove the <tt>PSBT_ELEMENTS_IN_ISSUANCE_VALUE</tt> field.
+It will then add the value commitment in the <tt>PSBT_ELEMENTS_IN_ISSUANCE_VALUE_COMMITMENT</tt>.
 The blinder will also add the issuance value rangeproof and the issuance keys rangeproof in their respective fields.
+The blinder will also add the issuance blind value and issuance keys blind value proofs in their respective fields.
 For ease of identifying the blinder for an issuance, the input the issuance is attached to must belong to the blinder for the issuance.
 
 For the Blinder's outputs that are to be blinded (i.e. they have a blinding pubkey), the Blinder will create value and asset commitments and put them in their respective fields.
-When they do so, the <tt>PSBT_ELEMENTS_OUT_VALUE</tt> and <tt>PSBT_ELEMENTS_OUT_ASSET</tt> fields must be removed.
 The Blinder will create the Value Rangeproof and Asset Surjection Proof and put them in their respective fields.
+The Blinder will create the blind value and blind asset proofs and put them in their respective fields.
 It will also add the ephemeral pubkey used for ECDH of the nonce for the rangeproof to the <tt>PSBT_ELEMENTS_OUT_ECDH_PUBKEY</tt> field.
 
 The blinder will then compute a scalar offset that will be added as a <tt>PSBT_ELEMENTS_GLOBAL_SCALAR</tt>.
@@ -400,17 +436,13 @@ It will then compute a final scalar offset.
 Then it will subtract all of the scalar offsets from the value blinding factor for the last output and the result is the value blinding factor to be used for that last output.
 The creation of the commitments, proofs, and other fields proceeds as usual.
 Once all outputs are blinded, all <tt>PSBT_ELEMENTS_GLOBAL_SCALAR</tt> fields must be removed from the PSET.
-Once all outputs are blinded, Bit 0 of <tt>PSBT_ELEMENTS_GLOBAL_TX_MODIFIABLE</tt> must be set to 0.
 
 A single entity is likely to be a Creator, Updater, and Blinder.
-In that case, the PSET should never be output with <tt>PSBT_ELEMENTS_IN_ISSUANCE_VALUE</tt>, <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS</tt>, <tt>PSBT_ELEMENTS_OUT_VALUE</tt>, or <tt>PSBT_ELEMENTS_OUT_ASSET</tt> except for unblinded issuances and unblinded outputs.
 
 ===Signer===
 
 In addition to the BIP 370 PSBT Signer behavior, PSET specifies some addtional constraints.
 Before signing, the Signer must check whether blinding is complete. If any output contains a blinding pubkey but no commitments or proofs, then it must not sign.
-This is easily done by checking whether Bit 0 of <tt>PSBT_ELEMENTS_GLOBAL_TX_MODIFIABLE</tt> is 1.
-If so, the Signer must do nothing.
 
 ===Combiner===
 

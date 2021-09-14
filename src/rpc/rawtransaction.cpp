@@ -1156,9 +1156,11 @@ static RPCHelpMan decodepsbt()
                                 {RPCResult::Type::NUM, "issuance_value", "The explicit value of the issuance in this input in " + CURRENCY_UNIT},
                                 {RPCResult::Type::STR_HEX, "issuance_value_commitment", "The commitment of the value of the issuance in this input."},
                                 {RPCResult::Type::STR_HEX, "issuance_value_rangeproof", "The rangeproof for the value commitment of the issuance in this input."},
+                                {RPCResult::Type::STR_HEX, "blind_issuance_value_proof", "Explicit value rangeproof that proves the issuance value commitment matches the value"},
                                 {RPCResult::Type::NUM, "issuance_reissuance_amount", "The explicit amount available for the reissuance output."},
                                 {RPCResult::Type::STR_HEX, "issuance_reissuance_amount_commitment", "The commitment of the reissuance amount."},
                                 {RPCResult::Type::STR_HEX, "issuance_reissuance_amount_rangeproof", "The rangeproof for the amount commitment of the reissuance amount."},
+                                {RPCResult::Type::STR_HEX, "blind_reissuance_amount_proof", "Explicit value rangeproof that proves the reissuance value commitment matches the reissuance value"},
                                 {RPCResult::Type::STR_HEX, "issuance_blinding_nonce", "The blinding nonce for the issuance in this input."},
                                 {RPCResult::Type::STR_HEX, "issuance_asset_entropy", "The asset entropy for the issuance in this input."},
                                 {RPCResult::Type::STR_HEX, "pegin_bitcoin_tx", "The tx providing the peg-in in the format of the getrawtransaction RPC"},
@@ -1223,6 +1225,8 @@ static RPCHelpMan decodepsbt()
                                 {RPCResult::Type::STR_HEX, "surjection_proof", "The surjection proof for the output"},
                                 {RPCResult::Type::STR_HEX, "ecdh_pubkey", "The ecdh pubkey for the output"},
                                 {RPCResult::Type::STR_HEX, "blinding_pubkey", "The blinding pubkey for the output"},
+                                {RPCResult::Type::STR_HEX, "blind_value_proof", "Explicit value rangeproof that proves the value commitment matches the value"},
+                                {RPCResult::Type::STR_HEX, "blind_asset_proof", "Assert surjection proof that proves the assert commitment matches the asset"},
                                 {RPCResult::Type::OBJ_DYN, "unknown", "The unknown global fields",
                                 {
                                     {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
@@ -1458,6 +1462,11 @@ static RPCHelpMan decodepsbt()
             in.pushKV("issuance_value_rangeproof", HexStr(input.m_issuance_rangeproof));
         }
 
+        // Issuance blind value proof
+        if (!input.m_blind_issuance_value_proof.empty()) {
+            in.pushKV("blind_issuance_value_proof", HexStr(input.m_blind_issuance_value_proof));
+        }
+
         // Issuance inflation keys amount
         if (input.m_issuance_inflation_keys_amount != nullopt) {
             in.pushKV("issuance_reissuance_amount", ValueFromAmount(*input.m_issuance_inflation_keys_amount));
@@ -1471,6 +1480,11 @@ static RPCHelpMan decodepsbt()
         // Issuance inflation keys value rangeproof
         if (!input.m_issuance_inflation_keys_rangeproof.empty()) {
             in.pushKV("issuance_reissuance_amount_rangeproof", HexStr(input.m_issuance_inflation_keys_rangeproof));
+        }
+
+        // Issuance blind inflation keys value proof
+        if (!input.m_blind_issuance_value_proof.empty()) {
+            in.pushKV("blind_reissuance_amount_proof", HexStr(input.m_blind_issuance_inflation_keys_proof));
         }
 
         // Issuance blinding nonce
@@ -1649,6 +1663,16 @@ static RPCHelpMan decodepsbt()
             out.pushKV("blinder_index", (int64_t)*output.m_blinder_index);
         }
 
+        // Blind value proof
+        if (!output.m_blind_value_proof.empty()) {
+            out.pushKV("blind_value_proof", HexStr(output.m_blind_value_proof));
+        }
+
+        // Blind asset proof
+        if (!output.m_blind_asset_proof.empty()) {
+            out.pushKV("blind_asset_proof", HexStr(output.m_blind_asset_proof));
+        }
+
         // Proprietary
         if (!output.m_proprietary.empty()) {
             UniValue proprietary(UniValue::VARR);
@@ -1761,8 +1785,8 @@ static RPCHelpMan combinepsbt()
                 is_fully_blinded &= psbt_out.IsFullyBlinded();
             }
         }
-        if (!is_fully_blinded) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Cannot combine PSETs");
+        if (is_fully_blinded) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Cannot combine PSETs as the values and blinders would become imbalanced");
         }
     }
 
