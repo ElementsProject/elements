@@ -978,6 +978,12 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
 
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].bit = 2;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = 1554500; // November 1, 2021
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nPeriod = 10080; // one week...
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nThreshold = 10080; // ...of 100% signalling
+
         // Activated from block 1,000,000.
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
         // Allow blocksigners to delay activation.
