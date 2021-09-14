@@ -252,7 +252,7 @@ filled_pset = alice.combinepsbt([alice_pset, carol_pset])
 
 # Use `analyzepsbt` to see what's happening
 analysis = alice.analyzepsbt(filled_pset)
-#assert analysis["next"] == "blinder" ## FIXME: should be "blinder" but is actually "signer"
+assert analysis["next"] == "blinder"
 assert all([x["has_utxo"] for x in analysis["inputs"]])
 assert not any([x["is_final"] for x in analysis["inputs"]])
 assert all([x["next"] == "signer" for x in analysis["inputs"]])
