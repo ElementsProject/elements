@@ -3679,12 +3679,12 @@ bool CWallet::CreateTransactionInternal(
                         uint256 entropy;
                         CAsset asset;
                         CAsset token;
-                        //TODO take optional contract hash
                         // Initial issuance always uses vin[0]
-                        GenerateAssetEntropy(entropy, txNew.vin[0].prevout, uint256());
+                        GenerateAssetEntropy(entropy, txNew.vin[0].prevout, issuance_details->contract_hash);
                         CalculateAsset(asset, entropy);
                         CalculateReissuanceToken(token, entropy, issuance_details->blind_issuance);
                         CScript blindingScript(CScript() << OP_RETURN << std::vector<unsigned char>(txNew.vin[0].prevout.hash.begin(), txNew.vin[0].prevout.hash.end()) << txNew.vin[0].prevout.n);
+                        txNew.vin[0].assetIssuance.assetEntropy = issuance_details->contract_hash;
                         // We're making asset outputs, fill out asset type and issuance input
                         if (asset_index != -1) {
                             txNew.vin[0].assetIssuance.nAmount = txNew.vout[asset_index].nValue;
