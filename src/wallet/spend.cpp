@@ -1334,6 +1334,20 @@ bool CWallet::CreateTransactionInternal(
             if (was_blinded) {
                 blind_details->num_to_blind--;
                 blind_details->change_to_blind--;
+
+                // FIXME: I promise this makes sense and fixes an actual problem
+                // with the wallet that users could encounter. But no human could
+                // follow the logic as to what this does or why it is safe. After
+                // the 22.0 rebase we need to double-back and replace the blinding
+                // logic to eliminate a bunch of edge cases and make this logic
+                // incomprehensible. But in the interest of minimizing diff during
+                // the rebase I am going to do this for now.
+                if (blind_details->num_to_blind == 1) {
+                    resetBlindDetails(blind_details);
+                    if (!fillBlindDetails(blind_details, this, txNew, selected_coins, error)) {
+                        return false;
+                    }
+                }
             }
         }
         change_amount = 0;
