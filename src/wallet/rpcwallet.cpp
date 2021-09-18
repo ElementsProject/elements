@@ -6000,7 +6000,12 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     unsigned int nBytes = GetVirtualTransactionSize(CTransaction(mtx)) +
         (1+1+72+1+33/WITNESS_SCALE_FACTOR);
     CCoinControl coin_control;
-    CAmount nFeeNeeded = GetMinimumFee(*pwallet, nBytes, coin_control, nullptr);
+    FeeCalculation feeCalc;
+    CAmount nFeeNeeded = GetMinimumFee(*pwallet, nBytes, coin_control, &feeCalc);
+
+    if (nFeeNeeded == CAmount{0} && feeCalc.reason == FeeReason::FALLBACK) {
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Fee estimation failed. Fallbackfee is disabled. Wait a few blocks or enable -fallbackfee.");
+    }
 
     mtx.vout[0].nValue = mtx.vout[0].nValue.GetAmount() - nFeeNeeded;
     mtx.vout[1].nValue = mtx.vout[1].nValue.GetAmount() + nFeeNeeded;
