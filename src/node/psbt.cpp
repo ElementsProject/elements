@@ -22,6 +22,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
     bool has_blinded_outputs = false;
 
     result.inputs.resize(psbtx.inputs.size());
+    result.next = PSBTRole::EXTRACTOR;
 
     const PrecomputedTransactionData txdata = PrecomputePSBTData(psbtx);
 
@@ -152,7 +153,6 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
     }
 
     // Calculate next role for PSBT by grabbing "minimum" PSBTInput next role
-    result.next = PSBTRole::EXTRACTOR;
     for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
         PSBTInputAnalysis& input_analysis = result.inputs[i];
         result.next = std::min(result.next, input_analysis.next);
