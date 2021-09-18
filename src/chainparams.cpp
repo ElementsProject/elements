@@ -478,8 +478,10 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = 1199145601; // January 1, 2008
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = 1230767999; // December 31, 2008
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].bit = 2;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = gArgs.GetArg("-con_taproot_signal_start", Consensus::BIP9Deployment::ALWAYS_ACTIVE);
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nPeriod = 128; // test ability to change from default
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nThreshold = 128;
 
         consensus.nMinimumChainWork = uint256{};
         consensus.defaultAssumeValid = uint256{};
@@ -978,6 +980,12 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
 
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].bit = 2;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = 1554500; // November 1, 2021
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nPeriod = 10080; // one week...
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nThreshold = 10080; // ...of 100% signalling
+
         // Activated from block 1,000,000.
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
         // Allow blocksigners to delay activation.
@@ -1243,6 +1251,10 @@ public:
             consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
             consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = args.GetArg("-con_dyna_deploy_start", Consensus::BIP9Deployment::ALWAYS_ACTIVE);
             consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        }
+
+        if (args.IsArgSet("-con_taproot_signal_start")) {
+            consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = gArgs.GetArg("-con_taproot_signal_start", 0);
         }
 
         // END ELEMENTS fields

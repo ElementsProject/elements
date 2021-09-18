@@ -7,6 +7,7 @@
 #define BITCOIN_CONSENSUS_PARAMS_H
 
 #include <asset.h>
+#include <optional.h>
 #include <uint256.h>
 #include <limits>
 
@@ -36,6 +37,11 @@ struct BIP9Deployment {
     /** Timeout/expiry MedianTime for the deployment attempt. */
     // ELEMENTS: Interpreted as block height!
     int64_t nTimeout;
+
+    // ELEMENTS: allow overriding the signalling period length rather than using `nMinerConfirmationWindow`
+    Optional<uint32_t> nPeriod{nullopt};
+    // ELEMENTS: allow overriding the activation threshold rather than using `nRuleChangeActivationThreshold`
+    Optional<uint32_t> nThreshold{nullopt};
 
     /** Constant for nTimeout very far in the future. */
     static constexpr int64_t NO_TIMEOUT = std::numeric_limits<int64_t>::max();
