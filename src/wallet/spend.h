@@ -65,7 +65,11 @@ public:
 struct IssuanceDetails {
     bool issuing = false;
 
+    // Indicated fields.
     bool blind_issuance = true;
+    uint256 contract_hash;
+
+    // Calculated fields.
     CAsset reissuance_asset;
     CAsset reissuance_token;
     uint256 entropy;
