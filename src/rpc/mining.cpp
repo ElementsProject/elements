@@ -1399,7 +1399,7 @@ static RPCHelpMan combineblocksigs()
                             },
                         },
                     },
-                    {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded witnessScript for the signblockscript"},
+                    {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The hex-encoded witnessScript for the signblockscript"},
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",

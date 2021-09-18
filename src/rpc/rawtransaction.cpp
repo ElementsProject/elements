@@ -924,7 +924,7 @@ static RPCHelpMan sendrawtransaction()
         //   will always be blinded and not explicit. In the former case, we
         //   error out because the transaction is not blinded properly.
         if (!out.nNonce.IsNull() && out.nValue.IsExplicit()) {
-            throw JSONRPCError(RPC_TRANSACTION_ERROR, "Transaction output has nonce, but is not blinded. Did you forget to call blindpsbt, blindrawtranssaction, or rawblindrawtransaction?");
+            throw JSONRPCError(RPC_TRANSACTION_ERROR, "Transaction output has nonce, but is not blinded. Did you forget to call blindrawtranssaction, or rawblindrawtransaction?");
         }
     }
 
