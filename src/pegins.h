@@ -23,7 +23,7 @@ bool GetAmountFromParentChainPegin(CAmount& amount, const CTransaction& txBTC, u
 /** Check whether a parent chain block hash satisfies the proof-of-work requirement specified by nBits */
 bool CheckParentProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&);
 /** Checks pegin witness for validity */
-bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const std::vector<std::pair<CScript, CScript>>& fedpegscripts, const COutPoint& prevout, std::string& err_msg, bool check_depth);
+bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const std::vector<std::pair<CScript, CScript>>& fedpegscripts, const COutPoint& prevout, std::string& err_msg, bool check_depth, bool* depth_failed = nullptr);
 
 /* Consensus-critical. Matching against telescoped multisig used on Liquid v1:
  * Pseudo-structure:

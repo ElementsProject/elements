@@ -87,8 +87,6 @@ public:
     bool ReadFlag(const std::string &name, bool &fValue);
     bool LoadBlockIndexGuts(const Consensus::Params& consensusParams, std::function<CBlockIndex*(const uint256&)> insertBlockIndex);
     // ELEMENTS:
-    bool ReadInvalidBlockQueue(std::vector<uint256> &vBlocks);
-    bool WriteInvalidBlockQueue(const std::vector<uint256> &vBlocks);
     bool ReadPAKList(std::vector<std::vector<unsigned char> >& offline_list, std::vector<std::vector<unsigned char> >& online_list, bool& reject);
     bool WritePAKList(const std::vector<std::vector<unsigned char> >& offline_list, const std::vector<std::vector<unsigned char> >& online_list, bool reject);
 };

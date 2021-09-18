@@ -1824,6 +1824,29 @@ static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 static int64_t nBlocksTotal = 0;
 
+bool CheckPeginRipeness(const CBlock& block, const std::vector<std::pair<CScript, CScript>>& fedpegscripts) {
+    for (unsigned int i = 0; i < block.vtx.size(); i++) {
+        const CTransaction &tx = *(block.vtx[i]);
+
+        if (!tx.IsCoinBase()) {
+            for (unsigned int i = 0; i < tx.vin.size(); ++i) {
+                if (tx.vin[i].m_is_pegin) {
+                    std::string err;
+                    bool depth_failed = false;
+                    if ((tx.witness.vtxinwit.size() <= i) || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, tx.vin[i].prevout, err, true, &depth_failed)) {
+                        if (depth_failed) {
+                            return false;  // Pegins not ripe.
+                        } else {
+                            return true;  // Some other failure; details later.
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return true;
+}
+
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
@@ -2554,7 +2577,7 @@ public:
  *
  * The block is added to connectTrace if connection succeeds.
  */
-bool CChainState::ConnectTip(BlockValidationState& state, CBlockIndex* pindexNew, const std::shared_ptr<const CBlock>& pblock, ConnectTrace& connectTrace, DisconnectedBlockTransactions& disconnectpool)
+bool CChainState::ConnectTip(BlockValidationState& state, CBlockIndex* pindexNew, const std::shared_ptr<const CBlock>& pblock, ConnectTrace& connectTrace, DisconnectedBlockTransactions& disconnectpool, bool fStall)
 {
     AssertLockHeld(cs_main);
     if (m_mempool) AssertLockHeld(m_mempool->cs);
@@ -2573,6 +2596,14 @@ bool CChainState::ConnectTip(BlockValidationState& state, CBlockIndex* pindexNew
         pthisBlock = pblock;
     }
     const CBlock& blockConnecting = *pthisBlock;
+
+    const auto& fedpegscripts = GetValidFedpegScripts(pindexNew, m_params.GetConsensus(), false /* nextblock_validation */);
+    if (!CheckPeginRipeness(blockConnecting, fedpegscripts)) {
+        LogPrintf("STALLING further progress in ConnectTip while waiting for parent chain daemon to catch up! Chain will not grow until this is remedied!\n");
+        fStall = true;
+        return true;
+    }
+
     // Apply the block atomically to the chain state.
     int64_t nTime2 = GetTimeMicros(); nTimeReadFromDisk += nTime2 - nTime1;
     int64_t nTime3;
@@ -2589,29 +2620,6 @@ bool CChainState::ConnectTip(BlockValidationState& state, CBlockIndex* pindexNew
         if (!rv) {
             if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);
-
-                // ELEMENTS:
-                // Possibly result of RPC to mainchain bitcoind failure
-                // or unseen Bitcoin blocks.
-                // These blocks are later re-evaluated at an interval
-                // set by `-recheckpeginblockinterval`.
-                if (state.GetRejectReason() == "bad-pegin-witness") {
-                    //Write queue of invalid blocks that
-                    //must be cleared to continue operation
-                    std::vector<uint256> vinvalidBlocks;
-                    pblocktree->ReadInvalidBlockQueue(vinvalidBlocks);
-                    bool blockAlreadyInvalid = false;
-                    for (uint256& hash : vinvalidBlocks) {
-                        if (hash == blockConnecting.GetHash()) {
-                            blockAlreadyInvalid = true;
-                            break;
-                        }
-                    }
-                    if (!blockAlreadyInvalid) {
-                        vinvalidBlocks.push_back(blockConnecting.GetHash());
-                        pblocktree->WriteInvalidBlockQueue(vinvalidBlocks);
-                    }
-                }
             }
             return error("%s: ConnectBlock %s failed, %s", __func__, pindexNew->GetBlockHash().ToString(), state.ToString());
         }
@@ -2725,7 +2733,7 @@ void CChainState::PruneBlockIndexCandidates() {
  *
  * @returns true unless a system error occurred
  */
-bool CChainState::ActivateBestChainStep(BlockValidationState& state, CBlockIndex* pindexMostWork, const std::shared_ptr<const CBlock>& pblock, bool& fInvalidFound, ConnectTrace& connectTrace)
+bool CChainState::ActivateBestChainStep(BlockValidationState& state, CBlockIndex* pindexMostWork, const std::shared_ptr<const CBlock>& pblock, bool& fInvalidFound, ConnectTrace& connectTrace, bool fStall)
 {
     AssertLockHeld(cs_main);
     if (m_mempool) AssertLockHeld(m_mempool->cs);
@@ -2770,7 +2778,7 @@ bool CChainState::ActivateBestChainStep(BlockValidationState& state, CBlockIndex
 
         // Connect new blocks.
         for (CBlockIndex* pindexConnect : reverse_iterate(vpindexToConnect)) {
-            if (!ConnectTip(state, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool)) {
+            if (!ConnectTip(state, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool, fStall)) {
                 if (state.IsInvalid()) {
                     // The block violates a consensus rule.
                     if (state.GetResult() != BlockValidationResult::BLOCK_MUTATED) {
@@ -2788,6 +2796,12 @@ bool CChainState::ActivateBestChainStep(BlockValidationState& state, CBlockIndex
                     return false;
                 }
             } else {
+                if (fStall) {
+                    // We didn't make progress because the parent chain is not
+                    // synced enough to check pegins. Try again later.
+                    fContinue = false;
+                    break;
+                }
                 PruneBlockIndexCandidates();
                 if (!pindexOldTip || m_chain.Tip()->nChainWork > pindexOldTip->nChainWork) {
                     // We're in a better position than we were. Return temporarily to release the lock.
@@ -2864,6 +2878,8 @@ bool CChainState::ActivateBestChain(BlockValidationState& state, std::shared_ptr
     CBlockIndex *pindexMostWork = nullptr;
     CBlockIndex *pindexNewTip = nullptr;
     int nStopAtHeight = gArgs.GetArg("-stopatheight", DEFAULT_STOPATHEIGHT);
+    bool fStall = false;
+
     do {
         // Block until the validation queue drains. This should largely
         // never happen in normal operation, however may happen during
@@ -2895,7 +2911,7 @@ bool CChainState::ActivateBestChain(BlockValidationState& state, std::shared_ptr
 
                 bool fInvalidFound = false;
                 std::shared_ptr<const CBlock> nullBlockPtr;
-                if (!ActivateBestChainStep(state, pindexMostWork, pblock && pblock->GetHash() == pindexMostWork->GetBlockHash() ? pblock : nullBlockPtr, fInvalidFound, connectTrace)) {
+                if (!ActivateBestChainStep(state, pindexMostWork, pblock && pblock->GetHash() == pindexMostWork->GetBlockHash() ? pblock : nullBlockPtr, fInvalidFound, connectTrace, fStall)) {
                     // A system error occurred
                     return false;
                 }
@@ -2910,6 +2926,11 @@ bool CChainState::ActivateBestChain(BlockValidationState& state, std::shared_ptr
                 for (const PerBlockConnectTrace& trace : connectTrace.GetBlocksConnected()) {
                     assert(trace.pblock && trace.pindex);
                     GetMainSignals().BlockConnected(trace.pblock, trace.pindex);
+                }
+
+                if (fStall) {
+                    // Stuck waiting for parent chain daemon, twiddle our thumbs for awhile.
+                    break;
                 }
             } while (!m_chain.Tip() || (starting_tip && CBlockIndexWorkComparator()(m_chain.Tip(), starting_tip)));
             if (!blocks_connected) return true;
@@ -2928,6 +2949,11 @@ bool CChainState::ActivateBestChain(BlockValidationState& state, std::shared_ptr
             }
         }
         // When we reach this point, we switched to a new tip (stored in pindexNewTip).
+
+        if (fStall) {
+            // Stuck waiting for parent chain daemon, twiddle our thumbs for awhile.
+            break;
+        }
 
         if (nStopAtHeight && pindexNewTip && pindexNewTip->nHeight >= nStopAtHeight) StartShutdown();
 
@@ -5420,129 +5446,4 @@ void ChainstateManager::MaybeRebalanceCaches()
                 m_total_coinstip_cache * 0.95, m_total_coinsdb_cache * 0.95);
         }
     }
-}
-
-// ELEMENTS:
-/* This function has two major purposes:
- * 1) Checks that the RPC connection to the parent chain node
- * can be attained, and is returning back reasonable answers.
- * 2) Re-evaluates a list of blocks that have been deemed "bad"
- * from the perspective of peg-in witness validation. Blocks are
- * added to this queue in ConnectTip based on the error code returned.
- */
-bool MainchainRPCCheck(const bool init, ChainstateManager* chainman)
-{
-    // First, we can clear out any blocks thatsomehow are now deemed valid
-    // eg reconsiderblock rpc call manually
-    std::vector<uint256> vblocksToReconsider;
-    pblocktree->ReadInvalidBlockQueue(vblocksToReconsider);
-    std::vector<uint256> vblocksToReconsiderAgain;
-    for(uint256& blockhash : vblocksToReconsider) {
-        LOCK(cs_main);
-        if (chainman->BlockIndex().count(blockhash)) {
-            CBlockIndex* pblockindex = chainman->BlockIndex()[blockhash];
-            if ((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
-                vblocksToReconsiderAgain.push_back(blockhash);
-            }
-        }
-    }
-    vblocksToReconsider = vblocksToReconsiderAgain;
-    vblocksToReconsiderAgain.clear();
-    pblocktree->WriteInvalidBlockQueue(vblocksToReconsider);
-
-    // Next, check for working and valid rpc
-    if (gArgs.GetBoolArg("-validatepegin", Params().GetConsensus().has_parent_chain)) {
-        // During init try until a non-RPC_IN_WARMUP result
-        while (true) {
-            try {
-                // The first thing we have to check is the version of the node.
-                UniValue params(UniValue::VARR);
-                UniValue reply = CallMainChainRPC("getnetworkinfo", params);
-                UniValue error = reply["error"];
-                if (!error.isNull()) {
-                    // On the first call, it's possible to node is still in
-                    // warmup; in that case, just wait and retry.
-                    // If this is not the initial call, just report failure.
-                    if (init && error["code"].get_int() == RPC_IN_WARMUP) {
-                        UninterruptibleSleep(std::chrono::milliseconds{1000});
-                        continue;
-                    }
-                    else {
-                        LogPrintf("ERROR: Mainchain daemon RPC check returned 'error' response.\n");
-                        return false;
-                    }
-                }
-                UniValue result = reply["result"];
-                if (!result.isObject() || !result.get_obj()["version"].isNum() ||
-                        result.get_obj()["version"].get_int() < MIN_MAINCHAIN_NODE_VERSION) {
-                    LogPrintf("ERROR: Parent chain daemon too old; need Bitcoin Core version 0.16.3 or newer.\n");
-                    return false;
-                }
-
-                // Then check the genesis block to correspond to parent chain.
-                params.push_back(UniValue(0));
-                reply = CallMainChainRPC("getblockhash", params);
-                error = reply["error"];
-                if (!error.isNull()) {
-                    LogPrintf("ERROR: Mainchain daemon RPC check returned 'error' response.\n");
-                    return false;
-                }
-                result = reply["result"];
-                if (!result.isStr() || result.get_str() != Params().ParentGenesisBlockHash().GetHex()) {
-                    LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?\n");
-                    return false;
-                }
-            } catch (const std::runtime_error& re) {
-                LogPrintf("ERROR: Failure connecting to mainchain daemon RPC: %s\n", std::string(re.what()));
-                return false;
-            }
-            // Success
-            break;
-        }
-    }
-
-    //Sanity startup check won't reconsider queued blocks
-    if (init) {
-       return true;
-    }
-
-    // Getting this far means we either aren't validating pegins(so let's make sure that's why
-    // it failed previously) or we successfully connected to bitcoind
-    // Time to reconsider blocks
-    if (vblocksToReconsider.size() > 0) {
-        BlockValidationState state;
-        for(const uint256& blockhash : vblocksToReconsider) {
-            {
-                LOCK(cs_main);
-                if (chainman->BlockIndex().count(blockhash) == 0)
-                    continue;
-                CBlockIndex* pblockindex = chainman->BlockIndex()[blockhash];
-                chainman->ActiveChainstate().ResetBlockFailureFlags(pblockindex);
-            }
-        }
-
-        //All blocks are now being reconsidered
-        chainman->ActiveChainstate().ActivateBestChain(state);
-        //This simply checks for DB errors
-        if (!state.IsValid()) {
-            //Something scary?
-        }
-
-        //Now to clear out now-valid blocks
-        for(const uint256& blockhash : vblocksToReconsider) {
-            LOCK(cs_main);
-            if (chainman->BlockIndex().count(blockhash)) {
-                CBlockIndex* pblockindex = chainman->BlockIndex()[blockhash];
-
-                //Marked as invalid still, put back into queue
-                if((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
-                    vblocksToReconsiderAgain.push_back(blockhash);
-                }
-            }
-        }
-
-        //Write back remaining blocks
-        pblocktree->WriteInvalidBlockQueue(vblocksToReconsiderAgain);
-    }
-    return true;
 }
