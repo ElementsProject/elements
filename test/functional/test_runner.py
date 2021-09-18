@@ -223,6 +223,7 @@ BASE_SCRIPTS = [
     'mining_prioritisetransaction.py',
     'p2p_invalid_locator.py',
     'p2p_invalid_block.py',
+    'feature_elements_taproot_activation.py',
     # ELEMENTS: needs to be fixed
     #'p2p_invalid_messages.py',
     'p2p_invalid_tx.py',
