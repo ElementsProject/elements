@@ -2427,6 +2427,18 @@ void CChainState::UpdateTip(const CBlockIndex* pindexNew)
       GuessVerificationProgress(pindexNew, m_params.GetConsensus().nPowTargetSpacing),
       this->CoinsTip().DynamicMemoryUsage() * (1.0 / (1<<20)), this->CoinsTip().GetCacheSize(),
       !warning_messages.empty() ? strprintf(" warning='%s'", warning_messages.original) : "");
+
+    // Do some logging if dynafed parameters changed.
+    if (pindexNew->pprev && !pindexNew->dynafed_params.IsNull()) {
+        int height = pindexNew->nHeight;
+        uint256 hash = pindexNew->GetBlockHash();
+        uint256 root = pindexNew->dynafed_params.m_current.CalculateRoot();
+        if (pindexNew->pprev->dynafed_params.IsNull()) {
+            LogPrintf("Dynafed activated in block %d:%s: %s\n", height, hash.GetHex(), root.GetHex());
+        } else if (root != pindexNew->pprev->dynafed_params.m_current.CalculateRoot()) {
+            LogPrintf("New dynafed parameters activated in block %d:%s: %s\n", height, hash.GetHex(), root.GetHex());
+        }
+    }
 }
 
 /** Disconnect m_chain's tip.
