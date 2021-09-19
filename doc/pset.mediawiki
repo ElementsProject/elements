@@ -94,7 +94,7 @@ The currently defined elements per-input proprietary types are as folows:
 | None
 | No key data
 | <tt><33 byte commitment></tt>
-| The 33 byte Value Commitment. If provided, <tt>PSBT_ELEMENTS_IN_ISSUANCE_BLIND_VALUE_PROOF</tt> must be provided too.
+| The 33 byte Value Commitment. If provided, either <tt>PSBT_ELEMENTS_IN_ISSUANCE_VALUE</tt> must be removed, or <tt>PSBT_ELEMENTS_IN_ISSUANCE_BLIND_VALUE_PROOF</tt> must be provided too.
 |
 | 0
 | 2
@@ -194,7 +194,7 @@ The currently defined elements per-input proprietary types are as folows:
 | None
 | No key data
 | <tt><33 byte commitment></tt>
-| The 33 byte commitment to the inflation keys output value in this issuance. If provided, <tt>PSBT_ELEMENTS_IN_ISSUANCE_BLIND_INFLATION_KEYS_PROOF</tt> must be provided too.
+| The 33 byte commitment to the inflation keys output value in this issuance. If provided, either <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS</tt> must be removed or <tt>PSBT_ELEMENTS_IN_ISSUANCE_BLIND_INFLATION_KEYS_PROOF</tt> must be provided too.
 |
 | 0
 | 2
@@ -268,7 +268,7 @@ The currently defined elements per-output proprietary types are as follows:
 | None
 | No key data
 | <tt><33 byte commitment></tt>
-| The 33 byte Value Commitment for this output. If provided, <tt>PSBT_ELEMENTS_OUT_BLIND_VALUE_PROOF</tt> must be provided too.
+| The 33 byte Value Commitment for this output. If provided, either <tt>PSBT_OUT_VALUE</tt> must be removed or <tt>PSBT_ELEMENTS_OUT_BLIND_VALUE_PROOF</tt> must be provided too.
 |
 | 0
 | 2
@@ -288,7 +288,7 @@ The currently defined elements per-output proprietary types are as follows:
 | None
 | No key data
 | <tt><33 byte commitment></tt>
-| The 33 byte Asset Commitment for this output. If provided, <tt>PSBT_ELEMENTS_OUT_BLIND_ASSET_PROOF</tt> must be provided too.
+| The 33 byte Asset Commitment for this output. If provided, either <tt>PSBT_ELEMENTS_OUT_ASSET</tt> must be removed or <tt>PSBT_ELEMENTS_OUT_BLIND_ASSET_PROOF</tt> must be provided too.
 |
 | 0
 | 2

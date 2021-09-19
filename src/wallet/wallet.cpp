@@ -2837,13 +2837,17 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
                 if (!o.IsFullyBlinded()) {
                     return TransactionError::BLINDING_REQUIRED;
                 }
-                assert(!o.m_blind_value_proof.empty());
-                assert(!o.m_blind_asset_proof.empty());
-                if (!VerifyBlindValueProof(*o.amount, o.m_value_commitment, o.m_blind_value_proof, o.m_asset_commitment)) {
-                    return TransactionError::INVALID_VALUE_PROOF;
+                if (o.amount) {
+                    assert(!o.m_blind_value_proof.empty());
+                    if (!VerifyBlindValueProof(*o.amount, o.m_value_commitment, o.m_blind_value_proof, o.m_asset_commitment)) {
+                        return TransactionError::INVALID_VALUE_PROOF;
+                    }
                 }
-                if (!VerifyBlindAssetProof(o.m_blind_asset_proof, o.m_asset_commitment)) {
-                    return TransactionError::INVALID_ASSET_PROOF;
+                if (!o.m_asset.IsNull()) {
+                    assert(!o.m_blind_asset_proof.empty());
+                    if (!VerifyBlindAssetProof(o.m_blind_asset_proof, o.m_asset_commitment)) {
+                        return TransactionError::INVALID_ASSET_PROOF;
+                    }
                 }
             }
         }
