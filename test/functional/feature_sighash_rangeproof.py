@@ -103,7 +103,8 @@ class SighashRangeproofTest(BitcoinTestFramework):
         privkey.set(b[0:32], len(b) == 33)
         pubkey = privkey.get_pubkey()
 
-        # Now we need to replace the signature with an equivalent one with the new sighash set.
+        # Now we need to replace the signature with an equivalent one with the new sighash set,
+        # which we do using the Python logic to detect any forking changes in the sighash format.
         hashtype = SIGHASH_ALL | SIGHASH_RANGEPROOF
         if address_type == "legacy":
             if sighash_rangeproof_aware:
@@ -130,7 +131,20 @@ class SighashRangeproofTest(BitcoinTestFramework):
         else:
             assert False
 
-        signed_tx.rehash()
+        # Make sure that the tx we manually signed is valid
+        test_accept = self.nodes[0].testmempoolaccept([signed_hex])[0]
+        assert test_accept["allowed"], "not accepted: {}".format(test_accept["reject-reason"])
+
+        if sighash_rangeproof_aware:
+            signed_hex = self.nodes[1].signrawtransactionwithwallet(blinded_hex, [], "ALL|RANGEPROOF")["hex"]
+            signed_tx = FromHex(CTransaction(), signed_hex)
+
+            # Make sure that the tx that the node signed is valid
+            test_accept = self.nodes[0].testmempoolaccept([signed_hex])[0]
+            assert test_accept["allowed"], "not accepted: {}".format(test_accept["reject-reason"])
+        else:
+            signed_tx.rehash()
+
         return signed_tx
 
     def assert_tx_standard(self, tx, assert_standard=True):
