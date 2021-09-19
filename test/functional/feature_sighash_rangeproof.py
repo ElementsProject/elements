@@ -142,6 +142,11 @@ class SighashRangeproofTest(BitcoinTestFramework):
             # Make sure that the tx that the node signed is valid
             test_accept = self.nodes[0].testmempoolaccept([signed_hex])[0]
             assert test_accept["allowed"], "not accepted: {}".format(test_accept["reject-reason"])
+
+            # Try re-signing with node 0, which should have no effect since the transaction was already complete
+            signed_hex = self.nodes[0].signrawtransactionwithwallet(signed_hex)["hex"]
+            test_accept = self.nodes[0].testmempoolaccept([signed_hex])[0]
+            assert test_accept["allowed"], "not accepted: {}".format(test_accept["reject-reason"])
         else:
             signed_tx.rehash()
 
