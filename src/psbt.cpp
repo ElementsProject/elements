@@ -122,7 +122,7 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx(bool force_unblind
         txin.nSequence = input.sequence.value_or(max_sequence);
         txin.assetIssuance.assetBlindingNonce = input.m_issuance_blinding_nonce;
         txin.assetIssuance.assetEntropy = input.m_issuance_asset_entropy;
-        if (input.m_issuance_value != nullopt && input.m_issuance_inflation_keys_amount != nullopt && !force_unblinded) {
+        if (input.m_issuance_value != nullopt && input.m_issuance_inflation_keys_amount != nullopt && force_unblinded) {
             txin.assetIssuance.nAmount.SetToAmount(*input.m_issuance_value);
             txin.assetIssuance.nInflationKeys.SetToAmount(*input.m_issuance_inflation_keys_amount);
         } else {
