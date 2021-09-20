@@ -66,7 +66,7 @@ bool CreateAssetSurjectionProof(std::vector<unsigned char>& output_proof, const 
     return true;
 }
 
-bool VerifyBlindAssetProof(const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
+static bool VerifyBlindAssetProof(const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
 {
     secp256k1_surjectionproof surj_proof;
     if (secp256k1_surjectionproof_parse(secp256k1_blind_context, &surj_proof, proof.data(), proof.size()) == 0) {
@@ -132,7 +132,7 @@ bool CreateBlindValueProof(std::vector<unsigned char>& rangeproof, const uint256
     return res == 1;
 }
 
-bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
+static bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
 {
     secp256k1_pedersen_commitment value_commit;
     if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.vchCommitment.data()) == 0) {
@@ -150,6 +150,33 @@ bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, 
         return false;
     }
     return min_value == (uint64_t)value;
+}
+
+BlindProofResult VerifyBlindProofs(const PSBTOutput& o) {
+    // No blinding, no problem
+    if (!o.IsBlinded()) {
+        return BlindProofResult::OK;
+    } else if (!o.IsFullyBlinded()) {
+        return BlindProofResult::NOT_FULLY_BLINDED;
+    }
+
+    if (o.amount != nullopt) {
+        if (o.m_blind_value_proof.empty()) {
+            return BlindProofResult::MISSING_VALUE_PROOF;
+        } else if (!VerifyBlindValueProof(*o.amount, o.m_value_commitment, o.m_blind_value_proof, o.m_asset_commitment)) {
+            return BlindProofResult::INVALID_VALUE_PROOF;
+        }
+    }
+
+    if (!o.m_asset.IsNull()) {
+        if (o.m_blind_asset_proof.empty()) {
+            return BlindProofResult::MISSING_ASSET_PROOF;
+        } else if (!VerifyBlindAssetProof(o.m_blind_asset_proof, o.m_asset_commitment)) {
+            return BlindProofResult::INVALID_ASSET_PROOF;
+        }
+    }
+
+    return BlindProofResult::OK;
 }
 
 void CreateAssetCommitment(CConfidentialAsset& conf_asset, secp256k1_generator& asset_gen, const CAsset& asset, const uint256& asset_blinder)

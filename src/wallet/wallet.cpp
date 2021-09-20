@@ -2836,20 +2836,17 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
     if (sign) {
         for (const PSBTOutput& o : psbtx.outputs) {
             if (o.IsBlinded()) {
-                if (!o.IsFullyBlinded()) {
-                    return TransactionError::BLINDING_REQUIRED;
-                }
-                if (o.amount) {
-                    assert(!o.m_blind_value_proof.empty());
-                    if (!VerifyBlindValueProof(*o.amount, o.m_value_commitment, o.m_blind_value_proof, o.m_asset_commitment)) {
+                switch (VerifyBlindProofs(o)) {
+                    case BlindProofResult::OK:
+                        break;
+                    case BlindProofResult::NOT_FULLY_BLINDED:
+                        return TransactionError::BLINDING_REQUIRED;
+                    case BlindProofResult::INVALID_VALUE_PROOF:
+                    case BlindProofResult::MISSING_VALUE_PROOF:
                         return TransactionError::INVALID_VALUE_PROOF;
-                    }
-                }
-                if (!o.m_asset.IsNull()) {
-                    assert(!o.m_blind_asset_proof.empty());
-                    if (!VerifyBlindAssetProof(o.m_blind_asset_proof, o.m_asset_commitment)) {
+                    case BlindProofResult::INVALID_ASSET_PROOF:
+                    case BlindProofResult::MISSING_ASSET_PROOF:
                         return TransactionError::INVALID_ASSET_PROOF;
-                    }
                 }
 
                 if (o.script && IsMine(*o.script)) {
