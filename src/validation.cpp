@@ -750,6 +750,18 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
         return false; // state filled in by CheckTxInputs
     }
 
+    // ELEMENTS: extra policy check for consistency between issuances and their rangeproof
+    if (fRequireStandard) {
+        for (unsigned i = 0; i < std::min(tx.witness.vtxinwit.size(), tx.vin.size()); i++) {
+            if (!tx.vin[i].assetIssuance.nAmount.IsCommitment() && !tx.witness.vtxinwit[i].vchIssuanceAmountRangeproof.empty()) {
+                return state.Invalid(TxValidationResult::TX_INPUTS_NOT_STANDARD, "bad-txin-extra-issuance-rangeproof");
+            }
+            if (!tx.vin[i].assetIssuance.nInflationKeys.IsCommitment() && !tx.witness.vtxinwit[i].vchInflationKeysRangeproof.empty()) {
+                return state.Invalid(TxValidationResult::TX_INPUTS_NOT_STANDARD, "bad-txin-extra-inflation-rangeproof");
+            }
+        }
+    }
+
     // Check for non-standard pay-to-script-hash in inputs
     const auto& params = args.m_chainparams.GetConsensus();
     auto taproot_state = VersionBitsState(::ChainActive().Tip(), params, Consensus::DEPLOYMENT_TAPROOT, versionbitscache);
