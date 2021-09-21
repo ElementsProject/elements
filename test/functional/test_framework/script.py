@@ -763,7 +763,16 @@ def LegacySignatureHash(script, txTo, inIdx, hashtype, enable_sighash_rangeproof
     # do manual sighash serialization:
     s = b""
     s += struct.pack("<i", txtmp.nVersion)
-    s += ser_vector(txtmp.vin)
+    # ELEMENTS: vin serialization is different from non-witness serialization (pegin/issuance
+    #  flags are not set in the sighash)
+    s += ser_compact_size(len(txtmp.vin))
+    for i in range(len(txtmp.vin)):
+        s += txtmp.vin[i].prevout.serialize()
+        s += ser_string(txtmp.vin[i].scriptSig)
+        s += struct.pack("<I", txtmp.vin[i].nSequence)
+        if not txtmp.vin[i].assetIssuance.isNull():
+            s += txtmp.vin[i].assetIssuance.serialize()
+
     # If SIGHASH_RANGEPROOF is set, we need to add the rangeproof serialization after each output
     if enable_sighash_rangeproof and hashtype & SIGHASH_RANGEPROOF:
         s += ser_compact_size(len(txtmp.vout))
@@ -812,8 +821,11 @@ def SegwitV0SignatureHash(script, txTo, inIdx, hashtype, amount, enable_sighash_
     if not (hashtype & SIGHASH_ANYONECANPAY):
         serialize_issuance = bytes()
         # TODO actually serialize issuances
-        for _ in txTo.vin:
-            serialize_issuance += b'\x00'
+        for inp in txTo.vin:
+            if inp.assetIssuance.isNull():
+                serialize_issuance += b'\x00'
+            else:
+                serialize_issuance += inp.assetIssuance.serialize()
         hashIssuance = uint256_from_str(hash256(serialize_issuance))
 
     if ((hashtype & 0x1f) != SIGHASH_SINGLE and (hashtype & 0x1f) != SIGHASH_NONE):
@@ -848,6 +860,8 @@ def SegwitV0SignatureHash(script, txTo, inIdx, hashtype, amount, enable_sighash_
     ss += ser_string(script)
     ss += amount.serialize()
     ss += struct.pack("<I", txTo.vin[inIdx].nSequence)
+    if not txTo.vin[inIdx].assetIssuance.isNull():
+        ss += txTo.vin[inIdx].assetIssuance.serialize()
     ss += ser_uint256(hashOutputs)
     if enable_sighash_rangeproof and hashtype & SIGHASH_RANGEPROOF:
         ss += ser_uint256(hashRangeproofs)

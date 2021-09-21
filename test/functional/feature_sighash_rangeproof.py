@@ -63,7 +63,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
-    def prepare_tx_signed_with_sighash(self, address_type, sighash_rangeproof_aware):
+    def prepare_tx_signed_with_sighash(self, address_type, sighash_rangeproof_aware, attach_issuance):
         # Create a tx that is signed with a specific version of the sighash
         # method.
         # If `sighash_rangeproof_aware` is
@@ -86,6 +86,18 @@ class SighashRangeproofTest(BitcoinTestFramework):
             [{"txid": utxo["txid"], "vout": utxo["vout"]}],
             [{sink_addr: 0.9}, {"fee": 0.1}]
         )
+        if attach_issuance:
+            # Attach a blinded issuance
+            unsigned_hex = self.nodes[1].rawissueasset(
+                unsigned_hex,
+                [{
+                    "asset_amount": 100,
+                    "asset_address": self.nodes[1].getnewaddress(),
+                    "token_amount": 100,
+                    "token_address": self.nodes[1].getnewaddress(),
+                    "blind": True, # FIXME: if blind=False, `blindrawtranaction` fails. Should fix this in a future PR
+                }]
+            )[0]["hex"]
         blinded_hex = self.nodes[1].blindrawtransaction(unsigned_hex)
         blinded_tx = tx_from_hex(blinded_hex)
         signed_hex = self.nodes[1].signrawtransactionwithwallet(blinded_hex)["hex"]
@@ -102,7 +114,8 @@ class SighashRangeproofTest(BitcoinTestFramework):
         privkey.set(b[0:32], len(b) == 33)
         pubkey = privkey.get_pubkey()
 
-        # Now we need to replace the signature with an equivalent one with the new sighash set.
+        # Now we need to replace the signature with an equivalent one with the new sighash set,
+        # which we do using the Python logic to detect any forking changes in the sighash format.
         hashtype = SIGHASH_ALL | SIGHASH_RANGEPROOF
         if address_type == "legacy":
             if sighash_rangeproof_aware:
@@ -129,7 +142,37 @@ class SighashRangeproofTest(BitcoinTestFramework):
         else:
             assert False
 
-        signed_tx.rehash()
+        # Make sure that the tx we manually signed is valid
+        signed_hex = signed_tx.serialize_with_witness().hex()
+        test_accept = self.nodes[0].testmempoolaccept([signed_hex])[0]
+        if sighash_rangeproof_aware:
+            assert test_accept["allowed"], "not accepted: {}".format(test_accept["reject-reason"])
+        else:
+            assert not test_accept["allowed"], "tx was accepted"
+
+        if sighash_rangeproof_aware:
+            signed_hex = self.nodes[1].signrawtransactionwithwallet(blinded_hex, [], "ALL|RANGEPROOF")["hex"]
+            signed_tx = tx_from_hex(signed_hex)
+
+            # Make sure that the tx that the node signed is valid
+            test_accept = self.nodes[0].testmempoolaccept([signed_hex])[0]
+            assert test_accept["allowed"], "not accepted: {}".format(test_accept["reject-reason"])
+
+            # Try re-signing with node 0, which should have no effect since the transaction was already complete
+            signed_hex = self.nodes[0].signrawtransactionwithwallet(signed_hex)["hex"]
+            test_accept = self.nodes[0].testmempoolaccept([signed_hex])[0]
+            assert test_accept["allowed"], "not accepted: {}".format(test_accept["reject-reason"])
+
+            # Try signing using the PSBT interface
+            psbt_hex = self.nodes[0].converttopsbt(unsigned_hex)
+            signed_psbt = self.nodes[1].walletprocesspsbt(psbt_hex, True, "ALL|RANGEPROOF")
+            extracted_tx = self.nodes[0].finalizepsbt(signed_psbt["psbt"])
+            assert extracted_tx["complete"]
+            test_accept = self.nodes[0].testmempoolaccept([extracted_tx["hex"]])[0]
+            assert test_accept["allowed"], "not accepted: {}".format(test_accept["reject-reason"])
+        else:
+            signed_tx.rehash()
+
         return signed_tx
 
     def assert_tx_standard(self, tx, assert_standard=True):
@@ -189,7 +232,12 @@ class SighashRangeproofTest(BitcoinTestFramework):
         # - the tx is accepted if manually mined in a block
         for address_type in ADDRESS_TYPES:
             self.log.info("Pre-activation for {} address".format(address_type))
-            tx = self.prepare_tx_signed_with_sighash(address_type, False)
+            tx = self.prepare_tx_signed_with_sighash(address_type, False, False)
+            self.assert_tx_standard(tx, False)
+            self.assert_tx_valid(tx, True)
+
+            self.log.info("Pre-activation for {} address (with issuance)".format(address_type))
+            tx = self.prepare_tx_signed_with_sighash(address_type, False, True)
             self.assert_tx_standard(tx, False)
             self.assert_tx_valid(tx, True)
 
@@ -206,7 +254,12 @@ class SighashRangeproofTest(BitcoinTestFramework):
         # after activation.
         for address_type in ADDRESS_TYPES:
             self.log.info("Post-activation for {} address".format(address_type))
-            tx = self.prepare_tx_signed_with_sighash(address_type, True)
+            tx = self.prepare_tx_signed_with_sighash(address_type, True, False)
+            self.assert_tx_standard(tx, True)
+            self.assert_tx_valid(tx, True)
+
+            self.log.info("Post-activation for {} address (with issuance)".format(address_type))
+            tx = self.prepare_tx_signed_with_sighash(address_type, True, True)
             self.assert_tx_standard(tx, True)
             self.assert_tx_valid(tx, True)
 
@@ -214,7 +267,12 @@ class SighashRangeproofTest(BitcoinTestFramework):
         # the rangeproofs, the signature is no longer valid.
         for address_type in ADDRESS_TYPES:
             self.log.info("Post-activation invalid sighash for {} address".format(address_type))
-            tx = self.prepare_tx_signed_with_sighash(address_type, False)
+            tx = self.prepare_tx_signed_with_sighash(address_type, False, False)
+            self.assert_tx_standard(tx, False)
+            self.assert_tx_valid(tx, False)
+
+            self.log.info("Post-activation invalid sighash for {} address (with issuance)".format(address_type))
+            tx = self.prepare_tx_signed_with_sighash(address_type, False, True)
             self.assert_tx_standard(tx, False)
             self.assert_tx_valid(tx, False)
 
