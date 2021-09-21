@@ -1227,6 +1227,7 @@ static RPCHelpMan decodepsbt()
                                 {RPCResult::Type::STR_HEX, "blinding_pubkey", "The blinding pubkey for the output"},
                                 {RPCResult::Type::STR_HEX, "blind_value_proof", "Explicit value rangeproof that proves the value commitment matches the value"},
                                 {RPCResult::Type::STR_HEX, "blind_asset_proof", "Assert surjection proof that proves the assert commitment matches the asset"},
+                                {RPCResult::Type::STR, "status", "information about how the output has been blinded, if available"},
                                 {RPCResult::Type::OBJ_DYN, "unknown", "The unknown global fields",
                                 {
                                     {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
@@ -1671,6 +1672,27 @@ static RPCHelpMan decodepsbt()
         // Blind asset proof
         if (!output.m_blind_asset_proof.empty()) {
             out.pushKV("blind_asset_proof", HexStr(output.m_blind_asset_proof));
+        }
+
+        switch (VerifyBlindProofs(output)) {
+        case BlindProofResult::OK:
+            // all good
+            break;
+        case BlindProofResult::NOT_FULLY_BLINDED:
+            out.pushKV("status", "needs blinding");
+            break;
+        case BlindProofResult::MISSING_VALUE_PROOF:
+            out.pushKV("status", "WARNING: has confidential and explicit values but no proof connecting them");
+            break;
+        case BlindProofResult::MISSING_ASSET_PROOF:
+            out.pushKV("status", "WARNING: has confidential and explicit assets but no proof connecting them");
+            break;
+        case BlindProofResult::INVALID_VALUE_PROOF:
+            out.pushKV("status", "ERROR: has invalid value proof, the value may be a lie!");
+            break;
+        case BlindProofResult::INVALID_ASSET_PROOF:
+            out.pushKV("status", "ERROR: has invalid asset proof, the asset may be a lie!");
+            break;
         }
 
         // Proprietary
@@ -2316,6 +2338,14 @@ static RPCHelpMan analyzepsbt()
                             {RPCResult::Type::STR, "next", /* optional */ true, "Role of the next person that this input needs to go to"},
                         }},
                     }},
+                    {RPCResult::Type::ARR, "outputs", "",
+                    {
+                        {RPCResult::Type::OBJ, "", "",
+                        {
+                            {RPCResult::Type::BOOL, "blind", "whether the output should be blinded"},
+                            {RPCResult::Type::STR, "status", "to what extent the output has been blinded"},
+                        }},
+                    }},
                     {RPCResult::Type::NUM, "estimated_vsize", /* optional */ true, "Estimated vsize of the final signed transaction"},
                     {RPCResult::Type::STR_AMOUNT, "estimated_feerate", /* optional */ true, "Estimated feerate of the final signed transaction in " + CURRENCY_UNIT + "/kB. Shown only if all UTXO slots in the PSBT have been filled"},
                     {RPCResult::Type::STR_AMOUNT, "fee", /* optional */ true, "The transaction fee paid. Shown only if all UTXO slots in the PSBT have been filled"},
@@ -2375,6 +2405,36 @@ static RPCHelpMan analyzepsbt()
         inputs_result.push_back(input_univ);
     }
     if (!inputs_result.empty()) result.pushKV("inputs", inputs_result);
+
+    UniValue outputs_result(UniValue::VARR);
+    for (const auto& output : psbta.outputs) {
+        UniValue output_univ(UniValue::VOBJ);
+
+        output_univ.pushKV("blind", output.is_blind);
+        switch (output.proof_result) {
+        case BlindProofResult::OK:
+            output_univ.pushKV("status", "done");
+            break;
+        case BlindProofResult::NOT_FULLY_BLINDED:
+            output_univ.pushKV("status", "unblinded");
+            break;
+        case BlindProofResult::MISSING_VALUE_PROOF:
+            output_univ.pushKV("status", "WARNING: has confidential and explicit values but no proof connecting them");
+            break;
+        case BlindProofResult::MISSING_ASSET_PROOF:
+            output_univ.pushKV("status", "WARNING: has confidential and explicit assets but no proof connecting them");
+            break;
+        case BlindProofResult::INVALID_VALUE_PROOF:
+            output_univ.pushKV("status", "ERROR: has invalid value proof, the value may be a lie!");
+            break;
+        case BlindProofResult::INVALID_ASSET_PROOF:
+            output_univ.pushKV("status", "ERROR: has invalid asset proof, the asset may be a lie!");
+            break;
+        }
+
+        outputs_result.push_back(output_univ);
+    }
+    if (!outputs_result.empty()) result.pushKV("outputs", outputs_result);
 
     if (psbta.estimated_vsize != nullopt) {
         result.pushKV("estimated_vsize", (int)*psbta.estimated_vsize);
