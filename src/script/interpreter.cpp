@@ -2755,7 +2755,7 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
             hashOutputs = cacheready ? cache->hashOutputs : SHA256Uint256(GetOutputsSHA256(txTo));
 
             if (fRangeproof) {
-                hashRangeproofs = cacheready ? cache->hashRangeproofs : SHA256Uint256(GetRangeproofsHash(txTo));
+                hashRangeproofs = cacheready ? cache->hashRangeproofs : GetRangeproofsHash(txTo);
             }
         } else if ((nHashType & 0x1f) == SIGHASH_SINGLE && nIn < txTo.vout.size()) {
             CHashWriter ss(SER_GETHASH, 0);

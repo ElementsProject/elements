@@ -16,6 +16,7 @@ from test_framework.messages import (
     CTxOutValue,
     CTxInWitness,
     CTxOutWitness,
+    FromHex,
 )
 from test_framework.util import (
     assert_equal,
@@ -102,7 +103,62 @@ class CTTest (BitcoinTestFramework):
         assert_equal(rec.getaddressinfo(blind_info["unconfidential"])["confidential"], blind_addr)
         self.nodes[0].unloadwallet("recover")
 
+    def test_null_rangeproof_enforcement(self):
+        self.nodes[0].generate(1)
+
+        # 1. Produce a transaction. This is coming out of initialfreecoins so
+        #    no signatures are needed, which slightly simplifies the test
+        unfunded_tx = self.nodes[0].createrawtransaction([], [{self.nodes[1].getnewaddress(): 1000}])
+        unblinded_tx = self.nodes[0].fundrawtransaction(unfunded_tx)['hex']
+        unsigned_tx = self.nodes[0].blindrawtransaction(unblinded_tx)
+        assert_equal(self.nodes[0].testmempoolaccept([unsigned_tx])[0]['allowed'], True) # tx is ok before we malleate it
+        tx = FromHex(CTransaction(), unsigned_tx)
+        assert tx.wit.vtxinwit[0].vchIssuanceAmountRangeproof == b''
+        assert tx.wit.vtxinwit[0].vchInflationKeysRangeproof == b''
+
+        # 1a. Add an issuance with null amounts but rangeproofs
+        tx.wit.vtxinwit = [CTxInWitness()]
+        tx.wit.vtxinwit[0].vchIssuanceAmountRangeproof = b'this should not be allowed'
+        hex_tx = tx.serialize(with_witness=True).hex()
+        assert_equal(self.nodes[0].testmempoolaccept([hex_tx])[0]['allowed'], False)
+
+        tx.wit.vtxinwit[0].vchIssuanceAmountRangeproof = b''
+        tx.wit.vtxinwit[0].vchInflationKeysRangeproof = b'and neither should this'
+        hex_tx = tx.serialize(with_witness=True).hex()
+        assert_equal(self.nodes[0].testmempoolaccept([hex_tx])[0]['allowed'], False)
+
+        # 2. Create an issuance tx with no tokens
+        issuance_tx = self.nodes[0].rawissueasset(unblinded_tx, [{"asset_amount": 2, "asset_address": self.nodes[1].getnewaddress()}])[0]['hex']
+        issuance_tx = self.nodes[0].blindrawtransaction(issuance_tx)
+        assert_equal(self.nodes[0].testmempoolaccept([issuance_tx])[0]['allowed'], True) # tx is ok before we malleate it
+        tx = FromHex(CTransaction(), issuance_tx)
+        assert tx.wit.vtxinwit[0].vchIssuanceAmountRangeproof != b''
+        assert tx.wit.vtxinwit[0].vchInflationKeysRangeproof == b''
+        # 2a. Attach a rangeproof to the (null) reissuance token amount
+        tx.wit.vtxinwit[0].vchInflationKeysRangeproof = b'and this also should not be allowed'
+        hex_tx = tx.serialize(with_witness=True).hex()
+        assert_equal(self.nodes[0].testmempoolaccept([hex_tx])[0]['allowed'], False)
+
+        # 3. Create an issuance tx with tokens but no issuance. This time we do an
+        #    explicit issuance because we want to null out the issuance amount, and
+        #    `rawissueasset` would want to put a confidential 0 rather than a null.
+        blinded_addr = self.nodes[1].getnewaddress()
+        unblinded_addr = self.nodes[1].validateaddress(blinded_addr)['unconfidential']
+        issuance_tx = self.nodes[0].rawissueasset(unblinded_tx, [{"token_amount": 2, "token_address": unblinded_addr, "blind": False }])[0]['hex']
+        issuance_tx = self.nodes[0].blindrawtransaction(issuance_tx, False, [], False)
+        assert_equal(self.nodes[0].testmempoolaccept([issuance_tx])[0]['allowed'], True) # tx is ok before we malleate it
+        tx = FromHex(CTransaction(), issuance_tx)
+        assert tx.wit.vtxinwit[0].vchIssuanceAmountRangeproof == b''
+        assert tx.wit.vtxinwit[0].vchInflationKeysRangeproof == b''
+        # 3a. Attach a rangeproof to the (null) issuance amount
+        tx.wit.vtxinwit[0].vchIssuanceAmountRangeproof = b'this also should not be allowed'
+        hex_tx = tx.serialize(with_witness=True).hex()
+        assert_equal(self.nodes[0].testmempoolaccept([hex_tx])[0]['allowed'], False)
+
     def run_test(self):
+
+        print("Testing that null issuances must have null rangeproofs")
+        self.test_null_rangeproof_enforcement()
 
         print("Testing wallet secret recovery")
         self.test_wallet_recovery()

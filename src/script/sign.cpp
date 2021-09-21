@@ -310,7 +310,7 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
     // Get signatures
     MutableTransactionSignatureChecker tx_checker(&tx, nIn, txout.nValue);
     SignatureExtractorChecker extractor_checker(data, tx_checker);
-    if (VerifyScript(data.scriptSig, txout.scriptPubKey, &data.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, extractor_checker)) {
+    if (VerifyScript(data.scriptSig, txout.scriptPubKey, &data.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS | SCRIPT_SIGHASH_RANGEPROOF, extractor_checker)) {
         data.complete = true;
         return data;
     }
