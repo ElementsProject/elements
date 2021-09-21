@@ -135,15 +135,20 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx(bool force_unblind
         CTxOut txout;
         CTxOutWitness txoutwit;
         txout.scriptPubKey = *output.script;
-        if (output.IsFullyBlinded() && !force_unblinded) {
-            txout.nValue = output.m_value_commitment;
-            txout.nAsset = output.m_asset_commitment;
-            txout.nNonce.vchCommitment.insert(txout.nNonce.vchCommitment.end(), output.m_ecdh_pubkey.begin(), output.m_ecdh_pubkey.end());
-            txoutwit.vchRangeproof = output.m_value_rangeproof;
-            txoutwit.vchSurjectionproof = output.m_asset_surjection_proof;
-        } else {
+        if (output.m_value_commitment.IsNull() || (output.amount != nullopt && force_unblinded)) {
             txout.nValue.SetToAmount(*output.amount);
+        } else {
+            txout.nValue = output.m_value_commitment;
+            txoutwit.vchRangeproof = output.m_value_rangeproof;
+        }
+        if (output.m_asset_commitment.IsNull() || (!output.m_asset.IsNull() && force_unblinded)) {
             txout.nAsset.SetToAsset(CAsset(output.m_asset));
+        } else {
+            txout.nAsset = output.m_asset_commitment;
+            txoutwit.vchSurjectionproof = output.m_asset_surjection_proof;
+        }
+        if (output.m_ecdh_pubkey.IsValid() && !force_unblinded) {
+            txout.nNonce.vchCommitment.insert(txout.nNonce.vchCommitment.end(), output.m_ecdh_pubkey.begin(), output.m_ecdh_pubkey.end());
         }
         mtx.vout.push_back(txout);
         mtx.witness.vtxoutwit.push_back(txoutwit);
