@@ -1933,21 +1933,51 @@ BlindingStatus CWallet::WalletBlindPSBT(PartiallySignedTransaction& psbtx) const
 }
 TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool imbalance_ok, bool bip32derivs, size_t* n_signed) const
 {
+    LOCK(cs_wallet);
+
     // If we're signing, check that the transaction is not still in need of blinding
     // Also check that the amount and asset proofs are valid
     if (sign) {
         for (const PSBTOutput& o : psbtx.outputs) {
             if (o.IsBlinded()) {
-                if (!o.IsFullyBlinded()) {
-                    return TransactionError::BLINDING_REQUIRED;
+                switch (VerifyBlindProofs(o)) {
+                    case BlindProofResult::OK:
+                        break;
+                    case BlindProofResult::NOT_FULLY_BLINDED:
+                        return TransactionError::BLINDING_REQUIRED;
+                    case BlindProofResult::INVALID_VALUE_PROOF:
+                    case BlindProofResult::MISSING_VALUE_PROOF:
+                        return TransactionError::INVALID_VALUE_PROOF;
+                    case BlindProofResult::INVALID_ASSET_PROOF:
+                    case BlindProofResult::MISSING_ASSET_PROOF:
+                        return TransactionError::INVALID_ASSET_PROOF;
                 }
-                assert(!o.m_blind_value_proof.empty());
-                assert(!o.m_blind_asset_proof.empty());
-                if (!VerifyBlindValueProof(*o.amount, o.m_value_commitment, o.m_blind_value_proof, o.m_asset_commitment)) {
-                    return TransactionError::INVALID_VALUE_PROOF;
-                }
-                if (!VerifyBlindAssetProof(o.m_blind_asset_proof, o.m_asset_commitment)) {
-                    return TransactionError::INVALID_ASSET_PROOF;
+
+                if (o.script && IsMine(*o.script)) {
+                    CKey blinding_key;
+                    if ((blinding_key = GetBlindingKey(&*o.script)).IsValid()) {
+                        CAmount value;
+                        uint256 value_factor;
+                        CAsset asset;
+                        uint256 asset_factor;
+
+                        CConfidentialNonce nonce;
+                        nonce.vchCommitment.insert(nonce.vchCommitment.end(), o.m_ecdh_pubkey.begin(), o.m_ecdh_pubkey.end());
+                        if (!UnblindConfidentialPair(blinding_key, o.m_value_commitment, o.m_asset_commitment, nonce, *o.script, o.m_value_rangeproof, value, value_factor, asset, asset_factor)) {
+                            // These assertions are cryptographically impossible to trigger, as we
+                            // checked the proofs above, and then `UnblindConfidentialPair` checks
+                            // the extracted value/asset against the commitments.
+                            if (o.amount) {
+                                assert(*o.amount == value);
+                            }
+                            if (!o.m_asset.IsNull()) {
+                                assert(CAsset(o.m_asset) == asset);
+                            }
+                            return TransactionError::INVALID_ASSET_PROOF; // FIXME
+                        }
+                    } else {
+                        return TransactionError::INVALID_ASSET_PROOF; // FIXME
+                    }
                 }
             }
         }
@@ -1957,7 +1987,6 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
         *n_signed = 0;
     }
 
-    LOCK(cs_wallet);
     CMutableTransaction tx = psbtx.GetUnsignedTx();
     tx.witness.vtxoutwit.resize(tx.vout.size());
 

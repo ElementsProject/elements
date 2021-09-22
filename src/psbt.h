@@ -927,18 +927,6 @@ struct PSBTInput
             if (prev_out == std::nullopt) {
                 throw std::ios_base::failure("Previous output's index is required in PSBTv2");
             }
-            if (!m_issuance_value_commitment.IsNull() && m_issuance_value == std::nullopt) {
-                throw std::ios_base::failure("Explicit issuance value must be provided if its commitment is provided too");
-            }
-            if (!m_issuance_value_commitment.IsNull() && m_blind_issuance_value_proof.empty()) {
-                throw std::ios_base::failure("Blind issuance value proof must be provided if its commitment is provided too");
-            }
-            if (!m_issuance_inflation_keys_commitment.IsNull() && m_issuance_inflation_keys_amount == std::nullopt) {
-                throw std::ios_base::failure("Explicit issuance inflation keys amount must be provided if its commitment is provided too");
-            }
-            if (!m_issuance_inflation_keys_commitment.IsNull() && m_blind_issuance_inflation_keys_proof.empty()) {
-                throw std::ios_base::failure("Blind issuance inflation keys value proof must be provided if its commitment is provided too");
-            }
             if (!m_issuance_value_commitment.IsNull() && m_issuance_rangeproof.empty()) {
                 throw std::ios_base::failure("Issuance value commitment provided without value rangeproof");
             }
@@ -1320,20 +1308,14 @@ struct PSBTOutput
 
         // Make sure required PSBTv2 fields are present
         if (m_psbt_version >= 2) {
-            if (amount == std::nullopt) {
+            if (amount == std::nullopt && m_value_commitment.IsNull()) {
                 throw std::ios_base::failure("Output amount is required in PSBTv2");
             }
             if (script == std::nullopt) {
                 throw std::ios_base::failure("Output script is required in PSBTv2");
             }
-            if (m_asset.IsNull()) {
+            if (m_asset.IsNull() && m_asset_commitment.IsNull()) {
                 throw std::ios_base::failure("Output asset is required in PSET");
-            }
-            if (!m_value_commitment.IsNull() && m_blind_value_proof.empty()) {
-                throw std::ios_base::failure("Blind value proof must be provided if value commitment is provided");
-            }
-            if (!m_asset_commitment.IsNull() && m_blind_asset_proof.empty()) {
-                throw std::ios_base::failure("Blind asset proof must be provided if asset commitment is provided");
             }
             if (m_blinding_pubkey.IsValid() && m_blinder_index == std::nullopt) {
                 throw std::ios_base::failure("Output is blinded but does not have a blinder index");

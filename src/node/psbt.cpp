@@ -89,9 +89,15 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
         }
     }
 
-    for (const PSBTOutput& output : psbtx.outputs) {
+    result.outputs.resize(psbtx.outputs.size());
+    for (unsigned int i = 0; i < psbtx.outputs.size(); ++i) {
+        const PSBTOutput& output = psbtx.outputs[i];
+        PSBTOutputAnalysis& output_analysis = result.outputs[i];
         CTxOut txout = output.GetTxOut();
-        if (output.IsBlinded()) {
+
+        output_analysis.is_blind = output.IsBlinded();
+        output_analysis.proof_result = VerifyBlindProofs(output);
+        if (output_analysis.is_blind) {
             has_blinded_outputs = true;
             if (!output.IsFullyBlinded()) {
                 result.next = PSBTRole::BLINDER;
