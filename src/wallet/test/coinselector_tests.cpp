@@ -35,7 +35,10 @@ static CAmount balance = 0;
 CoinEligibilityFilter filter_standard(1, 6, 0);
 CoinEligibilityFilter filter_confirmed(1, 1, 0);
 CoinEligibilityFilter filter_standard_extra(6, 6, 0);
-CoinSelectionParams coin_selection_params(false, 0, 0, CFeeRate(0), 0);
+CoinSelectionParams coin_selection_params(/* use_bnb= */ false, /* change_output_size= */ 0,
+                                          /* change_spend_size= */ 0, /* effective_feerate= */ CFeeRate(0),
+                                          /* long_term_feerate= */ CFeeRate(0), /* discard_feerate= */ CFeeRate(0),
+                                          /* tx_no_inputs_size= */ 0);
 
 // ELEMENTS: helper function wrapping a single-asset call to SelectCoinsMinConf
 static bool SimpleSelectCoinsMinConf(const CWallet& wallet, const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<OutputGroup> groups,
@@ -277,7 +280,10 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
     }
 
     // Make sure that effective value is working in SelectCoinsMinConf when BnB is used
-    CoinSelectionParams coin_selection_params_bnb(true, 0, 0, CFeeRate(3000), 0);
+    CoinSelectionParams coin_selection_params_bnb(/* use_bnb= */ true, /* change_output_size= */ 0,
+                                                  /* change_spend_size= */ 0, /* effective_feerate= */ CFeeRate(3000),
+                                                  /* long_term_feerate= */ CFeeRate(1000), /* discard_feerate= */ CFeeRate(1000),
+                                                  /* tx_no_inputs_size= */ 0);
     CoinSet setCoinsRet;
     CAmount nValueRet;
     bool bnb_used;
@@ -309,7 +315,7 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
         CCoinControl coin_control;
         coin_control.fAllowOtherInputs = true;
         coin_control.Select(COutPoint(vCoins.at(0).tx->GetHash(), vCoins.at(0).i));
-        coin_selection_params_bnb.effective_fee = CFeeRate(0);
+        coin_selection_params_bnb.m_effective_feerate = CFeeRate(0);
         CAmountMap mapTargetValue;
         mapTargetValue[CAsset()] = 10 * CENT;
         CAmountMap mapValueRet;
@@ -650,8 +656,14 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
         CAmount target = rand.randrange(balance - 1000) + 1000;
 
         // Perform selection
-        CoinSelectionParams coin_selection_params_knapsack(false, 34, 148, CFeeRate(0), 0);
-        CoinSelectionParams coin_selection_params_bnb(true, 34, 148, CFeeRate(0), 0);
+        CoinSelectionParams coin_selection_params_knapsack(/* use_bnb= */ false, /* change_output_size= */ 34,
+                                                           /* change_spend_size= */ 148, /* effective_feerate= */ CFeeRate(0),
+                                                           /* long_term_feerate= */ CFeeRate(0), /* discard_feerate= */ CFeeRate(0),
+                                                           /* tx_no_inputs_size= */ 0);
+        CoinSelectionParams coin_selection_params_bnb(/* use_bnb= */ true, /* change_output_size= */ 34,
+                                                      /* change_spend_size= */ 148, /* effective_feerate= */ CFeeRate(0),
+                                                      /* long_term_feerate= */ CFeeRate(0), /* discard_feerate= */ CFeeRate(0),
+                                                      /* tx_no_inputs_size= */ 0);
         CoinSet out_set;
         CAmount out_value = 0;
         bool bnb_used = false;

@@ -221,35 +221,27 @@ static std::string LabelFromValue(const UniValue& value)
 /**
  * Update coin control with fee estimation based on the given parameters
  *
- * @param[in]     pwallet           Wallet pointer
+ * @param[in]     wallet            Wallet reference
  * @param[in,out] cc                Coin control to be updated
  * @param[in]     conf_target       UniValue integer; confirmation target in blocks, values between 1 and 1008 are valid per policy/fees.h;
- *                                      if a fee_rate is present, 0 is allowed here as a no-op positional placeholder
  * @param[in]     estimate_mode     UniValue string; fee estimation mode, valid values are "unset", "economical" or "conservative";
- *                                      if a fee_rate is present, "" is allowed here as a no-op positional placeholder
  * @param[in]     fee_rate          UniValue real; fee rate in sat/vB;
- *                                      if a fee_rate is present, both conf_target and estimate_mode must either be null, or no-op
+ *                                      if present, both conf_target and estimate_mode must either be null, or "unset"
  * @param[in]     override_min_fee  bool; whether to set fOverrideFeeRate to true to disable minimum fee rate checks and instead
  *                                      verify only that fee_rate is greater than 0
  * @throws a JSONRPCError if conf_target, estimate_mode, or fee_rate contain invalid values or are in conflict
  */
-static void SetFeeEstimateMode(const CWallet* pwallet, CCoinControl& cc, const UniValue& conf_target, const UniValue& estimate_mode, const UniValue& fee_rate, bool override_min_fee)
+static void SetFeeEstimateMode(const CWallet& wallet, CCoinControl& cc, const UniValue& conf_target, const UniValue& estimate_mode, const UniValue& fee_rate, bool override_min_fee)
 {
     if (!fee_rate.isNull()) {
-        if (!conf_target.isNull() && conf_target.get_int() > 0) {
+        if (!conf_target.isNull()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot specify both conf_target and fee_rate. Please provide either a confirmation target in blocks for automatic fee estimation, or an explicit fee rate.");
         }
-        if (!estimate_mode.isNull() && !estimate_mode.get_str().empty()) {
+        if (!estimate_mode.isNull() && estimate_mode.get_str() != "unset") {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot specify both estimate_mode and fee_rate");
         }
-        CFeeRate fee_rate_in_sat_vb{CFeeRate(AmountFromValue(fee_rate), COIN)};
-        if (override_min_fee) {
-            if (fee_rate_in_sat_vb <= CFeeRate(0)) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid fee_rate %s (must be greater than 0)", fee_rate_in_sat_vb.ToString(FeeEstimateMode::SAT_VB)));
-            }
-            cc.fOverrideFeeRate = true;
-        }
-        cc.m_feerate = fee_rate_in_sat_vb;
+        cc.m_feerate = CFeeRate(AmountFromValue(fee_rate), COIN);
+        if (override_min_fee) cc.fOverrideFeeRate = true;
         // Default RBF to true for explicit fee_rate, if unset.
         if (cc.m_signal_bip125_rbf == nullopt) cc.m_signal_bip125_rbf = true;
         return;
@@ -258,7 +250,7 @@ static void SetFeeEstimateMode(const CWallet* pwallet, CCoinControl& cc, const U
         throw JSONRPCError(RPC_INVALID_PARAMETER, InvalidEstimateModeErrorMessage());
     }
     if (!conf_target.isNull()) {
-        cc.m_confirm_target = ParseConfirmTarget(conf_target, pwallet->chain().estimateMaxBlocks());
+        cc.m_confirm_target = ParseConfirmTarget(conf_target, wallet.chain().estimateMaxBlocks());
     }
 }
 
@@ -455,6 +447,12 @@ UniValue SendMoney(CWallet* const pwallet, const CCoinControl &coin_control, std
 {
     EnsureWalletIsUnlocked(pwallet);
 
+    // This function is only used by sendtoaddress and sendmany.
+    // This should always try to sign, if we don't have private keys, don't try to do anything here.
+    if (pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Error: Private keys are disabled for this wallet");
+    }
+
     // Shuffle recipient list
     std::shuffle(recipients.begin(), recipients.end(), FastRandomContext());
 
@@ -466,7 +464,7 @@ UniValue SendMoney(CWallet* const pwallet, const CCoinControl &coin_control, std
     FeeCalculation fee_calc_out;
     auto blind_details = g_con_elementsmode ? MakeUnique<BlindDetails>() : nullptr;
     if (blind_details) blind_details->ignore_blind_failure = ignore_blind_fail;
-    bool fCreated = pwallet->CreateTransaction(recipients, tx, nFeeRequired, nChangePosRet, error, coin_control, fee_calc_out, !pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS), blind_details.get());
+    const bool fCreated = pwallet->CreateTransaction(recipients, tx, nFeeRequired, nChangePosRet, error, coin_control, fee_calc_out, true, blind_details.get());
     if (!fCreated) {
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, error.original);
     }
@@ -523,8 +521,8 @@ static RPCHelpMan sendtoaddress()
                     + HelpExampleCli("sendtoaddress", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.1") +
                     "\nSend 0.1 BTC with a confirmation target of 6 blocks in economical fee estimate mode using positional arguments\n"
                     + HelpExampleCli("sendtoaddress", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.1 \"donation\" \"sean's outpost\" false true 6 economical") +
-                    "\nSend 0.1 BTC with a fee rate of 1 " + CURRENCY_ATOM + "/vB, subtract fee from amount, BIP125-replaceable, using positional arguments\n"
-                    + HelpExampleCli("sendtoaddress", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.1 \"drinks\" \"room77\" true true 0 \"\" 1") +
+                    "\nSend 0.1 BTC with a fee rate of 1.1 " + CURRENCY_ATOM + "/vB, subtract fee from amount, BIP125-replaceable, using positional arguments\n"
+                    + HelpExampleCli("sendtoaddress", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.1 \"drinks\" \"room77\" true true null \"unset\" null 1.1") +
                     "\nSend 0.2 BTC with a confirmation target of 6 blocks in economical fee estimate mode using named arguments\n"
                     + HelpExampleCli("-named sendtoaddress", "address=\"" + EXAMPLE_ADDRESS[0] + "\" amount=0.2 conf_target=6 estimate_mode=\"economical\"") +
                     "\nSend 0.5 BTC with a fee rate of 25 " + CURRENCY_ATOM + "/vB using named arguments\n"
@@ -578,7 +576,7 @@ static RPCHelpMan sendtoaddress()
         ignore_blind_fail = request.params[10].get_bool();
     }
 
-    SetFeeEstimateMode(pwallet, coin_control, /* conf_target */ request.params[6], /* estimate_mode */ request.params[7], /* fee_rate */ request.params[11], /* override_min_fee */ false);
+    SetFeeEstimateMode(*pwallet, coin_control, /* conf_target */ request.params[6], /* estimate_mode */ request.params[7], /* fee_rate */ request.params[11], /* override_min_fee */ false);
 
     EnsureWalletIsUnlocked(pwallet);
 
@@ -1045,7 +1043,7 @@ static RPCHelpMan sendmany()
         coin_control.m_signal_bip125_rbf = request.params[5].get_bool();
     }
 
-    SetFeeEstimateMode(pwallet, coin_control, /* conf_target */ request.params[6], /* estimate_mode */ request.params[7], /* fee_rate */ request.params[10], /* override_min_fee */ false);
+    SetFeeEstimateMode(*pwallet, coin_control, /* conf_target */ request.params[6], /* estimate_mode */ request.params[7], /* fee_rate */ request.params[10], /* override_min_fee */ false);
 
     UniValue assets;
     if (!request.params[8].isNull()) {
@@ -2954,7 +2952,7 @@ static RPCHelpMan unloadwallet()
                 "Unloads the wallet referenced by the request endpoint otherwise unloads the wallet specified in the argument.\n"
                 "Specifying the wallet name on a wallet endpoint is invalid.",
                 {
-                    {"wallet_name", RPCArg::Type::STR, /* default */ "the wallet name from the RPC request", "The name of the wallet to unload."},
+                    {"wallet_name", RPCArg::Type::STR, /* default */ "the wallet name from the RPC endpoint", "The name of the wallet to unload. Must be provided in the RPC endpoint or this parameter (but not both)."},
                     {"load_on_startup", RPCArg::Type::BOOL, /* default */ "null", "Save wallet name to persistent settings and load on startup. True to add wallet to startup list, false to remove, null to leave unchanged."},
                 },
                 RPCResult{RPCResult::Type::OBJ, "", "", {
@@ -2969,7 +2967,7 @@ static RPCHelpMan unloadwallet()
     std::string wallet_name;
     if (GetWalletNameFromJSONRPCRequest(request, wallet_name)) {
         if (!request.params[0].isNull()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot unload the requested wallet");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Both the RPC endpoint wallet and wallet_name parameter were provided (only one allowed)");
         }
     } else {
         wallet_name = request.params[0].get_str();
@@ -3379,11 +3377,7 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
             if (options.exists("estimate_mode")) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot specify both estimate_mode and feeRate");
             }
-            CFeeRate fee_rate(AmountFromValue(options["feeRate"]));
-            if (fee_rate <= CFeeRate(0)) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid feeRate %s (must be greater than 0)", fee_rate.ToString(FeeEstimateMode::BTC_KVB)));
-            }
-            coinControl.m_feerate = fee_rate;
+            coinControl.m_feerate = CFeeRate(AmountFromValue(options["feeRate"]));
             coinControl.fOverrideFeeRate = true;
         }
 
@@ -3393,7 +3387,7 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
         if (options.exists("replaceable")) {
             coinControl.m_signal_bip125_rbf = options["replaceable"].get_bool();
         }
-        SetFeeEstimateMode(pwallet, coinControl, options["conf_target"], options["estimate_mode"], options["fee_rate"], override_min_fee);
+        SetFeeEstimateMode(*pwallet, coinControl, options["conf_target"], options["estimate_mode"], options["fee_rate"], override_min_fee);
       }
     } else {
         // if options is null and not a bool
@@ -3703,7 +3697,7 @@ RPCHelpMan signrawtransactionwithwallet()
 static RPCHelpMan bumpfee_helper(std::string method_name)
 {
     bool want_psbt = method_name == "psbtbumpfee";
-    const std::string incremental_fee{CFeeRate(DEFAULT_MIN_RELAY_TX_FEE).ToString(FeeEstimateMode::SAT_VB)};
+    const std::string incremental_fee{CFeeRate(DEFAULT_INCREMENTAL_RELAY_FEE).ToString(FeeEstimateMode::SAT_VB)};
 
     return RPCHelpMan{method_name,
         "\nBumps the fee of an opt-in-RBF transaction T, replacing it with a new transaction B.\n"
@@ -3726,7 +3720,7 @@ static RPCHelpMan bumpfee_helper(std::string method_name)
                     {"conf_target", RPCArg::Type::NUM, /* default */ "wallet -txconfirmtarget", "Confirmation target in blocks\n"},
                     {"fee_rate", RPCArg::Type::AMOUNT, /* default */ "not set, fall back to wallet fee estimation",
                              "\nSpecify a fee rate in " + CURRENCY_ATOM + "/vB instead of relying on the built-in fee estimator.\n"
-                             "Must be at least " + incremental_fee + " " + CURRENCY_ATOM + "/vB higher than the current transaction fee rate.\n"
+                             "Must be at least " + incremental_fee + " higher than the current transaction fee rate.\n"
                              "WARNING: before version 0.21, fee_rate was in " + CURRENCY_UNIT + "/kvB. As of 0.21, fee_rate is in " + CURRENCY_ATOM + "/vB.\n"},
                     {"replaceable", RPCArg::Type::BOOL, /* default */ "true", "Whether the new transaction should still be\n"
                              "marked bip-125 replaceable. If true, the sequence numbers in the transaction will\n"
@@ -3802,7 +3796,7 @@ static RPCHelpMan bumpfee_helper(std::string method_name)
         if (options.exists("replaceable")) {
             coin_control.m_signal_bip125_rbf = options["replaceable"].get_bool();
         }
-        SetFeeEstimateMode(pwallet, coin_control, conf_target, options["estimate_mode"], options["fee_rate"], /* override_min_fee */ false);
+        SetFeeEstimateMode(*pwallet, coin_control, conf_target, options["estimate_mode"], options["fee_rate"], /* override_min_fee */ false);
     }
 
     // Make sure the results are valid at least up to the most recent block
@@ -4488,10 +4482,10 @@ static RPCHelpMan send()
         RPCExamples{""
         "\nSend 0.1 BTC with a confirmation target of 6 blocks in economical fee estimate mode\n"
         + HelpExampleCli("send", "'{\"" + EXAMPLE_ADDRESS[0] + "\": 0.1}' 6 economical\n") +
-        "Send 0.2 BTC with a fee rate of 1 " + CURRENCY_ATOM + "/vB using positional arguments\n"
-        + HelpExampleCli("send", "'{\"" + EXAMPLE_ADDRESS[0] + "\": 0.2}' 0 \"\" 1\n") +
+        "Send 0.2 BTC with a fee rate of 1.1 " + CURRENCY_ATOM + "/vB using positional arguments\n"
+        + HelpExampleCli("send", "'{\"" + EXAMPLE_ADDRESS[0] + "\": 0.2}' null \"unset\" 1.1\n") +
         "Send 0.2 BTC with a fee rate of 1 " + CURRENCY_ATOM + "/vB using the options argument\n"
-        + HelpExampleCli("send", "'{\"" + EXAMPLE_ADDRESS[0] + "\": 0.2}' '{\"fee_rate\": 1}'\n") +
+        + HelpExampleCli("send", "'{\"" + EXAMPLE_ADDRESS[0] + "\": 0.2}' null \"unset\" null '{\"fee_rate\": 1}'\n") +
         "Send 0.3 BTC with a fee rate of 25 " + CURRENCY_ATOM + "/vB using named arguments\n"
         + HelpExampleCli("-named send", "outputs='{\"" + EXAMPLE_ADDRESS[0] + "\": 0.3}' fee_rate=25\n") +
         "Create a transaction that should confirm the next block, with a specific input, and return result without adding to wallet or broadcasting to the network\n"
@@ -4503,7 +4497,7 @@ static RPCHelpMan send()
                 UniValueType(), // outputs (ARR or OBJ, checked later)
                 UniValue::VNUM, // conf_target
                 UniValue::VSTR, // estimate_mode
-                UniValue::VNUM, // fee_rate
+                UniValueType(), // fee_rate, will be checked by AmountFromValue() in SetFeeEstimateMode()
                 UniValue::VOBJ, // options
                 }, true
             );
@@ -4648,7 +4642,7 @@ static RPCHelpMan sethdseed()
 
     // Do not do anything to non-HD wallets
     if (!pwallet->CanSupportFeature(FEATURE_HD)) {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Cannot set a HD seed on a non-HD wallet. Use the upgradewallet RPC in order to upgrade a non-HD wallet to HD");
+        throw JSONRPCError(RPC_WALLET_ERROR, "Cannot set an HD seed on a non-HD wallet. Use the upgradewallet RPC in order to upgrade a non-HD wallet to HD");
     }
 
     EnsureWalletIsUnlocked(pwallet);
@@ -5026,14 +5020,18 @@ static RPCHelpMan walletcreatefundedpsbt()
 static RPCHelpMan upgradewallet()
 {
     return RPCHelpMan{"upgradewallet",
-        "\nUpgrade the wallet. Upgrades to the latest version if no version number is specified\n"
+        "\nUpgrade the wallet. Upgrades to the latest version if no version number is specified.\n"
         "New keys may be generated and a new wallet backup will need to be made.",
         {
-            {"version", RPCArg::Type::NUM, /* default */ strprintf("%d", FEATURE_LATEST), "The version number to upgrade to. Default is the latest wallet version"}
+            {"version", RPCArg::Type::NUM, /* default */ strprintf("%d", FEATURE_LATEST), "The version number to upgrade to. Default is the latest wallet version."}
         },
         RPCResult{
             RPCResult::Type::OBJ, "", "",
             {
+                {RPCResult::Type::STR, "wallet_name", "Name of wallet this operation was performed on"},
+                {RPCResult::Type::NUM, "previous_version", "Version of wallet before this operation"},
+                {RPCResult::Type::NUM, "current_version", "Version of wallet after this operation"},
+                {RPCResult::Type::STR, "result", /* optional */ true, "Description of result, if no error"},
                 {RPCResult::Type::STR, "error", /* optional */ true, "Error message (if there is one)"}
             },
         },
@@ -5056,11 +5054,27 @@ static RPCHelpMan upgradewallet()
         version = request.params[0].get_int();
     }
     bilingual_str error;
-    if (!pwallet->UpgradeWallet(version, error)) {
-        throw JSONRPCError(RPC_WALLET_ERROR, error.original);
+    const int previous_version{pwallet->GetVersion()};
+    const bool wallet_upgraded{pwallet->UpgradeWallet(version, error)};
+    const int current_version{pwallet->GetVersion()};
+    std::string result;
+
+    if (wallet_upgraded) {
+        if (previous_version == current_version) {
+            result = "Already at latest version. Wallet version unchanged.";
+        } else {
+            result = strprintf("Wallet upgraded successfully from version %i to version %i.", previous_version, current_version);
+        }
     }
+
     UniValue obj(UniValue::VOBJ);
-    if (!error.empty()) {
+    obj.pushKV("wallet_name", pwallet->GetName());
+    obj.pushKV("previous_version", previous_version);
+    obj.pushKV("current_version", current_version);
+    if (!result.empty()) {
+        obj.pushKV("result", result);
+    } else {
+        CHECK_NONFATAL(!error.empty());
         obj.pushKV("error", error.original);
     }
     return obj;

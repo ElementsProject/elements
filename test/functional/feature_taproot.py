@@ -531,7 +531,6 @@ def add_spender(spenders, *args, **kwargs):
 
 def random_checksig_style(pubkey):
     """Creates a random CHECKSIG* tapscript that would succeed with only the valid signature on witness stack."""
-    return bytes(CScript([pubkey, OP_CHECKSIG]))
     opcode = random.choice([OP_CHECKSIG, OP_CHECKSIGVERIFY, OP_CHECKSIGADD])
     if (opcode == OP_CHECKSIGVERIFY):
         ret = CScript([pubkey, opcode, OP_1])
@@ -1475,17 +1474,23 @@ class TaprootTest(BitcoinTestFramework):
         g_genesis_hash = uint256_from_str(bytes.fromhex(self.nodes[1].getblockhash(0))[::-1])
         self.test_spenders(self.nodes[1], spenders_taproot_active(), input_counts=[1, 2, 2, 2, 2, 3])
 
-        # Transfer funds to pre-taproot node.
+        # Transfer value of the largest 500 coins to pre-taproot node.
         addr = self.nodes[0].getnewaddress()
+
+        unsp = self.nodes[1].listunspent()
+        unsp = sorted(unsp, key=lambda i: i['amount'], reverse=True)
+        unsp = unsp[:500]
+
         rawtx = self.nodes[1].createrawtransaction(
             inputs=[{
                 'txid': i['txid'],
                 'vout': i['vout']
-            } for i in self.nodes[1].listunspent()],
-            outputs=[{addr: self.nodes[1].getbalance()['bitcoin']}],
+            } for i in unsp],
+            outputs=[{addr: sum(i['amount'] for i in unsp)}]
         )
         rawtx = self.nodes[1].signrawtransactionwithwallet(rawtx)['hex']
-        # Transaction is too large to fit into the mempool, so put it into a block
+
+        # Mine a block with the transaction
         block = create_block(tmpl=self.nodes[1].getblocktemplate(NORMAL_GBT_REQUEST_PARAMS), txlist=[rawtx])
         add_witness_commitment(block)
         block.rehash()

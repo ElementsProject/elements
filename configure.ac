@@ -1,9 +1,9 @@
 AC_PREREQ([2.69])
 define(_CLIENT_VERSION_MAJOR, 0)
-define(_CLIENT_VERSION_MINOR, 20)
-define(_CLIENT_VERSION_REVISION, 99)
+define(_CLIENT_VERSION_MINOR, 21)
+define(_CLIENT_VERSION_REVISION, 0)
 define(_CLIENT_VERSION_BUILD, 0)
-define(_CLIENT_VERSION_RC, 0)
+define(_CLIENT_VERSION_RC, 1)
 define(_CLIENT_VERSION_IS_RELEASE, false)
 define(_COPYRIGHT_YEAR, 2021)
 define(_COPYRIGHT_HOLDERS,[The %s developers])
@@ -656,16 +656,19 @@ case $host in
          dnl It's safe to add these paths even if the functionality is disabled by
          dnl the user (--without-wallet or --without-gui for example).
 
-         bdb_prefix=$($BREW --prefix berkeley-db4 2>/dev/null)
-         qt5_prefix=$($BREW --prefix qt5 2>/dev/null)
-         if test x$bdb_prefix != x && test "x$BDB_CFLAGS" = "x" && test "x$BDB_LIBS" = "x"; then
+         if test "x$use_bdb" != xno && $BREW list --versions berkeley-db4 >/dev/null && test "x$BDB_CFLAGS" = "x" && test "x$BDB_LIBS" = "x"; then
+           bdb_prefix=$($BREW --prefix berkeley-db4 2>/dev/null)
            dnl This must precede the call to BITCOIN_FIND_BDB48 below.
            BDB_CFLAGS="-I$bdb_prefix/include"
            BDB_LIBS="-L$bdb_prefix/lib -ldb_cxx-4.8"
          fi
-         if test x$qt5_prefix != x; then
-           PKG_CONFIG_PATH="$qt5_prefix/lib/pkgconfig:$PKG_CONFIG_PATH"
-           export PKG_CONFIG_PATH
+
+         if test "x$use_sqlite" != xno && $BREW list --versions sqlite3 >/dev/null; then
+           export PKG_CONFIG_PATH="$($BREW --prefix sqlite3 2>/dev/null)/lib/pkgconfig:$PKG_CONFIG_PATH"
+         fi
+
+         if $BREW list --versions qt5 >/dev/null; then
+           export PKG_CONFIG_PATH="$($BREW --prefix qt5 2>/dev/null)/lib/pkgconfig:$PKG_CONFIG_PATH"
          fi
          dnl On some versions of osx stack check is turned on by default and is broken
          AX_CHECK_COMPILE_FLAG([-fno-stack-check],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -fno-stack-check"])
@@ -875,7 +878,7 @@ fi
 
 AC_CHECK_HEADERS([endian.h sys/endian.h byteswap.h stdio.h stdlib.h unistd.h strings.h sys/types.h sys/stat.h sys/select.h sys/prctl.h sys/sysctl.h vm/vm_param.h sys/vmmeter.h sys/resources.h])
 
-AC_CHECK_DECLS([getifaddrs, freeifaddrs],,,
+AC_CHECK_DECLS([getifaddrs, freeifaddrs],[CHECK_SOCKET],,
     [#include <sys/types.h>
     #include <ifaddrs.h>]
 )
