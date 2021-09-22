@@ -66,19 +66,23 @@ bool CreateAssetSurjectionProof(std::vector<unsigned char>& output_proof, const 
     return true;
 }
 
-bool VerifyBlindAssetProof(const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
+static bool VerifyBlindAssetProof(const uint256& asset, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
 {
     secp256k1_surjectionproof surj_proof;
     if (secp256k1_surjectionproof_parse(secp256k1_blind_context, &surj_proof, proof.data(), proof.size()) == 0) {
         return false;
     }
 
-    secp256k1_generator gen;
-    if (secp256k1_generator_parse(secp256k1_blind_context, &gen, conf_asset.vchCommitment.data()) == 0) {
+    secp256k1_generator blinded_asset_gen;
+    if (secp256k1_generator_parse(secp256k1_blind_context, &blinded_asset_gen, conf_asset.vchCommitment.data()) == 0) {
+        return false;
+    }
+    secp256k1_generator asset_gen;
+    if (secp256k1_generator_generate(secp256k1_blind_context, &asset_gen, asset.data()) == 0) {
         return false;
     }
 
-    return secp256k1_surjectionproof_verify(secp256k1_blind_context, &surj_proof, &gen, 1, &gen) == 0;
+    return secp256k1_surjectionproof_verify(secp256k1_blind_context, &surj_proof, &asset_gen, 1, &blinded_asset_gen);
 }
 
 uint256 GenerateRangeproofECDHKey(CPubKey& ephemeral_pubkey, const CPubKey blinding_pubkey)
@@ -116,7 +120,7 @@ bool CreateValueRangeProof(std::vector<unsigned char>& rangeproof, const uint256
 }
 
 // Create an explicit value rangeproof which proves that the commitment commits to an explicit value
-bool CreateBlindValueProof(std::vector<unsigned char>& rangeproof, const uint256& value_blinder, const CAmount amount, const secp256k1_pedersen_commitment& value_commit, const secp256k1_generator& gen)
+static bool CreateBlindValueProof(std::vector<unsigned char>& rangeproof, const uint256& value_blinder, const CAmount amount, const secp256k1_pedersen_commitment& value_commit, const secp256k1_generator& gen)
 {
     // Prep rangeproof
     size_t rangeproof_len = 5134;
@@ -132,7 +136,44 @@ bool CreateBlindValueProof(std::vector<unsigned char>& rangeproof, const uint256
     return res == 1;
 }
 
-bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
+// Create an explicit value rangeproof which proves that the commitment commits to an explicit value
+static bool CreateBlindAssetProof(std::vector<unsigned char>& assetproof, const CAsset& asset, const CConfidentialAsset& asset_commit, const uint256& asset_blinder)
+{
+    const unsigned char zero32[32] = {0};
+    secp256k1_surjectionproof proof;
+    size_t input_index;
+    secp256k1_generator asset_gen;
+    secp256k1_generator blinded_asset_gen;
+    secp256k1_fixed_asset_tag fixed_tag;
+    memcpy(&fixed_tag, asset.begin(), 32);
+
+    if (!secp256k1_generator_generate(secp256k1_blind_context, &asset_gen, asset.begin())) {
+        return false;
+    }
+    if (secp256k1_generator_parse(secp256k1_blind_context, &blinded_asset_gen, asset_commit.vchCommitment.data()) == 0) {
+        return false;
+    }
+
+    if (!secp256k1_surjectionproof_initialize(secp256k1_blind_context, &proof, &input_index, &fixed_tag, 1, 1, &fixed_tag, 1, zero32)) {
+        return false;
+    }
+    assert(input_index == 0);
+
+    if (!secp256k1_surjectionproof_generate(secp256k1_blind_context, &proof, &asset_gen, 1, &blinded_asset_gen, 0, zero32, asset_blinder.data())) {
+        return false;
+    }
+    if (!secp256k1_surjectionproof_verify(secp256k1_blind_context, &proof, &asset_gen, 1, &blinded_asset_gen)) {
+        return false;
+    }
+
+    size_t output_len = secp256k1_surjectionproof_serialized_size(secp256k1_blind_context, &proof);
+    assetproof.resize(output_len);
+    secp256k1_surjectionproof_serialize(secp256k1_blind_context, &assetproof[0], &output_len, &proof);
+    assert(output_len == assetproof.size());
+    return true;
+}
+
+static bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
 {
     secp256k1_pedersen_commitment value_commit;
     if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.vchCommitment.data()) == 0) {
@@ -150,6 +191,33 @@ bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, 
         return false;
     }
     return min_value == (uint64_t)value;
+}
+
+BlindProofResult VerifyBlindProofs(const PSBTOutput& o) {
+    // No blinding, no problem
+    if (!o.IsBlinded()) {
+        return BlindProofResult::OK;
+    } else if (!o.IsFullyBlinded()) {
+        return BlindProofResult::NOT_FULLY_BLINDED;
+    }
+
+    if (o.amount != nullopt) {
+        if (o.m_blind_value_proof.empty()) {
+            return BlindProofResult::MISSING_VALUE_PROOF;
+        } else if (!VerifyBlindValueProof(*o.amount, o.m_value_commitment, o.m_blind_value_proof, o.m_asset_commitment)) {
+            return BlindProofResult::INVALID_VALUE_PROOF;
+        }
+    }
+
+    if (!o.m_asset.IsNull()) {
+        if (o.m_blind_asset_proof.empty()) {
+            return BlindProofResult::MISSING_ASSET_PROOF;
+        } else if (!VerifyBlindAssetProof(o.m_asset, o.m_blind_asset_proof, o.m_asset_commitment)) {
+            return BlindProofResult::INVALID_ASSET_PROOF;
+        }
+    }
+
+    return BlindProofResult::OK;
 }
 
 void CreateAssetCommitment(CConfidentialAsset& conf_asset, secp256k1_generator& asset_gen, const CAsset& asset, const uint256& asset_blinder)
@@ -471,7 +539,7 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
 
         // Create explicit asset surjection proof
         std::vector<unsigned char> blind_asset_proof;
-        if (!CreateAssetSurjectionProof(blind_asset_proof, fixed_input_tags, ephemeral_input_tags, input_asset_blinders, asset_blinder, asset_generator, asset, /* num_targets */ 1)) {
+        if (!CreateBlindAssetProof(blind_asset_proof, asset, asset_commitment, asset_blinder)) {
             return BlindingStatus::ASP_UNABLE;
         }
 

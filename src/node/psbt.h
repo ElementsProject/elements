@@ -6,6 +6,7 @@
 #define BITCOIN_NODE_PSBT_H
 
 #include <psbt.h>
+#include <blindpsbt.h>
 
 /**
  * Holds an analysis of one input from a PSBT
@@ -22,6 +23,14 @@ struct PSBTInputAnalysis {
 };
 
 /**
+ * Holds an analysis of one output from a PSBT
+ */
+struct PSBTOutputAnalysis {
+    bool is_blind; //!< Whether the output should be blinded (has a set ECDH pubkey)
+    BlindProofResult proof_result; //!< Result of checking the explicit-confidential-matching proof
+};
+
+/**
  * Holds the results of AnalyzePSBT (miscellaneous information about a PSBT)
  */
 struct PSBTAnalysis {
@@ -29,6 +38,7 @@ struct PSBTAnalysis {
     Optional<CFeeRate> estimated_feerate;  //!< Estimated feerate (fee / weight) of the transaction
     Optional<CAmount> fee;              //!< Amount of fee being paid by the transaction
     std::vector<PSBTInputAnalysis> inputs; //!< More information about the individual inputs of the transaction
+    std::vector<PSBTOutputAnalysis> outputs; //!< More information about the individual outputs of the transaction
     PSBTRole next;                         //!< Which of the BIP 174 roles needs to handle the transaction next
     std::string error;                     //!< Error message
 
