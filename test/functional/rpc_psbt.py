@@ -24,6 +24,17 @@ import os
 
 MAX_BIP125_RBF_SEQUENCE = 0xfffffffd
 
+# Utility function to extract info from outputs for use in assert_equal
+# Returns a set of tuples (address, is blinded, is OP_RETURN). (It would
+# feel nicer to return a set of dicts, but you can't do that in Python.)
+def outputs_info(outputs):
+    return {(
+        "" if x["script"].get("addresses") is None else x["script"]["addresses"][0],
+        x.get("blinding_pubkey") is not None,
+        x["script"]["asm"] == "OP_RETURN",
+    ) for x in outputs}
+
+
 # Create one-input, one-output, no-fee transaction:
 class PSBTTest(BitcoinTestFramework):
 
@@ -715,6 +726,40 @@ class PSBTTest(BitcoinTestFramework):
         self.nodes[0].sendrawtransaction(tx)
         self.nodes[0].generate(1)
         self.sync_all()
+
+        # Regression for #1049
+        # 1. Create a one-blinded-output PSET and check that it is blinded correctly
+        addr = self.nodes[0].getnewaddress()
+        conf_addr = self.nodes[0].getaddressinfo(addr)['confidential']
+        unconf_addr = self.nodes[0].getaddressinfo(addr)['unconfidential']
+        # 1a. Funding should succeed and *not* add a OP_RETURN output
+        funded = self.nodes[1].walletcreatefundedpsbt([], [{conf_addr: self.nodes[1].getbalance()['bitcoin']}], 0, {"subtractFeeFromOutputs": [0]})["psbt"]
+        assert_equal(
+            outputs_info(self.nodes[1].decodepsbt(funded)["outputs"]),
+            {
+                (unconf_addr, True, False),
+                ("", False, False), # fee
+            },
+        )
+        # 1b. `walletprocesspsbt` should then succeed in creating a full transaction
+        signed = self.nodes[1].walletprocesspsbt(funded)["psbt"]
+        tx = self.nodes[1].finalizepsbt(signed)["hex"]
+        assert self.nodes[1].testmempoolaccept([tx])[0]['allowed']
+        # 2. Create a one-unblinded-output PSET and check that it is blinded correctly
+        # 2a. Funding should succeed and add a OP_RETURN output
+        funded = self.nodes[1].walletcreatefundedpsbt([], [{unconf_addr: self.nodes[1].getbalance()['bitcoin']}], 0, {"subtractFeeFromOutputs": [0]})["psbt"]
+        assert_equal(
+            outputs_info(self.nodes[1].decodepsbt(funded)["outputs"]),
+            {
+                (unconf_addr, False, False),
+                ("", True, True), # blinded OP_RETURN
+                ("", False, False), # fee
+            },
+        )
+        # 2b. `walletprocesspsbt` should then succeed in creating a full transaction
+        signed = self.nodes[1].walletprocesspsbt(funded)["psbt"]
+        tx = self.nodes[1].finalizepsbt(signed)["hex"]
+        assert self.nodes[1].testmempoolaccept([tx])[0]['allowed']
 
     def pset_confidential_proofs(self):
         BLINDED = "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"
