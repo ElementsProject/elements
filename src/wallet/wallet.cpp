@@ -19,6 +19,7 @@
 #include <policy/policy.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
+#include <rpc/util.h>  // for GetDestinationBlindingKey and IsBlindDestination
 #include <script/descriptor.h>
 #include <script/pegins.h>
 #include <script/script.h>
@@ -3353,6 +3354,9 @@ bool CWallet::CreateTransactionInternal(
         // A map that keeps track of the change script for each asset and also
         // the index of the reservedest used for that script (-1 if none).
         std::map<CAsset, std::pair<int, CScript>> mapScriptChange;
+        // For manually set change, we need to use the blinding pubkey associated
+        // with the manually-set address rather than generating one from the wallet
+        std::map<CAsset, Optional<CPubKey> > mapBlindingKeyChange;
 
         LOCK(cs_wallet);
         txNew.nLockTime = GetLocktimeForNewTransaction(chain(), GetLastBlockHash(), GetLastBlockHeight());
@@ -3367,6 +3371,11 @@ bool CWallet::CreateTransactionInternal(
                 for (const auto& dest : coin_control.destChange) {
                     // No need to test we cover all assets.  We produce error for that later.
                     mapScriptChange[dest.first] = std::pair<int, CScript>(-1, GetScriptForDestination(dest.second));
+                    if (IsBlindDestination(dest.second)) {
+                        mapBlindingKeyChange[dest.first] = GetDestinationBlindingKey(dest.second);
+                    } else {
+                        mapBlindingKeyChange[dest.first] = nullopt;
+                    }
                 }
             } else { // no coin control: send change to newly generated address
                 // Note: We use a new key here to keep it from being obvious which side is the change.
@@ -3639,15 +3648,36 @@ bool CWallet::CreateTransactionInternal(
                         }
 
                         std::vector<CTxOut>::iterator position = txNew.vout.begin()+vChangePosInOut[assetChange.first];
+                        Optional<CPubKey> blind_pub;
                         if (blind_details) {
-                            CPubKey blind_pub = GetBlindingPubKey(itScript->second.second);
-                            blind_details->o_pubkeys.insert(blind_details->o_pubkeys.begin() + vChangePosInOut[assetChange.first], blind_pub);
-                            assert(blind_pub.IsFullyValid());
+                            const auto itBlindingKey = mapBlindingKeyChange.find(assetChange.first);
+                            if (itBlindingKey != mapBlindingKeyChange.end()) {
+                                // If the change output was specified, use the blinding key that
+                                // came with the specified address (if any)
+                                blind_pub = itBlindingKey->second;
+                            } else {
+                                // Otherwise, we generated it from our own wallet, so get the
+                                // blinding key from our own wallet.
+                                blind_pub = GetBlindingPubKey(itScript->second.second);
+                            }
+                        } else {
+                            // ...and if we are not blinding at all, use no blinding key. (This
+                            // assignment is technically unnecessary as `blind_pub` was initialized
+                            // above to nullopt, but we leave it here for clarity.)
+                            blind_pub = nullopt;
+                        }
+
+                        if (blind_pub) {
+                            blind_details->o_pubkeys.insert(blind_details->o_pubkeys.begin() + vChangePosInOut[assetChange.first], *blind_pub);
+                            assert(blind_pub->IsFullyValid());
                             blind_details->num_to_blind++;
                             blind_details->change_to_blind++;
                             blind_details->only_change_pos = vChangePosInOut[assetChange.first];
                             // Place the blinding pubkey here in case of fundraw calls
-                            newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
+                            newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub->begin(), blind_pub->end());
+                        } else if (blind_details) {
+                            // Insert placeholder
+                            blind_details->o_pubkeys.insert(blind_details->o_pubkeys.begin() + vChangePosInOut[assetChange.first], CPubKey{});
                         }
                         txNew.vout.insert(position, newTxOut);
                     }
