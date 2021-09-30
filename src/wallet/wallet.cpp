@@ -3234,6 +3234,8 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
         // We need to make sure to dupe an asset that is in input set
         //TODO Have blinding do some extremely minimal rangeproof
         CTxOut newTxOut(det->o_assets.back(), 0, CScript() << OP_RETURN);
+        CPubKey blind_pub = wallet->GetBlindingPubKey(newTxOut.scriptPubKey); // irrelevent, just needs to be non-null
+        newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
         txNew.vout.push_back(newTxOut);
         det->o_pubkeys.push_back(wallet->GetBlindingPubKey(newTxOut.scriptPubKey));
         det->o_amount_blinds.push_back(uint256());
