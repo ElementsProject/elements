@@ -242,7 +242,8 @@ assert all([x["next"] == "updater" for x in analysis["inputs"]])
 # in turn, or by both updating their copies and then one party calls
 # `combinepsbt` to combine the results.
 #
-# We will do the latter for symmetry reasons.
+# We will do the latter since `combinepsbt` will automatically check that
+# neither party changed the transaction out from under the other.
 #
 
 print ("3. Both parties fill in their UTXO data.")
@@ -290,7 +291,14 @@ print ("4. One party blinds the PSET and passes to the other party, who also bli
 # transaction will be completely blinded and therefore signable).
 # But for this tutorial we want that to happen only in the next step.
 alice_blinded = alice.walletprocesspsbt(filled_pset)
+# Alice gives `alice_blinded` to Carol, who uses `combinepsbt` to verify
+# that Alice blinded honestly (not changing any of the output amounts/assets)
+carol.combinepsbt([filled_pset, alice_blinded["psbt"]])
+# If this passes (does not throw any exception) she can blind.
 carol_blinded = carol.walletprocesspsbt(psbt=alice_blinded["psbt"], sign=False)
+# Similarly, Carol passes the result to Alice, who checks it
+carol.combinepsbt([alice_blinded["psbt"], carol_blinded["psbt"]])
+# Now both parties have a copy of the fully-blinded transaction.
 blinded = carol_blinded
 
 # We won't print these out because they're very big now
