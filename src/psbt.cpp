@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <blindpsbt.h>
 #include <psbt.h>
 
 #include <chainparams.h>
@@ -135,13 +136,27 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx(bool force_unblind
         CTxOut txout;
         CTxOutWitness txoutwit;
         txout.scriptPubKey = *output.script;
-        if (output.m_value_commitment.IsNull() || (output.amount != nullopt && force_unblinded)) {
+
+        bool exp_value = output.m_value_commitment.IsNull() || force_unblinded;
+        if (!output.m_value_commitment.IsNull() && output.amount != nullopt) {
+            exp_value = exp_value && !output.m_blind_value_proof.empty();
+            exp_value = exp_value && !output.m_asset_commitment.IsNull();
+            exp_value = exp_value && VerifyBlindValueProof(*output.amount, output.m_value_commitment, output.m_blind_value_proof, output.m_asset_commitment);
+        }
+        if (exp_value) {
             txout.nValue.SetToAmount(*output.amount);
         } else {
             txout.nValue = output.m_value_commitment;
             txoutwit.vchRangeproof = output.m_value_rangeproof;
         }
-        if (output.m_asset_commitment.IsNull() || (!output.m_asset.IsNull() && force_unblinded)) {
+
+        bool exp_asset = output.m_asset_commitment.IsNull() || force_unblinded;
+        if (!output.m_asset_commitment.IsNull() && !output.m_asset.IsNull()) {
+            exp_asset = exp_asset && !output.m_blind_asset_proof.empty();
+            exp_asset = exp_asset && !output.m_asset.IsNull();
+            exp_asset = exp_asset && VerifyBlindAssetProof(output.m_asset, output.m_blind_asset_proof, output.m_asset_commitment);
+        }
+        if (exp_asset) {
             txout.nAsset.SetToAsset(CAsset(output.m_asset));
         } else {
             txout.nAsset = output.m_asset_commitment;
