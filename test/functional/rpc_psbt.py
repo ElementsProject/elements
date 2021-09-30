@@ -327,13 +327,49 @@ class PSBTTest(BitcoinTestFramework):
             assert_raises_rpc_error(-4, msg, self.nodes[1].walletcreatefundedpsbt, inputs, outputs_array, 0, {"feeRate": 1, "add_inputs": bool_add})
 
         self.log.info("Test various PSBT operations")
+        addr = self.get_address(confidential, 1)
+        unconf_addr = self.nodes[1].getaddressinfo(addr)['unconfidential']
+        change_addr = self.nodes[1].getrawchangeaddress()
+        conf_change_addr = self.nodes[1].getaddressinfo(change_addr)['confidential']
+        unconf_change_addr = self.nodes[1].getaddressinfo(change_addr)['unconfidential']
         # partially sign multisig things with node 1
-        psbtx = wmulti.walletcreatefundedpsbt(inputs=[{"txid":txid,"vout":p2wsh_pos},{"txid":txid,"vout":p2sh_pos},{"txid":txid,"vout":p2sh_p2wsh_pos}], outputs=[{self.get_address(confidential, 1):29.99}], options={'changeAddress': self.nodes[1].getrawchangeaddress()})['psbt']
+        psbtx = wmulti.walletcreatefundedpsbt(inputs=[{"txid":txid,"vout":p2wsh_pos},{"txid":txid,"vout":p2sh_pos},{"txid":txid,"vout":p2sh_p2wsh_pos}], outputs=[{addr:29.99}], options={'changeAddress': unconf_change_addr})['psbt']
         filled = wmulti.walletprocesspsbt(psbtx)
         # have both nodes fill before we try to blind and sign
         walletprocesspsbt_out = self.nodes[1].walletprocesspsbt(filled["psbt"])
         psbtx = walletprocesspsbt_out['psbt']
         assert_equal(walletprocesspsbt_out['complete'], False)
+        # check that the unblinded change address led to unblinded change
+        assert_equal(
+            outputs_info(self.nodes[1].decodepsbt(psbtx)["outputs"]),
+            {
+                (unconf_addr, confidential, False),
+                (unconf_change_addr, False, False),
+                ("", False, False), # fee
+            },
+        )
+
+        # Repeat the above, with a confidential change address
+        psbtx = wmulti.walletcreatefundedpsbt(inputs=[{"txid":txid,"vout":p2wsh_pos},{"txid":txid,"vout":p2sh_pos},{"txid":txid,"vout":p2sh_p2wsh_pos}], outputs=[{addr:29.99}], options={'changeAddress': conf_change_addr})['psbt']
+        filled = wmulti.walletprocesspsbt(psbtx)
+        # have both nodes fill before we try to blind and sign
+        walletprocesspsbt_out = self.nodes[1].walletprocesspsbt(filled["psbt"])
+        psbtx = walletprocesspsbt_out['psbt']
+        assert_equal(walletprocesspsbt_out['complete'], False)
+        # check that the blinded change address led to blinded change (and below,
+        # when we call `walletprocesspsbt` with nodes[2], it will make sure that
+        # node 2 is able to unblind this change, even though wmulti created it).
+        # Notice that if `confidential` is False, the change is not blinded. This
+        # is a quirk of the wallet.cpp blinding logic and will go away when we
+        # overhaul this.
+        assert_equal(
+            outputs_info(self.nodes[1].decodepsbt(psbtx)["outputs"]),
+            {
+                (unconf_addr, confidential, False),
+                (unconf_change_addr, confidential, False),
+                ("", False, False), # fee
+            },
+        )
 
         # Unload wmulti, we don't need it anymore
         wmulti.unloadwallet()
