@@ -257,17 +257,23 @@ assert all([x["has_utxo"] for x in analysis["inputs"]])
 assert not any([x["is_final"] for x in analysis["inputs"]])
 assert all([x["next"] == "signer" for x in analysis["inputs"]])
 
-## 3. Blind the PSET
+## 4. Blind the PSET
 #
 # Both parties now blind the PSET. Importantly, the final person to blind must
 # have a combined PSET that has everyone else's blinding data included, so that
 # they can make the blinding factors add up.
 #
-# In the 2-party case this is particularly simple because there is no need to
-# combine anything.
+# The most straightforward way to implement this is to have each party blind
+# the PSET, then pass to the next party, who blinds in-turn. If there are more
+# than 2 parties, then you can have all parties but one blind independently,
+# `combinepsbt` the results, and give this to the final party to blind.
+#
+# In the two-party case these are equivalent.
 #
 
-# Just for fun, try to have both parties blind independently and combine
+# Just for fun, try to have both parties blind independently and combine. This
+# will fail because `combinepsbt` needs there to be at least one remaining
+# unblinded output.
 alice_blinded = alice.walletprocesspsbt(filled_pset)
 carol_blinded = carol.walletprocesspsbt(filled_pset)
 try:
@@ -278,7 +284,7 @@ else:
     raise Exception("combinepsbt should return 'Cannot combine PSETs as the values and blinders would become imbalanced'")
 
 # Ok, back to the tutorial
-print ("3. One party blinds the PSET and passes to the other party, who also blinds")
+print ("4. One party blinds the PSET and passes to the other party, who also blinds")
 # We set sign=False here, because otherwise carol's `walletprocesspsbt`
 # will sign the transaction (since after she does her blinding, the
 # transaction will be completely blinded and therefore signable).
@@ -300,7 +306,7 @@ assert all([x["has_utxo"] for x in analysis["inputs"]])
 assert not any([x["is_final"] for x in analysis["inputs"]])
 assert all([x["next"] == "signer" for x in analysis["inputs"]])
 
-## 4. Sign the PSET
+## 5. Sign the PSET
 #
 # When signing, there are a couple options for workflows. Each party can sign
 # in turn, like we did when blinding, or they can each sign independently and
@@ -308,7 +314,7 @@ assert all([x["next"] == "signer" for x in analysis["inputs"]])
 # demonstration purposes.
 #
 
-print ("4. Both parties sign the PSET")
+print ("5. Both parties sign the PSET")
 
 alice_signed = alice.walletprocesspsbt(blinded["psbt"])
 carol_signed = carol.walletprocesspsbt(blinded["psbt"])
@@ -324,7 +330,7 @@ assert all([x["has_utxo"] for x in analysis["inputs"]])
 assert all([x["is_final"] for x in analysis["inputs"]])
 assert all([x["next"] == "extractor" for x in analysis["inputs"]])
 
-print ("5. Finalize and Extract")
+print ("6. Finalize and Extract")
 x = alice.finalizepsbt(complete, True)
 assert x["complete"]
 # The complete transaction is in x["hex"] but again we won't print it because
