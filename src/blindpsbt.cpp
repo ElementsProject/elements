@@ -311,8 +311,17 @@ bool ComputeAndAddToScalarOffset(uint256& a, CAmount value, const uint256& asset
     if (a.IsNull()) {
         a = scalar;
     } else {
-        // If we have a, then add the scalar to it.
-        if (secp256k1_ec_privkey_tweak_add(secp256k1_blind_context, a.begin(), scalar.begin()) != 1) return false;
+        uint256 scalar_negated = scalar;
+        if (secp256k1_ec_seckey_negate(secp256k1_blind_context, scalar_negated.begin()) != 1) {
+            return false;
+        }
+        // Special-case zero, which would otherwise cause `secp256k1_ec_privkey_tweak_add` to fail
+        if (scalar_negated == a) {
+            a = uint256{};
+        } else {
+            // If we have a, then add the scalar to it.
+            if (secp256k1_ec_privkey_tweak_add(secp256k1_blind_context, a.begin(), scalar.begin()) != 1) return false;
+        }
     }
     return true;
 }
