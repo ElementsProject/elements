@@ -805,6 +805,7 @@ class PSBTTest(BitcoinTestFramework):
         assert_raises_rpc_error(-8, "PSBTs not compatible (different transactions)", self.nodes[0].combinepsbt, [BAD_VALUE_PROOF, BAD_ASSET_PROOF])
         for bad_pset in [ NO_VALUE_PROOF, BAD_VALUE_PROOF, NO_ASSET_PROOF, BAD_ASSET_PROOF ]:
             assert_raises_rpc_error(-8, "PSBTs not compatible (different transactions)", self.nodes[0].combinepsbt, [UNBLINDED, bad_pset])
+            assert_raises_rpc_error(-8, "PSBTs not compatible (different transactions)", self.nodes[0].combinepsbt, [ONLY_BLIND, bad_pset])
             assert_raises_rpc_error(-8, "PSBTs not compatible (different transactions)", self.nodes[0].combinepsbt, [BLINDED, bad_pset])
 
     def run_test(self):

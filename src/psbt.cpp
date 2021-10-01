@@ -138,6 +138,7 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx(bool force_unblind
         txout.scriptPubKey = *output.script;
 
         bool exp_value = output.m_value_commitment.IsNull() || force_unblinded;
+        exp_value = exp_value && output.amount != nullopt;
         if (!output.m_value_commitment.IsNull() && output.amount != nullopt) {
             exp_value = exp_value && !output.m_blind_value_proof.empty();
             exp_value = exp_value && !output.m_asset_commitment.IsNull();
@@ -151,6 +152,7 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx(bool force_unblind
         }
 
         bool exp_asset = output.m_asset_commitment.IsNull() || force_unblinded;
+        exp_asset = exp_asset && !output.m_asset.IsNull();
         if (!output.m_asset_commitment.IsNull() && !output.m_asset.IsNull()) {
             exp_asset = exp_asset && !output.m_blind_asset_proof.empty();
             exp_asset = exp_asset && !output.m_asset.IsNull();
