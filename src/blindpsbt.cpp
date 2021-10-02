@@ -66,7 +66,7 @@ bool CreateAssetSurjectionProof(std::vector<unsigned char>& output_proof, const 
     return true;
 }
 
-static bool VerifyBlindAssetProof(const uint256& asset, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
+bool VerifyBlindAssetProof(const uint256& asset, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
 {
     secp256k1_surjectionproof surj_proof;
     if (secp256k1_surjectionproof_parse(secp256k1_blind_context, &surj_proof, proof.data(), proof.size()) == 0) {
@@ -173,7 +173,7 @@ static bool CreateBlindAssetProof(std::vector<unsigned char>& assetproof, const 
     return true;
 }
 
-static bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
+bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
 {
     secp256k1_pedersen_commitment value_commit;
     if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.vchCommitment.data()) == 0) {
