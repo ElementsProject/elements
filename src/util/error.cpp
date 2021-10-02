@@ -45,6 +45,10 @@ bilingual_str TransactionErrorString(const TransactionError err)
             return Untranslated("Proof of blinded value is invalid");
         case TransactionError::INVALID_ASSET_PROOF:
             return Untranslated("Proof of blinded asset is invalid");
+        case TransactionError::MISSING_BLINDING_KEY:
+            return Untranslated("Wallet does not have necessary blinding key");
+        case TransactionError::MISSING_SIDECHANNEL_DATA:
+            return Untranslated("A rangeproof did not encode necessary blinding data");
         // no default case, so the compiler can warn about missing cases
     }
     assert(false);

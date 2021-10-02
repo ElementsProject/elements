@@ -7,6 +7,7 @@
 #include <interfaces/chain.h>
 #include <issuance.h> // ELEMENTS: for GenerateAssetEntropy and others
 #include <policy/policy.h>
+#include <rpc/util.h>  // for GetDestinationBlindingKey and IsBlindDestination
 #include <util/check.h>
 #include <util/fees.h>
 #include <util/moneystr.h>
@@ -765,6 +766,8 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
         // We need to make sure to dupe an asset that is in input set
         //TODO Have blinding do some extremely minimal rangeproof
         CTxOut newTxOut(det->o_assets.back(), 0, CScript() << OP_RETURN);
+        CPubKey blind_pub = wallet->GetBlindingPubKey(newTxOut.scriptPubKey); // irrelevent, just needs to be non-null
+        newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
         txNew.vout.push_back(newTxOut);
         det->o_pubkeys.push_back(wallet->GetBlindingPubKey(newTxOut.scriptPubKey));
         det->o_amount_blinds.push_back(uint256());
@@ -878,12 +881,20 @@ bool CWallet::CreateTransactionInternal(
     // ELEMENTS: A map that keeps track of the change script for each asset and also
     // the index of the reservedest used for that script (-1 if none).
     std::map<CAsset, std::pair<int, CScript>> mapScriptChange;
+    // For manually set change, we need to use the blinding pubkey associated
+    // with the manually-set address rather than generating one from the wallet
+    std::map<CAsset, std::optional<CPubKey> > mapBlindingKeyChange;
 
     // coin control: send change to custom address
     if (coin_control.destChange.size() > 0) {
         for (const auto& dest : coin_control.destChange) {
             // No need to test we cover all assets.  We produce error for that later.
             mapScriptChange[dest.first] = std::pair<int, CScript>(-1, GetScriptForDestination(dest.second));
+            if (IsBlindDestination(dest.second)) {
+                mapBlindingKeyChange[dest.first] = GetDestinationBlindingKey(dest.second);
+            } else {
+                mapBlindingKeyChange[dest.first] = std::nullopt;
+            }
         }
     } else { // no coin control: send change to newly generated address
         // Note: We use a new key here to keep it from being obvious which side is the change.
@@ -1138,19 +1149,34 @@ bool CWallet::CreateTransactionInternal(
         CTxOut newTxOut(asset, change_and_fee, itScript->second.second);
 
         if (blind_details) {
+            std::optional<CPubKey> blind_pub = std::nullopt;
+            // We cannot blind zero-valued outputs, and anyway they will be dropped
+            // later in this function during the dust check
             if (change_and_fee > 0) {
-                CPubKey blind_pub = GetBlindingPubKey(itScript->second.second);
-                blind_details->o_pubkeys.insert(blind_details->o_pubkeys.begin() + i, blind_pub);
-                assert(blind_pub.IsFullyValid());
+                const auto itBlindingKey = mapBlindingKeyChange.find(asset);
+                if (itBlindingKey != mapBlindingKeyChange.end()) {
+                    // If the change output was specified, use the blinding key that
+                    // came with the specified address (if any)
+                    blind_pub = itBlindingKey->second;
+                } else {
+                    // Otherwise, we generated it from our own wallet, so get the
+                    // blinding key from our own wallet.
+                    blind_pub = GetBlindingPubKey(itScript->second.second);
+                }
+            } else {
+                assert(asset == policyAsset);
+            }
+
+            if (blind_pub) {
+                blind_details->o_pubkeys.insert(blind_details->o_pubkeys.begin() + i, *blind_pub);
+                assert(blind_pub->IsFullyValid());
+
                 blind_details->num_to_blind++;
                 blind_details->change_to_blind++;
                 blind_details->only_change_pos = i;
                 // Place the blinding pubkey here in case of fundraw calls
-                newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
+                newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub->begin(), blind_pub->end());
             } else {
-                // We cannot blind zero-valued outputs, and anyway they will be dropped
-                // later in this function during the dust check
-                assert(asset == policyAsset);
                 blind_details->o_pubkeys.insert(blind_details->o_pubkeys.begin() + i, CPubKey());
             }
         }

@@ -1963,7 +1963,7 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
 
                         CConfidentialNonce nonce;
                         nonce.vchCommitment.insert(nonce.vchCommitment.end(), o.m_ecdh_pubkey.begin(), o.m_ecdh_pubkey.end());
-                        if (!UnblindConfidentialPair(blinding_key, o.m_value_commitment, o.m_asset_commitment, nonce, *o.script, o.m_value_rangeproof, value, value_factor, asset, asset_factor)) {
+                        if (UnblindConfidentialPair(blinding_key, o.m_value_commitment, o.m_asset_commitment, nonce, *o.script, o.m_value_rangeproof, value, value_factor, asset, asset_factor)) {
                             // These assertions are cryptographically impossible to trigger, as we
                             // checked the proofs above, and then `UnblindConfidentialPair` checks
                             // the extracted value/asset against the commitments.
@@ -1973,10 +1973,11 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
                             if (!o.m_asset.IsNull()) {
                                 assert(CAsset(o.m_asset) == asset);
                             }
-                            return TransactionError::INVALID_ASSET_PROOF; // FIXME
+                        } else {
+                            return TransactionError::MISSING_SIDECHANNEL_DATA;
                         }
                     } else {
-                        return TransactionError::INVALID_ASSET_PROOF; // FIXME
+                        return TransactionError::MISSING_BLINDING_KEY;
                     }
                 }
             }

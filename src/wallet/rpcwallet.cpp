@@ -5025,8 +5025,16 @@ static RPCHelpMan walletcreatefundedpsbt()
     // Automatically select coins, unless at least one is manually selected. Can
     // be overridden by options.add_inputs.
     coin_control.m_add_inputs = rawTx.vin.size() == 0;
+    // FundTransaction expects blinding keys, if present, to appear in the output nonces
+    for (CTxOut& txout : rawTx.vout) {
+        auto search_it = psbt_outs.find(txout);
+        assert (search_it != psbt_outs.end());
+        CPubKey& blind_pub = search_it->second.m_blinding_pubkey;
+        if (blind_pub.IsFullyValid()) {
+            txout.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
+        }
+    }
     FundTransaction(wallet, rawTx, fee, change_position, request.params[3], coin_control, /* solving_data */ request.params[5], /* override_min_fee */ true);
-    PartiallySignedTransaction psbtx(rawTx, psbt_version);
     // Find an input that is ours
     unsigned int blinder_index = 0;
     {
@@ -5039,6 +5047,17 @@ static RPCHelpMan walletcreatefundedpsbt()
         }
     }
     assert(blinder_index < rawTx.vin.size()); // We added inputs, or existing inputs are ours, we should have a blinder index at this point.
+    // It may add outputs (change, and in some edge case OP_RETURN) which need to be
+    // blinded. So pull these into `psbt_outs`.
+    for (const CTxOut& txout : rawTx.vout) {
+        if (!txout.nNonce.IsNull() && !psbt_outs.count(txout)) {
+            PSBTOutput new_out{2}; // psbtv2 output
+            new_out.m_blinding_pubkey.Set(txout.nNonce.vchCommitment.begin(), txout.nNonce.vchCommitment.end());
+            new_out.m_blinder_index = blinder_index;
+            psbt_outs.insert(std::make_pair(txout, new_out));
+        }
+    }
+    PartiallySignedTransaction psbtx(rawTx, psbt_version);
     for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
         PSBTOutput& output = psbtx.outputs[i];
         auto it = psbt_outs.find(rawTx.vout.at(i));
