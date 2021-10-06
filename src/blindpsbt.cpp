@@ -66,7 +66,7 @@ bool CreateAssetSurjectionProof(std::vector<unsigned char>& output_proof, const 
     return true;
 }
 
-static bool VerifyBlindAssetProof(const uint256& asset, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
+bool VerifyBlindAssetProof(const uint256& asset, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
 {
     secp256k1_surjectionproof surj_proof;
     if (secp256k1_surjectionproof_parse(secp256k1_blind_context, &surj_proof, proof.data(), proof.size()) == 0) {
@@ -173,7 +173,7 @@ static bool CreateBlindAssetProof(std::vector<unsigned char>& assetproof, const 
     return true;
 }
 
-static bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
+bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
 {
     secp256k1_pedersen_commitment value_commit;
     if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.vchCommitment.data()) == 0) {
@@ -263,6 +263,7 @@ bool SubtractScalars(uint256& a, const uint256& b)
 
 // Compute the scalar offset used for the final blinder computation
 // value * asset_blinder + value_blinder
+// FIXME this method should be in libsecp, as should `ComputeAndAddToScalarOffset`
 bool CalculateScalarOffset(uint256& out, CAmount value, const uint256& asset_blinder, const uint256& value_blinder)
 {
     // If the asset_blinder is 0, then the equation resolves to just the value_blinder
@@ -276,8 +277,24 @@ bool CalculateScalarOffset(uint256& out, CAmount value, const uint256& asset_bli
     // tweak_mul expects a 32 byte, big endian tweak.
     // We need to pack the 8 byte CAmount into a uint256 with the correct padding, so start it at 24 bytes from the front
     WriteBE64(val.begin() + 24, value);
-    if (secp256k1_ec_privkey_tweak_mul(secp256k1_blind_context, out.begin(), val.begin()) != 1) return false;
-    if (!value_blinder.IsNull() && secp256k1_ec_privkey_tweak_add(secp256k1_blind_context, out.begin(), value_blinder.begin()) != 1) return false;
+    if (value > 0) {
+        if (secp256k1_ec_privkey_tweak_mul(secp256k1_blind_context, out.begin(), val.begin()) != 1) return false;
+    } else {
+        out = value_blinder;
+        return true;
+    }
+    if (!value_blinder.IsNull()) {
+        uint256 value_negated = value_blinder;
+        if (secp256k1_ec_seckey_negate(secp256k1_blind_context, value_negated.begin()) != 1) {
+            return false;
+        }
+        // Special-case zero, which would otherwise cause `secp256k1_ec_privkey_tweak_add` to fail
+        if (value_negated == out) {
+            out = uint256{};
+            return true;
+        }
+        if (secp256k1_ec_privkey_tweak_add(secp256k1_blind_context, out.begin(), value_blinder.begin()) != 1) return false;
+    }
     return true;
 }
 
@@ -294,8 +311,17 @@ bool ComputeAndAddToScalarOffset(uint256& a, CAmount value, const uint256& asset
     if (a.IsNull()) {
         a = scalar;
     } else {
-        // If we have a, then add the scalar to it.
-        if (secp256k1_ec_privkey_tweak_add(secp256k1_blind_context, a.begin(), scalar.begin()) != 1) return false;
+        uint256 scalar_negated = scalar;
+        if (secp256k1_ec_seckey_negate(secp256k1_blind_context, scalar_negated.begin()) != 1) {
+            return false;
+        }
+        // Special-case zero, which would otherwise cause `secp256k1_ec_privkey_tweak_add` to fail
+        if (scalar_negated == a) {
+            a = uint256{};
+        } else {
+            // If we have a, then add the scalar to it.
+            if (secp256k1_ec_privkey_tweak_add(secp256k1_blind_context, a.begin(), scalar.begin()) != 1) return false;
+        }
     }
     return true;
 }
