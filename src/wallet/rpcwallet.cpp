@@ -791,7 +791,7 @@ static RPCHelpMan getreceivedbyaddress()
                     {
                         {RPCResult::Type::ELISION, "", "the amount for each asset"},
                     }},
-		    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
+                    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
                     RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{
@@ -840,7 +840,7 @@ static RPCHelpMan getreceivedbylabel()
                     {
                         {RPCResult::Type::ELISION, "", "the amount for each asset"},
                     }},
-		    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
+                    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
                     RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{
@@ -893,7 +893,7 @@ static RPCHelpMan getbalance()
                     {
                         {RPCResult::Type::ELISION, "", "the amount for each asset"},
                     }},
-		    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
+                    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
                     RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{
@@ -955,7 +955,7 @@ static RPCHelpMan getunconfirmedbalance()
                     {
                         {RPCResult::Type::ELISION, "", "the amount for each asset"},
                     }},
-		    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
+                    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
                     RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{""},
@@ -1018,8 +1018,8 @@ static RPCHelpMan sendmany()
                     },
                     RPCResult{"if verbose is set to true",
                         RPCResult::Type::OBJ, "", "",
-			{
-				{RPCResult::Type::STR_HEX, "txid", "The transaction id for the send. Only 1 transaction is created regardless of\n"
+                        {
+                                {RPCResult::Type::STR_HEX, "txid", "The transaction id for the send. Only 1 transaction is created regardless of\n"
                 "the number of addresses."},
                             {RPCResult::Type::STR, "fee reason", "The transaction fee reason."}
                         },
