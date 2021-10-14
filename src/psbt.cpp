@@ -434,7 +434,7 @@ bool PSBTInput::Merge(const PSBTInput& input)
     }
     if (m_issuance_rangeproof.empty() && !input.m_issuance_rangeproof.empty()) m_issuance_rangeproof = input.m_issuance_rangeproof;
     if (m_issuance_inflation_keys_rangeproof.empty() && !input.m_issuance_inflation_keys_rangeproof.empty()) m_issuance_inflation_keys_rangeproof = input.m_issuance_inflation_keys_rangeproof;
-    if (m_issuance_inflation_keys_amount == std::nullopt && m_issuance_inflation_keys_commitment.IsNull() && input.m_issuance_inflation_keys_amount != std::nullopt) m_issuance_inflation_keys_amount = m_issuance_inflation_keys_amount;
+    if (m_issuance_inflation_keys_amount == std::nullopt && m_issuance_inflation_keys_commitment.IsNull() && input.m_issuance_inflation_keys_amount != std::nullopt) m_issuance_inflation_keys_amount = input.m_issuance_inflation_keys_amount;
     if (m_issuance_inflation_keys_commitment.IsNull() && !input.m_issuance_inflation_keys_commitment.IsNull()) {
         m_issuance_inflation_keys_commitment = input.m_issuance_inflation_keys_commitment;
         m_issuance_inflation_keys_amount.reset();
