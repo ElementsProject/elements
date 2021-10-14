@@ -18,7 +18,7 @@ bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consens
         const DynaFedParamEntry& proposal = p_epoch_walk->dynafed_params.m_proposed;
         const uint256 proposal_root = proposal.CalculateRoot();
         vote_tally[proposal_root]++;
-        // Short-circuit once 4/5 threshhold is reached
+        // Short-circuit once 4/5 threshold is reached
         if (!proposal_root.IsNull() && vote_tally[proposal_root] >=
                 (consensus.dynamic_epoch_length*4)/5) {
             winning_entry = proposal;

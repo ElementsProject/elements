@@ -14,7 +14,7 @@ That is for other tests such as feature_pak, feature_fedpeg, feature_blocksign
 5) Test full epoch with just at 4/5 votes, with competing random proposals
 6) Test full epoch with 5/5 votes
 7) Test that peg-outs(PAK) and peg-ins are ejected from mempool block before transition
-and rejected when re-submitted if there is a parameter mis-match
+and rejected when re-submitted if there is a parameter mismatch
 8) Test that reorging a transition results in transitions being undone,
 previously ejected transactions are allowed back into the mempool when appropriate
 

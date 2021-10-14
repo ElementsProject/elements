@@ -1053,7 +1053,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.nodes[0].generate(10)
 
         # ...and try to send them all in one transaction
-        # This should fail but we should not see an assertation failure.
+        # This should fail but we should not see an assertion failure.
         rawtx = recipient.createrawtransaction([], [{wallet.getnewaddress(): 49.99}])
         assert_raises_rpc_error(-4, "Unable to blind the transaction properly. This should not happen.", recipient.fundrawtransaction, rawtx)
 

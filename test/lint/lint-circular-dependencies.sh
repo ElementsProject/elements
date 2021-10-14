@@ -28,6 +28,13 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     # split up in a MOVEONLY commit. These are removed in #21206.
     "wallet/receive -> wallet/wallet -> wallet/receive"
     "wallet/spend -> wallet/wallet -> wallet/spend"
+    # ELEMENTS: will be fixed by blinding cleanup
+    "blindpsbt -> psbt -> blindpsbt"
+    # ELEMENTS: not so easy to fix, caused by us doing asset ID lookups in the
+    # wallet, from coin selection, to decide whether we are looking at a
+    # multi-asset transaction or not. Probably this check should be done in
+    # CreateTransaction instead.
+    "wallet/coinselection -> wallet/wallet -> wallet/coinselection"
 )
 
 EXIT_CODE=0

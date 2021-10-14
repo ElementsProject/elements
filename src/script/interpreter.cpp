@@ -1839,7 +1839,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     auto inps = checker.GetTxvIn();
                     const PrecomputedTransactionData *cache = checker.GetPrecomputedTransactionData();
                     // Return error if the evaluation context is unavailable
-                    // TODO: Handle accoding to MissingDataBehavior
+                    // TODO: Handle according to MissingDataBehavior
                     if (!inps || !cache || !cache->m_bip341_taproot_ready)
                         return set_error(serror, SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE);
                     const std::vector<CTxOut>& spent_outputs = cache->m_spent_outputs;
@@ -1911,7 +1911,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
 
                     // Even tough this value should never 2^25(MAX_SIZE), this can set to any value in exotic custom contexts
                     // safe to check that this in 4 byte positive number before pushing it
-                    // TODO: Handle accoding to MissingDataBehavior
+                    // TODO: Handle according to MissingDataBehavior
                     if (checker.GetnIn() > MAX_SIZE)
                         return set_error(serror, SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE);
                     stack.push_back(CScriptNum(static_cast<int64_t>(checker.GetnIn())).getvch());
@@ -1935,7 +1935,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     auto outs = checker.GetTxvOut();
                     const PrecomputedTransactionData *cache = checker.GetPrecomputedTransactionData();
                     // Return error if the evaluation context is unavailable
-                    // TODO: Handle accoding to MissingDataBehavior
+                    // TODO: Handle according to MissingDataBehavior
                     if (!outs || !cache || !cache->m_bip341_taproot_ready)
                         return set_error(serror, SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE);
                     assert(cache->m_output_spk_single_hashes.size() == outs->size());
@@ -2022,7 +2022,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                         {
                             const PrecomputedTransactionData *cache = checker.GetPrecomputedTransactionData();
                             // Return error if the evaluation context is unavailable
-                            // TODO: Handle accoding to MissingDataBehavior
+                            // TODO: Handle according to MissingDataBehavior
                             if (!cache || !cache->m_bip341_taproot_ready)
                                 return set_error(serror, SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE);
                             push8_le(stack, cache->m_tx_weight);
@@ -2497,7 +2497,7 @@ std::vector<uint256> GetSpentScriptPubKeysSHA256(const std::vector<CTxOut>& outp
     std::vector<uint256> spent_spk_single_hashes;
     spent_spk_single_hashes.reserve(outputs_spent.size());
     for (const auto& txout : outputs_spent) {
-        // Normal serialization using the << operater would also serialize the length, therefore we directly write using CSHA256
+        // Normal serialization using the << operator would also serialize the length, therefore we directly write using CSHA256
         uint256 spent_spk_single_hash;
         CSHA256().Write(txout.scriptPubKey.data(), txout.scriptPubKey.size()).Finalize(spent_spk_single_hash.data());
         spent_spk_single_hashes.push_back(std::move(spent_spk_single_hash));
@@ -2512,7 +2512,7 @@ std::vector<uint256> GetOutputScriptPubKeysSHA256(const T& txTo)
     std::vector<uint256> out_spk_single_hashes;
     out_spk_single_hashes.reserve(txTo.vout.size());
     for (const auto& txout : txTo.vout) {
-        // Normal serialization using the << operater would also serialize the length, therefore we directly write using CSHA256
+        // Normal serialization using the << operator would also serialize the length, therefore we directly write using CSHA256
         uint256 out_spk_single_hash;
         CSHA256().Write(txout.scriptPubKey.data(), txout.scriptPubKey.size()).Finalize(out_spk_single_hash.data());
         out_spk_single_hashes.push_back(std::move(out_spk_single_hash));

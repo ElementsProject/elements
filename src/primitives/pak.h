@@ -7,7 +7,6 @@
 
 #include <script/script.h>
 #include <secp256k1/include/secp256k1_whitelist.h>
-#include <boost/optional.hpp>
 #include <chain.h>
 
 class CPAKList

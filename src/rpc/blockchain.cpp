@@ -895,7 +895,7 @@ static RPCHelpMan getblockheader()
                                         {RPCResult::Type::ELISION, "", ""}
                                     }}
                                 }},
-                                {RPCResult::Type::OBJ, "proposed", "Proposed paramaters. Uninforced. Must be published in full",
+                                {RPCResult::Type::OBJ, "proposed", "Proposed parameters. Uninforced. Must be published in full",
                                 {
                                     {RPCResult::Type::ELISION, "", "same entries as current"}
                                 }},
@@ -1023,7 +1023,7 @@ static RPCHelpMan getblock()
                                 {RPCResult::Type::ELISION, "", ""}
                             }},
                         }},
-                        {RPCResult::Type::OBJ, "proposed", "Proposed paramaters. Uninforced. Must be published in full",
+                        {RPCResult::Type::OBJ, "proposed", "Proposed parameters. Uninforced. Must be published in full",
                         {
                             {RPCResult::Type::ELISION, "", "same entries as current"}
                         }},

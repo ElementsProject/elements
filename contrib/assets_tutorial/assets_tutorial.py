@@ -85,7 +85,7 @@ e2.connect_to(e1)
 #     already exist.
 print ("1c. Creating wallets on all daemons")
 
-# We have configured this regtest chain to start with 21M bitcoins, which are initally
+# We have configured this regtest chain to start with 21M bitcoins, which are initially
 # in a single OP_TRUE output. All Elements wallets recognize OP_TRUE outputs as their
 # own (this differs from Bitcoin), so the 21M bitcoins are immediately available for
 # use. This can be disabled by setting `anyonecanspend_aremine=0` in the daemon config.

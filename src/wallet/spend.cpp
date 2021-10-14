@@ -586,7 +586,7 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
 
     // We will have to do coin selection on the difference between the target and the provided values.
     // If value_to_select <= 0 for all asset types, we are done; but unlike in Bitcoin, this may be
-    // true for some assets whlie being false for others. So clear all the "completed" assets out
+    // true for some assets while being false for others. So clear all the "completed" assets out
     // of value_to_select before calling AttemptSelection.
     for (CAmountMap::const_iterator it = value_to_select.begin(); it != value_to_select.end();) {
         if (it->second <= 0) {
@@ -766,7 +766,7 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
         // We need to make sure to dupe an asset that is in input set
         //TODO Have blinding do some extremely minimal rangeproof
         CTxOut newTxOut(det->o_assets.back(), 0, CScript() << OP_RETURN);
-        CPubKey blind_pub = wallet->GetBlindingPubKey(newTxOut.scriptPubKey); // irrelevent, just needs to be non-null
+        CPubKey blind_pub = wallet->GetBlindingPubKey(newTxOut.scriptPubKey); // irrelevant, just needs to be non-null
         newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
         txNew.vout.push_back(newTxOut);
         det->o_pubkeys.push_back(wallet->GetBlindingPubKey(newTxOut.scriptPubKey));
@@ -917,7 +917,7 @@ bool CWallet::CreateTransactionInternal(
                 }
                 error = strprintf(_("Transaction needs a change address, but we can't generate it. %s"), dest_err);
                 // ELEMENTS: We need to put a dummy destination here. Core uses an empty script
-                //  but we can't because empty scripts indicate fees (which trigger assertation
+                //  but we can't because empty scripts indicate fees (which trigger assertion
                 //  failures in `BlindTransaction`). We also set the index to -1, indicating
                 //  that this destination is not actually used, and therefore should not be
                 //  returned by the `ReturnDestination` loop below.

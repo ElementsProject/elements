@@ -53,7 +53,7 @@ macOS comes with a built-in Terminal located in:
 ### 1. Xcode Command Line Tools
 
 The Xcode Command Line Tools are a collection of build tools for macOS.
-These tools must be installed in order to build Elemens Core from source.
+These tools must be installed in order to build Elements Core from source.
 
 To install, run the following command from your terminal:
 

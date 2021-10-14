@@ -1276,7 +1276,7 @@ static RPCHelpMan getnewblockhex()
     return RPCHelpMan{"getnewblockhex",
                 "\nGets hex representation of a proposed, unmined new block\n",
                 {
-                    {"min_tx_age", RPCArg::Type::NUM, RPCArg::Default{0}, "How many seconds a transaction must have been in the mempool to be inluded in the block proposal. This may help with faster block convergence among functionaries using compact blocks."},
+                    {"min_tx_age", RPCArg::Type::NUM, RPCArg::Default{0}, "How many seconds a transaction must have been in the mempool to be included in the block proposal. This may help with faster block convergence among functionaries using compact blocks."},
                     {"proposed_parameters", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED , "Parameters to be used in dynamic federations blocks as proposals. During a period of `-dynamic_epoch_length` blocks, 4/5 of total blocks must signal these parameters for the proposal to become activated in the next epoch.",
                         {
                             {"signblockscript", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex-encoded block signing script to propose"},

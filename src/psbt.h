@@ -93,7 +93,7 @@ static constexpr uint8_t PSBT_ELEMENTS_OUT_BLINDER_INDEX = 0x08;
 static constexpr uint8_t PSBT_ELEMENTS_OUT_BLIND_VALUE_PROOF = 0x09;
 static constexpr uint8_t PSBT_ELEMENTS_OUT_BLIND_ASSET_PROOF = 0x0a;
 
-// Proprietary type identifer string
+// Proprietary type identifier string
 static const std::vector<unsigned char> PSBT_ELEMENTS_ID = {'p', 's', 'e', 't'};
 
 // The separator is 0x00. Reading this in means that the unserializer can interpret it

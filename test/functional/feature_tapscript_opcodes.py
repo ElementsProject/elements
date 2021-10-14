@@ -261,7 +261,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         self.tapscript_satisfy_test(CScript([OP_1]))
 
         # Test streaming sha256
-        # All preimages upto len 80 can be filled in a single standard witness element
+        # All preimages up to len 80 can be filled in a single standard witness element
         # Testing only random even len for speedup
         self.log.info("Testing streaming SHA256")
         for k in range(0, 81, 2):
@@ -413,7 +413,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         check_add(5, 2**63 - 1, 4, fail="Script failed an OP_VERIFY operation")#overflow
         check_add(-5, -2**63 + 1, -4, fail="Script failed an OP_VERIFY operation")#overflow
 
-        # Substraction
+        # Subtraction
         check_sub(5, 6, -1)
         check_sub(-5, 6, -11)
         check_sub(-5, -5, 0)
@@ -511,7 +511,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         # test that other random values fail correctly
         res = bytes.fromhex("032c0158d0f6df4881e99e65fbea21f27321d817f79ad39e08eaf4f16f1419bb0c")
         scalar = bytes.fromhex("e0f47c124f228b97bbdc0e4398aac9788869b9fbbc193d5323fdad9570609de6")
-        g = bytes.fromhex("0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")# y co-ordinate mutated
+        g = bytes.fromhex("0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")# y coordinate mutated
         self.tapscript_satisfy_test(CScript([OP_ECMULSCALARVERIFY, OP_1]), inputs = [res, g, scalar], fail="Public key is neither compressed or uncompressed")
 
         invalid_full_pks_33 = [

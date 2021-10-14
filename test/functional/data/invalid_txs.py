@@ -265,7 +265,7 @@ def getDisabledOpcodeTemplate(opcode):
         })
 
 # Disabled opcode tx templates (CVE-2010-5137)
-# ELEMENTS: many of these are reenabled
+# ELEMENTS: many of these are re-enabled
 DisabledOpcodeTemplates = [getDisabledOpcodeTemplate(opcode) for opcode in [
 #    OP_CAT,
 #    OP_SUBSTR,

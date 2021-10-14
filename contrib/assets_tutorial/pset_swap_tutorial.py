@@ -13,7 +13,7 @@ from decimal import Decimal
 # ten thousand BTC and Carol has 1000 of a new asset. After the swap, Alice
 # will have the new asset and Carol will have the BTC.
 #
-# This script can be executed in a Python intepreter. The user is encouraged
+# This script can be executed in a Python interpreter. The user is encouraged
 # to add tracing or debugging code throughout to better understand what is
 # going on.
 #

@@ -66,7 +66,7 @@ The currently defined elements global proprietary types are as follows:
 | 2
 |}
 
-The currently defined elements per-input proprietary types are as folows:
+The currently defined elements per-input proprietary types are as follows:
 
 {|
 ! Name
@@ -441,7 +441,7 @@ A single entity is likely to be a Creator, Updater, and Blinder.
 
 ===Signer===
 
-In addition to the BIP 370 PSBT Signer behavior, PSET specifies some addtional constraints.
+In addition to the BIP 370 PSBT Signer behavior, PSET specifies some additional constraints.
 Before signing, the Signer must check whether blinding is complete. If any output contains a blinding pubkey but no commitments or proofs, then it must not sign.
 
 ===Combiner===

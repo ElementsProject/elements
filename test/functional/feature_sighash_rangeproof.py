@@ -263,7 +263,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
             self.assert_tx_standard(tx, True)
             self.assert_tx_valid(tx, True)
 
-        # Ensure that if we then use the old sighash algorith that doesn't hash
+        # Ensure that if we then use the old sighash algorithm that doesn't hash
         # the rangeproofs, the signature is no longer valid.
         for address_type in ADDRESS_TYPES:
             self.log.info("Post-activation invalid sighash for {} address".format(address_type))

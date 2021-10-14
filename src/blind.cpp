@@ -204,7 +204,7 @@ bool SurjectOutput(CTxOutWitness& txoutwit, const std::vector<secp256k1_fixed_as
     //  secp-zkp the complete list of inputs, and if this exceeds 256 then surjectionproof_verify
     //  will always return false, so there is no way to work around this situation at signing time
     if (surjection_targets.size() > SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS) {
-        // We must return false here to avoid triggering an assertation within
+        // We must return false here to avoid triggering an assertion within
         // secp256k1_surjectionproof_initialize on the next line.
         return false;
     }

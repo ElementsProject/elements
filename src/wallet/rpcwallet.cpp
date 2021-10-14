@@ -5028,7 +5028,7 @@ static RPCHelpMan walletcreatefundedpsbt()
     // FundTransaction expects blinding keys, if present, to appear in the output nonces
     for (CTxOut& txout : rawTx.vout) {
         auto search_it = psbt_outs.find(txout);
-        assert (search_it != psbt_outs.end());
+        CHECK_NONFATAL (search_it != psbt_outs.end());
         CPubKey& blind_pub = search_it->second.m_blinding_pubkey;
         if (blind_pub.IsFullyValid()) {
             txout.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
@@ -5046,7 +5046,7 @@ static RPCHelpMan walletcreatefundedpsbt()
             }
         }
     }
-    assert(blinder_index < rawTx.vin.size()); // We added inputs, or existing inputs are ours, we should have a blinder index at this point.
+    CHECK_NONFATAL (blinder_index < rawTx.vin.size()); // We added inputs, or existing inputs are ours, we should have a blinder index at this point.
     // It may add outputs (change, and in some edge case OP_RETURN) which need to be
     // blinded. So pull these into `psbt_outs`.
     for (const CTxOut& txout : rawTx.vout) {
