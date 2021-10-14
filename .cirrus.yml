@@ -52,7 +52,7 @@ depends_sdk_cache_template: &DEPENDS_SDK_CACHE_TEMPLATE
 compute_credits_template: &CREDITS_TEMPLATE
   # https://cirrus-ci.org/pricing/#compute-credits
   # Only use credits for pull requests to the main repo
-  use_compute_credits: $CIRRUS_REPO_FULL_NAME == 'bitcoin/bitcoin' && $CIRRUS_PR != ""
+  use_compute_credits: $CIRRUS_REPO_FULL_NAME == 'ElementsProject/elements' && $CIRRUS_PR != ""
 
 #task:
 #  name: "Windows"
