@@ -12,7 +12,6 @@ Test the following RPCs:
    - getrawtransaction
 """
 
-from collections import OrderedDict
 from decimal import Decimal
 
 from test_framework.blocktools import COINBASE_MATURITY

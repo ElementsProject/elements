@@ -6,7 +6,7 @@ import argparse
 import sys
 from decimal import Decimal
 
-## 0. Boilerplate to make the tutorial executable as a script
+# 0. Boilerplate to make the tutorial executable as a script
 #
 # Skip ahead to step 1 if you are reading
 #
@@ -44,7 +44,7 @@ e2 = Daemon(
     not args.no_cleanup,
 )
 
-## 1. Start nodes
+# 1. Start nodes
 print ("1. Start nodes")
 #
 # 1a. Confirm that we not start an elements node if validatepegin is set and there
@@ -132,7 +132,7 @@ sync_all([e1, e2])
 assert e1.getblockcount() == 10
 assert e1.getbestblockhash() == e2.getbestblockhash()
 
-## 2. Basic wallet usage
+# 2. Basic wallet usage
 print ("")
 print ("2. Basic wallet usage")
 
@@ -225,7 +225,7 @@ except JSONRPCException:
 else:
     raise Exception("Transaction 3 should not be in wallet 1")
 
-## 3. Confidential assets and keys
+# 3. Confidential assets and keys
 print ("")
 print ("3. Confidential Keys")
 current_e1_balance = e1.getbalance()
@@ -264,7 +264,7 @@ e1.sendtoaddress(e2.getnewaddress(), e1.getbalance()['bitcoin'] / 2, "", "", Tru
 e1.generatetoaddress(1, e1.getnewaddress())
 sync_all([e1, e2])
 
-## 4. 2-of-2 multisig
+# 4. 2-of-2 multisig
 #
 # Let's build a blinded 2-of-2 multisig p2sh address
 print ("")
@@ -303,7 +303,7 @@ e2.importblindingkey(blinded_addr, blindingkey)
 assert e1.gettransaction(txid, True)['details'] != []
 assert e2.gettransaction(txid, True)['details'] != []
 
-## 5. Multi-asset support
+# 5. Multi-asset support
 #
 # Many of the RPC calls have added asset type or label arguments, and reveal
 # alternative asset information. With no argument all are listed. For example,
@@ -338,7 +338,6 @@ assert len(new_issuances) == 1
 assert new_issuances[0]['assetamount'] == 1
 assert new_issuances[0]['tokenamount'] == 1
 
-assert len(e2.listissuances()) == 1 ## ANDREW
 print ("5b. Reissue the asset using the reissuance token.")
 # If you gave `issueasset` a reissuance token argument greater than 0
 # you can also reissue the base asset. This will appear as a second issuance
@@ -449,7 +448,7 @@ sync_all([e1, e2])
 e1.generatetoaddress(1, e1.getnewaddress())
 sync_all([e1, e2])
 
-## 6. Blocksigning
+# 6. Blocksigning
 #
 # Up to now, we have been generating blocks to the default OP_TRUE script. Let's
 # make this script more interesting. We'll use a 2-of-2 multisig made from keys
@@ -561,7 +560,7 @@ sync_all([e1, e2])
 assert e1.getblockcount() == 1
 assert e2.getblockcount() == 1
 
-## The peg
+# The peg
 #
 # Everything peg-related can be done inside the Elements daemon directly,
 # except for processing pegouts. This is because processing pegouts involves
@@ -665,7 +664,7 @@ print ("7e. Request pegout")
 e1.sendtomainchain(bitcoin.getnewaddress(), 5)
 
 
-## Exercise(s)
+# Exercise(s)
 #
 # 1. Implement really dumb/unsafe watchmen to allow pegouts for learning purposes.
 #    To custody the coins that users peg in, you need to extract the tweak from

@@ -3,10 +3,8 @@
 from test_framework.authproxy import JSONRPCException
 from test_framework.daemon import Daemon, sync_all
 import argparse
-import sys
-from decimal import Decimal
 
-## PSET Swap Tutorial
+# PSET Swap Tutorial
 #
 # This script demonstrates how to implement an atomic swap, using a single
 # Elements transaction, between two parties, Alice and Carol. Alice has
@@ -18,7 +16,7 @@ from decimal import Decimal
 # going on.
 #
 
-## 0. Boilerplate to make the tutorial executable as a script
+# 0. Boilerplate to make the tutorial executable as a script
 #
 # Skip ahead to step 1 if you are reading
 #
@@ -47,7 +45,7 @@ carol = Daemon(
     not args.no_cleanup,
 )
 
-## 1. Start nodes
+# 1. Start nodes
 print ("1. Start nodes and setup scenario")
 
 # 1a. Turn on both nodes. Disable -validatepegin as we will just swap the
@@ -92,7 +90,7 @@ asset_BTC = alice.dumpassetlabels()["bitcoin"]
 assert len(alice.listunspent()) > 0
 assert len(carol.listunspent()) > 0
 
-## 2. Construct a swap transaction in PSET format
+# 2. Construct a swap transaction in PSET format
 #
 # At this point node `alice` has 10.5MM "bitcoin" and node `carol` has 1000 of
 # a new asset. We want to do an atomic swap: 2500 BTC for 1000 of
@@ -119,7 +117,7 @@ carol_addr = carol.getnewaddress()
 print ("    Alice: ", alice_addr)
 print ("    Carol: ", carol_addr)
 
-# Then they each create and fund (but don't sign!) partial transactions 
+# Then they each create and fund (but don't sign!) partial transactions
 # which simply send the assets to each other.
 print ("2b. Exchange partial transaction data")
 raw_tx_a = alice.createrawtransaction(outputs=[{carol_addr: 2500}])
@@ -148,12 +146,12 @@ for output in decoded_a["vout"]:
 assert feerate > 0.1 # should probably compare against your own feerate
 assert found_my_output
 
-##
-## Check that none of the inputs in the counterparty's transaction actually
-## belong to us. This is the second-most important check (after making sure
-## that your outputs are present :)) and by far the easiest to forget. Do
-## not forget this!!!
-##
+#
+# Check that none of the inputs in the counterparty's transaction actually
+# belong to us. This is the second-most important check (after making sure
+# that your outputs are present :)) and by far the easiest to forget. Do
+# not forget this!!!
+#
 
 # The way we do this check in Python is by making a set of each
 # output the wallet can spend...
@@ -235,7 +233,7 @@ assert not any([x["has_utxo"] for x in analysis["inputs"]])
 assert not any([x["is_final"] for x in analysis["inputs"]])
 assert all([x["next"] == "updater" for x in analysis["inputs"]])
 
-## 3. Update the PSET
+# 3. Update the PSET
 #
 # Before blinding can take place, both parties need to provide UTXO data
 # for their inputs. They can share this data by either updating the PSET
@@ -258,7 +256,7 @@ assert all([x["has_utxo"] for x in analysis["inputs"]])
 assert not any([x["is_final"] for x in analysis["inputs"]])
 assert all([x["next"] == "signer" for x in analysis["inputs"]])
 
-## 4. Blind the PSET
+# 4. Blind the PSET
 #
 # Both parties now blind the PSET. Importantly, the final person to blind must
 # have a combined PSET that has everyone else's blinding data included, so that
@@ -314,7 +312,7 @@ assert all([x["has_utxo"] for x in analysis["inputs"]])
 assert not any([x["is_final"] for x in analysis["inputs"]])
 assert all([x["next"] == "signer" for x in analysis["inputs"]])
 
-## 5. Sign the PSET
+# 5. Sign the PSET
 #
 # When signing, there are a couple options for workflows. Each party can sign
 # in turn, like we did when blinding, or they can each sign independently and

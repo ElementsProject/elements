@@ -8,10 +8,10 @@
 
 from random import randint
 from test_framework.util import BITCOIN_ASSET_BYTES, assert_raises_rpc_error, satoshi_round
-from test_framework.key import ECKey, ECPubKey, compute_xonly_pubkey, generate_privkey, sign_schnorr, tweak_add_privkey, tweak_add_pubkey, verify_schnorr
-from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, CTxOutNonce, CTxOutValue, CTxOutWitness, ser_uint256, sha256, tx_from_hex, uint256_from_str
+from test_framework.key import ECKey, compute_xonly_pubkey, generate_privkey, sign_schnorr
+from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, CTxOutNonce, CTxOutValue, ser_uint256, sha256, tx_from_hex
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.script import CScript, CScriptNum, CScriptOp, OP_0, OP_1, OP_2, OP_3, OP_4, OP_5, OP_6, OP_7, OP_ADD64, OP_AND, OP_CAT, OP_CHECKSIGFROMSTACK, OP_DIV64, OP_DROP, OP_DUP, OP_ECMULSCALARVERIFY, OP_ELSE, OP_EQUAL, OP_EQUALVERIFY, OP_FALSE, OP_FROMALTSTACK, OP_GREATERTHAN64, OP_GREATERTHANOREQUAL64, OP_INSPECTINPUTASSET, OP_INSPECTINPUTISSUANCE, OP_INSPECTINPUTOUTPOINT, OP_INSPECTINPUTSCRIPTPUBKEY, OP_INSPECTINPUTSEQUENCE, OP_INSPECTINPUTVALUE, OP_INSPECTLOCKTIME, OP_INSPECTNUMINPUTS, OP_INSPECTNUMOUTPUTS, OP_INSPECTOUTPUTASSET, OP_INSPECTOUTPUTNONCE, OP_INSPECTOUTPUTSCRIPTPUBKEY, OP_INSPECTOUTPUTVALUE, OP_IF, OP_INSPECTVERSION, OP_LE32TOLE64, OP_LE64TOSCRIPTNUM, OP_LESSTHAN64, OP_LESSTHANOREQUAL64, OP_MUL64, OP_NEG64, OP_NOT, OP_INVERT, OP_NOTIF, OP_OR, OP_PUSHCURRENTINPUTINDEX, OP_SCRIPTNUMTOLE64, OP_SHA256FINALIZE, OP_SHA256INITIALIZE, OP_SHA256UPDATE, OP_SIZE, OP_SUB64, OP_SWAP, OP_TWEAKVERIFY, OP_TOALTSTACK, OP_TXWEIGHT, OP_VERIFY, OP_XOR, OP_XOR, TaprootSignatureHash, taproot_construct, SIGHASH_DEFAULT, SIGHASH_ALL, SIGHASH_NONE, SIGHASH_SINGLE, SIGHASH_ANYONECANPAY
+from test_framework.script import CScript, CScriptNum, CScriptOp, OP_0, OP_1, OP_2, OP_ADD64, OP_AND, OP_CHECKSIGFROMSTACK, OP_DIV64, OP_DROP, OP_DUP, OP_ECMULSCALARVERIFY, OP_EQUAL, OP_EQUALVERIFY, OP_FALSE, OP_FROMALTSTACK, OP_GREATERTHAN64, OP_GREATERTHANOREQUAL64, OP_INSPECTINPUTASSET, OP_INSPECTINPUTISSUANCE, OP_INSPECTINPUTOUTPOINT, OP_INSPECTINPUTSCRIPTPUBKEY, OP_INSPECTINPUTSEQUENCE, OP_INSPECTINPUTVALUE, OP_INSPECTLOCKTIME, OP_INSPECTNUMINPUTS, OP_INSPECTNUMOUTPUTS, OP_INSPECTOUTPUTASSET, OP_INSPECTOUTPUTNONCE, OP_INSPECTOUTPUTSCRIPTPUBKEY, OP_INSPECTOUTPUTVALUE, OP_INSPECTVERSION, OP_LE32TOLE64, OP_LE64TOSCRIPTNUM, OP_LESSTHAN64, OP_LESSTHANOREQUAL64, OP_MUL64, OP_NEG64, OP_NOT, OP_INVERT, OP_OR, OP_PUSHCURRENTINPUTINDEX, OP_SCRIPTNUMTOLE64, OP_SHA256FINALIZE, OP_SHA256INITIALIZE, OP_SHA256UPDATE, OP_SIZE, OP_SUB64, OP_SWAP, OP_TWEAKVERIFY, OP_TOALTSTACK, OP_TXWEIGHT, OP_VERIFY, OP_XOR, taproot_construct, SIGHASH_DEFAULT, SIGHASH_ALL, SIGHASH_NONE, SIGHASH_SINGLE, SIGHASH_ANYONECANPAY
 
 import os
 
@@ -93,7 +93,7 @@ class TapHashPeginTest(BitcoinTestFramework):
 
         tx = self.nodes[0].blindrawtransaction(fund_tx.serialize().hex())
         signed_raw_tx = self.nodes[0].signrawtransactionwithwallet(tx)
-        _txid = self.nodes[0].sendrawtransaction(signed_raw_tx['hex'])
+        self.nodes[0].sendrawtransaction(signed_raw_tx['hex'])
         tx = tx_from_hex(signed_raw_tx['hex'])
         tx.rehash()
         self.nodes[0].generate(1)
@@ -102,11 +102,13 @@ class TapHashPeginTest(BitcoinTestFramework):
 
         return tx, prev_vout, spk, sec, pub, tap
 
-    def tapscript_satisfy_test(self, script, inputs = [], add_issuance = False,
-        add_pegin = False, fail=None, add_prevout=False, add_asset=False,
-        add_value=False, add_spk = False, seq = 0, add_out_spk = None,
-        add_out_asset = None, add_out_value = None, add_out_nonce = None,
-        ver = 2, locktime = 0, add_num_outputs=False, add_weight=False, blind=False):
+    def tapscript_satisfy_test(self, script, inputs = None, add_issuance = False,
+       add_pegin = False, fail=None, add_prevout=False, add_asset=False,
+       add_value=False, add_spk = False, seq = 0, add_out_spk = None,
+       add_out_asset = None, add_out_value = None, add_out_nonce = None,
+       ver = 2, locktime = 0, add_num_outputs=False, add_weight=False, blind=False):
+        if inputs is None:
+            inputs = []
         # Create a taproot utxo
         scripts = [("s0", script)]
         prev_tx, prev_vout, spk, sec, pub, tap = self.create_taproot_utxo(scripts)
@@ -387,20 +389,28 @@ class TapHashPeginTest(BitcoinTestFramework):
 
         def check_add(a, b, c, fail=None):
             self.tapscript_satisfy_test(CScript([OP_ADD64, OP_VERIFY, le8(c), OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_sub(a, b, c, fail=None):
             self.tapscript_satisfy_test(CScript([OP_SUB64, OP_VERIFY, le8(c), OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_mul(a, b, c, fail=None):
             self.tapscript_satisfy_test(CScript([OP_MUL64, OP_VERIFY, le8(c), OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_div(a, b, q, r, fail=None):
             self.tapscript_satisfy_test(CScript([OP_DIV64, OP_VERIFY, le8(q), OP_EQUALVERIFY, le8(r), OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_le(a, b, res, fail=None):
             self.tapscript_satisfy_test(CScript([OP_LESSTHAN64, res, OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_leq(a, b, res, fail=None):
             self.tapscript_satisfy_test(CScript([OP_LESSTHANOREQUAL64, res, OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_ge(a, b, res, fail=None):
             self.tapscript_satisfy_test(CScript([OP_GREATERTHAN64, res, OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_geq(a, b, res, fail=None):
             self.tapscript_satisfy_test(CScript([OP_GREATERTHANOREQUAL64, res, OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_neg(a, res, fail=None):
             self.tapscript_satisfy_test(CScript([OP_NEG64, OP_VERIFY, le8(res), OP_EQUAL]), inputs = [le8(a)], fail=fail)
         # Arithematic opcodes

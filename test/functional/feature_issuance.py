@@ -482,7 +482,7 @@ class IssuanceTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].gettransaction(tx_id)["confirmations"], 1)
 
-        ## Regression for one form of https://github.com/bitcoin/bitcoin/issues/20347
+        # Regression for one form of https://github.com/bitcoin/bitcoin/issues/20347
         # 1. Leave node 1 with only a single small explicit output
         self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[1].getbalance()['bitcoin'], "", "", True)
         blind_addr = self.nodes[1].getnewaddress()
@@ -497,8 +497,7 @@ class IssuanceTest(BitcoinTestFramework):
         #    in the 3-output case. As the bug causes us to do coin selection for
         #    the former while attempting to produce the latter, we will trigger
         #    an "impossible" case and a confusing/generic error message.
-        txid = self.nodes[1].issueasset(0, 1, False)["txid"]
-        tx = self.nodes[1].getrawtransaction(txid, True)
+        self.nodes[1].issueasset(0, 1, False)["txid"]
 
 if __name__ == '__main__':
     IssuanceTest ().main ()

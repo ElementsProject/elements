@@ -49,7 +49,7 @@ from test_framework.script import (
 #    OP_RIGHT,
 #    OP_RSHIFT,
 #    OP_SUBSTR,
-    OP_TRUE,
+#    OP_TRUE,
 #    OP_XOR,
 )
 from test_framework.script_util import (

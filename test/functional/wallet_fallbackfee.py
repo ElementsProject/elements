@@ -29,7 +29,7 @@ class WalletRBFTest(BitcoinTestFramework):
         assert_raises_rpc_error(-4, "Fee estimation failed", lambda: self.nodes[0].fundrawtransaction(self.nodes[0].createrawtransaction([], [{self.nodes[0].getnewaddress(): 1}])))
         assert_raises_rpc_error(-6, "Fee estimation failed", lambda: self.nodes[0].sendmany("", {self.nodes[0].getnewaddress(): 1}))
 
-        ## ELEMENTS: test claimpegin with fallback fee set to zero
+        # ELEMENTS: test claimpegin with fallback fee set to zero
         # getpeginaddress does not work with descriptor wallets yet
         if not self.options.descriptors:
             extra_args = [

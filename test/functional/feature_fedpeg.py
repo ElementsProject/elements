@@ -20,7 +20,6 @@ from test_framework.messages import (
     COIN,
     CBlock,
     COutPoint,
-    CTransaction,
     CTxIn,
     CTxInWitness,
     CTxOut,

@@ -6,9 +6,9 @@
 #
 # Test for taproot sighash algorithm with pegins and issuances
 
-from test_framework.key import ECKey, ECPubKey, compute_xonly_pubkey, generate_privkey, sign_schnorr, tweak_add_privkey, tweak_add_pubkey, verify_schnorr
-from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, CTxOutValue, CTxOutWitness, tx_from_hex, uint256_from_str
-from test_framework.test_framework import BitcoinTestFramework, SkipTest
+from test_framework.key import compute_xonly_pubkey, generate_privkey, sign_schnorr, tweak_add_privkey, tweak_add_pubkey, verify_schnorr
+from test_framework.messages import COutPoint, CTxIn, CTxInWitness, CTxOut, CTxOutValue, CTxOutWitness, tx_from_hex, uint256_from_str
+from test_framework.test_framework import BitcoinTestFramework
 from test_framework.script import TaprootSignatureHash, taproot_construct, taproot_pad_sighash_ty, SIGHASH_DEFAULT, SIGHASH_ALL, SIGHASH_NONE, SIGHASH_SINGLE, SIGHASH_ANYONECANPAY
 
 VALID_SIGHASHES_ECDSA = [
@@ -77,7 +77,7 @@ class TapHashPeginTest(BitcoinTestFramework):
 
         tx = self.nodes[0].blindrawtransaction(fund_tx.serialize().hex())
         signed_raw_tx = self.nodes[0].signrawtransactionwithwallet(tx)
-        _txid = self.nodes[0].sendrawtransaction(signed_raw_tx['hex'])
+        self.nodes[0].sendrawtransaction(signed_raw_tx['hex'])
         tx = tx_from_hex(signed_raw_tx['hex'])
         tx.rehash()
         self.nodes[0].generate(1)
