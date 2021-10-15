@@ -2589,7 +2589,7 @@ public:
  *
  * The block is added to connectTrace if connection succeeds.
  */
-bool CChainState::ConnectTip(BlockValidationState& state, CBlockIndex* pindexNew, const std::shared_ptr<const CBlock>& pblock, ConnectTrace& connectTrace, DisconnectedBlockTransactions& disconnectpool, bool fStall)
+bool CChainState::ConnectTip(BlockValidationState& state, CBlockIndex* pindexNew, const std::shared_ptr<const CBlock>& pblock, ConnectTrace& connectTrace, DisconnectedBlockTransactions& disconnectpool)
 {
     AssertLockHeld(cs_main);
     if (m_mempool) AssertLockHeld(m_mempool->cs);
@@ -2612,7 +2612,6 @@ bool CChainState::ConnectTip(BlockValidationState& state, CBlockIndex* pindexNew
     const auto& fedpegscripts = GetValidFedpegScripts(pindexNew, m_params.GetConsensus(), false /* nextblock_validation */);
     if (!CheckPeginRipeness(blockConnecting, fedpegscripts)) {
         LogPrintf("STALLING further progress in ConnectTip while waiting for parent chain daemon to catch up! Chain will not grow until this is remedied!\n");
-        fStall = true;
         return true;
     }
 
@@ -2790,7 +2789,7 @@ bool CChainState::ActivateBestChainStep(BlockValidationState& state, CBlockIndex
 
         // Connect new blocks.
         for (CBlockIndex* pindexConnect : reverse_iterate(vpindexToConnect)) {
-            if (!ConnectTip(state, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool, fStall)) {
+            if (!ConnectTip(state, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool)) {
                 if (state.IsInvalid()) {
                     // The block violates a consensus rule.
                     if (state.GetResult() != BlockValidationResult::BLOCK_MUTATED) {
