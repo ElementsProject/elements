@@ -86,6 +86,89 @@ static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits
 }
 
 /**
+ * Allows modifying the Version Bits Elements regtest parameters (and liquidv1test).
+ * Ideally, this would be a method in the base class, inherited everywhere, but that might complicate future merges,
+ * so we settle for this static function.
+ */
+static void UpdateElementsActivationParametersFromArgs(Consensus::Params& consensus, const ArgsManager& args)
+{
+    if (!args.IsArgSet("-evbparams")) return;
+
+    for (const std::string& strDeployment : args.GetArgs("-evbparams")) {
+        std::vector<std::string> vDeploymentParams;
+        boost::split(vDeploymentParams, strDeployment, boost::is_any_of(":"));
+        if (vDeploymentParams.size() != 5) {
+            throw std::runtime_error("ElementsVersion bits parameters malformed, expecting deployment:start:end:period:threshold");
+        }
+        int64_t nStartTime = 0, nTimeout = 0, nPeriod = 0, nThreshold = 0;
+        bool use_nStartTime = false, use_nTimeout = false, use_nPeriod = false, use_nThreshold = false;
+        if(vDeploymentParams[1].length()) {
+            if (!ParseInt64(vDeploymentParams[1], &nStartTime)) {
+                throw std::runtime_error(strprintf("Invalid nStartTime (%s)", vDeploymentParams[1]));
+            }
+            use_nStartTime = true;
+        }
+        if(vDeploymentParams[2].length()) {
+            if (!ParseInt64(vDeploymentParams[2], &nTimeout)) {
+                throw std::runtime_error(strprintf("Invalid nTimeout (%s)", vDeploymentParams[2]));
+            }
+            use_nTimeout = true;
+        }
+        if(vDeploymentParams[3].length()) {
+            if (!ParseInt64(vDeploymentParams[3], &nPeriod)) {
+                throw std::runtime_error(strprintf("Invalid nPeriod (%s)", vDeploymentParams[3]));
+            }
+            use_nPeriod = true;
+        }
+        if(vDeploymentParams[4].length()) {
+            if (!ParseInt64(vDeploymentParams[4], &nThreshold)) {
+                throw std::runtime_error(strprintf("Invalid nThreshold (%s)", vDeploymentParams[4]));
+            }
+            use_nThreshold = true;
+        }
+        bool found = false;
+        for (int j=0; j < (int)Consensus::MAX_VERSION_BITS_DEPLOYMENTS; ++j) {
+            if (vDeploymentParams[0] == VersionBitsDeploymentInfo[j].name) {
+                std::string extra_logging;
+                Consensus::DeploymentPos d=Consensus::DeploymentPos(j);
+                if (use_nStartTime) {
+                    consensus.vDeployments[d].nStartTime = nStartTime;
+                } else {
+                    nStartTime =consensus.vDeployments[d].nStartTime;
+                }
+                if (use_nTimeout) {
+                    consensus.vDeployments[d].nTimeout = nTimeout;
+                } else {
+                    nTimeout = consensus.vDeployments[d].nTimeout;
+                }
+                if (consensus.vDeployments[d].nPeriod) {
+                    if(use_nPeriod) {
+                        consensus.vDeployments[d].nPeriod = nPeriod;
+                    } else {
+                        nPeriod = *consensus.vDeployments[d].nPeriod;
+                    }
+                    extra_logging+= strprintf(", period=%ld", nPeriod);
+                }
+                if (consensus.vDeployments[d].nThreshold) {
+                    if(use_nThreshold) {
+                        consensus.vDeployments[d].nThreshold = nThreshold;
+                    } else {
+                        nThreshold = *consensus.vDeployments[d].nThreshold;
+                    }
+                    extra_logging+= strprintf(", threshold=%ld", nThreshold);
+                }
+                found = true;
+                LogPrintf("Setting version bits activation parameters for %s to start=%ld, timeout=%ld%s\n", vDeploymentParams[0], nStartTime, nTimeout, extra_logging.c_str());
+                break;
+            }
+        }
+        if (!found) {
+            throw std::runtime_error(strprintf("Invalid deployment (%s)", vDeploymentParams[0]));
+        }
+    }
+}
+
+/**
  * Main network
  */
 class CMainParams : public CChainParams {
@@ -478,7 +561,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = 1199145601; // January 1, 2008
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = 1230767999; // December 31, 2008
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].bit = 2;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = gArgs.GetArg("-con_taproot_signal_start", Consensus::BIP9Deployment::ALWAYS_ACTIVE);
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nPeriod = 128; // test ability to change from default
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nThreshold = 128;
@@ -751,6 +834,8 @@ class CCustomParams : public CRegTestParams {
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = args.GetArg("-con_dyna_deploy_start", Consensus::BIP9Deployment::ALWAYS_ACTIVE);
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+
+        UpdateElementsActivationParametersFromArgs(consensus, args);
         // END ELEMENTS fields
     }
 
@@ -1064,6 +1149,9 @@ public:
         // For testing purposes, default to the same junk keys that CustomParams uses (this can be overridden.)
         consensus.first_extension_space = {ParseHex("02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f")};
 
+        // Don't use liquidv1's height to enable taproot
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = 0;
+
         // Use all regtest rather than mainchain magic numbers:
         bech32_hrp = args.GetArg("-bech32_hrp", "ert");
         blech32_hrp = args.GetArg("-blech32_hrp", "el");
@@ -1101,9 +1189,6 @@ public:
     // This is unlike the CCustomParams UpdateFromArgs method, which has lots of defaults in it.
     void UpdateFromArgs(const ArgsManager& args)
     {
-        // NOTE: We don't handle version bits, because I'm not sure we actually use them, and it would be messy to do so.
-        // UpdateVersionBitsParametersFromArgs(args);
-
         consensus.nSubsidyHalvingInterval = args.GetArg("-con_nsubsidyhalvinginterval", consensus.nSubsidyHalvingInterval);
         if (args.IsArgSet("-con_bip16exception")) {
             consensus.BIP16Exception = uint256S(args.GetArg("-con_bip16exception", ""));
@@ -1275,9 +1360,7 @@ public:
             consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         }
 
-        if (args.IsArgSet("-con_taproot_signal_start")) {
-            consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = gArgs.GetArg("-con_taproot_signal_start", 0);
-        }
+        UpdateElementsActivationParametersFromArgs(consensus, args);
 
         // END ELEMENTS fields
     }
