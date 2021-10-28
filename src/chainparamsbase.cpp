@@ -60,7 +60,7 @@ void SetupChainParamsBaseOptions(ArgsManager& argsman)
     argsman.AddArg("-con_dyna_deploy_signal", "Whether to signal for the Dynamic Federations deployment (default: false).", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     argsman.AddArg("-dynamic_epoch_length", "Per-chain parameter that sets how many blocks dynamic federation voting and enforcement are in effect for.", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     argsman.AddArg("-total_valid_epochs", "Per-chain parameter that sets how long a particular fedpegscript is in effect for.", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
-    argsman.AddArg("-con_taproot_signal_start", "Whether, and at what blockheight, to start signalling for Taproot activation (default: false) (regtest, Liquid testnet, or custom only).", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
+    argsman.AddArg("-evbparams=deployment:start:end:period:threshold", "Use given start/end times for specified version bits deployment (regtest or custom only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::ELEMENTS);
     // END ELEMENTS
     //
 }
