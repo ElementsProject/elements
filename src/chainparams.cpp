@@ -839,7 +839,7 @@ class CCustomParams : public CRegTestParams {
         }
 
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
-        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = args.GetArg("-con_dyna_deploy_start", Consensus::BIP9Deployment::ALWAYS_ACTIVE);
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
 
         UpdateElementsActivationParametersFromArgs(consensus, args);
@@ -1361,11 +1361,9 @@ public:
             consensus.subsidy_asset = CAsset(uint256S(args.GetArg("-subsidyasset", "")));
         }
 
-        if (args.IsArgSet("-con_dyna_deploy_start")) {
-            consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
-            consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = args.GetArg("-con_dyna_deploy_start", Consensus::BIP9Deployment::ALWAYS_ACTIVE);
-            consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
-        }
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
 
         UpdateElementsActivationParametersFromArgs(consensus, args);
 
