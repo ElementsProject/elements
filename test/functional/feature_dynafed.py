@@ -67,7 +67,7 @@ class DynaFedTest(BitcoinTestFramework):
         self.num_nodes = 2
         # We want to test activation of dynafed
         self.extra_args = [[
-            "-con_dyna_deploy_start=1000",
+            "-evbparams=dynafed:1000:::",
             "-enforce_pak=1",
             "-con_parent_chain_signblockscript=51",
             "-peginconfirmationdepth=1",
@@ -78,7 +78,7 @@ class DynaFedTest(BitcoinTestFramework):
         # second node will not mine transactions
         self.extra_args[1].append("-blocksonly=1")
         # Make sure nothing breaks if peers have a different activation.
-        self.extra_args[1][0] = "-con_dyna_deploy_start=937"
+        self.extra_args[1][0] = "-evbparams=dynafed:937:::"
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()

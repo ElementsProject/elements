@@ -140,7 +140,7 @@ class FedPegTest(BitcoinTestFramework):
 
             # Immediate activation of dynafed when requested versus "never" from conf
             if self.options.pre_transition or self.options.post_transition:
-                extra_args.extend(["-con_dyna_deploy_start=-1"])
+                extra_args.extend(["-evbparams=dynafed:-1:::"])
 
             # Use rpcuser auth only for first parent.
             if n==0:

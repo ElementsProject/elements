@@ -18,7 +18,7 @@ class PAKTest (BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
-        self.extra_args = [["-enforce_pak=1", "-con_dyna_deploy_start=-1", "-initialfreecoins=210000000000000", "-anyonecanspendaremine=1", "-parent_bech32_hrp=lol", "-pubkeyprefix=112", "-scriptprefix=197", "-con_connect_genesis_outputs=1"] for i in range(self.num_nodes)]
+        self.extra_args = [["-enforce_pak=1", "-evbparams=dynafed:-1:::", "-initialfreecoins=210000000000000", "-anyonecanspendaremine=1", "-parent_bech32_hrp=lol", "-pubkeyprefix=112", "-scriptprefix=197", "-con_connect_genesis_outputs=1"] for i in range(self.num_nodes)]
         # First node doesn't enforce PAK, a "HF" of the other two nodes
         self.extra_args[0] = ["-acceptnonstdtxn=1"] + self.extra_args[0][1:]   ## FIXME -acceptnonstdtxn=1 should not be needed
 

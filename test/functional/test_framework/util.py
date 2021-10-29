@@ -381,7 +381,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("con_bip65height=1351\n")
         f.write("con_bip66height=1251\n")
         f.write("blindedaddresses=0\n") # Set to minimize broken tests in favor of custom
-        f.write("con_dyna_deploy_start="+str(2**31)+"\n") # Never starts unless overridden
+        f.write("evbparams=dynafed:"+str(2**31)+":::\n") # Never starts unless overridden
         f.write("minrelaytxfee=0.00001\n")
         #f.write("pubkeyprefix=111\n")
         #f.write("scriptprefix=196\n")
