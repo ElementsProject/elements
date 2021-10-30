@@ -94,6 +94,7 @@ static void UpdateElementsActivationParametersFromArgs(Consensus::Params& consen
 {
     if (!args.IsArgSet("-evbparams")) return;
 
+    std::map<std::string,int> map_deployments;
     for (const std::string& strDeployment : args.GetArgs("-evbparams")) {
         std::vector<std::string> vDeploymentParams;
         boost::split(vDeploymentParams, strDeployment, boost::is_any_of(":"));
@@ -129,7 +130,13 @@ static void UpdateElementsActivationParametersFromArgs(Consensus::Params& consen
         bool found = false;
         for (int j=0; j < (int)Consensus::MAX_VERSION_BITS_DEPLOYMENTS; ++j) {
             if (vDeploymentParams[0] == VersionBitsDeploymentInfo[j].name) {
+                if(map_deployments[vDeploymentParams[0]]) {
+                    found = true;
+                    LogPrintf("Ignoring duplicated version bits activation parameters for \"%s\"\n", strDeployment.c_str());
+                    break;
+                }
                 std::string extra_logging;
+                map_deployments[vDeploymentParams[0]]=1;
                 Consensus::DeploymentPos d=Consensus::DeploymentPos(j);
                 if (use_nStartTime) {
                     consensus.vDeployments[d].nStartTime = nStartTime;
