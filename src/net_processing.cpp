@@ -1423,7 +1423,8 @@ bool static ProcessHeadersMessage(CNode *pfrom, CConnman *connman, const std::ve
 
     CValidationState state;
     CBlockHeader first_invalid_header;
-    if (!ProcessNewBlockHeaders(headers, state, chainparams, &pindexLast, &first_invalid_header)) {
+    bool all_duplicate = false;
+    if (!ProcessNewBlockHeaders(headers, state, chainparams, &pindexLast, &first_invalid_header, &all_duplicate)) {
         int nDoS;
         if (state.IsInvalid(nDoS)) {
             LOCK(cs_main);
@@ -1489,10 +1490,11 @@ bool static ProcessHeadersMessage(CNode *pfrom, CConnman *connman, const std::ve
             nodestate->m_last_block_announcement = GetTime();
         }
 
-        if (nCount == MAX_HEADERS_RESULTS) {
+        if (nCount == MAX_HEADERS_RESULTS && !all_duplicate) {
             // Headers message had its maximum size; the peer may have more headers.
             // TODO: optimize: if pindexLast is an ancestor of chainActive.Tip or pindexBestHeader, continue
             // from there instead.
+            // HOWEVER, if all headers we got this time were duplicates that we already had, don't ask for any more.
             LogPrint(BCLog::NET, "more getheaders (%d) to end to peer=%d (startheight:%d)\n", pindexLast->nHeight, pfrom->GetId(), pfrom->nStartingHeight);
             connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::GETHEADERS, chainActive.GetLocator(pindexLast), uint256()));
         }
