@@ -98,7 +98,7 @@ class TaprootActivationTest(BitcoinTestFramework):
         assert_equal(rpc.getblockheader(blocks[0])["versionHex"], "20000000")
 
     def run_test(self):
-        # Test that regtest nodes without -con_taproot_signal_start never signal
+        # Test that regtest nodes never signal taproot by default
         self.log.info("Testing node not configured to activate taproot")
         blocks = self.nodes[0].generatetoaddress(2500, self.nodes[0].getnewaddress())
         assert_equal(self.nodes[0].getblockcount(), 2500)
@@ -113,7 +113,7 @@ class TaprootActivationTest(BitcoinTestFramework):
                 assert_equal (decode["versionHex"], "20000000")
 
         # Test activation starting from height 1000
-        self.restart_node(0, ["-con_taproot_signal_start=500"])
+        self.restart_node(0, ["-evbparams=taproot:500:::"])
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(1))
         self.test_activation(self.nodes[0], 500)
 

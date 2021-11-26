@@ -26,7 +26,7 @@ class TweakFedpegTest(BitcoinTestFramework):
         [
             "-fedpegscript="+LIQUID_SCRIPT,
             "-con_dyna_deploy_signal=1",
-            "-con_dyna_deploy_start=0", # test dynafed derivation
+            "-evbparams=dynafed:0:::", # test dynafed derivation
         ]]
 
     def setup_network(self):
