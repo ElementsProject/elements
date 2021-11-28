@@ -946,6 +946,45 @@ public:
 };
 
 /**
+ * Liquid testnet (customparams with a few defaults).
+ */
+class CLiquidTestNetParams : public CCustomParams {
+public:
+    CLiquidTestNetParams(const std::string& chain, const ArgsManager& args) : CCustomParams(chain, args)
+    {
+        strNetworkID = chain;
+        // not a debug chain
+        fDefaultConsistencyChecks = false;
+
+        initialFreeCoins = 2100000000000000;
+        anyonecanspend_aremine = false;
+        consensus.max_block_signature_size = 150;
+        consensus.dynamic_epoch_length = 1000;
+
+        // no parent chain by default
+        consensus.has_parent_chain = false;
+        parentGenesisBlockHash = uint256();
+
+        bech32_hrp = "tex";
+        blech32_hrp = "tlq";
+
+        base58Prefixes[PUBKEY_ADDRESS]  = std::vector<unsigned char>(1, 36);
+        base58Prefixes[SCRIPT_ADDRESS]  = std::vector<unsigned char>(1, 19);
+        base58Prefixes[BLINDED_ADDRESS] = std::vector<unsigned char>(1, 23);
+        base58Prefixes[SECRET_KEY]      = std::vector<unsigned char>(1, base58Prefixes[SECRET_KEY][0]);
+
+        // disable automatic dynafed
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = 0;
+
+        default_magic_str = "410EDD62";
+        default_signblockscript = "51210217e403ddb181872c32a0cd468c710040b2f53d8cac69f18dad07985ee37e9a7151ae";
+        UpdateFromArgs(args);
+        SetGenesisBlock();
+        consensus.hashGenesisBlock = genesis.GetHash();
+    }
+};
+
+/**
  * Liquid v1
  */
 class CLiquidV1Params : public CChainParams {
@@ -1486,6 +1525,8 @@ std::unique_ptr<const CChainParams> CreateChainParams(const ArgsManager& args, c
         return std::unique_ptr<CChainParams>(new CLiquidV1Params());
     } else if (chain == CBaseChainParams::LIQUID1TEST) {
         return std::unique_ptr<CChainParams>(new CLiquidV1TestParams(args));
+    } else if (chain == CBaseChainParams::LIQUIDTESTNET) {
+        return std::unique_ptr<CChainParams>(new CLiquidTestNetParams(chain, args));
     }
 
     return std::unique_ptr<CChainParams>(new CCustomParams(chain, args));
