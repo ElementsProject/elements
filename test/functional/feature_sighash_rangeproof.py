@@ -51,7 +51,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
         self.num_nodes = 3
         # We want to test activation of dynafed
         self.extra_args = [[
-            "-con_dyna_deploy_start=1000",
+            "-evbparams=dynafed:1000:::",
             "-con_dyna_deploy_signal=1",
             "-blindedaddresses=1",
             "-initialfreecoins=2100000000000000",

@@ -5670,7 +5670,7 @@ static RPCHelpMan sendtomainchain_pak()
 
     FlatSigningProvider provider;
     std::string error;
-    const auto descriptor = Parse(pwallet->offline_desc, provider, error);
+    auto descriptor = Parse(pwallet->offline_desc, provider, error);
 
     LegacyScriptPubKeyMan* spk_man = pwallet->GetLegacyScriptPubKeyMan();
     if (!spk_man) {
@@ -5682,6 +5682,11 @@ static RPCHelpMan sendtomainchain_pak()
         std::string offline_desc = "pkh(" + EncodeExtPubKey(xpub) + "0/*)";
         if (!pwallet->SetOfflineDescriptor(offline_desc)) {
             throw JSONRPCError(RPC_WALLET_ERROR, "Couldn't set wallet descriptor for peg-outs.");
+        }
+
+        descriptor = Parse(pwallet->offline_desc, provider, error);
+        if (!descriptor) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "descriptor still null. This is a bug in elementsd.");
         }
     }
 

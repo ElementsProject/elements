@@ -158,19 +158,20 @@ bool IsConfirmedBitcoinBlock(const uint256& hash, const int nMinConfirmationDept
         UniValue params(UniValue::VARR);
         params.push_back(hash.GetHex());
         UniValue reply = CallMainChainRPC("getblockheader", params);
-        if (!find_value(reply, "error").isNull()) {
-            LogPrintf("ERROR: Got error reply from bitcoind getblockheader.\n");
+        UniValue errval = find_value(reply, "error");
+        if (!errval.isNull()) {
+            LogPrintf("WARNING: Got error reply from bitcoind getblockheader: %s\n", errval.write());
             return false;
         }
         UniValue result = find_value(reply, "result");
         if (!result.isObject()) {
-            LogPrintf("ERROR: bitcoind getblockheader result was malformed (not object).\n");
+            LogPrintf("ERROR: bitcoind getblockheader result was malformed (not object): %s\n", result.write());
             return false;
         }
 
         UniValue confirmations = find_value(result.get_obj(), "confirmations");
         if (!confirmations.isNum() || confirmations.get_int64() < nMinConfirmationDepth) {
-            LogPrintf("Insufficient confirmations (got %s).\n", confirmations.write());
+            LogPrintf("Insufficient confirmations (got %s, need at least %d).\n", confirmations.write(), nMinConfirmationDepth);
             return false;
         }
 
@@ -178,16 +179,16 @@ bool IsConfirmedBitcoinBlock(const uint256& hash, const int nMinConfirmationDept
         if (nbTxs != 0) {
             UniValue nTx = find_value(result.get_obj(), "nTx");
             if (!nTx.isNum() || nTx.get_int64() != nbTxs) {
-                LogPrintf("ERROR: Invalid number of transactions in merkle block for %s\n",
-                        hash.GetHex());
+                LogPrintf("ERROR: Invalid number of transactions in merkle block for %s (got %s, need exactly %d)\n",
+                        hash.GetHex(), nTx.write(), nbTxs);
                 return false;
             }
         }
     } catch (CConnectionFailed& e) {
-        LogPrintf("ERROR: Lost connection to mainchain daemon RPC, you will want to restart after fixing this!\n");
+        LogPrintf("WARNING: Lost connection to mainchain daemon RPC; will retry.\n");
         return false;
     } catch (...) {
-        LogPrintf("ERROR: Failure connecting to mainchain daemon RPC, you will want to restart after fixing this!\n");
+        LogPrintf("WARNING: Failure connecting to mainchain daemon RPC; will retry.\n");
         return false;
     }
     return true;
