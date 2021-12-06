@@ -482,7 +482,7 @@ extra_args = [
     "-con_max_block_sig_size=150",
     # We also disable dynamic federations, since we are not going to do any
     # dynafed transitions in this tutorial. FIXME we probably should.
-    "-con_dyna_deploy_start=0",
+    "-evbparams=dynafed:0:::",
 ]
 
 print ("6b. Restart both nodes")

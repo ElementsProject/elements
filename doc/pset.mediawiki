@@ -24,7 +24,7 @@ This BIP is licensed under the 2-clause BSD license.
 
 ==Specification==
 
-The Partially Signed ELements Transaction (PSET) format is identical to the BIP 370 PSBT format.
+The Partially Signed Elements Transaction (PSET) format is identical to the BIP 370 PSBT format.
 The changes are new proprietary type fields, a new magic sequence, and new roles.
 The fields added for PSET are only allowed when the PSBT version is 2.
 
@@ -60,13 +60,13 @@ The currently defined elements global proprietary types are as follows:
 | None
 | No key data
 | <tt><8-bit uint></tt>
-| An 8 bit little endian unsigned integer as a bitfield for various elements specific transaction modification flags. Bit 0 is the PSBT Blinded flag and it is set to 1 to indicate that the PSET has not been blinded yet. Once all confidential values, rangeproofs, and asset surjection proofs have been attached to the PSET, it must be set to 0.
+| An 8 bit little endian unsigned integer as a bitfield for various elements specific transaction modification flags. Bit 0 is the PSET Blinded flag and it is set to 1 to indicate that the PSET has not been blinded yet. Once all confidential values, rangeproofs, and asset surjection proofs have been attached to the PSET, it must be set to 0.
 |
 | 0
 | 2
 |}
 
-The currently defined elements per-input proprietary types are as folows:
+The currently defined elements per-input proprietary types are as follows:
 
 {|
 ! Name
@@ -213,7 +213,7 @@ The currently defined elements per-input proprietary types are as folows:
 | <tt>PSBT_ELEMENTS_IN_ISSUANCE_ASSET_ENTROPY = 0x0d</tt>
 | None
 | No key data
-| <tt><32 byte entrpy></tt>
+| <tt><32 byte entropy></tt>
 | The 32 byte asset entropy. For new issuances, an arbitrary and optional 32 bytes of no consensus meaning combined used as additional entropy in the asset tag calculation. For reissuances, the original, final entropy used for the asset tag calculation.
 |
 | 0
@@ -423,7 +423,7 @@ It will also add the ephemeral pubkey used for ECDH of the nonce for the rangepr
 
 The blinder will then compute a scalar offset that will be added as a <tt>PSBT_ELEMENTS_GLOBAL_SCALAR</tt>.
 For each input and output owned/blinded by this blinder, the following formula is computed:
-<tt> asset_blinding_factor * amount + amount_blinding_factor (mod n)<tt>.
+<tt> asset_blinding_factor * amount + amount_blinding_factor (mod n)</tt>.
 The scalars for the inputs are summed, and then that sum is subtracted from the sum of the scalars for the outputs.
 The result is the scalar offset added as a <tt>PSBT_ELEMENTS_GLOBAL_SCALAR</tt>.
 
@@ -441,7 +441,7 @@ A single entity is likely to be a Creator, Updater, and Blinder.
 
 ===Signer===
 
-In addition to the BIP 370 PSBT Signer behavior, PSET specifies some addtional constraints.
+In addition to the BIP 370 PSBT Signer behavior, PSET specifies some additional constraints.
 Before signing, the Signer must check whether blinding is complete. If any output contains a blinding pubkey but no commitments or proofs, then it must not sign.
 
 ===Combiner===
@@ -470,4 +470,4 @@ TBD
 
 ==Reference implementation==
 
-The reference implementation of the PSBT format is available at https://github.com/achow101/elements/tree/pset.
+The reference implementation of the PSET format is available at https://github.com/achow101/elements/tree/pset.

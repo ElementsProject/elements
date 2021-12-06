@@ -82,7 +82,7 @@ class BlockSignTest(BitcoinTestFramework):
             "-signblockscript={}".format(signblockscript),
             "-con_max_block_sig_size={}".format(self.required_signers*74+self.num_nodes*33),
             "-anyonecanspendaremine=1",
-            "-con_dyna_deploy_start=0",
+            "-evbparams=dynafed:0:::",
             "-con_dyna_deploy_signal=1",
         ]] * self.num_nodes
 

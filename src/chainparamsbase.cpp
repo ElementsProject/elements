@@ -56,11 +56,10 @@ void SetupChainParamsBaseOptions(ArgsManager& argsman)
     argsman.AddArg("-pak", "Sets the 'first extension space' field to the pak entries ala pre-dynamic federations. Only used for testing in custom chains.", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     argsman.AddArg("-multi_data_permitted", "Allow relay of multiple OP_RETURN outputs. (default: -enforce_pak)", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     argsman.AddArg("-con_csv_deploy_start", "Starting height for CSV deployment. (default: -1, which means ACTIVE from genesis)", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
-    argsman.AddArg("-con_dyna_deploy_start", "Starting height for Dynamic Federations deployment. Once active, signblockscript becomes a BIP141 WSH scriptPubKey of the original signblockscript. All other dynamic parameters stay constant.(default: -1, which means ACTIVE from genesis)", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
-    argsman.AddArg("-con_dyna_deploy_signal", "Whether to signal for the Dynamic Federations deployment (default: false).", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
+    argsman.AddArg("-con_dyna_deploy_signal", "Whether to signal for the Dynamic Federations deployment (default: true).", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     argsman.AddArg("-dynamic_epoch_length", "Per-chain parameter that sets how many blocks dynamic federation voting and enforcement are in effect for.", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     argsman.AddArg("-total_valid_epochs", "Per-chain parameter that sets how long a particular fedpegscript is in effect for.", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
-    argsman.AddArg("-con_taproot_signal_start", "Whether, and at what blockheight, to start signalling for Taproot activation (default: false) (regtest, Liquid testnet, or custom only).", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
+    argsman.AddArg("-evbparams=deployment:start:end:period:threshold", "Use given start/end times for specified version bits deployment (regtest or custom only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::ELEMENTS);
     // END ELEMENTS
     //
 }
