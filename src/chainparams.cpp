@@ -979,6 +979,7 @@ public:
         default_magic_str = "410EDD62";
         default_signblockscript = "51210217e403ddb181872c32a0cd468c710040b2f53d8cac69f18dad07985ee37e9a7151ae";
         UpdateFromArgs(args);
+        multi_data_permitted = true;
         SetGenesisBlock();
         consensus.hashGenesisBlock = genesis.GetHash();
     }
