@@ -3213,8 +3213,13 @@ void PeerManager::ProcessMessage(CNode& pfrom, const std::string& msg_type, CDat
         std::map<uint256, std::pair<NodeId, std::list<QueuedBlock>::iterator> >::iterator blockInFlightIt = mapBlocksInFlight.find(pindex->GetBlockHash());
         bool fAlreadyInFlight = blockInFlightIt != mapBlocksInFlight.end();
 
-        if (pindex->nStatus & BLOCK_HAVE_DATA) // Nothing to do here
+        if (pindex->nStatus & BLOCK_HAVE_DATA) {
+            // Nothing to do here in bitcoin, elements needs to check if it obtained the block another way (submitblock)
+            if(MarkBlockAsReceived(pindex->GetBlockHash())) {
+                LogPrint(BCLog::NET, "Removed block %s from in-flight list because it was already downloaded\n", pindex->GetBlockHash().ToString());
+            }
             return;
+        }
 
         if (pindex->nChainWork <= ::ChainActive().Tip()->nChainWork || // We know something better
                 pindex->nTx != 0) { // We had this block at some point, but pruned it
