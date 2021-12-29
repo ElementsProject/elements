@@ -7,7 +7,6 @@
 #include <logging.h>
 #include <util/threadnames.h>
 #include <util/string.h>
-#include <util/time.h>
 
 #include <algorithm>
 #include <array>
@@ -124,7 +123,7 @@ bool BCLog::Logger::WillLogCategory(BCLog::LogFlags category) const
 
 bool BCLog::Logger::DefaultShrinkDebugFile() const
 {
-    return m_categories == BCLog::NONE;
+    return m_categories == DEFAULT_LOG_FLAGS;
 }
 
 struct CLogCategoryDesc {
@@ -165,6 +164,8 @@ const CLogCategoryDesc LogCategories[] =
 #endif
     {BCLog::UTIL, "util"},
     {BCLog::BLOCKSTORE, "blockstorage"},
+    {BCLog::UNCONDITIONAL_RATE_LIMITED, "uncond_rate_limited"},
+    {BCLog::UNCONDITIONAL_ALWAYS, "uncond_always"},
     {BCLog::ALL, "1"},
     {BCLog::ALL, "all"},
 };
@@ -263,6 +264,10 @@ std::string LogCategoryToStr(BCLog::LogFlags category)
         return "util";
     case BCLog::LogFlags::BLOCKSTORE:
         return "blockstorage";
+    case BCLog::LogFlags::UNCONDITIONAL_RATE_LIMITED:
+        return "uncond_rate_limited";
+    case BCLog::LogFlags::UNCONDITIONAL_ALWAYS:
+        return "uncond_always";
     case BCLog::LogFlags::ALL:
         return "all";
     }
@@ -334,19 +339,22 @@ namespace BCLog {
     }
 } // namespace BCLog
 
-void BCLog::Logger::LogPrintStr(const std::string& str, const std::string& logging_function, const std::string& source_file, const int source_line, const BCLog::LogFlags category, const BCLog::Level level)
+void BCLog::Logger::LogPrintStr(const std::string& str, const std::string& logging_function,
+                                const SourceLocation& source_location, const BCLog::LogFlags category,
+                                const BCLog::Level level)
 {
     StdLockGuard scoped_lock(m_cs);
     std::string str_prefixed = LogEscapeMessage(str);
 
-    if ((category != LogFlags::NONE || level != Level::None) && m_started_new_line) {
+    const bool print_category{category != LogFlags::NONE && category != LogFlags::UNCONDITIONAL_ALWAYS && category != LogFlags::UNCONDITIONAL_RATE_LIMITED};
+    if ((print_category || level != Level::None) && m_started_new_line) {
         std::string s{"["};
 
-        if (category != LogFlags::NONE) {
+        if (print_category) {
             s += LogCategoryToStr(category);
         }
 
-        if (category != LogFlags::NONE && level != Level::None) {
+        if (print_category && level != Level::None) {
             // Only add separator if both flag and level are not NONE
             s += ":";
         }
@@ -360,7 +368,7 @@ void BCLog::Logger::LogPrintStr(const std::string& str, const std::string& loggi
     }
 
     if (m_log_sourcelocations && m_started_new_line) {
-        str_prefixed.insert(0, "[" + RemovePrefix(source_file, "./") + ":" + ToString(source_line) + "] [" + logging_function + "] ");
+        str_prefixed.insert(0, "[" + RemovePrefix(source_location.m_file, "./") + ":" + ToString(source_location.m_line) + "] [" + logging_function + "] ");
     }
 
     if (m_log_threadnames && m_started_new_line) {
@@ -369,7 +377,43 @@ void BCLog::Logger::LogPrintStr(const std::string& str, const std::string& loggi
 
     str_prefixed = LogTimestampStr(str_prefixed);
 
-    m_started_new_line = !str.empty() && str[str.size()-1] == '\n';
+    // Whether or not logging to disk was/is ratelimited for this source location.
+    bool was_ratelimited{false};
+    bool is_ratelimited{false};
+
+    if (category == UNCONDITIONAL_RATE_LIMITED && m_ratelimit) {
+        was_ratelimited = m_supressed_locations.find(source_location) != m_supressed_locations.end();
+        is_ratelimited = !m_ratelimiters[source_location].Consume(str_prefixed.size());
+
+        if (!is_ratelimited && was_ratelimited) {
+            // Logging will restart for this source location.
+            m_supressed_locations.erase(source_location);
+
+            str_prefixed = LogTimestampStr(strprintf(
+                "Restarting logging from %s:%d (%s): "
+                "(%d MiB) were dropped during the last hour.\n%s",
+                source_location.m_file, source_location.m_line, logging_function,
+                m_ratelimiters[source_location].GetDroppedBytes() / (1024 * 1024), str_prefixed));
+        } else if (is_ratelimited && !was_ratelimited) {
+            // Logging from this source location will be supressed until the current window resets.
+            m_supressed_locations.insert(source_location);
+
+            str_prefixed = LogTimestampStr(strprintf(
+                "Excessive logging detected from %s:%d (%s): >%d MiB logged during the last hour."
+                "Suppressing logging to disk from this source location for up to one hour. "
+                "Console logging unaffected. Last log entry: %s",
+                source_location.m_file, source_location.m_line, logging_function,
+                LogRateLimiter::WINDOW_MAX_BYTES / (1024 * 1024), str_prefixed));
+        }
+    }
+
+    // To avoid confusion caused by dropped log messages when debugging an issue,
+    // we prefix log lines with "[*]" when there are any supressed source locations.
+    if (m_supressed_locations.size() > 0) {
+        str_prefixed.insert(0, "[*] ");
+    }
+
+    m_started_new_line = !str.empty() && str[str.size() - 1] == '\n';
 
     if (m_buffering) {
         // buffer if we haven't started logging yet
@@ -385,7 +429,7 @@ void BCLog::Logger::LogPrintStr(const std::string& str, const std::string& loggi
     for (const auto& cb : m_print_callbacks) {
         cb(str_prefixed);
     }
-    if (m_print_to_file) {
+    if (m_print_to_file && !(is_ratelimited && was_ratelimited)) {
         assert(m_fileout != nullptr);
 
         // reopen the log file, if requested
@@ -441,4 +485,28 @@ void BCLog::Logger::ShrinkDebugFile()
     }
     else if (file != nullptr)
         fclose(file);
+}
+
+void BCLog::LogRateLimiter::MaybeReset()
+{
+    const auto now{NodeClock::now()};
+    if ((now - m_last_reset) >= WINDOW_SIZE) {
+        m_available_bytes = WINDOW_MAX_BYTES;
+        m_last_reset = now;
+        m_dropped_bytes = 0;
+    }
+}
+
+bool BCLog::LogRateLimiter::Consume(uint64_t bytes)
+{
+    MaybeReset();
+
+    if (bytes > m_available_bytes) {
+        m_dropped_bytes += bytes;
+        m_available_bytes = 0;
+        return false;
+    }
+
+    m_available_bytes -= bytes;
+    return true;
 }

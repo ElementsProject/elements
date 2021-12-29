@@ -4,6 +4,7 @@
 
 #include <logging.h>
 #include <logging/timer.h>
+#include <test/util/logging.h>
 #include <test/util/setup_common.h>
 #include <util/string.h>
 
@@ -139,10 +140,11 @@ BOOST_FIXTURE_TEST_CASE(logging_LogPrintMacros_CategoryName, LogSetup)
     std::vector<std::string> expected;
     for (const auto& [category, name] : expected_category_names) {
         LogPrint(category, "foo: %s\n", "bar");
-        std::string expected_log = "[";
-        expected_log += name;
-        expected_log += "] foo: bar";
-        expected.push_back(expected_log);
+        if (category == BCLog::UNCONDITIONAL_ALWAYS || category == BCLog::UNCONDITIONAL_RATE_LIMITED) {
+            expected.push_back("foo: bar");
+        } else {
+            expected.push_back("[" + name + "] foo: bar");
+        }
     }
 
     std::ifstream file{tmp_log_path};
@@ -151,6 +153,141 @@ BOOST_FIXTURE_TEST_CASE(logging_LogPrintMacros_CategoryName, LogSetup)
         log_lines.push_back(log);
     }
     BOOST_CHECK_EQUAL_COLLECTIONS(log_lines.begin(), log_lines.end(), expected.begin(), expected.end());
+}
+
+BOOST_AUTO_TEST_CASE(logging_ratelimit_window)
+{
+    SetMockTime(std::chrono::hours{1});
+    BCLog::LogRateLimiter window;
+
+    // Check that window gets initialised correctly.
+    BOOST_CHECK_EQUAL(window.GetAvailableBytes(), BCLog::LogRateLimiter::WINDOW_MAX_BYTES);
+    BOOST_CHECK_EQUAL(window.GetDroppedBytes(), 0ull);
+
+    const uint64_t MESSAGE_SIZE{512 * 1024};
+    BOOST_CHECK(window.Consume(MESSAGE_SIZE));
+    BOOST_CHECK_EQUAL(window.GetAvailableBytes(), BCLog::LogRateLimiter::WINDOW_MAX_BYTES - MESSAGE_SIZE);
+    BOOST_CHECK_EQUAL(window.GetDroppedBytes(), 0ull);
+
+    BOOST_CHECK(window.Consume(MESSAGE_SIZE));
+    BOOST_CHECK_EQUAL(window.GetAvailableBytes(), BCLog::LogRateLimiter::WINDOW_MAX_BYTES - MESSAGE_SIZE * 2);
+    BOOST_CHECK_EQUAL(window.GetDroppedBytes(), 0ull);
+
+    // Consuming more bytes after already having consumed a 1MB should fail.
+    BOOST_CHECK(!window.Consume(500));
+    BOOST_CHECK_EQUAL(window.GetAvailableBytes(), 0ull);
+    BOOST_CHECK_EQUAL(window.GetDroppedBytes(), 500ull);
+
+    // Advance time by one hour. This should trigger a window reset.
+    SetMockTime(std::chrono::hours{2});
+
+    // Check that the window resets as expected when new bytes are consumed.
+    BOOST_CHECK(window.Consume(MESSAGE_SIZE));
+    BOOST_CHECK_EQUAL(window.GetAvailableBytes(), BCLog::LogRateLimiter::WINDOW_MAX_BYTES - MESSAGE_SIZE);
+    BOOST_CHECK_EQUAL(window.GetDroppedBytes(), 0ull);
+}
+
+void LogFromLocation(int location, std::string message)
+{
+    switch (location) {
+    case 0:
+        LogPrint(BCLog::UNCONDITIONAL_RATE_LIMITED, "%s\n", message);
+        break;
+    case 1:
+        LogPrint(BCLog::UNCONDITIONAL_RATE_LIMITED, "%s\n", message);
+        break;
+    case 2:
+        LogPrint(BCLog::UNCONDITIONAL_ALWAYS, "%s\n", message);
+        break;
+    case 3:
+        LogPrint(BCLog::ALL, "%s\n", message);
+        break;
+    }
+}
+
+void LogFromLocationAndExpect(int location, std::string message, std::string expect)
+{
+    ASSERT_DEBUG_LOG(expect);
+    LogFromLocation(location, message);
+}
+
+BOOST_AUTO_TEST_CASE(rate_limiting)
+{
+    bool prev_log_timestamps = LogInstance().m_log_sourcelocations;
+    LogInstance().m_log_timestamps = false;
+    bool prev_log_sourcelocations = LogInstance().m_log_sourcelocations;
+    LogInstance().m_log_sourcelocations = false;
+    bool prev_log_threadnames = LogInstance().m_log_threadnames;
+    LogInstance().m_log_threadnames = false;
+
+    // Log 1024-character lines (1023 plus newline) to make the math simple.
+    std::string log_message(1023, 'a');
+
+    SetMockTime(std::chrono::hours{1});
+
+    size_t log_file_size = std::filesystem::file_size(LogInstance().m_file_path);
+    // Logging 1 MiB should be allowed.
+    for (int i = 0; i < 1024; ++i) {
+        LogFromLocation(0, log_message);
+    }
+    BOOST_CHECK_MESSAGE(log_file_size < std::filesystem::file_size(LogInstance().m_file_path), "should be able to log 1 MiB from location 0");
+
+    log_file_size = std::filesystem::file_size(LogInstance().m_file_path);
+    BOOST_CHECK_NO_THROW(
+        LogFromLocationAndExpect(0, log_message, "Excessive logging detected"));
+    BOOST_CHECK_MESSAGE(log_file_size < std::filesystem::file_size(LogInstance().m_file_path), "the start of the supression period should be logged");
+
+    log_file_size = std::filesystem::file_size(LogInstance().m_file_path);
+    for (int i = 0; i < 1024; ++i) {
+        LogFromLocation(0, log_message);
+    }
+    BOOST_CHECK_MESSAGE(log_file_size == std::filesystem::file_size(LogInstance().m_file_path), "all further logs from location 0 should be dropped");
+
+    BOOST_CHECK_THROW(
+        LogFromLocationAndExpect(1, log_message, "Excessive logging detected"), std::runtime_error);
+    BOOST_CHECK_MESSAGE(log_file_size < std::filesystem::file_size(LogInstance().m_file_path), "location 1 should be unaffected by other locations");
+
+    SetMockTime(std::chrono::hours{2});
+
+    log_file_size = std::filesystem::file_size(LogInstance().m_file_path);
+    BOOST_CHECK_NO_THROW(
+        LogFromLocationAndExpect(0, log_message, "Restarting logging"));
+    BOOST_CHECK_MESSAGE(log_file_size < std::filesystem::file_size(LogInstance().m_file_path), "the end of the supression period should be logged");
+
+    BOOST_CHECK_THROW(
+        LogFromLocationAndExpect(1, log_message, "Restarting logging"), std::runtime_error);
+
+    // Attempt to log 2 MiB to disk.
+    // The exempt locations 2 and 3 should be allowed to log without limit.
+    for (int i = 0; i < 2048; ++i) {
+        log_file_size = std::filesystem::file_size(LogInstance().m_file_path);
+        BOOST_CHECK_THROW(
+            LogFromLocationAndExpect(2, log_message, "Excessive logging detected"), std::runtime_error);
+        BOOST_CHECK_MESSAGE(log_file_size < std::filesystem::file_size(LogInstance().m_file_path), "location 2 should be exempt from rate limiting");
+
+        log_file_size = std::filesystem::file_size(LogInstance().m_file_path);
+        BOOST_CHECK_THROW(
+            LogFromLocationAndExpect(3, log_message, "Excessive logging detected"), std::runtime_error);
+        BOOST_CHECK_MESSAGE(log_file_size < std::filesystem::file_size(LogInstance().m_file_path), "location 3 should be exempt from rate limiting");
+    }
+
+    SetMockTime(std::chrono::hours{3});
+
+    // Disable rate limiting.
+    // Source locations should now be able to log without limit.
+    LogInstance().m_ratelimit = false;
+    for (int i = 0; i < 2048; ++i) {
+        log_file_size = std::filesystem::file_size(LogInstance().m_file_path);
+        BOOST_CHECK_THROW(
+            LogFromLocationAndExpect(0, log_message, "Excessive logging detected"), std::runtime_error);
+        BOOST_CHECK_MESSAGE(log_file_size < std::filesystem::file_size(LogInstance().m_file_path), "location 0 should be able to log disk, when rate limiting is disabled");
+    }
+    LogInstance().m_ratelimit = true;
+
+    LogInstance().m_log_timestamps = prev_log_timestamps;
+    LogInstance().m_log_sourcelocations = prev_log_sourcelocations;
+    LogInstance().m_log_threadnames = prev_log_threadnames;
+    SetMockTime(std::chrono::seconds{0});
 }
 
 BOOST_AUTO_TEST_SUITE_END()

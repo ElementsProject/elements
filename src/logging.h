@@ -6,10 +6,12 @@
 #ifndef BITCOIN_LOGGING_H
 #define BITCOIN_LOGGING_H
 
+#include <crypto/siphash.h>
 #include <fs.h>
 #include <tinyformat.h>
 #include <threadsafety.h>
 #include <util/string.h>
+#include <util/time.h>
 
 #include <atomic>
 #include <cstdint>
@@ -17,6 +19,8 @@
 #include <list>
 #include <mutex>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 static const bool DEFAULT_LOGTIMEMICROS = false;
@@ -24,9 +28,33 @@ static const bool DEFAULT_LOGIPS        = false;
 static const bool DEFAULT_LOGTIMESTAMPS = true;
 static const bool DEFAULT_LOGTHREADNAMES = false;
 static const bool DEFAULT_LOGSOURCELOCATIONS = false;
+static constexpr bool DEFAULT_RATELIMITLOGGING{true};
 extern const char * const DEFAULT_DEBUGLOGFILE;
 
 extern bool fLogIPs;
+
+// TODO: use C++20 std::sourcelocation when available
+struct SourceLocation {
+    std::string m_file;
+    int m_line{0};
+
+    bool operator==(const SourceLocation& other) const
+    {
+        return m_file.compare(other.m_file) == 0 &&
+               m_line == other.m_line;
+    }
+};
+
+struct SourceLocationHasher {
+    size_t operator()(const SourceLocation& source_location) const noexcept
+    {
+        // Use CSipHasher(0, 0) as a simple way to get uniform distribution.
+        return static_cast<size_t>(CSipHasher(0, 0)
+                                       .Write(std::hash<std::string>{}(source_location.m_file))
+                                       .Write(std::hash<int>{}(source_location.m_line))
+                                       .Finalize());
+    }
+};
 
 struct LogCategory {
     std::string category;
@@ -35,37 +63,39 @@ struct LogCategory {
 
 namespace BCLog {
     enum LogFlags : uint32_t {
-        NONE        = 0,
-        NET         = (1 <<  0),
-        TOR         = (1 <<  1),
-        MEMPOOL     = (1 <<  2),
-        HTTP        = (1 <<  3),
-        BENCH       = (1 <<  4),
-        ZMQ         = (1 <<  5),
-        WALLETDB    = (1 <<  6),
-        RPC         = (1 <<  7),
-        ESTIMATEFEE = (1 <<  8),
-        ADDRMAN     = (1 <<  9),
-        SELECTCOINS = (1 << 10),
-        REINDEX     = (1 << 11),
-        CMPCTBLOCK  = (1 << 12),
-        RAND        = (1 << 13),
-        PRUNE       = (1 << 14),
-        PROXY       = (1 << 15),
-        MEMPOOLREJ  = (1 << 16),
-        LIBEVENT    = (1 << 17),
-        COINDB      = (1 << 18),
-        QT          = (1 << 19),
-        LEVELDB     = (1 << 20),
-        VALIDATION  = (1 << 21),
-        I2P         = (1 << 22),
-        IPC         = (1 << 23),
+        NONE                       = 0,
+        NET                        = (1 <<  0),
+        TOR                        = (1 <<  1),
+        MEMPOOL                    = (1 <<  2),
+        HTTP                       = (1 <<  3),
+        BENCH                      = (1 <<  4),
+        ZMQ                        = (1 <<  5),
+        WALLETDB                   = (1 <<  6),
+        RPC                        = (1 <<  7),
+        ESTIMATEFEE                = (1 <<  8),
+        ADDRMAN                    = (1 <<  9),
+        SELECTCOINS                = (1 << 10),
+        REINDEX                    = (1 << 11),
+        CMPCTBLOCK                 = (1 << 12),
+        RAND                       = (1 << 13),
+        PRUNE                      = (1 << 14),
+        PROXY                      = (1 << 15),
+        MEMPOOLREJ                 = (1 << 16),
+        LIBEVENT                   = (1 << 17),
+        COINDB                     = (1 << 18),
+        QT                         = (1 << 19),
+        LEVELDB                    = (1 << 20),
+        VALIDATION                 = (1 << 21),
+        I2P                        = (1 << 22),
+        IPC                        = (1 << 23),
 #ifdef DEBUG_LOCKCONTENTION
-        LOCK        = (1 << 24),
+        LOCK                       = (1 << 24),
 #endif
-        UTIL        = (1 << 25),
-        BLOCKSTORE  = (1 << 26),
-        ALL         = ~(uint32_t)0,
+        UTIL                       = (1 << 25),
+        BLOCKSTORE                 = (1 << 26),
+        UNCONDITIONAL_RATE_LIMITED = (1 << 27),
+        UNCONDITIONAL_ALWAYS       = (1 << 28),
+        ALL                        = ~(uint32_t)0,
     };
     enum class Level {
         Debug = 0,
@@ -73,6 +103,45 @@ namespace BCLog {
         Info = 2,
         Warning = 3,
         Error = 4,
+    };
+
+    static constexpr LogFlags DEFAULT_LOG_FLAGS{UNCONDITIONAL_RATE_LIMITED | UNCONDITIONAL_ALWAYS};
+
+    //! Fixed window rate limiter for logging.
+    class LogRateLimiter
+    {
+    private:
+        //! Timestamp of the last window reset.
+        std::chrono::time_point<NodeClock> m_last_reset;
+        //! Remaining bytes in the current window interval.
+        uint64_t m_available_bytes{WINDOW_MAX_BYTES};
+        //! Number of bytes that were not consumed within the current window.
+        uint64_t m_dropped_bytes{0};
+        //! Reset the window if the window interval has passed since the last reset.
+        void MaybeReset();
+
+    public:
+        //! Interval after which the window is reset.
+        static constexpr std::chrono::hours WINDOW_SIZE{1};
+        //! The maximum number of bytes that can be logged within one window.
+        static constexpr uint64_t WINDOW_MAX_BYTES{1024 * 1024};
+
+        LogRateLimiter() : m_last_reset{NodeClock::now()} {}
+
+        //! Consume bytes from the window if enough bytes are available.
+        //!
+        //! Returns whether or not enough bytes were available.
+        bool Consume(uint64_t bytes);
+
+        uint64_t GetAvailableBytes() const
+        {
+            return m_available_bytes;
+        }
+
+        uint64_t GetDroppedBytes() const
+        {
+            return m_dropped_bytes;
+        }
     };
 
     class Logger
@@ -84,6 +153,11 @@ namespace BCLog {
         std::list<std::string> m_msgs_before_open GUARDED_BY(m_cs);
         bool m_buffering GUARDED_BY(m_cs) = true; //!< Buffer messages before logging can be started.
 
+        //! Fixed window rate limiters for each source location that has attempted to log something.
+        std::unordered_map<SourceLocation, LogRateLimiter, SourceLocationHasher> m_ratelimiters GUARDED_BY(m_cs);
+        //! Set of source file locations that were dropped on the last log attempt.
+        std::unordered_set<SourceLocation, SourceLocationHasher> m_supressed_locations GUARDED_BY(m_cs);
+
         /**
          * m_started_new_line is a state variable that will suppress printing of
          * the timestamp when multiple calls are made that don't end in a
@@ -92,7 +166,7 @@ namespace BCLog {
         std::atomic_bool m_started_new_line{true};
 
         /** Log categories bitfield. */
-        std::atomic<uint32_t> m_categories{0};
+        std::atomic<uint32_t> m_categories{DEFAULT_LOG_FLAGS};
 
         std::string LogTimestampStr(const std::string& str);
 
@@ -107,12 +181,15 @@ namespace BCLog {
         bool m_log_time_micros = DEFAULT_LOGTIMEMICROS;
         bool m_log_threadnames = DEFAULT_LOGTHREADNAMES;
         bool m_log_sourcelocations = DEFAULT_LOGSOURCELOCATIONS;
+        bool m_ratelimit{DEFAULT_RATELIMITLOGGING};
 
         fs::path m_file_path;
         std::atomic<bool> m_reopen_file{false};
 
         /** Send a string to the log output */
-        void LogPrintStr(const std::string& str, const std::string& logging_function, const std::string& source_file, const int source_line, const BCLog::LogFlags category, const BCLog::Level level);
+        void LogPrintStr(const std::string& str, const std::string& logging_function,
+                         const SourceLocation& source_location, const BCLog::LogFlags category,
+                         const BCLog::Level level);
 
         /** Returns whether logs will be written to any output */
         bool Enabled() const
@@ -161,7 +238,6 @@ namespace BCLog {
 
         bool DefaultShrinkDebugFile() const;
     };
-
 } // namespace BCLog
 
 BCLog::Logger& LogInstance();
@@ -190,17 +266,24 @@ static inline void LogPrintf_(const std::string& logging_function, const std::st
             /* Original format string will have newline so don't add one here */
             log_msg = "Error \"" + std::string(fmterr.what()) + "\" while formatting log message: " + fmt;
         }
-        LogInstance().LogPrintStr(log_msg, logging_function, source_file, source_line, flag, level);
+
+        const SourceLocation source_location{source_file, source_line};
+        LogInstance().LogPrintStr(log_msg, logging_function, source_location, flag, level);
     }
 }
 
 
 #define LogPrintLevel_(category, level, ...) LogPrintf_(__func__, __FILE__, __LINE__, category, level, __VA_ARGS__)
 
-#define LogPrintf(...) LogPrintLevel_(BCLog::LogFlags::NONE, BCLog::Level::None, __VA_ARGS__)
+// Unconditional logging. Uses basic rate limiting to mitigate disk filling attacks.
+#define LogPrintf(...) LogPrintLevel_(BCLog::LogFlags::UNCONDITIONAL_RATE_LIMITED, BCLog::Level::None, __VA_ARGS__)
 
 // Use a macro instead of a function for conditional logging to prevent
 // evaluating arguments when logging for the category is not enabled.
+//
+// Note that conditional logging is performed WITHOUT rate limiting. Users
+// specifying -debug are assumed to be developers or power users who are aware
+// that -debug may cause excessive disk usage due to logging.
 #define LogPrint(category, ...)                                        \
     do {                                                               \
         if (LogAcceptCategory((category))) {                           \
