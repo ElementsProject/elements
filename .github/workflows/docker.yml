@@ -36,6 +36,6 @@ jobs:
       - name: Run Docker buildx
         run: |
                 docker buildx build \
-                --platform linux/amd64,linux/arm64 \
+                --platform linux/amd64 \
                 --tag ghcr.io/$IMAGE_NAME:$BRANCH \
                 --output "type=registry" ./
