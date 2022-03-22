@@ -65,8 +65,6 @@ RUN ./configure LDFLAGS=-L/opt/db4/lib/ CPPFLAGS=-I/opt/db4/include/ \
 RUN make -j$(( $(nproc) + 1 )) check
 RUN make install
 
-RUN strip -v "/opt/element/bin/elements"*
-
 FROM alpine:${VER_ALPINE} AS final
 
 ARG USER
