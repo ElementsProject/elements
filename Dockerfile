@@ -72,7 +72,7 @@ FROM alpine:${VER_ALPINE} AS final
 ARG USER
 ARG DIR
 
-COPY --from=builder /opt/element/bin/bitcoin* /usr/local/bin/
+COPY --from=builder /opt/element/bin/elements* /usr/local/bin/
 
 RUN adduser --disabled-password \
             --home "$DIR/" \
