@@ -1,17 +1,17 @@
 # This Dockerfile builds Elements and packages it into a minimal `final` image
 
 # Define default versions so that they don't have to be repeated throughout the file
-ARG VER_ALPINE=3.12
+ARG VER_ALPINE=3.15
 
 # $USER name, and data $DIR to be used in the `final` image
 ARG USER=elements
 ARG DIR=/data
 
 #
-## `berkeleydb-prebuilt` downloads a pre-built BerkeleyDB to make sure
-#       the overall build time of this Dockerfile fits within CI limits.
+# This downloads a pre-built BerkeleyDB to make sure
+# the overall build time of this Dockerfile fits within CI limits.
 #
-FROM lncm/berkeleydb:v4.8.30.NC AS berkeleydb
+FROM ghcr.io/runcitadel/berkeleydb:main AS berkeleydb
 
 
 FROM alpine:${VER_ALPINE} AS builder
@@ -54,15 +54,17 @@ RUN ./configure LDFLAGS=-L/opt/db4/lib/ CPPFLAGS=-I/opt/db4/include/ \
     --disable-shared \
     --disable-ccache \
     --disable-tests \
+    --disable-bench \
     --enable-static \
     --enable-reduce-exports \
+    -enable-c++17 \
     --without-gui \
     --without-libs \
     --with-utils \
     --with-sqlite=yes \
     --with-daemon
 
-RUN make -j$(( $(nproc) + 1 )) check
+RUN make -j$(( $(nproc) + 1 ))
 RUN make install
 
 FROM alpine:${VER_ALPINE} AS final
