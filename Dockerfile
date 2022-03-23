@@ -1,7 +1,7 @@
 # This Dockerfile builds Elements and packages it into a minimal `final` image
 
 # Define default versions so that they don't have to be repeated throughout the file
-ARG VER_ALPINE=3.15
+ARG VER_ALPINE=3.12
 
 # $USER name, and data $DIR to be used in the `final` image
 ARG USER=elements
