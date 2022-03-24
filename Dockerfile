@@ -24,7 +24,7 @@ RUN apk add --no-cache \
         automake \
         boost-dev \
         sqlite-dev \
-        build-base \
+        build-base clang clang-dev lld \
         chrpath \
         file \
         libevent-dev \
@@ -48,7 +48,7 @@ RUN ./autogen.sh
 
 # TODO: Try to optimize on passed params
 RUN ./configure LDFLAGS=-L/opt/db4/lib/ CPPFLAGS=-I/opt/db4/include/ \
-    CXXFLAGS="-O2" \
+    CXXFLAGS="-O2" CC=clang CXX=clang++ \
     --prefix="/opt/element" \
     --disable-man \
     --disable-shared \
@@ -57,20 +57,29 @@ RUN ./configure LDFLAGS=-L/opt/db4/lib/ CPPFLAGS=-I/opt/db4/include/ \
     --disable-bench \
     --enable-static \
     --enable-reduce-exports \
-    -enable-c++17 \
+    --enable-c++17 \
     --without-gui \
     --without-libs \
     --with-utils \
     --with-sqlite=yes \
     --with-daemon
 
-RUN make -j$(( $(nproc) + 1 ))
+RUN make -j$(nproc)
 RUN make install
 
 FROM alpine:${VER_ALPINE} AS final
 
 ARG USER
 ARG DIR
+
+RUN apk add --no-cache \
+        boost-filesystem \
+        boost-thread \
+        libevent \
+        libsodium \
+        libstdc++ \
+        libzmq \
+        sqlite-libs
 
 COPY --from=builder /opt/element/bin/elements* /usr/local/bin/
 
