@@ -75,6 +75,7 @@ ARG DIR
 RUN apk add --no-cache \
         boost-filesystem \
         boost-thread \
+        boost-system \
         libevent \
         libsodium \
         libstdc++ \
