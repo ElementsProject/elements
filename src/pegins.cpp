@@ -373,7 +373,6 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const std::vector<
         if (tx_index == 0) {
             required_depth = std::max(required_depth, (unsigned int)COINBASE_MATURITY);
         }
-        LogPrintf("Required depth: %d\n", required_depth);
         if (!IsConfirmedBitcoinBlock(block_hash, required_depth, num_txs)) {
             err_msg = "Needs more confirmations.";
             if (depth_failed) {
