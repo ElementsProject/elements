@@ -3673,16 +3673,23 @@ static bool ContextualCheckBlock(const CBlock& block, BlockValidationState& stat
     return true;
 }
 
-bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, BlockValidationState& state, const CChainParams& chainparams, CBlockIndex** ppindex)
+bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, BlockValidationState& state, const CChainParams& chainparams, CBlockIndex** ppindex, bool* duplicate)
 {
     AssertLockHeld(cs_main);
     // Check for duplicate
     uint256 hash = block.GetHash();
     BlockMap::iterator miSelf = m_block_index.find(hash);
+    if (duplicate) {
+        *duplicate = false;
+    }
     if (hash != chainparams.GetConsensus().hashGenesisBlock) {
         if (miSelf != m_block_index.end()) {
             // Block header is already known.
             CBlockIndex* pindex = miSelf->second;
+            if (duplicate) {
+                *duplicate = true;
+            }
+            pindex = miSelf->second;
             if (ppindex)
                 *ppindex = pindex;
             if (pindex->nStatus & BLOCK_FAILED_MASK) {
@@ -3760,17 +3767,24 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, BlockValidationS
 }
 
 // Exposed wrapper for AcceptBlockHeader
-bool ChainstateManager::ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, BlockValidationState& state, const CChainParams& chainparams, const CBlockIndex** ppindex)
+bool ChainstateManager::ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, BlockValidationState& state, const CChainParams& chainparams, const CBlockIndex** ppindex, bool* all_duplicate)
 {
     AssertLockNotHeld(cs_main);
     {
         LOCK(cs_main);
+        if (all_duplicate) {
+            *all_duplicate = true;
+        }
+        bool duplicate = false;
         for (const CBlockHeader& header : headers) {
             CBlockIndex *pindex = nullptr; // Use a temp pindex instead of ppindex to avoid a const_cast
             bool accepted = m_blockman.AcceptBlockHeader(
-                header, state, chainparams, &pindex);
+                header, state, chainparams, &pindex, &duplicate);
             ActiveChainstate().CheckBlockIndex();
 
+            if (all_duplicate) {
+                (*all_duplicate) &= duplicate;  // False if any are false
+            }
             if (!accepted) {
                 return false;
             }

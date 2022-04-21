@@ -2057,7 +2057,8 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, const Peer& peer,
     }
 
     BlockValidationState state;
-    if (!m_chainman.ProcessNewBlockHeaders(headers, state, m_chainparams, &pindexLast)) {
+    bool all_duplicate = false;
+    if (!m_chainman.ProcessNewBlockHeaders(headers, state, m_chainparams, &pindexLast, &all_duplicate)) {
         if (state.IsInvalid()) {
             MaybePunishNodeForBlock(pfrom.GetId(), state, via_compact_block, "invalid header received");
             return;
@@ -2083,10 +2084,11 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, const Peer& peer,
             nodestate->m_last_block_announcement = GetTime();
         }
 
-        if (nCount == MAX_HEADERS_RESULTS) {
+        if (nCount == MAX_HEADERS_RESULTS && !all_duplicate) {
             // Headers message had its maximum size; the peer may have more headers.
             // TODO: optimize: if pindexLast is an ancestor of m_chainman.ActiveChain().Tip or pindexBestHeader, continue
             // from there instead.
+            // HOWEVER, if all headers we got this time were duplicates that we already had, don't ask for any more.
             LogPrint(BCLog::NET, "more getheaders (%d) to end to peer=%d (startheight:%d)\n",
                                  pindexLast->nHeight, pfrom.GetId(), peer.m_starting_height);
             m_connman.PushMessage(&pfrom, msgMaker.Make(NetMsgType::GETHEADERS, m_chainman.ActiveChain().GetLocator(pindexLast), uint256()));
