@@ -322,7 +322,7 @@ def initialize_datadir(dirname, n):
         f.write("pubkeyprefix=111\n")
         f.write("scriptprefix=196\n")
         f.write("bech32_hrp=bcrt\n")
-        f.write("con_dyna_deploy_start="+str(2**31)+"\n") # Never starts
+        f.write("evbparams=dynafed:"+str(2**31)+":::\n") # Never starts
         f.write("minrelaytxfee=0.00001\n")
         os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
