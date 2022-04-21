@@ -220,6 +220,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
             result.pushKV("signblock_challenge", HexStr(blockindex->proof.challenge));
         } else {
+            result.pushKV("signblock_witness_hex", EncodeHexScriptWitness(blockindex->m_signblock_witness));
             result.pushKV("dynamic_parameters", dynaParamsToJSON(block.m_dynafed_params));
         }
     }
