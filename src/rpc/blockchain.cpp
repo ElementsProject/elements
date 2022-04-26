@@ -161,9 +161,11 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
         result.pushKV("difficulty", GetDifficulty(blockindex));
         result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     } else {
-        result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
-        result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
-        if (!blockindex->dynafed_params.IsNull()) {
+        if (blockindex->dynafed_params.IsNull()) {
+            result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
+            result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
+        } else {
+            result.pushKV("signblock_witness_hex", EncodeHexScriptWitness(blockindex->m_signblock_witness));
             result.pushKV("dynamic_parameters", dynaParamsToJSON(blockindex->dynafed_params));
         }
     }
@@ -218,6 +220,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
             result.pushKV("signblock_challenge", HexStr(blockindex->proof.challenge));
         } else {
+            result.pushKV("signblock_witness_hex", EncodeHexScriptWitness(blockindex->m_signblock_witness));
             result.pushKV("dynamic_parameters", dynaParamsToJSON(block.m_dynafed_params));
         }
     }

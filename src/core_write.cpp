@@ -164,6 +164,15 @@ std::string EncodeHexTx(const CTransaction& tx, const int serializeFlags)
     return HexStr(ssTx);
 }
 
+UniValue EncodeHexScriptWitness(const CScriptWitness& witness)
+{
+    UniValue witness_hex(UniValue::VARR);
+    for (const auto &item : witness.stack) {
+        witness_hex.push_back(HexStr(item));
+    }
+    return witness_hex;
+}
+
 void ScriptToUniv(const CScript& script, UniValue& out, bool include_address)
 {
     out.pushKV("asm", ScriptToAsmStr(script));
