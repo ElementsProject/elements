@@ -1444,10 +1444,8 @@ RPCHelpMan getblockchaininfo()
     obj.pushKV("size_on_disk",          CalculateCurrentUsage());
     obj.pushKV("pruned",                fPruneMode);
     if (g_signed_blocks) {
-        CScript sign_block_script = chainparams.GetConsensus().signblockscript;
-        obj.pushKV("signblock_asm", ScriptToAsmStr(sign_block_script));
-        obj.pushKV("signblock_hex", HexStr(sign_block_script));
         if (!IsDynaFedEnabled(::ChainActive().Tip(), chainparams.GetConsensus())) {
+            CScript sign_block_script = chainparams.GetConsensus().signblockscript;
             obj.pushKV("current_signblock_asm", ScriptToAsmStr(sign_block_script));
             obj.pushKV("current_signblock_hex", HexStr(sign_block_script));
             obj.pushKV("max_block_witness", (uint64_t)chainparams.GetConsensus().max_block_signature_size);

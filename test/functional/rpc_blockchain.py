@@ -81,8 +81,6 @@ class BlockchainTest(BitcoinTestFramework):
             'max_block_witness',
             'mediantime',
             'pruned',
-            'signblock_asm',
-            'signblock_hex',
             'size_on_disk',
             'softforks',
             'verificationprogress',
