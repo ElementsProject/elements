@@ -38,7 +38,6 @@ def go_to_epoch_end(node):
     node.generatetoaddress(blocks_to_mine, node.getnewaddress())
 
 def validate_no_vote_op_true(node, block, first_dynafed_active_block):
-
     block_info = node.getblock(block)
     dynamic_parameters = block_info["dynamic_parameters"]
     block_height = block_info["height"]
@@ -48,18 +47,21 @@ def validate_no_vote_op_true(node, block, first_dynafed_active_block):
     WSH_OP_TRUE = node.decodescript("51")["segwit"]["hex"]
     assert_equal(dynamic_parameters["current"]["signblockscript"], WSH_OP_TRUE)
     if block_height % 10 == 0 or first_dynafed_active_block:
+        assert_equal(dynamic_parameters["current"]["type"], "full")
         assert_equal(dynamic_parameters["current"]["fedpegscript"], "51")
         assert_equal(dynamic_parameters["current"]["extension_space"], initial_extension)
     else:
-        assert_equal(dynamic_parameters["current"]["fedpegscript"], "")
-        assert_equal(dynamic_parameters["current"]["extension_space"], [])
+        assert_equal(dynamic_parameters["current"]["type"], "compact")
+        assert not "fedpegscript" in dynamic_parameters["proposed"]
+        assert not "extension_space" in dynamic_parameters["proposed"]
     assert_equal(dynamic_parameters["current"]["max_block_witness"], 74)
     # nothing was proposed, null fields make impossible to be valid blockheader
     # due to script rules requiring bool true on stack
-    assert_equal(dynamic_parameters["proposed"]["signblockscript"], "")
-    assert_equal(dynamic_parameters["proposed"]["fedpegscript"], "")
-    assert_equal(dynamic_parameters["proposed"]["max_block_witness"], 0)
-    assert_equal(dynamic_parameters["proposed"]["extension_space"], [])
+    assert_equal(dynamic_parameters["proposed"]["type"], "null")
+    assert not "signblockscript" in dynamic_parameters["proposed"]
+    assert not "max_block_witness" in dynamic_parameters["proposed"]
+    assert not "fedpegscript" in dynamic_parameters["proposed"]
+    assert not "extension_space" in dynamic_parameters["proposed"]
 
 class DynaFedTest(BitcoinTestFramework):
     def set_test_params(self):
