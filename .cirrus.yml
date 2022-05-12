@@ -213,6 +213,8 @@ task:
 
 task:
   name: 'ARM64 Android APK [focal]'
+  # Disable for Elements; Android build is broken and unsupported.
+  only_if: false
   << : *DEPENDS_SDK_CACHE_TEMPLATE
   depends_sources_cache:
     folder: "depends/sources"
