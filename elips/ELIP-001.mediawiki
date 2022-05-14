@@ -1,0 +1,234 @@
+﻿<pre>
+  ELIP: 1
+  Title: ELIP Purpose and Guidelines
+  Author: Marco Argentieri <marco@vulpem.com>
+  Comments-Summary: No comments yet.
+  Comments-URI: TBD
+  Status: Draft
+  Type: Protocol
+  Created: 2022-05-06
+  Superseded-By: 
+</pre>
+
+
+==What is an ELIP?==
+
+
+ELIP stands for ELements Improvement Proposal. An ELIP is a design document providing information to the Elements community, or describing a new feature for Elements or its processes or environment. The ELIP should provide a concise technical specification of the feature and a rationale for the feature.
+
+
+We intend ELIPs to be the primary mechanisms for proposing new features, for collecting community input on an issue, and for documenting the design decisions that have gone into Elements. The ELIP author is responsible for building consensus within the community and documenting dissenting opinions.
+
+
+Because the ELIPs are maintained as text files in a versioned repository, their revision history is the historical record of the feature proposal.
+
+
+==ELIP Types==
+
+
+There are two kinds of ELIP:
+
+
+* A protocol ELIP describes any change that affects most or all Elements implementations, such as a change to the network protocol, a change in block or transaction validity rules, or any change or addition that affects the interoperability of applications using Elements.
+* An application ELIP describes a feature addition proposal or design improvement on the application layer of Elements. Proposals do not necessarily represent an Elements community consensus or recommendation, so users and implementers are free to ignore Informational ELIPs or follow their advice.
+
+
+==ELIP Work Flow==
+
+
+The ELIP process begins with a new idea for Elements. Each potential ELIP must have a champion -- someone who writes the ELIP using the style and format described below, shepherds the discussions in the appropriate forums, and attempts to build community consensus around the idea. The ELIP champion (a.k.a. Author) should first attempt to ascertain whether the idea is ELIP-able. Posting to the elements-dev@googlegroups.com mailing list is the best way to go about this.
+
+
+Vetting an idea publicly before going as far as writing an ELIP is meant to save both the potential author and the wider community time. Asking the Elements community first if an idea is original helps prevent too much time being spent on something that is guaranteed to be rejected based on prior discussions (searching the internet does not always do the trick). It also helps to make sure the idea is applicable to the entire community and not just the author. Just because an idea sounds good to the author does not mean it will work for most people in most areas where Elements is used. Small enhancements or patches often don't need standardization between multiple projects; these don't need an ELIP and should be injected into the relevant Elements development work flow with a patch submission to the applicable Elements issue tracker.
+
+
+Once the champion has confirmed the Elements community as to whether an idea has any chance of acceptance, a draft ELIP should be presented to the elements-dev@googlegroups.com mailing list. This gives the author a chance to flesh out the draft ELIP to make it properly formatted, of high quality, and to address additional concerns about the proposal. Following a discussion, the proposal should be sent to the elements-dev list and the ELIP editor with the draft ELIP. This draft must be written in ELIP style as described below, else it will be sent back without further regard until proper formatting rules are followed.
+
+
+ELIP authors are responsible for collecting community feedback on both the initial idea and the ELIP before submitting it for review. However, wherever possible, long open-ended discussions on public mailing lists should be avoided.
+
+
+It is highly recommended that a single ELIP contain a single key proposal or new idea. The more focused the ELIP, the more successful it tends to be. If in doubt, split your ELIP into several well-focused ones.
+
+
+The ELIP editors assign ELIP numbers and change their status. Please send all ELIP-related email to the ELIP editor, which is listed under [[#ELIP_Editors|ELIP Editors]] below. Also see [[#ELIP_Editor_Responsibilities__Workflow|ELIP Editor Responsibilities & Workflow]]. The ELIP editor reserves the right to reject ELIP proposals if they appear too unfocused or too broad.
+
+
+Authors MUST NOT self assign ELIP numbers, but should use an alias such as "elip-johndoe-infinitelquidbitcoins" which includes the author's name/nick and the ELIP subject.
+
+
+If the ELIP editor approves, he will assign the ELIP a number, label it as protocol or application, give it status "Draft", and add it to the ELIPs git repository. The ELIP editor will not unreasonably deny an ELIP. Reasons for denying ELIP status include duplication of effort, disregard for formatting rules, being too unfocused or too broad, being technically unsound, not providing proper motivation or addressing backwards compatibility, or not in keeping with the Elements philosophy. For an ELIP to be accepted it must meet certain minimum criteria. It must be a clear and complete description of the proposed enhancement. The enhancement must represent a net improvement. The proposed implementation, if applicable, must be solid and must not complicate the protocol unduly.
+
+
+The ELIP author may update the Draft as necessary in the git repository. Updates to drafts may also be submitted by the author as pull requests.
+
+
+Protocol and application ELIPs consist of two parts, a design document and a reference implementation. The ELIP should be reviewed and accepted before a reference implementation is begun, unless a reference implementation will aid people in studying the ELIP. Standards Track ELIPs must include an implementation -- in the form of code, a patch, or a URL to same -- before it can be considered Final.
+
+
+Once an ELIP has been accepted, the reference implementation must be completed. When the reference implementation is complete and accepted by the community, the status will be changed to "Final".
+
+
+An ELIP can also be assigned status "Deferred". The ELIP author or editor can assign the ELIP this status when no progress is being made on the ELIP. Once an ELIP is deferred, the ELIP editor can re-assign it to draft status.
+
+
+An ELIP can also be "Rejected". Perhaps after all is said and done it was not a good idea. It is still important to have a record of this fact.
+
+
+ELIPs can also be superseded by a different ELIP, rendering the original obsolete. This is intended for Informational ELIPs, where version 2 of an API can replace version 1.
+
+
+The possible paths of the status of ELIPs are as follows:
+
+
+<img src=https://github.com/bitcoin/bips/raw/master/bip-0001/process.png></img>
+
+
+Some Informational and Process ELIPs may also have a status of "Active" if they are never meant to be completed. E.g. ELIP 1 (this ELIP).
+
+
+==What belongs in a successful ELIP?==
+
+
+Each ELIP should have the following parts:
+
+
+* Preamble -- RFC 822 style headers containing meta-data about the ELIP, including the ELIP number, a short descriptive title (limited to a maximum of 44 characters), the names, and optionally the contact info for each author, etc.
+
+
+* Abstract -- a short (~200 word) description of the technical issue being addressed.
+
+
+* Copyright/public domain -- Each ELIP must either be explicitly labeled as placed in the public domain (see this ELIP as an example) or licensed under the Open Publication License.
+
+
+* Specification -- The technical specification should describe the syntax and semantics of any new feature. The specification should be detailed enough to allow competing, interoperable implementations for any of the current Elements platforms.
+
+
+* Motivation -- The motivation is critical for ELIPs that want to change the Elements protocol. It should clearly explain why the existing protocol specification is inadequate to address the problem that the ELIP solves. ELIP submissions without sufficient motivation may be rejected outright.
+
+
+* Rationale -- The rationale fleshes out the specification by describing what motivated the design and why particular design decisions were made. It should describe alternate designs that were considered and related work, e.g. how the feature is supported in other languages.
+
+
+* The rationale should provide evidence of consensus within the community and discuss important objections or concerns raised during discussion.
+
+
+* Backwards Compatibility -- All ELIPs that introduces backwards incompatibilities must include a section describing these incompatibilities and their severity. The ELIP must explain how the author proposes to deal with these incompatibilities. ELIP submissions without a sufficient backwards compatibility treatise may be rejected outright.
+
+
+* Reference Implementation -- The reference implementation must be completed before any ELIP is given status "Final", but it need not be completed before the ELIP is accepted. It is better to finish the specification and rationale first and reach consensus on it before writing code.
+
+
+* The final implementation must include test code and documentation appropriate for the Elements protocol.
+
+
+==ELIP Formats and Templates==
+
+
+ELIPs should be written in mediawiki or markdown format.
+
+
+===ELIP Header Preamble===
+
+
+Each ELIP must begin with an RFC 822 style header preamble. The headers must appear in the following order. Headers marked with "*" are optional and are described below. All other headers are required.
+
+
+<pre>
+  ELIP: <ELIP number>
+  Title: <ELIP title>
+  Author: <list of authors' real names and optionally, email addrs>
+* Discussions-To: <email address>
+  Status: <Draft | Active | Accepted | Deferred | Rejected |
+           Withdrawn | Final | Superseded>
+  Type: <Protocol | Application>
+  Created: <date created on, in ISO 8601 (yyyy-mm-dd) format>
+* Post-History: <dates of postings to Elements mailing list>
+* Replaces: <ELIP number>
+* Superseded-By: <ELIP number>
+* Resolution: <url>
+</pre>
+
+
+The Author header lists the names, and optionally the email addresses of all the authors/owners of the ELIP. The format of the Author header value must be
+
+
+  Random J. User <address@dom.ain>
+
+
+if the email address is included, and just
+
+
+  Random J. User
+
+
+if the address is not given.
+
+
+If there are multiple authors, each should be on a separate line following RFC 2822 continuation line conventions.
+
+
+===Auxiliary Files===
+
+
+ELIPs may include auxiliary files such as diagrams. Image files should be included in a subdirectory for that ELIP. Auxiliary files must be named ELIP-XXXX-Y.ext, where "XXXX" is the ELIP number, "Y" is a serial number (starting at 1), and "ext" is replaced by the actual file extension (e.g. "png").
+
+
+==Transferring ELIP Ownership==
+
+
+It occasionally becomes necessary to transfer ownership of ELIPs to a new champion. In general, we'd like to retain the original author as a co-author of the transferred ELIP, but that's really up to the original author. A good reason to transfer ownership is because the original author no longer has the time or interest in updating it or following through with the ELIP process, or has fallen off the face of the 'net (i.e. is unreachable or not responding to email). A bad reason to transfer ownership is because you don't agree with the direction of the ELIP. We try to build consensus around an ELIP, but if that's not possible, you can always submit a competing ELIP.
+
+
+If you are interested in assuming ownership of an ELIP, send a message asking to take over, addressed to both the original author and the ELIP editor. If the original author doesn't respond to email in a timely manner, the ELIP editor will make a unilateral decision (it's not like such decisions can't be reversed :).
+
+
+==ELIP Editors==
+
+
+The current ELIP editor is Marco Argentieri who can be contacted at marco@vulpem.com
+
+
+==ELIP Editor Responsibilities & Workflow==
+
+
+The ELIP editor subscribes to the Elements development mailing list. All ELIP-related correspondence should be sent (or CC'd) to marco@vulpem.com
+
+
+For each new ELIP that comes in an editor does the following:
+
+
+* Read the ELIP to check if it is ready: sound and complete. The ideas must make technical sense, even if they don't seem likely to be accepted.
+* The title should accurately describe the content.
+* Edit the ELIP for language (spelling, grammar, sentence structure, etc.), markup, code style.
+
+
+If the ELIP isn't ready, the editor will send it back to the author for revision, with specific instructions.
+
+
+Once the ELIP is ready for the repository it should be submitted as a "pull request" to the https://github.com/ElementsProject/elips repository on GitHub where it may get further feedback.
+
+
+The ELIP editor will:
+
+
+* Assign an ELIP number (almost always just the next available number, but sometimes it's a special/joke number, like 666 or 3141) in the pull request comments.
+
+
+* Merge the pull request when the author is ready (allowing some time for further peer review).
+
+
+* List the ELIP in [[README.mediawiki]]
+
+
+* Send email back to the ELIP author with next steps (post to elements-dev mailing list).
+
+
+The ELIP editors are intended to fulfill administrative and editorial responsibilities. The ELIP editors monitor ELIP changes, and correct any structure, grammar, spelling, or markup mistakes we see.
+
+
+==History==
+
+
+This document was derived heavily from Bitcoin's BIP-0001. In many places text was simply copied and modified. Authors of BIP-0001 are not responsible for its use in the Elements Improvement Process, and should not be bothered with technical questions specific to Elements or the ELIP process. Please direct all comments to the ELIP editors or the Elements development mailing list.
