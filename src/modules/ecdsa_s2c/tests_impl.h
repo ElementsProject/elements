@@ -93,6 +93,7 @@ static void test_ecdsa_s2c_api(void) {
     secp256k1_context *sign = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
     secp256k1_context *vrfy = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
     secp256k1_context *both = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    secp256k1_context *sttc = secp256k1_context_clone(secp256k1_context_no_precomp);
 
     secp256k1_ecdsa_s2c_opening s2c_opening;
     secp256k1_ecdsa_signature sig;
@@ -108,6 +109,7 @@ static void test_ecdsa_s2c_api(void) {
     secp256k1_context_set_illegal_callback(sign, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_illegal_callback(vrfy, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_illegal_callback(both, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(sttc, counting_illegal_callback_fn, &ecount);
     CHECK(secp256k1_ec_pubkey_create(ctx, &pk, sec));
 
     ecount = 0;
@@ -121,12 +123,12 @@ static void test_ecdsa_s2c_api(void) {
     CHECK(ecount == 3);
     CHECK(secp256k1_ecdsa_s2c_sign(both, &sig, &s2c_opening, msg, sec, NULL) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_ecdsa_s2c_sign(none, &sig, &s2c_opening, msg, sec, s2c_data) == 0);
-    CHECK(ecount == 5);
-    CHECK(secp256k1_ecdsa_s2c_sign(vrfy, &sig, &s2c_opening, msg, sec, s2c_data) == 0);
-    CHECK(ecount == 6);
+    CHECK(secp256k1_ecdsa_s2c_sign(none, &sig, &s2c_opening, msg, sec, s2c_data) == 1);
+    CHECK(secp256k1_ecdsa_s2c_sign(vrfy, &sig, &s2c_opening, msg, sec, s2c_data) == 1);
     CHECK(secp256k1_ecdsa_s2c_sign(sign, &sig, &s2c_opening, msg, sec, s2c_data) == 1);
-    CHECK(ecount == 6);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_ecdsa_s2c_sign(sttc, &sig, &s2c_opening, msg, sec, s2c_data) == 0);
+    CHECK(ecount == 5);
 
     CHECK(secp256k1_ecdsa_verify(ctx, &sig, msg, &pk) == 1);
 
@@ -137,14 +139,12 @@ static void test_ecdsa_s2c_api(void) {
     CHECK(ecount == 2);
     CHECK(secp256k1_ecdsa_s2c_verify_commit(both, &sig, s2c_data, NULL) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_ecdsa_s2c_verify_commit(none, &sig, s2c_data, &s2c_opening) == 0);
-    CHECK(ecount == 4);
-    CHECK(secp256k1_ecdsa_s2c_verify_commit(sign, &sig, s2c_data, &s2c_opening) == 0);
-    CHECK(ecount == 5);
+    CHECK(secp256k1_ecdsa_s2c_verify_commit(none, &sig, s2c_data, &s2c_opening) == 1);
+    CHECK(secp256k1_ecdsa_s2c_verify_commit(sign, &sig, s2c_data, &s2c_opening) == 1);
     CHECK(secp256k1_ecdsa_s2c_verify_commit(vrfy, &sig, s2c_data, &s2c_opening) == 1);
-    CHECK(ecount == 5);
+    CHECK(ecount == 3);
     CHECK(secp256k1_ecdsa_s2c_verify_commit(vrfy, &sig, sec, &s2c_opening) == 0);
-    CHECK(ecount == 5); /* wrong data is not an API error */
+    CHECK(ecount == 3); /* wrong data is not an API error */
 
     /* Signing with NULL s2c_opening gives the same result */
     CHECK(secp256k1_ecdsa_s2c_sign(sign, &sig, NULL, msg, sec, s2c_data) == 1);
@@ -168,12 +168,12 @@ static void test_ecdsa_s2c_api(void) {
     CHECK(ecount == 3);
     CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(both, &s2c_opening, msg, sec, NULL) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(none, &s2c_opening, msg, sec, hostrand_commitment) == 0);
-    CHECK(ecount == 5);
-    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(vrfy, &s2c_opening, msg, sec, hostrand_commitment) == 0);
-    CHECK(ecount == 6);
+    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(none, &s2c_opening, msg, sec, hostrand_commitment) == 1);
+    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(vrfy, &s2c_opening, msg, sec, hostrand_commitment) == 1);
     CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(sign, &s2c_opening, msg, sec, hostrand_commitment) == 1);
-    CHECK(ecount == 6);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(sttc, &s2c_opening, msg, sec, hostrand_commitment) == 0);
+    CHECK(ecount == 5);
 
     ecount = 0;
     CHECK(secp256k1_anti_exfil_sign(both, NULL, msg, sec, hostrand) == 0);
@@ -184,12 +184,12 @@ static void test_ecdsa_s2c_api(void) {
     CHECK(ecount == 3);
     CHECK(secp256k1_anti_exfil_sign(both, &sig, msg, sec, NULL) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_anti_exfil_sign(none, &sig, msg, sec, hostrand) == 0);
-    CHECK(ecount == 5);
-    CHECK(secp256k1_anti_exfil_sign(vrfy, &sig, msg, sec, hostrand) == 0);
-    CHECK(ecount == 6);
+    CHECK(secp256k1_anti_exfil_sign(none, &sig, msg, sec, hostrand) == 1);
+    CHECK(secp256k1_anti_exfil_sign(vrfy, &sig, msg, sec, hostrand) == 1);
     CHECK(secp256k1_anti_exfil_sign(both, &sig, msg, sec, hostrand) == 1);
-    CHECK(ecount == 6);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_anti_exfil_sign(sttc, &sig, msg, sec, hostrand) == 0);
+    CHECK(ecount == 5);
 
     ecount = 0;
     CHECK(secp256k1_anti_exfil_host_verify(both, NULL, msg, &pk, hostrand, &s2c_opening) == 0);
@@ -202,17 +202,16 @@ static void test_ecdsa_s2c_api(void) {
     CHECK(ecount == 4);
     CHECK(secp256k1_anti_exfil_host_verify(both, &sig, msg, &pk, hostrand, NULL) == 0);
     CHECK(ecount == 5);
-    CHECK(secp256k1_anti_exfil_host_verify(none, &sig, msg, &pk, hostrand, &s2c_opening) == 0);
-    CHECK(ecount == 6);
-    CHECK(secp256k1_anti_exfil_host_verify(sign, &sig, msg, &pk, hostrand, &s2c_opening) == 0);
-    CHECK(ecount == 7);
+    CHECK(secp256k1_anti_exfil_host_verify(none, &sig, msg, &pk, hostrand, &s2c_opening) == 1);
+    CHECK(secp256k1_anti_exfil_host_verify(sign, &sig, msg, &pk, hostrand, &s2c_opening) == 1);
     CHECK(secp256k1_anti_exfil_host_verify(vrfy, &sig, msg, &pk, hostrand, &s2c_opening) == 1);
-    CHECK(ecount == 7);
+    CHECK(ecount == 5);
 
     secp256k1_context_destroy(both);
     secp256k1_context_destroy(vrfy);
     secp256k1_context_destroy(sign);
     secp256k1_context_destroy(none);
+    secp256k1_context_destroy(sttc);
 }
 
 /* When using sign-to-contract commitments, the nonce function is fixed, so we can use fixtures to test. */

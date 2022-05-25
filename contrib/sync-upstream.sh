@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eou pipefail
 
@@ -100,11 +100,20 @@ git checkout master
 git pull
 git checkout -b temp-merge-"$PRNUM"
 
+# Escape single quote
+# ' -> '\''
+quote() {
+    local quoted=${1//\'/\'\\\'\'}
+    printf "%s" "$quoted"
+}
+TITLE=$(quote "$TITLE")
+BODY=$(quote "$BODY")
+
 BASEDIR=$(dirname "$0")
 FNAME="$BASEDIR/gh-pr-create.sh"
 cat <<EOT > "$FNAME"
 #!/bin/sh
-gh pr create -t "$TITLE" -b "$BODY" --web
+gh pr create -t '$TITLE' -b '$BODY' --web
 # Remove temporary branch
 git checkout master
 git branch -D temp-merge-"$PRNUM"
