@@ -39,7 +39,7 @@ static void bench_whitelist(void* arg, int iters) {
 static void bench_whitelist_setup(void* arg) {
     bench_data* data = (bench_data*)arg;
     int i = 0;
-    CHECK(secp256k1_whitelist_sign(data->ctx, &data->sig, data->online_pubkeys, data->offline_pubkeys, data->n_keys, &data->sub_pubkey, data->online_seckey[i], data->summed_seckey[i], i, NULL, NULL));
+    CHECK(secp256k1_whitelist_sign(data->ctx, &data->sig, data->online_pubkeys, data->offline_pubkeys, data->n_keys, &data->sub_pubkey, data->online_seckey[i], data->summed_seckey[i], i));
 }
 
 static void run_test(bench_data* data, int iters) {

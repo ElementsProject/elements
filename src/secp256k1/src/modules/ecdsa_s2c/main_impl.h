@@ -103,7 +103,6 @@ int secp256k1_ecdsa_s2c_verify_commit(const secp256k1_context* ctx, const secp25
     secp256k1_sha256 s2c_sha;
 
     VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(sig != NULL);
     ARG_CHECK(data32 != NULL);
     ARG_CHECK(opening != NULL);
@@ -112,7 +111,7 @@ int secp256k1_ecdsa_s2c_verify_commit(const secp256k1_context* ctx, const secp25
         return 0;
     }
     secp256k1_s2c_ecdsa_point_sha256_tagged(&s2c_sha);
-    if (!secp256k1_ec_commit(&ctx->ecmult_ctx, &commitment_ge, &original_pubnonce_ge, &s2c_sha, data32, 32)) {
+    if (!secp256k1_ec_commit(&commitment_ge, &original_pubnonce_ge, &s2c_sha, data32, 32)) {
         return 0;
     }
 

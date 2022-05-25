@@ -236,7 +236,6 @@ int secp256k1_ecdsa_adaptor_verify(const secp256k1_context* ctx, const unsigned 
     secp256k1_gej pubkeyj;
 
     VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(adaptor_sig162 != NULL);
     ARG_CHECK(pubkey != NULL);
     ARG_CHECK(msg32 != NULL);
@@ -249,7 +248,7 @@ int secp256k1_ecdsa_adaptor_verify(const secp256k1_context* ctx, const unsigned 
         return 0;
     }
     /* DLEQ_verify((R', Y, R), dleq_proof) */
-    if(!secp256k1_dleq_verify(&ctx->ecmult_ctx, &dleq_proof_s, &dleq_proof_e, &rp, &enckey_ge, &r)) {
+    if(!secp256k1_dleq_verify(&dleq_proof_s, &dleq_proof_e, &rp, &enckey_ge, &r)) {
         return 0;
     }
     secp256k1_scalar_set_b32(&msg, msg32, NULL);
@@ -262,7 +261,7 @@ int secp256k1_ecdsa_adaptor_verify(const secp256k1_context* ctx, const unsigned 
     secp256k1_scalar_mul(&u1, &sn, &msg);
     secp256k1_scalar_mul(&u2, &sn, &sigr);
     secp256k1_gej_set_ge(&pubkeyj, &pubkey_ge);
-    secp256k1_ecmult(&ctx->ecmult_ctx, &derived_rp, &pubkeyj, &u2, &u1);
+    secp256k1_ecmult(&derived_rp, &pubkeyj, &u2, &u1);
     if (secp256k1_gej_is_infinity(&derived_rp)) {
         return 0;
     }

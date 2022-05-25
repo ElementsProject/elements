@@ -33,7 +33,7 @@ static int secp256k1_whitelist_hash_pubkey(secp256k1_scalar* output, secp256k1_g
     return 1;
 }
 
-static int secp256k1_whitelist_tweak_pubkey(const secp256k1_context* ctx, secp256k1_gej* pub_tweaked) {
+static int secp256k1_whitelist_tweak_pubkey(secp256k1_gej* pub_tweaked) {
     secp256k1_scalar tweak;
     secp256k1_scalar zero;
     int ret;
@@ -42,7 +42,7 @@ static int secp256k1_whitelist_tweak_pubkey(const secp256k1_context* ctx, secp25
 
     ret = secp256k1_whitelist_hash_pubkey(&tweak, pub_tweaked);
     if (ret) {
-        secp256k1_ecmult(&ctx->ecmult_ctx, pub_tweaked, pub_tweaked, &tweak, &zero);
+        secp256k1_ecmult(pub_tweaked, pub_tweaked, &tweak, &zero);
     }
     return ret;
 }
@@ -118,7 +118,7 @@ static int secp256k1_whitelist_compute_keys_and_message(const secp256k1_context*
         /* compute tweaked keys */
         secp256k1_gej_set_ge(&tweaked_gej, &offline_ge);
         secp256k1_gej_add_ge_var(&tweaked_gej, &tweaked_gej, &subkey_ge, NULL);
-        secp256k1_whitelist_tweak_pubkey(ctx, &tweaked_gej);
+        secp256k1_whitelist_tweak_pubkey(&tweaked_gej);
         secp256k1_gej_add_ge_var(&keys[i], &tweaked_gej, &online_ge, NULL);
     }
     secp256k1_sha256_finalize(&sha, msg32);

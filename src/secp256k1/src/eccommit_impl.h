@@ -11,7 +11,7 @@
 
 /* from secp256k1.c */
 static int secp256k1_ec_seckey_tweak_add_helper(secp256k1_scalar *sec, const unsigned char *tweak);
-static int secp256k1_ec_pubkey_tweak_add_helper(const secp256k1_ecmult_context* ecmult_ctx, secp256k1_ge *pubp, const unsigned char *tweak);
+static int secp256k1_ec_pubkey_tweak_add_helper(secp256k1_ge *pubp, const unsigned char *tweak);
 
 static int secp256k1_ec_commit_pubkey_serialize_const(secp256k1_ge *pubp, unsigned char *buf33) {
     if (secp256k1_ge_is_infinity(pubp)) {
@@ -39,12 +39,12 @@ static int secp256k1_ec_commit_tweak(unsigned char *tweak32, secp256k1_ge* pubp,
 }
 
 /* Compute an ec commitment as pubp + hash(pubp, data)*G. */
-static int secp256k1_ec_commit(const secp256k1_ecmult_context* ecmult_ctx, secp256k1_ge* commitp, const secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size) {
+static int secp256k1_ec_commit(secp256k1_ge* commitp, const secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size) {
     unsigned char tweak[32];
 
     *commitp = *pubp;
     return secp256k1_ec_commit_tweak(tweak, commitp, sha, data, data_size)
-           && secp256k1_ec_pubkey_tweak_add_helper(ecmult_ctx, commitp, tweak);
+           && secp256k1_ec_pubkey_tweak_add_helper(commitp, tweak);
 }
 
 /* Compute the seckey of an ec commitment from the original secret key of the pubkey as seckey +
@@ -56,11 +56,11 @@ static int secp256k1_ec_commit_seckey(secp256k1_scalar* seckey, secp256k1_ge* pu
 }
 
 /* Verify an ec commitment as pubp + hash(pubp, data)*G ?= commitment. */
-static int secp256k1_ec_commit_verify(const secp256k1_ecmult_context* ecmult_ctx, const secp256k1_ge* commitp, const secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size) {
+static int secp256k1_ec_commit_verify(const secp256k1_ge* commitp, const secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size) {
     secp256k1_gej pj;
     secp256k1_ge p;
 
-    if (!secp256k1_ec_commit(ecmult_ctx, &p, pubp, sha, data, data_size)) {
+    if (!secp256k1_ec_commit(&p, pubp, sha, data, data_size)) {
         return 0;
     }
 

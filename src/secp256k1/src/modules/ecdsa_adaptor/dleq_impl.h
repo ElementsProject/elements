@@ -126,7 +126,7 @@ static int secp256k1_dleq_prove(const secp256k1_context* ctx, secp256k1_scalar *
     return ret;
 }
 
-static int secp256k1_dleq_verify(const secp256k1_ecmult_context *ecmult_ctx, const secp256k1_scalar *s, const secp256k1_scalar *e, secp256k1_ge *p1, secp256k1_ge *gen2, secp256k1_ge *p2) {
+static int secp256k1_dleq_verify(const secp256k1_scalar *s, const secp256k1_scalar *e, secp256k1_ge *p1, secp256k1_ge *gen2, secp256k1_ge *p2) {
     secp256k1_scalar e_neg;
     secp256k1_scalar e_expected;
     secp256k1_gej gen2j;
@@ -140,11 +140,11 @@ static int secp256k1_dleq_verify(const secp256k1_ecmult_context *ecmult_ctx, con
 
     secp256k1_scalar_negate(&e_neg, e);
     /* R1 = s*G  - e*P1 */
-    secp256k1_ecmult(ecmult_ctx, &r1j, &p1j, &e_neg, s);
+    secp256k1_ecmult(&r1j, &p1j, &e_neg, s);
     /* R2 = s*gen2 - e*P2 */
-    secp256k1_ecmult(ecmult_ctx, &tmpj, &p2j, &e_neg, &secp256k1_scalar_zero);
+    secp256k1_ecmult(&tmpj, &p2j, &e_neg, &secp256k1_scalar_zero);
     secp256k1_gej_set_ge(&gen2j, gen2);
-    secp256k1_ecmult(ecmult_ctx, &r2j, &gen2j, s, &secp256k1_scalar_zero);
+    secp256k1_ecmult(&r2j, &gen2j, s, &secp256k1_scalar_zero);
     secp256k1_gej_add_var(&r2j, &r2j, &tmpj, NULL);
 
     secp256k1_ge_set_gej(&r1, &r1j);

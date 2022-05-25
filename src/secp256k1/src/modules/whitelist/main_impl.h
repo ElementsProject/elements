@@ -12,20 +12,15 @@
 
 #define MAX_KEYS SECP256K1_WHITELIST_MAX_N_KEYS  /* shorter alias */
 
-int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_signature *sig, const secp256k1_pubkey *online_pubkeys, const secp256k1_pubkey *offline_pubkeys, const size_t n_keys, const secp256k1_pubkey *sub_pubkey, const unsigned char *online_seckey, const unsigned char *summed_seckey, const size_t index, secp256k1_nonce_function noncefp, const void *noncedata) {
+int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_signature *sig, const secp256k1_pubkey *online_pubkeys, const secp256k1_pubkey *offline_pubkeys, const size_t n_keys, const secp256k1_pubkey *sub_pubkey, const unsigned char *online_seckey, const unsigned char *summed_seckey, const size_t index) {
     secp256k1_gej pubs[MAX_KEYS];
     secp256k1_scalar s[MAX_KEYS];
     secp256k1_scalar sec, non;
     unsigned char msg32[32];
     int ret;
 
-    if (noncefp == NULL) {
-        noncefp = secp256k1_nonce_function_default;
-    }
-
     /* Sanity checks */
     VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     ARG_CHECK(sig != NULL);
     ARG_CHECK(online_pubkeys != NULL);
@@ -54,7 +49,7 @@ int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_s
             size_t i;
             unsigned char nonce32[32];
             int done;
-            ret = noncefp(nonce32, msg32, seckey32, NULL, (void*)noncedata, count);
+            ret = secp256k1_nonce_function_default(nonce32, msg32, seckey32, NULL, NULL, count);
             if (!ret) {
                 break;
             }
@@ -68,7 +63,7 @@ int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_s
             for (i = 0; i < n_keys; i++) {
                 msg32[0] ^= i + 1;
                 msg32[1] ^= (i + 1) / 0x100;
-                ret = noncefp(&sig->data[32 * (i + 1)], msg32, seckey32, NULL, (void*)noncedata, count);
+                ret = secp256k1_nonce_function_default(&sig->data[32 * (i + 1)], msg32, seckey32, NULL, NULL, count);
                 if (!ret) {
                     break;
                 }
@@ -90,7 +85,7 @@ int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_s
     /* Actually sign */
     if (ret) {
         sig->n_keys = n_keys;
-        ret = secp256k1_borromean_sign(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx, &sig->data[0], s, pubs, &non, &sec, &n_keys, &index, 1, msg32, 32);
+        ret = secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, &sig->data[0], s, pubs, &non, &sec, &n_keys, &index, 1, msg32, 32);
         /* Signing will change s[index], so update in the sig structure */
         secp256k1_scalar_get_b32(&sig->data[32 * (index + 1)], &s[index]);
     }
@@ -107,7 +102,6 @@ int secp256k1_whitelist_verify(const secp256k1_context* ctx, const secp256k1_whi
     size_t i;
 
     VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(sig != NULL);
     ARG_CHECK(online_pubkeys != NULL);
     ARG_CHECK(offline_pubkeys != NULL);
@@ -129,7 +123,7 @@ int secp256k1_whitelist_verify(const secp256k1_context* ctx, const secp256k1_whi
         return 0;
     }
     /* Do verification */
-    return secp256k1_borromean_verify(&ctx->ecmult_ctx, NULL, &sig->data[0], s, pubs, &sig->n_keys, 1, msg32, 32);
+    return secp256k1_borromean_verify(NULL, &sig->data[0], s, pubs, &sig->n_keys, 1, msg32, 32);
 }
 
 size_t secp256k1_whitelist_signature_n_keys(const secp256k1_whitelist_signature *sig) {
@@ -146,7 +140,7 @@ int secp256k1_whitelist_signature_parse(const secp256k1_context* ctx, secp256k1_
     }
 
     sig->n_keys = input[0];
-    if (sig->n_keys >= MAX_KEYS || input_len != 1 + 32 * (sig->n_keys + 1)) {
+    if (sig->n_keys > MAX_KEYS || input_len != 1 + 32 * (sig->n_keys + 1)) {
         return 0;
     }
     memcpy(&sig->data[0], &input[1], 32 * (sig->n_keys + 1));
