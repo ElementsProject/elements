@@ -124,7 +124,7 @@ particular commit of Guix). Previous experience with using autotools-style build
 systems to build packages from source will be helpful. *hic sunt dracones.*
 
 I strongly urge you to at least skim through the entire section once before you
-start issuing commands, as it will save you a lot of unncessary pain and
+start issuing commands, as it will save you a lot of unnecessary pain and
 anguish.
 
 ### Installing common build tools
@@ -165,7 +165,7 @@ packaged and installable without manually building and installing.
 
 For reference, the graphic below outlines Guix v1.3.0's dependency graph:
 
-![boostrap map](https://user-images.githubusercontent.com/6399679/125064185-a9a59880-e0b0-11eb-82c1-9b8e5dc9950d.png)
+![bootstrap map](https://user-images.githubusercontent.com/6399679/125064185-a9a59880-e0b0-11eb-82c1-9b8e5dc9950d.png)
 
 #### Guile
 

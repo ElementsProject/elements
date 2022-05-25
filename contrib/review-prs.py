@@ -37,7 +37,7 @@ def shell(cmd: str, suppress_stderr=False, check_returncode=True) -> List[str]:
     The command WILL be parsed in a shell-like fashion. Be careful with quoting when interpolating variables into it. Use shlex.quote() if necessary.
 
     suppress_stderr: if False (default), stderr will be sent to the terminal.
-    check_returncode: if True (defualt), throw an exception if the return code is nonzero."""
+    check_returncode: if True (default), throw an exception if the return code is nonzero."""
 
     handle_stderr = subprocess.PIPE if suppress_stderr else None
 
