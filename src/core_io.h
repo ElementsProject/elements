@@ -15,6 +15,7 @@
 class CBlock;
 class CBlockHeader;
 class CScript;
+struct CScriptWitness;
 class CTransaction;
 struct CMutableTransaction;
 class uint256;
@@ -45,6 +46,7 @@ int ParseSighashString(const UniValue& sighash);
 UniValue ValueFromAmount(const CAmount amount);
 std::string FormatScript(const CScript& script);
 std::string EncodeHexTx(const CTransaction& tx, const int serializeFlags = 0);
+UniValue EncodeHexScriptWitness(const CScriptWitness& witness);
 std::string SighashToStr(unsigned char sighash_type);
 void ScriptPubKeyToUniv(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex, bool include_addresses);
 void ScriptToUniv(const CScript& script, UniValue& out, bool include_address);
