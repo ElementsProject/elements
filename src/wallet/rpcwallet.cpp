@@ -5411,7 +5411,7 @@ bool DerivePubTweak(const std::vector<uint32_t>& vPath, const CPubKey& keyMaster
         if (i == 0) {
             tweakSum = tweak;
         } else {
-            bool ret = secp256k1_ec_privkey_tweak_add(secp256k1_ctx, tweakSum.data(), tweak.data());
+            bool ret = secp256k1_ec_seckey_tweak_add(secp256k1_ctx, tweakSum.data(), tweak.data());
             if (!ret) {
                 return false;
             }
@@ -5877,7 +5877,7 @@ static RPCHelpMan sendtomainchain_pak()
 
     //Create, verify whitelist proof
     secp256k1_whitelist_signature sig;
-    if(secp256k1_whitelist_sign(secp256k1_ctx, &sig, &paklist.OnlineKeys()[0], &paklist.OfflineKeys()[0], paklist.size(), &btcpub_secp, masterOnlineKey.begin(), &tweakSum[0], whitelistindex, NULL, NULL) != 1) {
+    if(secp256k1_whitelist_sign(secp256k1_ctx, &sig, &paklist.OnlineKeys()[0], &paklist.OfflineKeys()[0], paklist.size(), &btcpub_secp, masterOnlineKey.begin(), &tweakSum[0], whitelistindex) != 1) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Pegout authorization proof signing failed");
     }
 
@@ -6991,7 +6991,7 @@ static RPCHelpMan generatepegoutproof()
 
     //Create, verify whitelist proof
     secp256k1_whitelist_signature sig;
-    if(secp256k1_whitelist_sign(secp256k1_ctx, &sig, &paklist.OnlineKeys()[0], &paklist.OfflineKeys()[0], paklist.size(), &btcpubkey, masterOnlineKey.begin(), &sumprivkeybytes[0], whitelistindex, NULL, NULL) != 1)
+    if(secp256k1_whitelist_sign(secp256k1_ctx, &sig, &paklist.OnlineKeys()[0], &paklist.OfflineKeys()[0], paklist.size(), &btcpubkey, masterOnlineKey.begin(), &sumprivkeybytes[0], whitelistindex) != 1)
         throw JSONRPCError(RPC_WALLET_ERROR, "Pegout authorization proof signing failed");
 
     if (secp256k1_whitelist_verify(secp256k1_ctx, &sig, &paklist.OnlineKeys()[0], &paklist.OfflineKeys()[0], paklist.size(), &btcpubkey) != 1)
@@ -7072,7 +7072,7 @@ static RPCHelpMan getpegoutkeys()
     std::vector<unsigned char> pegoutkeybytes(pegoutkey.begin(), pegoutkey.end());
     std::vector<unsigned char> pegoutsubkeybytes(bitcoinkey.begin(), bitcoinkey.end());
 
-    if (!secp256k1_ec_privkey_tweak_add(secp256k1_ctx, &pegoutkeybytes[0], &pegoutsubkeybytes[0]))
+    if (!secp256k1_ec_seckey_tweak_add(secp256k1_ctx, &pegoutkeybytes[0], &pegoutsubkeybytes[0]))
         throw JSONRPCError(RPC_WALLET_ERROR, "Summed key invalid");
 
     CKey sumseckey;
