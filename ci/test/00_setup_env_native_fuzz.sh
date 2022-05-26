@@ -13,6 +13,7 @@ export NO_DEPENDS=1
 export RUN_UNIT_TESTS=false
 export RUN_FUNCTIONAL_TESTS=false
 export RUN_FUZZ_TESTS=true
+export FUZZ_TESTS_CONFIG="--exclude=coins_view"  # work around https://github.com/bitcoin/bitcoin/issues/22233
 export GOAL="install"
 export BITCOIN_CONFIG="--enable-fuzz --with-sanitizers=fuzzer,address,undefined,integer CC=clang CXX=clang++"
 export CCACHE_SIZE=200M
