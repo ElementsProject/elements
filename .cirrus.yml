@@ -168,6 +168,8 @@ task:
 
 task:
   name: '[multiprocess, DEBUG] [focal]'
+  # Disable for Elements for now; Multiprocess build is not supported or tested and fails CI.
+  only_if: false
   << : *GLOBAL_TASK_TEMPLATE
   container:
     image: ubuntu:focal
