@@ -111,7 +111,6 @@ class BlockSignTest(BitcoinTestFramework):
         if is_dyna:
             wsh_wrap = self.nodes[0].decodescript(self.witnessScript)['segwit']['hex']
             assert_equal(wsh_wrap, blockchain_info['current_signblock_hex'])
-            assert blockchain_info['current_signblock_hex'] != blockchain_info['signblock_hex']
 
         # Make a few transactions to make non-empty blocks for compact transmission
         if make_transactions:
@@ -206,10 +205,6 @@ class BlockSignTest(BitcoinTestFramework):
         assert 'signblock_witness_hex' in header
         assert 'signblock_witness_asm' in block
         assert 'signblock_witness_hex' in block
-
-        signblockscript = make_signblockscript(self.num_keys, self.required_signers, self.keys)
-        assert_equal(info['signblock_asm'], self.nodes[0].decodescript(signblockscript)['asm'])
-        assert_equal(info['signblock_hex'], signblockscript)
 
         assert_equal(info['softforks']['dynafed']['bip9']['status'], "defined")
 
