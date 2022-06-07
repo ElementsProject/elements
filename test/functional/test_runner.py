@@ -266,6 +266,7 @@ BASE_SCRIPTS = [
     'wallet_bumpfee.py',
     'wallet_bumpfee.py --descriptors',
     'wallet_implicitsegwit.py --legacy-wallet',
+    'wallet_analyzetx.py',
     'rpc_named_arguments.py',
     'wallet_listsinceblock.py',
     'wallet_listsinceblock.py --descriptors',
