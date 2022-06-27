@@ -3,7 +3,19 @@
 set -eo pipefail
 
 BASE=merged-master
+BITCOIN_UPSTREAM=bitcoin/master
+ELEMENTS_UPSTREAM=upstream/master
+
+# BEWARE: On some systems /tmp/ gets periodically cleaned, which may cause
+#   random files from this directory to disappear based on timestamp, and
+#   make git very confused
 WORKTREE="/tmp/elements-merge-worktree"
+
+# These should be tuned to your machine; below values are for an 8-core
+#   16-thread macbook pro
+PARALLEL_BUILD=16  # passed to make -j
+PARALLEL_TEST=8  # passed to test_runner.py --jobs
+PARALLEL_FUZZ=5  # passed to test_runner.py -j when fuzzing
 
 if [[ "$1" == "continue" ]]; then
     BASE="$BASE^1"
@@ -37,8 +49,8 @@ if [[ "$1" != "list-only" ]]; then
 fi
 
 ## Get full list of merges
-ELT_COMMITS=$(git -C "$WORKTREE" log master --not $BASE --merges --first-parent --pretty='format:%ct %cI %h Elements %s')
-BTC_COMMITS=$(git -C "$WORKTREE" log bitcoin/master --not $BASE --merges --first-parent --pretty='format:%ct %cI %h Bitcoin %s')
+ELT_COMMITS=$(git -C "$WORKTREE" log "$ELEMENTS_UPSTREAM" --not $BASE --merges --first-parent --pretty='format:%ct %cI %h Elements %s')
+BTC_COMMITS=$(git -C "$WORKTREE" log "$BITCOIN_UPSTREAM" --not $BASE --merges --first-parent --pretty='format:%ct %cI %h Bitcoin %s')
 
 #ELT_COMMITS=
 #BTC_COMMITS=$(git -C "$WORKTREE" log v0.21.0 --not $BASE --merges --first-parent --pretty='format:%ct %cI %h Bitcoin %s')
@@ -89,7 +101,7 @@ do
         # The following is an expansion of `make check` that skips the libsecp
         # tests and also the benchmarks (though it does build them!)
         echo "Building"
-        chronic make -j80 -k
+        chronic make -j"$PARALLEL_BUILD" -k
 #        chronic make -j1 check
         echo "Linting"
         chronic ./ci/lint/06_script.sh
@@ -101,7 +113,7 @@ do
         chronic ./test/util/rpcauth-test.py
         chronic make -C src/univalue/ check
         echo "Functional testing"
-        chronic ./test/functional/test_runner.py --jobs=40
+        chronic ./test/functional/test_runner.py --jobs="$PARALLEL_TEST"
         echo "Cleaning for fuzz"
         chronic make distclean || true
         chronic git -C "$WORKTREE" clean -xf
@@ -109,9 +121,9 @@ do
         chronic ./autogen.sh
         # TODO turn on `,integer` after this rebase
         chronic ./configure --with-incompatible-bdb --enable-fuzz --with-sanitizers=address,fuzzer,undefined CC=clang CXX=clang++
-        chronic make -j80 -k
+        chronic make -j"$PARALLEL_BUILD" -k
         echo "Fuzzing"
-        chronic ./test/fuzz/test_runner.py -j24 ~/code/bitcoin/qa-assets/fuzz_seed_corpus/
+        chronic ./test/fuzz/test_runner.py -j"$PARALLEL_FUZZ" ~/code/bitcoin/qa-assets/fuzz_seed_corpus/
     fi
 
     if [[ "$1" == "step" ]]; then
