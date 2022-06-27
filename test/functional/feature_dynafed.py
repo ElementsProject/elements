@@ -100,7 +100,6 @@ class DynaFedTest(BitcoinTestFramework):
 
             # blocksigner is OP_TRUE, extension space is hardcoded one in chainparams
             signblock_info = self.nodes[i].getblockchaininfo()
-            assert_equal(signblock_info["signblock_hex"], "51")
             assert_equal(signblock_info["current_signblock_hex"], "51")
             assert_equal(signblock_info["max_block_witness"], 74)
             assert_equal(signblock_info["extension_space"], initial_extension)
