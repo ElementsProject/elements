@@ -3689,7 +3689,6 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, BlockValidationS
             if (duplicate) {
                 *duplicate = true;
             }
-            pindex = miSelf->second;
             if (ppindex)
                 *ppindex = pindex;
             if (pindex->nStatus & BLOCK_FAILED_MASK) {
