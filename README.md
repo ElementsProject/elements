@@ -53,6 +53,9 @@ Elements deferred for additional research and standardization:
 Additional RPC commands and parameters:
 * [RPC Docs](https://elementsproject.org/en/doc/)
 
+The CI (Continuous Integration) systems make sure that every pull request is built for Windows, Linux, and macOS,
+and that unit/sanity tests are run automatically.
+
 License
 -------
 Elements is released under the terms of the MIT license. See [COPYING](COPYING) for more

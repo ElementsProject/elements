@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2019 The Bitcoin Core developers
+// Copyright (c) 2009-2020 The Bitcoin Core developers
 // Copyright (c) 2017 The Zcash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -8,12 +8,12 @@
 #define BITCOIN_PUBKEY_H
 
 #include <hash.h>
-#include <optional.h>
 #include <serialize.h>
 #include <span.h>
 #include <uint256.h>
 
-#include <stdexcept>
+#include <cstring>
+#include <optional>
 #include <vector>
 
 const unsigned int BIP32_EXTKEY_SIZE = 74;
@@ -103,7 +103,7 @@ public:
     }
 
     //! Construct a public key from a byte vector.
-    explicit CPubKey(const std::vector<unsigned char>& _vch)
+    explicit CPubKey(Span<const uint8_t> _vch)
     {
         Set(_vch.begin(), _vch.end());
     }
@@ -172,6 +172,15 @@ public:
     /*
      * Check syntactic correctness.
      *
+     * When setting a pubkey (Set()) or deserializing fails (its header bytes
+     * don't match the length of the data), the size is set to 0. Thus,
+     * by checking size, one can observe whether Set() or deserialization has
+     * failed.
+     *
+     * This does not check for more than that. In particular, it does not verify
+     * that the coordinates correspond to a point on the curve (see IsFullyValid()
+     * for that instead).
+     *
      * Note that this is consensus critical as CheckECDSASignature() calls it!
      */
     bool IsValid() const
@@ -224,14 +233,27 @@ public:
     XOnlyPubKey(const XOnlyPubKey&) = default;
     XOnlyPubKey& operator=(const XOnlyPubKey&) = default;
 
+    /** Determine if this pubkey is fully valid. This is true for approximately 50% of all
+     *  possible 32-byte arrays. If false, VerifySchnorr and CreatePayToContract will always
+     *  fail. */
+    bool IsFullyValid() const;
+
+    /** Test whether this is the 0 key (the result of default construction). This implies
+     *  !IsFullyValid(). */
+    bool IsNull() const { return m_keydata.IsNull(); }
+
     /** Construct an x-only pubkey from exactly 32 bytes. */
-    XOnlyPubKey(Span<const unsigned char> bytes);
+    explicit XOnlyPubKey(Span<const unsigned char> bytes);
+
+    /** Construct an x-only pubkey from a normal pubkey. */
+    explicit XOnlyPubKey(const CPubKey& pubkey) : XOnlyPubKey(Span<const unsigned char>(pubkey.begin() + 1, pubkey.begin() + 33)) {}
 
     /** Verify a Schnorr signature against this public key.
      *
      * sigbytes must be exactly 64 bytes.
      */
     bool VerifySchnorr(const Span<const unsigned char> msg, Span<const unsigned char> sigbytes) const;
+
     // ELEMENTS: this is preserved from an old version of the Taproot code for use in OP_TWEAKVERIFY
     bool CheckPayToContract(const XOnlyPubKey& base, const uint256& hash, bool parity) const;
 
@@ -250,7 +272,7 @@ public:
     bool CheckTapTweak(const XOnlyPubKey& internal, const uint256& merkle_root, bool parity) const;
 
     /** Construct a Taproot tweaked output point with this point as internal key. */
-    Optional<std::pair<XOnlyPubKey, bool>> CreateTapTweak(const uint256* merkle_root) const;
+    std::optional<std::pair<XOnlyPubKey, bool>> CreateTapTweak(const uint256* merkle_root) const;
 
     const unsigned char& operator[](int pos) const { return *(m_keydata.begin() + pos); }
     const unsigned char* data() const { return m_keydata.begin(); }
@@ -276,7 +298,7 @@ struct CExtPubKey {
     friend bool operator==(const CExtPubKey &a, const CExtPubKey &b)
     {
         return a.nDepth == b.nDepth &&
-            memcmp(&a.vchFingerprint[0], &b.vchFingerprint[0], sizeof(vchFingerprint)) == 0 &&
+            memcmp(a.vchFingerprint, b.vchFingerprint, sizeof(vchFingerprint)) == 0 &&
             a.nChild == b.nChild &&
             a.chaincode == b.chaincode &&
             a.pubkey == b.pubkey;
@@ -312,5 +334,11 @@ public:
     ECCVerifyHandle();
     ~ECCVerifyHandle();
 };
+
+typedef struct secp256k1_context_struct secp256k1_context;
+
+/** Access to the internal secp256k1 context used for verification. Only intended to be used
+ *  by key.cpp. */
+const secp256k1_context* GetVerifyContext();
 
 #endif // BITCOIN_PUBKEY_H

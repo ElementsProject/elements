@@ -1,7 +1,6 @@
 
 from test_framework.authproxy import AuthServiceProxy
 
-import pathlib
 import tempfile
 import time
 import shutil
@@ -41,7 +40,7 @@ class Daemon():
         if self.proc is not None:
             print ("Shutting down %s" % self.name)
             self.proc.terminate()
-            ## FIXME determine why we need 30+ seconds to shut down with a tiny regtest chain
+            # FIXME determine why we need 30+ seconds to shut down with a tiny regtest chain
             self.proc.wait(120)
             self.proc = None
 
@@ -92,8 +91,6 @@ class Daemon():
         return self.config[key]
 
 def sync_all(nodes, timeout_sec = 10):
-    totalWait = timeout_sec
-
     stop_time = time.time() + timeout_sec
     while time.time() <= stop_time:
         best_hash = [x.getbestblockhash() for x in nodes]

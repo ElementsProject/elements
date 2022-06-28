@@ -1,5 +1,5 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2019 The Bitcoin Core developers
+// Copyright (c) 2009-2020 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -134,9 +134,8 @@ static fs::path GetMainchainAuthCookieFile()
     if (gArgs.GetChainName() == "liquidv1") {
         cookie_file = ".cookie";
     }
-    boost::filesystem::path path(gArgs.GetArg("-mainchainrpccookiefile", cookie_file));
-    if (!path.is_absolute()) path = GetDataDir(false) / path;
-    return path;
+    std::string path = gArgs.GetArg("-mainchainrpccookiefile", cookie_file);
+    return AbsPathForConfigVal(fs::path(path));
 }
 
 bool GetMainchainAuthCookie(std::string *cookie_out)

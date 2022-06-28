@@ -9,6 +9,7 @@
 #include <config/bitcoin-config.h>
 #endif
 
+#include <qt/guiutil.h>
 #include <qt/optionsdialog.h>
 
 #include <amount.h>
@@ -16,6 +17,7 @@
 #include <QLabel>
 #include <QMainWindow>
 #include <QMap>
+#include <QMenu>
 #include <QPoint>
 #include <QSystemTrayIcon>
 
@@ -49,7 +51,7 @@ struct BlockAndHeaderTipInfo;
 QT_BEGIN_NAMESPACE
 class QAction;
 class QComboBox;
-class QMenu;
+class QDateTime;
 class QProgressBar;
 class QProgressDialog;
 QT_END_NAMESPACE
@@ -119,8 +121,8 @@ private:
     WalletFrame* walletFrame = nullptr;
 
     UnitDisplayStatusBarControl* unitDisplayControl = nullptr;
-    QLabel* labelWalletEncryptionIcon = nullptr;
-    QLabel* labelWalletHDStatusIcon = nullptr;
+    GUIUtil::ThemedLabel* labelWalletEncryptionIcon = nullptr;
+    GUIUtil::ThemedLabel* labelWalletHDStatusIcon = nullptr;
     GUIUtil::ClickableLabel* labelProxyIcon = nullptr;
     GUIUtil::ClickableLabel* connectionsControl = nullptr;
     GUIUtil::ClickableLabel* labelBlocksIcon = nullptr;
@@ -172,6 +174,8 @@ private:
     HelpMessageDialog* helpMessageDialog = nullptr;
     ModalOverlay* modalOverlay = nullptr;
 
+    QMenu* m_network_context_menu = new QMenu(this);
+
 #ifdef Q_OS_MAC
     CAppNapInhibitor* m_app_nap_inhibitor = nullptr;
 #endif
@@ -217,7 +221,7 @@ public Q_SLOTS:
     /** Set number of connections shown in the UI */
     void setNumConnections(int count);
     /** Set network state shown in the UI */
-    void setNetworkActive(bool networkActive);
+    void setNetworkActive(bool network_active);
     /** Set number of blocks and last block date shown in the UI */
     void setNumBlocks(int count, const QDateTime& blockDate, double nVerificationProgress, bool headers, SynchronizationState sync_state);
 
@@ -312,9 +316,6 @@ public Q_SLOTS:
     /** Show progress dialog e.g. for verifychain */
     void showProgress(const QString &title, int nProgress);
 
-    /** When hideTrayIcon setting is changed in OptionsModel hide or show the icon accordingly. */
-    void setTrayIconVisible(bool);
-
     void showModalOverlay();
 };
 
@@ -330,10 +331,12 @@ public:
 protected:
     /** So that it responds to left-button clicks */
     void mousePressEvent(QMouseEvent *event) override;
+    void changeEvent(QEvent* e) override;
 
 private:
     OptionsModel *optionsModel;
     QMenu* menu;
+    const PlatformStyle* m_platform_style;
 
     /** Shows context menu with Display Unit options by the mouse coordinates */
     void onDisplayUnitsClicked(const QPoint& point);

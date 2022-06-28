@@ -8,16 +8,6 @@
 
 // ELEMENTS
 
-// PAK entries loaded by config file entries
-// These will be embedded into coinbase transaction
-//  during block creation and tested against during
-//  testproposedblock
-boost::optional<CPAKList> g_paklist_config;
-// PAK entries loaded from latest coinbase pak commitment
-CPAKList g_paklist_blockchain;
-
- ///////////
-
 namespace {
 
 static secp256k1_context *secp256k1_ctx_pak;

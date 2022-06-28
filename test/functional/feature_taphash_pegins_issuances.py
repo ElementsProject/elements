@@ -6,9 +6,9 @@
 #
 # Test for taproot sighash algorithm with pegins and issuances
 
-from test_framework.key import ECKey, ECPubKey, compute_xonly_pubkey, generate_privkey, sign_schnorr, tweak_add_privkey, tweak_add_pubkey, verify_schnorr
-from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, CTxOutValue, CTxOutWitness, FromHex, uint256_from_str
-from test_framework.test_framework import BitcoinTestFramework, SkipTest
+from test_framework.key import compute_xonly_pubkey, generate_privkey, sign_schnorr, tweak_add_privkey, tweak_add_pubkey, verify_schnorr
+from test_framework.messages import COutPoint, CTxIn, CTxInWitness, CTxOut, CTxOutValue, CTxOutWitness, tx_from_hex, uint256_from_str
+from test_framework.test_framework import BitcoinTestFramework
 from test_framework.script import TaprootSignatureHash, taproot_construct, taproot_pad_sighash_ty, SIGHASH_DEFAULT, SIGHASH_ALL, SIGHASH_NONE, SIGHASH_SINGLE, SIGHASH_ANYONECANPAY
 
 VALID_SIGHASHES_ECDSA = [
@@ -61,13 +61,13 @@ class TapHashPeginTest(BitcoinTestFramework):
         raw_tx = self.nodes[0].createrawtransaction([], [{unconf_addr: 1.2}])
         # edit spk directly, no way to get new address.
         # would need to implement bech32m in python
-        tx = FromHex(CTransaction(), raw_tx)
+        tx = tx_from_hex(raw_tx)
         tx.vout[0].scriptPubKey = spk
         tx.vout[0].nValue = CTxOutValue(12*10**7)
         raw_hex = tx.serialize().hex()
 
         fund_tx = self.nodes[0].fundrawtransaction(raw_hex, False, )["hex"]
-        fund_tx = FromHex(CTransaction(), fund_tx)
+        fund_tx = tx_from_hex(fund_tx)
 
         # Createrawtransaction might rearrage txouts
         prev_vout = None
@@ -77,8 +77,8 @@ class TapHashPeginTest(BitcoinTestFramework):
 
         tx = self.nodes[0].blindrawtransaction(fund_tx.serialize().hex())
         signed_raw_tx = self.nodes[0].signrawtransactionwithwallet(tx)
-        _txid = self.nodes[0].sendrawtransaction(signed_raw_tx['hex'])
-        tx = FromHex(CTransaction(), signed_raw_tx['hex'])
+        self.nodes[0].sendrawtransaction(signed_raw_tx['hex'])
+        tx = tx_from_hex(signed_raw_tx['hex'])
         tx.rehash()
         self.nodes[0].generate(1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
@@ -102,7 +102,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         # Create a pegin transaction
         # We have to manually supply claim script, otherwise the wallet will pick
         raw_claim = self.nodes[0].createrawpegin(raw_peg_tx, peg_prf, claim_script)
-        raw_claim = FromHex(CTransaction(), raw_claim['hex'])
+        raw_claim = tx_from_hex(raw_claim['hex'])
 
         # Create a taproot utxo
         tx, prev_vout, spk, sec, pub, tweak = self.create_taproot_utxo()
@@ -112,7 +112,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         raw_claim.vout.append(CTxOut(nValue = CTxOutValue(12 * 10**7), scriptPubKey = spk)) # send back to self
 
         signed = self.nodes[0].signrawtransactionwithwallet(raw_claim.serialize().hex())
-        raw_claim = FromHex(CTransaction(), signed['hex'])
+        raw_claim = tx_from_hex(signed['hex'])
         genesis_hash = uint256_from_str(bytes.fromhex(self.nodes[0].getblockhash(0))[::-1])
         peg_utxo = CTxOut()
         peg_utxo.from_pegin_witness_data(raw_claim.wit.vtxinwit[0].peginWitness)
@@ -137,7 +137,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         blind_addr = self.nodes[0].getnewaddress()
         nonblind_addr = self.nodes[0].validateaddress(blind_addr)['unconfidential']
         raw_tx = self.nodes[0].createrawtransaction([], [{nonblind_addr: 1}])
-        raw_tx = FromHex(CTransaction(), raw_tx)
+        raw_tx = tx_from_hex(raw_tx)
 
         # Need to taproot outputs later because fundrawtransaction cannot estimate fees
         # prev out has value 1.2 btc
@@ -153,7 +153,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         issued_tx = self.nodes[0].rawissueasset(raw_tx.serialize().hex(), [{"asset_amount":2, "asset_address":issue_addr, "blind":False}])[0]["hex"]
         # blind_tx = self.nodes[0].blindrawtransaction(issued_tx) # This is a no-op
         genesis_hash = uint256_from_str(bytes.fromhex(self.nodes[0].getblockhash(0))[::-1])
-        issued_tx = FromHex(CTransaction(), issued_tx)
+        issued_tx = tx_from_hex(issued_tx)
         issued_tx.wit.vtxoutwit = [CTxOutWitness()] * len(issued_tx.vout)
         issued_tx.wit.vtxinwit = [CTxInWitness()] * len(issued_tx.vin)
         msg = TaprootSignatureHash(issued_tx, [tx.vout[prev_vout]], sighash_ty, genesis_hash, 0)

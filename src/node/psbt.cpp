@@ -24,6 +24,8 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
     result.inputs.resize(psbtx.inputs.size());
     result.next = PSBTRole::EXTRACTOR;
 
+    const PrecomputedTransactionData txdata = PrecomputePSBTData(psbtx);
+
     for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
         PSBTInput& input = psbtx.inputs[i];
         PSBTInputAnalysis& input_analysis = result.inputs[i];
@@ -64,7 +66,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
 
             // Figure out what is missing
             SignatureData outdata;
-            bool complete = SignPSBTInput(DUMMY_SIGNING_PROVIDER, psbtx, i, 1, &outdata);
+            bool complete = SignPSBTInput(DUMMY_SIGNING_PROVIDER, psbtx, i, &txdata, 1, &outdata);
 
             // Things are missing
             if (!complete) {
@@ -103,7 +105,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
         } else {
             // Find the fee output
             if (txout.IsFee()) {
-                if (result.fee != nullopt) {
+                if (result.fee != std::nullopt) {
                     result.SetInvalid("There is more than one fee output");
                     return result;
                 }
@@ -116,7 +118,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
         }
     }
 
-    if (result.fee == nullopt) {
+    if (result.fee == std::nullopt) {
         result.SetInvalid("PSBT missing required fee output");
         return result;
     }
@@ -136,7 +138,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
         PSBTInput& input = psbtx.inputs[i];
         Coin newcoin;
 
-        if (!SignPSBTInput(DUMMY_SIGNING_PROVIDER, psbtx, i, 1, nullptr, true) || !input.GetUTXO(newcoin.out)) {
+        if (!SignPSBTInput(DUMMY_SIGNING_PROVIDER, psbtx, i, nullptr, 1) || !input.GetUTXO(newcoin.out)) {
             success = false;
             break;
         } else {

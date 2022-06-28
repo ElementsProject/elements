@@ -224,9 +224,9 @@ class PAKTest (BitcoinTestFramework):
 
         peg_out_found = False
         for output in wpkh_raw["vout"]:
-            if "pegout_addresses" in output["scriptPubKey"]:
-                if output["scriptPubKey"]["pegout_addresses"][0] \
-                        == wpkh_info["address_lookahead"][0]:
+            print(output)
+            if "pegout_address" in output["scriptPubKey"]:
+                if output["scriptPubKey"]["pegout_address"] == wpkh_info["address_lookahead"][0]:
                     peg_out_found = True
                     break
                 else:
@@ -235,9 +235,8 @@ class PAKTest (BitcoinTestFramework):
 
         peg_out_found = False
         for output in sh_wpkh_raw["vout"]:
-            if "pegout_addresses" in output["scriptPubKey"]:
-                if output["scriptPubKey"]["pegout_addresses"][0] \
-                        == sh_wpkh_info["address_lookahead"][0]:
+            if "pegout_address" in output["scriptPubKey"]:
+                if output["scriptPubKey"]["pegout_address"] == sh_wpkh_info["address_lookahead"][0]:
                     peg_out_found = True
                     break
                 else:

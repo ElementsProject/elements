@@ -16,7 +16,7 @@ from test_framework.messages import (
     CTxOutValue,
     CTxInWitness,
     CTxOutWitness,
-    FromHex,
+    tx_from_hex,
 )
 from test_framework.util import (
     assert_equal,
@@ -112,7 +112,7 @@ class CTTest (BitcoinTestFramework):
         unblinded_tx = self.nodes[0].fundrawtransaction(unfunded_tx)['hex']
         unsigned_tx = self.nodes[0].blindrawtransaction(unblinded_tx)
         assert_equal(self.nodes[0].testmempoolaccept([unsigned_tx])[0]['allowed'], True) # tx is ok before we malleate it
-        tx = FromHex(CTransaction(), unsigned_tx)
+        tx = tx_from_hex(unsigned_tx)
         assert tx.wit.vtxinwit[0].vchIssuanceAmountRangeproof == b''
         assert tx.wit.vtxinwit[0].vchInflationKeysRangeproof == b''
 
@@ -131,7 +131,7 @@ class CTTest (BitcoinTestFramework):
         issuance_tx = self.nodes[0].rawissueasset(unblinded_tx, [{"asset_amount": 2, "asset_address": self.nodes[1].getnewaddress()}])[0]['hex']
         issuance_tx = self.nodes[0].blindrawtransaction(issuance_tx)
         assert_equal(self.nodes[0].testmempoolaccept([issuance_tx])[0]['allowed'], True) # tx is ok before we malleate it
-        tx = FromHex(CTransaction(), issuance_tx)
+        tx = tx_from_hex(issuance_tx)
         assert tx.wit.vtxinwit[0].vchIssuanceAmountRangeproof != b''
         assert tx.wit.vtxinwit[0].vchInflationKeysRangeproof == b''
         # 2a. Attach a rangeproof to the (null) reissuance token amount
@@ -147,7 +147,7 @@ class CTTest (BitcoinTestFramework):
         issuance_tx = self.nodes[0].rawissueasset(unblinded_tx, [{"token_amount": 2, "token_address": unblinded_addr, "blind": False }])[0]['hex']
         issuance_tx = self.nodes[0].blindrawtransaction(issuance_tx, False, [], False)
         assert_equal(self.nodes[0].testmempoolaccept([issuance_tx])[0]['allowed'], True) # tx is ok before we malleate it
-        tx = FromHex(CTransaction(), issuance_tx)
+        tx = tx_from_hex(issuance_tx)
         assert tx.wit.vtxinwit[0].vchIssuanceAmountRangeproof == b''
         assert tx.wit.vtxinwit[0].vchInflationKeysRangeproof == b''
         # 3a. Attach a rangeproof to the (null) issuance amount
@@ -282,7 +282,7 @@ class CTTest (BitcoinTestFramework):
         deblinded_tx = self.nodes[1].unblindrawtransaction(conf_tx['hex'])['hex']
         for output in self.nodes[1].decoderawtransaction(deblinded_tx)["vout"]:
             if "value" in output and output["scriptPubKey"]["type"] != "fee":
-                assert_equal(output["scriptPubKey"]["addresses"][0], self.nodes[1].validateaddress(address2)['unconfidential'])
+                assert_equal(output["scriptPubKey"]["address"], self.nodes[1].validateaddress(address2)['unconfidential'])
                 found_unblinded = True
         assert found_unblinded
 

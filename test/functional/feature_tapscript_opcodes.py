@@ -8,10 +8,10 @@
 
 from random import randint
 from test_framework.util import BITCOIN_ASSET_BYTES, assert_raises_rpc_error, satoshi_round
-from test_framework.key import ECKey, ECPubKey, compute_xonly_pubkey, generate_privkey, sign_schnorr, tweak_add_privkey, tweak_add_pubkey, verify_schnorr
-from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, CTxOutNonce, CTxOutValue, CTxOutWitness, FromHex, ser_uint256, sha256, uint256_from_str
+from test_framework.key import ECKey, compute_xonly_pubkey, generate_privkey, sign_schnorr
+from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, CTxOutNonce, CTxOutValue, ser_uint256, sha256, tx_from_hex
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.script import CScript, CScriptNum, CScriptOp, OP_0, OP_1, OP_2, OP_3, OP_4, OP_5, OP_6, OP_7, OP_ADD64, OP_AND, OP_CAT, OP_CHECKSIGFROMSTACK, OP_DIV64, OP_DROP, OP_DUP, OP_ECMULSCALARVERIFY, OP_ELSE, OP_EQUAL, OP_EQUALVERIFY, OP_FALSE, OP_FROMALTSTACK, OP_GREATERTHAN64, OP_GREATERTHANOREQUAL64, OP_INSPECTINPUTASSET, OP_INSPECTINPUTISSUANCE, OP_INSPECTINPUTOUTPOINT, OP_INSPECTINPUTSCRIPTPUBKEY, OP_INSPECTINPUTSEQUENCE, OP_INSPECTINPUTVALUE, OP_INSPECTLOCKTIME, OP_INSPECTNUMINPUTS, OP_INSPECTNUMOUTPUTS, OP_INSPECTOUTPUTASSET, OP_INSPECTOUTPUTNONCE, OP_INSPECTOUTPUTSCRIPTPUBKEY, OP_INSPECTOUTPUTVALUE, OP_IF, OP_INSPECTVERSION, OP_LE32TOLE64, OP_LE64TOSCRIPTNUM, OP_LESSTHAN64, OP_LESSTHANOREQUAL64, OP_MUL64, OP_NEG64, OP_NOT, OP_INVERT, OP_NOTIF, OP_OR, OP_PUSHCURRENTINPUTINDEX, OP_SCRIPTNUMTOLE64, OP_SHA256FINALIZE, OP_SHA256INITIALIZE, OP_SHA256UPDATE, OP_SIZE, OP_SUB64, OP_SWAP, OP_TWEAKVERIFY, OP_TOALTSTACK, OP_TXWEIGHT, OP_VERIFY, OP_XOR, OP_XOR, TaprootSignatureHash, taproot_construct, SIGHASH_DEFAULT, SIGHASH_ALL, SIGHASH_NONE, SIGHASH_SINGLE, SIGHASH_ANYONECANPAY
+from test_framework.script import CScript, CScriptNum, CScriptOp, OP_0, OP_1, OP_2, OP_ADD64, OP_AND, OP_CHECKSIGFROMSTACK, OP_DIV64, OP_DROP, OP_DUP, OP_ECMULSCALARVERIFY, OP_EQUAL, OP_EQUALVERIFY, OP_FALSE, OP_FROMALTSTACK, OP_GREATERTHAN64, OP_GREATERTHANOREQUAL64, OP_INSPECTINPUTASSET, OP_INSPECTINPUTISSUANCE, OP_INSPECTINPUTOUTPOINT, OP_INSPECTINPUTSCRIPTPUBKEY, OP_INSPECTINPUTSEQUENCE, OP_INSPECTINPUTVALUE, OP_INSPECTLOCKTIME, OP_INSPECTNUMINPUTS, OP_INSPECTNUMOUTPUTS, OP_INSPECTOUTPUTASSET, OP_INSPECTOUTPUTNONCE, OP_INSPECTOUTPUTSCRIPTPUBKEY, OP_INSPECTOUTPUTVALUE, OP_INSPECTVERSION, OP_LE32TOLE64, OP_LE64TOSCRIPTNUM, OP_LESSTHAN64, OP_LESSTHANOREQUAL64, OP_MUL64, OP_NEG64, OP_NOT, OP_INVERT, OP_OR, OP_PUSHCURRENTINPUTINDEX, OP_SCRIPTNUMTOLE64, OP_SHA256FINALIZE, OP_SHA256INITIALIZE, OP_SHA256UPDATE, OP_SIZE, OP_SUB64, OP_SWAP, OP_TWEAKVERIFY, OP_TOALTSTACK, OP_TXWEIGHT, OP_VERIFY, OP_XOR, taproot_construct, SIGHASH_DEFAULT, SIGHASH_ALL, SIGHASH_NONE, SIGHASH_SINGLE, SIGHASH_ANYONECANPAY
 
 import os
 
@@ -77,13 +77,13 @@ class TapHashPeginTest(BitcoinTestFramework):
         raw_tx = self.nodes[0].createrawtransaction([], [{unconf_addr: 1.2}])
         # edit spk directly, no way to get new address.
         # would need to implement bech32m in python
-        tx = FromHex(CTransaction(), raw_tx)
+        tx = tx_from_hex(raw_tx)
         tx.vout[0].scriptPubKey = spk
         tx.vout[0].nValue = CTxOutValue(12*10**7)
         raw_hex = tx.serialize().hex()
 
         fund_tx = self.nodes[0].fundrawtransaction(raw_hex, False, )["hex"]
-        fund_tx = FromHex(CTransaction(), fund_tx)
+        fund_tx = tx_from_hex(fund_tx)
 
         # Createrawtransaction might rearrage txouts
         prev_vout = None
@@ -93,8 +93,8 @@ class TapHashPeginTest(BitcoinTestFramework):
 
         tx = self.nodes[0].blindrawtransaction(fund_tx.serialize().hex())
         signed_raw_tx = self.nodes[0].signrawtransactionwithwallet(tx)
-        _txid = self.nodes[0].sendrawtransaction(signed_raw_tx['hex'])
-        tx = FromHex(CTransaction(), signed_raw_tx['hex'])
+        self.nodes[0].sendrawtransaction(signed_raw_tx['hex'])
+        tx = tx_from_hex(signed_raw_tx['hex'])
         tx.rehash()
         self.nodes[0].generate(1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
@@ -102,11 +102,13 @@ class TapHashPeginTest(BitcoinTestFramework):
 
         return tx, prev_vout, spk, sec, pub, tap
 
-    def tapscript_satisfy_test(self, script, inputs = [], add_issuance = False,
-        add_pegin = False, fail=None, add_prevout=False, add_asset=False,
-        add_value=False, add_spk = False, seq = 0, add_out_spk = None,
-        add_out_asset = None, add_out_value = None, add_out_nonce = None,
-        ver = 2, locktime = 0, add_num_outputs=False, add_weight=False, blind=False):
+    def tapscript_satisfy_test(self, script, inputs = None, add_issuance = False,
+       add_pegin = False, fail=None, add_prevout=False, add_asset=False,
+       add_value=False, add_spk = False, seq = 0, add_out_spk = None,
+       add_out_asset = None, add_out_value = None, add_out_nonce = None,
+       ver = 2, locktime = 0, add_num_outputs=False, add_weight=False, blind=False):
+        if inputs is None:
+            inputs = []
         # Create a taproot utxo
         scripts = [("s0", script)]
         prev_tx, prev_vout, spk, sec, pub, tap = self.create_taproot_utxo(scripts)
@@ -121,7 +123,7 @@ class TapHashPeginTest(BitcoinTestFramework):
             claim_script = fund_info["claim_script"]
 
             raw_claim = self.nodes[0].createrawpegin(raw_peg_tx, peg_prf, claim_script)
-            tx = FromHex(CTransaction(), raw_claim['hex'])
+            tx = tx_from_hex(raw_claim['hex'])
         else:
             tx = CTransaction()
 
@@ -139,7 +141,7 @@ class TapHashPeginTest(BitcoinTestFramework):
             tx.vout.append(CTxOut(nValue = CTxOutValue(10000), scriptPubKey = spk, nNonce=CTxOutNonce(key.get_pubkey().get_bytes())))
 
             tx_hex = self.nodes[0].fundrawtransaction(tx.serialize().hex())
-            tx = FromHex(CTransaction(), tx_hex['hex'])
+            tx = tx_from_hex(tx_hex['hex'])
 
         tx.vin.append(CTxIn(COutPoint(prev_tx.sha256, prev_vout), nSequence=seq))
         tx.vout.append(CTxOut(nValue = CTxOutValue(in_total - fees), scriptPubKey = spk)) # send back to self
@@ -156,11 +158,11 @@ class TapHashPeginTest(BitcoinTestFramework):
                 tx.vout.pop()
                 tx.vout.insert(0, CTxOut(nValue = CTxOutValue(in_total), scriptPubKey = spk)) # send back to self)
             issued_tx = self.nodes[0].rawissueasset(tx.serialize().hex(), [{"asset_amount":2, "asset_address":issue_addr, "blind":False}])[0]["hex"]
-            tx = FromHex(CTransaction(), issued_tx)
+            tx = tx_from_hex(issued_tx)
         # Sign inputs
         if add_pegin:
             signed = self.nodes[0].signrawtransactionwithwallet(tx.serialize().hex())
-            tx = FromHex(CTransaction(), signed['hex'])
+            tx = tx_from_hex(signed['hex'])
             tap_in_pos += 1
         else:
             # Need to create empty witness when not deserializing from rpc
@@ -171,13 +173,13 @@ class TapHashPeginTest(BitcoinTestFramework):
             utxo = self.get_utxo(tx, 1)
             zero_str = "0"*64
             blinded_raw = self.nodes[0].rawblindrawtransaction(tx.serialize().hex(), [zero_str, utxo["amountblinder"]], [1.2, utxo['amount']], [utxo['asset'], utxo['asset']], [zero_str, utxo['assetblinder']])
-            tx = FromHex(CTransaction(), blinded_raw)
+            tx = tx_from_hex(blinded_raw)
             signed_raw_tx = self.nodes[0].signrawtransactionwithwallet(tx.serialize().hex())
-            tx = FromHex(CTransaction(), signed_raw_tx['hex'])
+            tx = tx_from_hex(signed_raw_tx['hex'])
 
 
         suffix_annex = []
-        control_block = bytes([tap.leaves["s0"].version + tap.negflag]) + tap.inner_pubkey + tap.leaves["s0"].merklebranch
+        control_block = bytes([tap.leaves["s0"].version + tap.negflag]) + tap.internal_pubkey + tap.leaves["s0"].merklebranch
         # Add the prevout to the top of inputs. The witness script will check for equality.
         if add_prevout:
             inputs = [prev_vout.to_bytes(4, 'little'), ser_uint256(prev_tx.sha256)]
@@ -261,7 +263,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         self.tapscript_satisfy_test(CScript([OP_1]))
 
         # Test streaming sha256
-        # All preimages upto len 80 can be filled in a single standard witness element
+        # All preimages up to len 80 can be filled in a single standard witness element
         # Testing only random even len for speedup
         self.log.info("Testing streaming SHA256")
         for k in range(0, 81, 2):
@@ -387,20 +389,28 @@ class TapHashPeginTest(BitcoinTestFramework):
 
         def check_add(a, b, c, fail=None):
             self.tapscript_satisfy_test(CScript([OP_ADD64, OP_VERIFY, le8(c), OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_sub(a, b, c, fail=None):
             self.tapscript_satisfy_test(CScript([OP_SUB64, OP_VERIFY, le8(c), OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_mul(a, b, c, fail=None):
             self.tapscript_satisfy_test(CScript([OP_MUL64, OP_VERIFY, le8(c), OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_div(a, b, q, r, fail=None):
             self.tapscript_satisfy_test(CScript([OP_DIV64, OP_VERIFY, le8(q), OP_EQUALVERIFY, le8(r), OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_le(a, b, res, fail=None):
             self.tapscript_satisfy_test(CScript([OP_LESSTHAN64, res, OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_leq(a, b, res, fail=None):
             self.tapscript_satisfy_test(CScript([OP_LESSTHANOREQUAL64, res, OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_ge(a, b, res, fail=None):
             self.tapscript_satisfy_test(CScript([OP_GREATERTHAN64, res, OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_geq(a, b, res, fail=None):
             self.tapscript_satisfy_test(CScript([OP_GREATERTHANOREQUAL64, res, OP_EQUAL]), inputs = [le8(a), le8(b)], fail=fail)
+
         def check_neg(a, res, fail=None):
             self.tapscript_satisfy_test(CScript([OP_NEG64, OP_VERIFY, le8(res), OP_EQUAL]), inputs = [le8(a)], fail=fail)
         # Arithematic opcodes
@@ -413,7 +423,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         check_add(5, 2**63 - 1, 4, fail="Script failed an OP_VERIFY operation")#overflow
         check_add(-5, -2**63 + 1, -4, fail="Script failed an OP_VERIFY operation")#overflow
 
-        # Substraction
+        # Subtraction
         check_sub(5, 6, -1)
         check_sub(-5, 6, -11)
         check_sub(-5, -5, 0)
@@ -511,7 +521,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         # test that other random values fail correctly
         res = bytes.fromhex("032c0158d0f6df4881e99e65fbea21f27321d817f79ad39e08eaf4f16f1419bb0c")
         scalar = bytes.fromhex("e0f47c124f228b97bbdc0e4398aac9788869b9fbbc193d5323fdad9570609de6")
-        g = bytes.fromhex("0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")# y co-ordinate mutated
+        g = bytes.fromhex("0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")# y coordinate mutated
         self.tapscript_satisfy_test(CScript([OP_ECMULSCALARVERIFY, OP_1]), inputs = [res, g, scalar], fail="Public key is neither compressed or uncompressed")
 
         invalid_full_pks_33 = [

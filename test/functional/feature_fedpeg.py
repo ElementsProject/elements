@@ -20,13 +20,12 @@ from test_framework.messages import (
     COIN,
     CBlock,
     COutPoint,
-    CTransaction,
     CTxIn,
     CTxInWitness,
     CTxOut,
     CTxOutNonce,
-    FromHex,
-    ToHex,
+    from_hex,
+    tx_from_hex,
 )
 from test_framework.blocktools import (
     add_witness_commitment,
@@ -92,7 +91,7 @@ class FedPegTest(BitcoinTestFramework):
                     "-signblockscript=51", # OP_TRUE
                 ])
 
-            self.add_nodes(1, [extra_args], chain=[parent_chain], binary=parent_binary, chain_in_args=[not self.options.parent_bitcoin])
+            self.add_nodes(1, [extra_args], chain=[parent_chain], binary=parent_binary)
             self.start_node(n)
             print("Node {} started".format(n))
         # set hard-coded mining keys for non-Elements chains
@@ -176,10 +175,9 @@ class FedPegTest(BitcoinTestFramework):
             scriptPubKey = output['scriptPubKey']
             if 'type' in scriptPubKey and scriptPubKey['type'] == 'nulldata':
                 assert 'pegout_hex' in scriptPubKey and 'pegout_asm' in scriptPubKey and 'pegout_type' in scriptPubKey
-                assert 'pegout_chain' in scriptPubKey and 'pegout_reqSigs' in scriptPubKey and 'pegout_addresses' in scriptPubKey
+                assert 'pegout_chain' in scriptPubKey and 'pegout_address' in scriptPubKey
                 assert scriptPubKey['pegout_chain'] == self.parentgenesisblockhash
-                assert scriptPubKey['pegout_reqSigs'] == 1
-                assert parent_chain_addr in scriptPubKey['pegout_addresses']
+                assert parent_chain_addr == scriptPubKey['pegout_address']
                 pegout_tested = True
                 break
         assert pegout_tested
@@ -273,13 +271,13 @@ class FedPegTest(BitcoinTestFramework):
 
         # Make sure that a tx with a duplicate pegin claim input gets rejected.
         raw_pegin = sidechain.createrawpegin(raw, proof)["hex"]
-        raw_pegin = FromHex(CTransaction(), raw_pegin)
+        raw_pegin = tx_from_hex(raw_pegin)
         raw_pegin.vin.append(raw_pegin.vin[0]) # duplicate the pegin input
         raw_pegin = sidechain.signrawtransactionwithwallet(raw_pegin.serialize().hex())["hex"]
         assert_raises_rpc_error(-26, "bad-txns-inputs-duplicate", sidechain.sendrawtransaction, raw_pegin)
         # Also try including this tx in a block manually and submitting it.
-        doublespendblock = FromHex(CBlock(), sidechain.getnewblockhex())
-        doublespendblock.vtx.append(FromHex(CTransaction(), raw_pegin))
+        doublespendblock = from_hex(CBlock(), sidechain.getnewblockhex())
+        doublespendblock.vtx.append(tx_from_hex(raw_pegin))
         doublespendblock.hashMerkleRoot = doublespendblock.calc_merkle_root()
         add_witness_commitment(doublespendblock)
         doublespendblock.solve()
@@ -294,7 +292,7 @@ class FedPegTest(BitcoinTestFramework):
         outputs = []
         for pegin_vout in sidechain.decoderawtransaction(raw_pegin)['vout']:
             if pegin_vout['scriptPubKey']['type'] == 'witness_v0_keyhash':
-                outputs.append({pegin_vout['scriptPubKey']['addresses'][0]: pegin_vout['value']})
+                outputs.append({pegin_vout['scriptPubKey']['address']: pegin_vout['value']})
             elif pegin_vout['scriptPubKey']['type'] == 'fee':
                 outputs.append({"fee": pegin_vout['value']})
 
@@ -352,7 +350,7 @@ class FedPegTest(BitcoinTestFramework):
         fin_psbt = sidechain.finalizepsbt(signed_psbt['psbt'])
         assert fin_psbt['complete']
 
-        sample_pegin_struct = FromHex(CTransaction(), signed_pegin["hex"])
+        sample_pegin_struct = tx_from_hex(signed_pegin["hex"])
         # Round-trip peg-in transaction using python serialization
         assert_equal(signed_pegin["hex"], sample_pegin_struct.serialize().hex())
         # Store this for later (evil laugh)
@@ -402,8 +400,8 @@ class FedPegTest(BitcoinTestFramework):
         # to test duplicate-in-block claims between two txs that are in the same block.
         raw_pegin = sidechain.createrawpegin(raw, proof)["hex"]
         raw_pegin = sidechain.signrawtransactionwithwallet(raw_pegin)["hex"]
-        raw_pegin = FromHex(CTransaction(), raw_pegin)
-        doublespendblock = FromHex(CBlock(), sidechain.getnewblockhex())
+        raw_pegin = tx_from_hex(raw_pegin)
+        doublespendblock = from_hex(CBlock(), sidechain.getnewblockhex())
         assert len(doublespendblock.vtx) == 2 # coinbase and pegin
         doublespendblock.vtx.append(raw_pegin)
         doublespendblock.hashMerkleRoot = doublespendblock.calc_merkle_root()
@@ -425,7 +423,7 @@ class FedPegTest(BitcoinTestFramework):
         # and (2) not be accepted in a block.
         assert_raises_rpc_error(-4, "pegin-already-claimed", sidechain.claimpegin, raw, proof)
         # For case (2), manually craft a block and include the tx.
-        doublespendblock = FromHex(CBlock(), sidechain.getnewblockhex())
+        doublespendblock = from_hex(CBlock(), sidechain.getnewblockhex())
         doublespendblock.vtx.append(raw_pegin)
         doublespendblock.hashMerkleRoot = doublespendblock.calc_merkle_root()
         add_witness_commitment(doublespendblock)
@@ -580,7 +578,7 @@ class FedPegTest(BitcoinTestFramework):
         raw_spend = sidechain.createrawtransaction([], [{sidechain.getnewaddress():1}])
         fund_spend = sidechain.fundrawtransaction(raw_spend)
         sign_spend = sidechain.signrawtransactionwithwallet(fund_spend["hex"])
-        signed_struct = FromHex(CTransaction(), sign_spend["hex"])
+        signed_struct = tx_from_hex(sign_spend["hex"])
         # Non-witness tx has no witness serialized yet
         if len(signed_struct.wit.vtxinwit) == 0:
             signed_struct.wit.vtxinwit = [CTxInWitness()]
@@ -675,7 +673,7 @@ class FedPegTest(BitcoinTestFramework):
         proof = parent.gettxoutproof([txid_fund])
         raw = parent.gettransaction(txid_fund)["hex"]
         raw_pegin = sidechain.createrawpegin(raw, proof)['hex']
-        pegin = FromHex(CTransaction(), raw_pegin)
+        pegin = tx_from_hex(raw_pegin)
         # add new blinding pubkey for the pegin output
         pegin.vout[0].nNonce = CTxOutNonce(hex_str_to_bytes(sidechain.getaddressinfo(sidechain.getnewaddress("", "blech32"))["confidential_key"]))
         # now add an extra input and output from listunspent; we need a blinded output for this
@@ -697,7 +695,7 @@ class FedPegTest(BitcoinTestFramework):
         pegin.vout.insert(1, CTxOut(int(unspent["amount"]*COIN) - 10000, new_dest_script_pk, new_dest_asset, new_dest_nonce))
         # add the 10 ksat fee
         pegin.vout[2].nValue.setToAmount(pegin.vout[2].nValue.getAmount() + 10000)
-        pegin_hex = ToHex(pegin)
+        pegin_hex = pegin.serialize().hex()
         # test with both blindraw and rawblindraw
         raw_pegin_blinded1 = sidechain.blindrawtransaction(pegin_hex)
         raw_pegin_blinded2 = sidechain.rawblindrawtransaction(pegin_hex, ["", unspent["amountblinder"]], [10, 15], [unspent["asset"]]*2, ["", unspent["assetblinder"]], "", False)

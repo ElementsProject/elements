@@ -14,7 +14,7 @@
 
 """
 
-from test_framework.messages import CTransaction, CBlock, ser_uint256, FromHex, uint256_from_str, CTxOut, ToHex, WitToHex, CTxIn, COutPoint, OUTPOINT_ISSUANCE_FLAG, ser_string
+from test_framework.messages import CTransaction, CBlock, ser_uint256, from_hex, uint256_from_str, CTxOut, CTxIn, COutPoint, OUTPOINT_ISSUANCE_FLAG, ser_string
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, hex_str_to_bytes, assert_raises_rpc_error, assert_greater_than
 from test_framework import util
@@ -126,10 +126,10 @@ class TxWitnessTest(BitcoinTestFramework):
 
     def test_coinbase_witness(self):
         block = self.nodes[0].getnewblockhex()
-        block_struct = FromHex(CBlock(), block)
+        block_struct = from_hex(CBlock(), block)
 
         # Test vanilla block round-trip
-        self.nodes[0].testproposedblock(WitToHex(block_struct))
+        self.nodes[0].testproposedblock(block_struct.serialize(with_witness=True).hex())
 
         # Assert there's scriptWitness in the coinbase input that is the witness nonce and nothing else
         assert_equal(block_struct.vtx[0].wit.vtxinwit[0].scriptWitness.stack, [b'\x00'*32])
@@ -140,27 +140,27 @@ class TxWitnessTest(BitcoinTestFramework):
         # Add extra witness that isn't covered by witness merkle root, make sure blocks are still valid
         block_witness_stuffed = copy.deepcopy(block_struct)
         block_witness_stuffed.vtx[0].wit.vtxinwit[0].vchIssuanceAmountRangeproof = b'\x00'
-        assert_raises_rpc_error(-25, "bad-cb-witness", self.nodes[0].testproposedblock, WitToHex(block_witness_stuffed))
+        assert_raises_rpc_error(-25, "bad-cb-witness", self.nodes[0].testproposedblock, block_witness_stuffed.serialize(with_witness=True).hex())
         block_witness_stuffed = copy.deepcopy(block_struct)
         block_witness_stuffed.vtx[0].wit.vtxinwit[0].vchInflationKeysRangeproof = b'\x00'
-        assert_raises_rpc_error(-25, "bad-cb-witness", self.nodes[0].testproposedblock, WitToHex(block_witness_stuffed))
+        assert_raises_rpc_error(-25, "bad-cb-witness", self.nodes[0].testproposedblock, block_witness_stuffed.serialize(with_witness=True).hex())
         block_witness_stuffed = copy.deepcopy(block_struct)
 
         # Let's blow out block weight limit by adding 4MW here
         block_witness_stuffed.vtx[0].wit.vtxinwit[0].peginWitness.stack = [b'\x00'*4000000]
-        assert_raises_rpc_error(-25, "bad-cb-witness", self.nodes[0].testproposedblock, WitToHex(block_witness_stuffed))
+        assert_raises_rpc_error(-25, "bad-cb-witness", self.nodes[0].testproposedblock, block_witness_stuffed.serialize(with_witness=True).hex())
 
         # Test that node isn't blinded to the block
         # Previously an over-stuffed block >4MW would have been marked permanently bad
         # as it already passes witness merkle and regular merkle root checks
         block_height = self.nodes[0].getblockcount()
-        assert_equal(self.nodes[0].submitblock(WitToHex(block_witness_stuffed)), "bad-cb-witness")
+        assert_equal(self.nodes[0].submitblock(block_witness_stuffed.serialize(with_witness=True).hex()), "bad-cb-witness")
         assert_equal(block_height, self.nodes[0].getblockcount())
-        assert_equal(self.nodes[0].submitblock(WitToHex(block_struct)), None)
+        assert_equal(self.nodes[0].submitblock(block_struct.serialize(with_witness=True).hex()), None)
         assert_equal(block_height+1, self.nodes[0].getblockcount())
 
         # New block since we used the first one
-        block_struct = FromHex(CBlock(), self.nodes[0].getnewblockhex())
+        block_struct = from_hex(CBlock(), self.nodes[0].getnewblockhex())
         block_witness_stuffed = copy.deepcopy(block_struct)
 
 
@@ -169,15 +169,15 @@ class TxWitnessTest(BitcoinTestFramework):
         assert_equal(block_witness_stuffed.vtx[0].wit.vtxoutwit[0].vchRangeproof, b'')
         block_witness_stuffed.vtx[0].wit.vtxoutwit[0].vchRangeproof = b'\x00'*100000
         block_witness_stuffed.vtx[0].wit.vtxoutwit[0].vchSurjectionproof = b'\x00'*100000
-        assert_raises_rpc_error(-25, "bad-witness-merkle-match", self.nodes[0].testproposedblock, WitToHex(block_witness_stuffed))
+        assert_raises_rpc_error(-25, "bad-witness-merkle-match", self.nodes[0].testproposedblock, block_witness_stuffed.serialize(with_witness=True).hex())
         witness_root_hex = block_witness_stuffed.calc_witness_merkle_root()
         witness_root = uint256_from_str(hex_str_to_bytes(witness_root_hex)[::-1])
         block_witness_stuffed.vtx[0].vout[-1] = CTxOut(0, get_witness_script(witness_root, 0))
         block_witness_stuffed.vtx[0].rehash()
         block_witness_stuffed.hashMerkleRoot = block_witness_stuffed.calc_merkle_root()
         block_witness_stuffed.rehash()
-        assert_raises_rpc_error(-25, "bad-cb-amount", self.nodes[0].testproposedblock, WitToHex(block_witness_stuffed))
-        assert_greater_than(len(WitToHex(block_witness_stuffed)), 100000*4) # Make sure the witness data is actually serialized
+        assert_raises_rpc_error(-25, "bad-cb-amount", self.nodes[0].testproposedblock, block_witness_stuffed.serialize(with_witness=True).hex())
+        assert_greater_than(len(block_witness_stuffed.serialize(with_witness=True).hex()), 100000*4) # Make sure the witness data is actually serialized
 
         # A CTxIn that always serializes the asset issuance, even for coinbases.
         class AlwaysIssuanceCTxIn(CTxIn):
@@ -207,7 +207,7 @@ class TxWitnessTest(BitcoinTestFramework):
         # 32+32+9+1 should be serialized for each assetIssuance field
         assert_equal(bad_coinbase_ser_size, coinbase_ser_size+32+32+9+1)
         assert not block_witness_stuffed.vtx[0].vin[0].assetIssuance.isNull()
-        assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].decoderawtransaction, ToHex(block_witness_stuffed.vtx[0]))
+        assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].decoderawtransaction, block_witness_stuffed.vtx[0].serialize().hex())
 
     def run_test(self):
         util.node_fastmerkle = self.nodes[0]

@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-#define SECP256K1_WHITELIST_MAX_N_KEYS	256
+#define SECP256K1_WHITELIST_MAX_N_KEYS 255
 
 /** Opaque data structure that holds a parsed whitelist proof
  *
@@ -101,8 +101,6 @@ SECP256K1_API int secp256k1_whitelist_signature_serialize(
  *         online_seckey: the secret key to the signer's online pubkey
  *         summed_seckey: the secret key to the sum of (whitelisted key, signer's offline pubkey)
  *         index: the signer's index in the lists of keys
- *         noncefp:pointer to a nonce generation function. If NULL, secp256k1_nonce_function_default is used
- *         ndata:  pointer to arbitrary data used by the nonce generation function (can be NULL)
  * Out:    sig: The produced signature.
  *
  * The signatures are of the list of all passed pubkeys in the order
@@ -120,10 +118,8 @@ SECP256K1_API int secp256k1_whitelist_sign(
   const size_t n_keys,
   const secp256k1_pubkey *sub_pubkey,
   const unsigned char *online_seckey,
-  const unsigned char *summed_seckey,
-  const size_t index,
-  secp256k1_nonce_function noncefp,
-  const void *noncedata
+  const unsigned char *summed_seckeyx,
+  const size_t index
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8);
 
 /** Verify a whitelist signature

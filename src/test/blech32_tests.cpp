@@ -10,7 +10,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-BOOST_FIXTURE_TEST_SUITE(blech32_tests, BasicTestingSetup)
+BOOST_AUTO_TEST_SUITE(blech32_tests)
 
 BOOST_AUTO_TEST_CASE(blech32_testvectors_valid)
 {

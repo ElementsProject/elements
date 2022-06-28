@@ -19,7 +19,7 @@ import unittest
 
 from . import coverage
 from .authproxy import AuthServiceProxy, JSONRPCException
-from io import BytesIO
+from typing import Callable, Optional
 
 logger = logging.getLogger("TestFramework.utils")
 
@@ -92,7 +92,7 @@ def assert_raises_message(exc, message, fun, *args, **kwds):
         raise AssertionError("No exception raised")
 
 
-def assert_raises_process_error(returncode, output, fun, *args, **kwds):
+def assert_raises_process_error(returncode: int, output: str, fun: Callable, *args, **kwds):
     """Execute a process and asserts the process return code and output.
 
     Calls function `fun` with arguments `args` and `kwds`. Catches a CalledProcessError
@@ -100,9 +100,9 @@ def assert_raises_process_error(returncode, output, fun, *args, **kwds):
     no CalledProcessError was raised or if the return code and output are not as expected.
 
     Args:
-        returncode (int): the process return code.
-        output (string): [a substring of] the process output.
-        fun (function): the function to call. This should execute a process.
+        returncode: the process return code.
+        output: [a substring of] the process output.
+        fun: the function to call. This should execute a process.
         args*: positional arguments for the function.
         kwds**: named arguments for the function.
     """
@@ -117,7 +117,7 @@ def assert_raises_process_error(returncode, output, fun, *args, **kwds):
         raise AssertionError("No exception raised")
 
 
-def assert_raises_rpc_error(code, message, fun, *args, **kwds):
+def assert_raises_rpc_error(code: Optional[int], message: Optional[str], fun: Callable, *args, **kwds):
     """Run an RPC and verify that a specific JSONRPC exception code and message is raised.
 
     Calls function `fun` with arguments `args` and `kwds`. Catches a JSONRPCException
@@ -125,11 +125,11 @@ def assert_raises_rpc_error(code, message, fun, *args, **kwds):
     no JSONRPCException was raised or if the error code/message are not as expected.
 
     Args:
-        code (int), optional: the error code returned by the RPC call (defined
-            in src/rpc/protocol.h). Set to None if checking the error code is not required.
-        message (string), optional: [a substring of] the error string returned by the
-            RPC call. Set to None if checking the error string is not required.
-        fun (function): the function to call. This should be the name of an RPC.
+        code: the error code returned by the RPC call (defined in src/rpc/protocol.h).
+            Set to None if checking the error code is not required.
+        message: [a substring of] the error string returned by the RPC call.
+            Set to None if checking the error string is not required.
+        fun: the function to call. This should be the name of an RPC.
         args*: positional arguments for the function.
         kwds**: named arguments for the function.
     """
@@ -356,9 +356,25 @@ def initialize_datadir(dirname, n, chain):
     datadir = get_datadir_path(dirname, n)
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
-    with open(os.path.join(datadir, "elements.conf"), 'w', encoding='utf8') as f:
-        f.write("chain={}\n".format(chain))
-        f.write("[{}]\n".format(chain))
+    write_config(os.path.join(datadir, "elements.conf"), n=n, chain=chain)
+    os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
+    os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
+    return datadir
+
+
+def write_config(config_path, *, n, chain, extra_config=""):
+    # Translate chain subdirectory name to config name
+    if chain == 'testnet3':
+        chain_name_conf_arg = 'testnet'
+        chain_name_conf_section = 'test'
+    else:
+        chain_name_conf_arg = chain
+        chain_name_conf_section = chain
+    with open(config_path, 'w', encoding='utf8') as f:
+        if chain_name_conf_arg:
+            f.write("chain={}\n".format(chain_name_conf_arg))
+        if chain_name_conf_section:
+            f.write("[{}]\n".format(chain_name_conf_section))
         f.write("port=" + str(p2p_port(n)) + "\n")
         f.write("rpcport=" + str(rpc_port(n)) + "\n")
         f.write("fallbackfee=0.0002\n")
@@ -366,10 +382,14 @@ def initialize_datadir(dirname, n, chain):
         f.write("keypool=1\n")
         f.write("discover=0\n")
         f.write("dnsseed=0\n")
+        f.write("fixedseeds=0\n")
         f.write("listenonion=0\n")
         f.write("printtoconsole=0\n")
         f.write("upnp=0\n")
+        f.write("natpmp=0\n")
         f.write("shrinkdebugfile=0\n")
+        # To improve SQLite wallet performance so that the tests don't timeout, use -unsafesqlitesync
+        f.write("unsafesqlitesync=1\n")
         # Elements:
         f.write("validatepegin=0\n")
         f.write("con_parent_pegged_asset=" + BITCOIN_ASSET + "\n")
@@ -386,9 +406,7 @@ def initialize_datadir(dirname, n, chain):
         #f.write("pubkeyprefix=111\n")
         #f.write("scriptprefix=196\n")
         #f.write("bech32_hrp=bcrt\n")
-        os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
-        os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
-    return datadir
+        f.write(extra_config)
 
 
 def append_config(datadir, options):
@@ -486,6 +504,29 @@ def create_confirmed_utxos(fee, node, count):
     return utxos
 
 
+def chain_transaction(node, parent_txids, vouts, value, fee, num_outputs):
+    """Build and send a transaction that spends the given inputs (specified
+    by lists of parent_txid:vout each), with the desired total value and fee,
+    equally divided up to the desired number of outputs.
+
+    Returns a tuple with the txid and the amount sent per output.
+    """
+    send_value = satoshi_round((value - fee)/num_outputs)
+    inputs = []
+    for (txid, vout) in zip(parent_txids, vouts):
+        inputs.append({'txid' : txid, 'vout' : vout})
+    outputs = []
+    for _ in range(num_outputs):
+        outputs.append({node.getnewaddress(): send_value})
+    outputs.append({"fee": value - (num_outputs * send_value)})
+    rawtx = node.createrawtransaction(inputs, outputs, 0, True)
+    signedtx = node.signrawtransactionwithwallet(rawtx)
+    txid = node.sendrawtransaction(signedtx['hex'])
+    fulltx = node.getrawtransaction(txid, 1)
+    assert len(fulltx['vout']) == num_outputs + 1  # make sure we didn't generate a change output
+    return (txid, send_value)
+
+
 # Create large OP_RETURN txouts that can be appended to a transaction
 # to make it large (helper for constructing large transactions).
 def gen_return_txouts():
@@ -511,15 +552,14 @@ def gen_return_txouts():
 def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
     addr = node.getnewaddress()
     txids = []
-    from .messages import CTransaction
+    from .messages import tx_from_hex
     for _ in range(num):
         t = utxos.pop()
         inputs = [{"txid": t["txid"], "vout": t["vout"]}]
         change = t['amount'] - fee
         outputs = [{addr: satoshi_round(change)}, {"fee": fee}]
         rawtx = node.createrawtransaction(inputs, outputs)
-        tx = CTransaction()
-        tx.deserialize(BytesIO(hex_str_to_bytes(rawtx)))
+        tx = tx_from_hex(rawtx)
         for txout in txouts:
             tx.vout.append(txout)
         newtx = tx.serialize().hex()
@@ -555,7 +595,7 @@ def find_vout_for_address(node, txid, addr):
     for i in range(len(tx["vout"])):
         if tx["vout"][i]["scriptPubKey"]["type"] == "fee":
             continue
-        if any([unblind_addr == a for a in tx["vout"][i]["scriptPubKey"]["addresses"]]):
+        if unblind_addr == tx["vout"][i]["scriptPubKey"]["address"]:
             return i
     raise RuntimeError("Vout not found for address: txid=%s, addr=%s" % (txid, addr))
 

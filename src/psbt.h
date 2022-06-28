@@ -8,7 +8,6 @@
 #include <attributes.h>
 #include <chainparams.h>
 #include <node/transaction.h>
-#include <optional.h>
 #include <pegins.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
@@ -19,6 +18,8 @@
 #include <script/signingprovider.h>
 
 #include <bitset>
+#include <optional>
+#include <variant>
 
 // Magic bytes
 // static constexpr uint8_t PSBT_MAGIC_BYTES[5] = {'p', 's', 'b', 't', 0xff};
@@ -92,7 +93,7 @@ static constexpr uint8_t PSBT_ELEMENTS_OUT_BLINDER_INDEX = 0x08;
 static constexpr uint8_t PSBT_ELEMENTS_OUT_BLIND_VALUE_PROOF = 0x09;
 static constexpr uint8_t PSBT_ELEMENTS_OUT_BLIND_ASSET_PROOF = 0x0a;
 
-// Proprietary type identifer string
+// Proprietary type identifier string
 static const std::vector<unsigned char> PSBT_ELEMENTS_ID = {'p', 's', 'e', 't'};
 
 // The separator is 0x00. Reading this in means that the unserializer can interpret it
@@ -222,10 +223,10 @@ struct PSBTInput
     std::map<CPubKey, KeyOriginInfo> hd_keypaths;
     std::map<CKeyID, SigPair> partial_sigs;
     uint256 prev_txid;
-    Optional<uint32_t> prev_out{nullopt};
-    Optional<uint32_t> sequence{nullopt};
-    Optional<uint32_t> time_locktime{nullopt};
-    Optional<uint32_t> height_locktime{nullopt};
+    std::optional<uint32_t> prev_out{std::nullopt};
+    std::optional<uint32_t> sequence{std::nullopt};
+    std::optional<uint32_t> time_locktime{std::nullopt};
+    std::optional<uint32_t> height_locktime{std::nullopt};
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
     std::set<PSBTProprietary> m_proprietary;
     int sighash_type = 0;
@@ -234,11 +235,11 @@ struct PSBTInput
 
     // Elements proprietary fields
     // Issuances
-    Optional<CAmount> m_issuance_value{nullopt};
+    std::optional<CAmount> m_issuance_value{std::nullopt};
     CConfidentialValue m_issuance_value_commitment;
     std::vector<unsigned char> m_issuance_rangeproof;
     std::vector<unsigned char> m_issuance_inflation_keys_rangeproof;
-    Optional<CAmount> m_issuance_inflation_keys_amount{nullopt};
+    std::optional<CAmount> m_issuance_inflation_keys_amount{std::nullopt};
     CConfidentialValue m_issuance_inflation_keys_commitment;
     uint256 m_issuance_blinding_nonce;
     uint256 m_issuance_asset_entropy;
@@ -246,11 +247,11 @@ struct PSBTInput
     std::vector<unsigned char> m_blind_issuance_inflation_keys_proof;
 
     // Peg-in
-    boost::variant<boost::blank, Sidechain::Bitcoin::CTransactionRef, CTransactionRef> m_peg_in_tx;
-    boost::variant<boost::blank, Sidechain::Bitcoin::CMerkleBlock, CMerkleBlock> m_peg_in_txout_proof;
+    std::variant<std::monostate, Sidechain::Bitcoin::CTransactionRef, CTransactionRef> m_peg_in_tx;
+    std::variant<std::monostate, Sidechain::Bitcoin::CMerkleBlock, CMerkleBlock> m_peg_in_txout_proof;
     CScript m_peg_in_claim_script;
     uint256 m_peg_in_genesis_hash;
-    Optional<CAmount> m_peg_in_value{nullopt};
+    std::optional<CAmount> m_peg_in_value{std::nullopt};
     CScriptWitness m_peg_in_witness;
 
     // Auxiliary elements stuff
@@ -324,19 +325,19 @@ struct PSBTInput
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_PREVIOUS_TXID));
                 SerializeToVector(s, prev_txid);
             }
-            if (prev_out != nullopt) {
+            if (prev_out != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_OUTPUT_INDEX));
                 SerializeToVector(s, *prev_out);
             }
-            if (sequence != nullopt) {
+            if (sequence != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_SEQUENCE));
                 SerializeToVector(s, *sequence);
             }
-            if (time_locktime != nullopt) {
+            if (time_locktime != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_REQUIRED_TIME_LOCKTIME));
                 SerializeToVector(s, *time_locktime);
             }
-            if (height_locktime != nullopt) {
+            if (height_locktime != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_REQUIRED_HEIGHT_LOCKTIME));
                 SerializeToVector(s, *height_locktime);
             }
@@ -347,7 +348,7 @@ struct PSBTInput
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_VALUE_COMMITMENT));
                 SerializeToVector(s, m_issuance_value_commitment);
             }
-            if (m_issuance_value != nullopt) {
+            if (m_issuance_value != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_VALUE));
                 SerializeToVector(s, *m_issuance_value);
             }
@@ -366,40 +367,40 @@ struct PSBTInput
 
             if (Params().GetConsensus().ParentChainHasPow()) {
                 // Peg-in tx
-                if (m_peg_in_tx.which() > 0) {
-                    const Sidechain::Bitcoin::CTransactionRef& peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(m_peg_in_tx);
+                if (m_peg_in_tx.index() > 0) {
+                    const auto peg_in_tx = std::get_if<Sidechain::Bitcoin::CTransactionRef>(&m_peg_in_tx);
                     if (peg_in_tx) {
                         SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_PEG_IN_TX));
                         OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS);
-                        SerializeToVector(os, peg_in_tx);
+                        SerializeToVector(os, *peg_in_tx);
                     }
                 }
 
                 // Peg-in proof
-                if (m_peg_in_txout_proof.which() > 0) {
-                    const Sidechain::Bitcoin::CMerkleBlock& txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(m_peg_in_txout_proof);
-                    if (!txout_proof.header.IsNull()) {
+                if (m_peg_in_txout_proof.index() > 0) {
+                    const auto txout_proof = std::get_if<Sidechain::Bitcoin::CMerkleBlock>(&m_peg_in_txout_proof);
+                    if (txout_proof) {
                         SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_PEG_IN_TXOUT_PROOF));
-                        SerializeToVector(s, txout_proof);
+                        SerializeToVector(s, *txout_proof);
                     }
                 }
             } else {
                 // Peg-in tx
-                if (m_peg_in_tx.which() > 0) {
-                    const CTransactionRef& peg_in_tx = boost::get<CTransactionRef>(m_peg_in_tx);
+                if (m_peg_in_tx.index() > 0) {
+                    const auto peg_in_tx = std::get_if<CTransactionRef>(&m_peg_in_tx);
                     if (peg_in_tx) {
                         SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_PEG_IN_TX));
                         OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS);
-                        SerializeToVector(os, peg_in_tx);
+                        SerializeToVector(os, *peg_in_tx);
                     }
                 }
 
                 // Peg-in proof
-                if (m_peg_in_txout_proof.which() > 0) {
-                    const CMerkleBlock& txout_proof = boost::get<CMerkleBlock>(m_peg_in_txout_proof);
-                    if (!txout_proof.header.IsNull()) {
+                if (m_peg_in_txout_proof.index() > 0) {
+                    const auto txout_proof = std::get_if<CMerkleBlock>(&m_peg_in_txout_proof);
+                    if (txout_proof) {
                         SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_PEG_IN_TXOUT_PROOF));
-                        SerializeToVector(s, txout_proof);
+                        SerializeToVector(s, *txout_proof);
                     }
                 }
             }
@@ -417,7 +418,7 @@ struct PSBTInput
             }
 
             // Peg-in value
-            if (m_peg_in_value != nullopt) {
+            if (m_peg_in_value != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_PEG_IN_VALUE));
                 SerializeToVector(s, *m_peg_in_value);
             }
@@ -429,7 +430,7 @@ struct PSBTInput
             }
 
             // Issuance inflation keys amount
-            if (m_issuance_inflation_keys_amount != nullopt) {
+            if (m_issuance_inflation_keys_amount != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_AMOUNT));
                 SerializeToVector(s, *m_issuance_inflation_keys_amount);
             }
@@ -690,7 +691,7 @@ struct PSBTInput
                         switch(this_prop.subtype) {
                             case PSBT_ELEMENTS_IN_ISSUANCE_VALUE:
                             {
-                                if (m_issuance_value != nullopt) {
+                                if (m_issuance_value != std::nullopt) {
                                     throw std::ios_base::failure("Duplicate Key, input issuance value already provided");
                                 } else if (subkey_len != 1) {
                                     throw std::ios_base::failure("Input issuance value is more than one byte type");
@@ -732,7 +733,7 @@ struct PSBTInput
                             }
                             case PSBT_ELEMENTS_IN_PEG_IN_TX:
                             {
-                                if (m_peg_in_tx.which() != 0) {
+                                if (m_peg_in_tx.index() != 0) {
                                     throw std::ios_base::failure("Duplicate Key, peg-in tx already provided");
                                 } else if (subkey_len != 1) {
                                     throw std::ios_base::failure("Peg-in tx key is more than one byte type");
@@ -752,7 +753,7 @@ struct PSBTInput
                             }
                             case PSBT_ELEMENTS_IN_PEG_IN_TXOUT_PROOF:
                             {
-                                if (m_peg_in_txout_proof.which() != 0) {
+                                if (m_peg_in_txout_proof.index() != 0) {
                                     throw std::ios_base::failure("Duplicate Key, peg-in txout proof already provided");
                                 } else if (subkey_len != 1) {
                                     throw std::ios_base::failure("Peg-in txout proof key is more than one byte type");
@@ -790,7 +791,7 @@ struct PSBTInput
                             }
                             case PSBT_ELEMENTS_IN_PEG_IN_VALUE:
                             {
-                                if (m_peg_in_value != nullopt) {
+                                if (m_peg_in_value != std::nullopt) {
                                     throw std::ios_base::failure("Duplicate Key, input issuance value already provided");
                                 } else if (subkey_len != 1) {
                                     throw std::ios_base::failure("Input issuance value is more than one byte type");
@@ -812,7 +813,7 @@ struct PSBTInput
                             }
                             case PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_AMOUNT:
                             {
-                                if (m_issuance_inflation_keys_amount != nullopt) {
+                                if (m_issuance_inflation_keys_amount != std::nullopt) {
                                     throw std::ios_base::failure("Duplicate Key, input issuance inflation keys already provided");
                                 } else if (subkey_len != 1) {
                                     throw std::ios_base::failure("Input issuance inflation keys is more than one byte type");
@@ -923,7 +924,7 @@ struct PSBTInput
             if (prev_txid.IsNull()) {
                 throw std::ios_base::failure("Previous TXID is required in PSBTv2");
             }
-            if (prev_out == nullopt) {
+            if (prev_out == std::nullopt) {
                 throw std::ios_base::failure("Previous output's index is required in PSBTv2");
             }
             if (!m_issuance_value_commitment.IsNull() && m_issuance_rangeproof.empty()) {
@@ -947,8 +948,8 @@ struct PSBTOutput
     CScript redeem_script;
     CScript witness_script;
     std::map<CPubKey, KeyOriginInfo> hd_keypaths;
-    Optional<CAmount> amount{nullopt};
-    Optional<CScript> script{nullopt};
+    std::optional<CAmount> amount{std::nullopt};
+    std::optional<CScript> script{std::nullopt};
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
     std::set<PSBTProprietary> m_proprietary;
 
@@ -962,7 +963,7 @@ struct PSBTOutput
     std::vector<unsigned char> m_asset_surjection_proof;
     CPubKey m_ecdh_pubkey;
     CPubKey m_blinding_pubkey;
-    Optional<uint32_t> m_blinder_index{nullopt};
+    std::optional<uint32_t> m_blinder_index{std::nullopt};
     std::vector<unsigned char> m_blind_value_proof;
     std::vector<unsigned char> m_blind_asset_proof;
 
@@ -995,7 +996,7 @@ struct PSBTOutput
 
         if (m_psbt_version >= 2) {
             // Write spk
-            if (script != nullopt) {
+            if (script != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_SCRIPT));
                 s << *script;
             }
@@ -1006,7 +1007,7 @@ struct PSBTOutput
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_VALUE_COMMITMENT));
                 SerializeToVector(s, m_value_commitment);
             }
-            if (amount != nullopt) {
+            if (amount != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_AMOUNT));
                 SerializeToVector(s, *amount);
             }
@@ -1046,7 +1047,7 @@ struct PSBTOutput
             }
 
             // Blinder index
-            if (m_blinder_index != nullopt) {
+            if (m_blinder_index != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_BLINDER_INDEX));
                 SerializeToVector(s, *m_blinder_index);
             }
@@ -1238,7 +1239,7 @@ struct PSBTOutput
                             }
                             case PSBT_ELEMENTS_OUT_BLINDER_INDEX:
                             {
-                                if (m_blinder_index != nullopt) {
+                                if (m_blinder_index != std::nullopt) {
                                     throw std::ios_base::failure("Duplicate Key, output blinder_index already provided");
                                 } else if (subkey_len != 1) {
                                     throw std::ios_base::failure("Output blinder_index key is more than one byte type");
@@ -1307,16 +1308,16 @@ struct PSBTOutput
 
         // Make sure required PSBTv2 fields are present
         if (m_psbt_version >= 2) {
-            if (amount == nullopt && m_value_commitment.IsNull()) {
+            if (amount == std::nullopt && m_value_commitment.IsNull()) {
                 throw std::ios_base::failure("Output amount is required in PSBTv2");
             }
-            if (script == nullopt) {
+            if (script == std::nullopt) {
                 throw std::ios_base::failure("Output script is required in PSBTv2");
             }
             if (m_asset.IsNull() && m_asset_commitment.IsNull()) {
                 throw std::ios_base::failure("Output asset is required in PSET");
             }
-            if (m_blinding_pubkey.IsValid() && m_blinder_index == nullopt) {
+            if (m_blinding_pubkey.IsValid() && m_blinder_index == std::nullopt) {
                 throw std::ios_base::failure("Output is blinded but does not have a blinder index");
             }
             if (IsBlinded() && IsPartiallyBlinded() && !IsFullyBlinded()) {
@@ -1334,17 +1335,17 @@ struct PSBTOutput
 /** A version of CTransaction with the PSBT format*/
 struct PartiallySignedTransaction
 {
-    Optional<CMutableTransaction> tx{nullopt};
+    std::optional<CMutableTransaction> tx{std::nullopt};
     // We use a set of CExtPubKey in the event that there happens to be the same KeyOriginInfos for different CExtPubKeys
     // Note that this map swaps the key and values from the serialization
     std::map<KeyOriginInfo, std::set<CExtPubKey>> m_xpubs;
-    Optional<int32_t> tx_version{nullopt};
-    Optional<uint32_t> fallback_locktime{nullopt};
-    Optional<std::bitset<8>> m_tx_modifiable{nullopt};
+    std::optional<int32_t> tx_version{std::nullopt};
+    std::optional<uint32_t> fallback_locktime{std::nullopt};
+    std::optional<std::bitset<8>> m_tx_modifiable{std::nullopt};
     std::vector<PSBTInput> inputs;
     std::vector<PSBTOutput> outputs;
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
-    Optional<uint32_t> m_version{nullopt};
+    std::optional<uint32_t> m_version{std::nullopt};
     std::set<PSBTProprietary> m_proprietary;
 
     // Elements proprietary fields
@@ -1403,7 +1404,7 @@ struct PartiallySignedTransaction
             SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_TX_VERSION));
             SerializeToVector(s, *tx_version);
 
-            if (fallback_locktime != nullopt) {
+            if (fallback_locktime != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_FALLBACK_LOCKTIME));
                 SerializeToVector(s, *fallback_locktime);
             }
@@ -1413,7 +1414,7 @@ struct PartiallySignedTransaction
             SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_OUTPUT_COUNT));
             SerializeToVector(s, CompactSizeWriter(outputs.size()));
 
-            if (m_tx_modifiable != nullopt) {
+            if (m_tx_modifiable != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_TX_MODIFIABLE));
                 SerializeToVector(s, static_cast<uint8_t>(m_tx_modifiable->to_ulong()));
             }
@@ -1698,10 +1699,10 @@ struct PartiallySignedTransaction
                 throw std::ios_base::failure("No unsigned transcation was provided");
             }
             // Make sure no PSBTv2 fields are present
-            if (tx_version != nullopt) {
+            if (tx_version != std::nullopt) {
                 throw std::ios_base::failure("PSBT_GLOBAL_TX_VERSION is not allowed in PSBTv0");
             }
-            if (fallback_locktime != nullopt) {
+            if (fallback_locktime != std::nullopt) {
                 throw std::ios_base::failure("PSBT_GLOBAL_FALLBACK_LOCKTIME is not allowed in PSBTv0");
             }
             if (found_input_count) {
@@ -1710,7 +1711,7 @@ struct PartiallySignedTransaction
             if (found_output_count) {
                 throw std::ios_base::failure("PSBT_GLOBAL_OUTPUT_COUNT is not allowed in PSBTv0");
             }
-            if (m_tx_modifiable != nullopt) {
+            if (m_tx_modifiable != std::nullopt) {
                 throw std::ios_base::failure("PSBT_GLOBAL_TX_MODIFIABLE is not allowed in PSBTv0");
             }
         }
@@ -1720,7 +1721,7 @@ struct PartiallySignedTransaction
         }
         if (psbt_ver >= 2) {
             // Tx version, input, and output counts are required
-            if (tx_version == nullopt) {
+            if (tx_version == std::nullopt) {
                 throw std::ios_base::failure("PSBT_GLOBAL_TX_VERSION is required in PSBTv2");
             }
             if (!found_input_count) {
@@ -1743,7 +1744,7 @@ struct PartiallySignedTransaction
             inputs.push_back(input);
 
             // Make sure the non-witness utxo matches the outpoint
-            if (input.non_witness_utxo && ((tx != nullopt && input.non_witness_utxo->GetHash() != tx->vin[i].prevout.hash) || (!input.prev_txid.IsNull() && input.non_witness_utxo->GetHash() != input.prev_txid))) {
+            if (input.non_witness_utxo && ((tx != std::nullopt && input.non_witness_utxo->GetHash() != tx->vin[i].prevout.hash) || (!input.prev_txid.IsNull() && input.non_witness_utxo->GetHash() != input.prev_txid))) {
                 throw std::ios_base::failure("Non-witness UTXO does not match outpoint hash");
             }
             ++i;
@@ -1786,11 +1787,18 @@ enum class PSBTRole {
 
 std::string PSBTRoleName(PSBTRole role);
 
+/** Compute a PrecomputedTransactionData object from a psbt. */
+PrecomputedTransactionData PrecomputePSBTData(const PartiallySignedTransaction& psbt);
+
 /** Checks whether a PSBTInput is already signed. */
 bool PSBTInputSigned(const PSBTInput& input);
 
-/** Signs a PSBTInput, verifying that all provided data matches what is being signed. */
-bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& psbt, int index, int sighash = SIGHASH_ALL, SignatureData* out_sigdata = nullptr, bool use_dummy = false);
+/** Signs a PSBTInput, verifying that all provided data matches what is being signed.
+ *
+ * txdata should be the output of PrecomputePSBTData (which can be shared across
+ * multiple SignPSBTInput calls). If it is nullptr, a dummy signature will be created.
+ **/
+bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& psbt, int index, const PrecomputedTransactionData* txdata, int sighash = SIGHASH_ALL, SignatureData* out_sigdata = nullptr);
 
 /** Counts the unsigned inputs of a PSBT. */
 size_t CountPSBTUnsignedInputs(const PartiallySignedTransaction& psbt);

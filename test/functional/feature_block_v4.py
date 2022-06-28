@@ -7,15 +7,19 @@
 from test_framework.blocktools import create_coinbase, create_block, create_transaction
 from test_framework.messages import msg_block
 from test_framework.p2p import P2PInterface
+from test_framework.script import (
+    CScript,
+    OP_TRUE,
+    OP_DROP,
+    OP_CHECKLOCKTIMEVERIFY,
+)
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, softfork_active
-
-from feature_cltv import cltv_validate
 
 class BlockV4Test(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
-        self.extra_args = [['-whitelist=127.0.0.1', '-con_bip34height=0', '-con_bip65height=0', '-con_bip66height=0', '-con_csv_deploy_start=-1']]
+        self.extra_args = [['-whitelist=127.0.0.1', '-con_bip34height=0', '-con_bip65height=0', '-con_bip66height=0', '-con_csv_deploy_start=-1', '-acceptnonstdtxn=1']]
         self.setup_clean_chain = True
 
     def skip_test_if_missing_module(self):
@@ -63,8 +67,9 @@ class BlockV4Test(BitcoinTestFramework):
 
         # Create a CLTV transaction
         spendtx = create_transaction(self.nodes[0], spendable_coinbase_txid,
-                self.nodeaddress, amount=1.0, fee=coinbase_value-1)
-        spendtx = cltv_validate(self.nodes[0], spendtx, 1)
+                self.nodeaddress, amount=1.0, fee=coinbase_value-1, locktime=1)
+        spendtx.nLockTime = 1
+        spendtx.vin[0].scriptSig = CScript([OP_TRUE, OP_CHECKLOCKTIMEVERIFY, OP_DROP] + list(CScript(spendtx.vin[0].scriptSig)))
         spendtx.rehash()
 
         # Add the CLTV transaction and prepare for sending

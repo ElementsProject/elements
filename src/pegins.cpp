@@ -540,7 +540,7 @@ CScriptWitness CreatePeginWitness(const CAmount& value, const CAsset& asset, con
     return CreatePeginWitnessInner(value, asset, genesis_hash, claim_script, tx_ref, merkle_block);
 }
 
-bool DecomposePeginWitness(const CScriptWitness& witness, CAmount& value, CAsset& asset, uint256& genesis_hash, CScript& claim_script, boost::variant<boost::blank, Sidechain::Bitcoin::CTransactionRef, CTransactionRef>& tx, boost::variant<boost::blank, Sidechain::Bitcoin::CMerkleBlock, CMerkleBlock>& merkle_block)
+bool DecomposePeginWitness(const CScriptWitness& witness, CAmount& value, CAsset& asset, uint256& genesis_hash, CScript& claim_script, std::variant<std::monostate, Sidechain::Bitcoin::CTransactionRef, CTransactionRef>& tx, std::variant<std::monostate, Sidechain::Bitcoin::CMerkleBlock, CMerkleBlock>& merkle_block)
 {
     const auto& stack = witness.stack;
 

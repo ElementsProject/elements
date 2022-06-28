@@ -3,12 +3,15 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bech32.h>
-#include <test/util/setup_common.h>
+#include <random.h>
+#include <util/strencodings.h>
 #include <test/util/str.h>
 
 #include <boost/test/unit_test.hpp>
 
-BOOST_FIXTURE_TEST_SUITE(bech32_tests, BasicTestingSetup)
+#include <string>
+
+BOOST_AUTO_TEST_SUITE(bech32_tests)
 
 BOOST_AUTO_TEST_CASE(bech32_testvectors_valid)
 {

@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2019 The Bitcoin Core developers
+// Copyright (c) 2011-2020 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -22,11 +22,14 @@
 #include <policy/policy.h>
 
 #include <algorithm>
+#include <functional>
 
 #include <QColor>
 #include <QDateTime>
 #include <QDebug>
 #include <QIcon>
+#include <QLatin1Char>
+#include <QLatin1String>
 #include <QList>
 
 
@@ -98,18 +101,20 @@ public:
      */
     QList<TransactionRecord> cachedWallet;
 
-    bool fQueueNotifications = false;
+    /** True when model finishes loading all wallet transactions on start */
+    bool m_loaded = false;
+    /** True when transactions are being notified, for instance when scanning */
+    bool m_loading = false;
     std::vector< TransactionNotification > vQueueNotifications;
 
     void NotifyTransactionChanged(const uint256 &hash, ChangeType status);
-    void ShowProgress(const std::string &title, int nProgress);
+    void DispatchNotifications();
 
     /* Query entire wallet anew from core.
      */
     void refreshWallet(interfaces::Wallet& wallet)
     {
-        qDebug() << "TransactionTablePriv::refreshWallet";
-        cachedWallet.clear();
+        assert(!m_loaded);
         {
             for (const auto& wtx : wallet.getWalletTxs()) {
                 if (TransactionRecord::showTransaction()) {
@@ -117,6 +122,8 @@ public:
                 }
             }
         }
+        m_loaded = true;
+        DispatchNotifications();
     }
 
     /* Update our model of the wallet incrementally, to synchronize our model of the wallet
@@ -251,12 +258,12 @@ TransactionTableModel::TransactionTableModel(const PlatformStyle *_platformStyle
         fProcessingQueuedTransactions(false),
         platformStyle(_platformStyle)
 {
+    subscribeToCoreSignals();
+
     columns << QString() << QString() << tr("Date") << tr("Type") << tr("Label") << tr("Amount");
     priv->refreshWallet(walletModel->wallet());
 
     connect(walletModel->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &TransactionTableModel::updateDisplayUnit);
-
-    subscribeToCoreSignals();
 }
 
 TransactionTableModel::~TransactionTableModel()
@@ -286,13 +293,17 @@ void TransactionTableModel::updateConfirmations()
 
 int TransactionTableModel::rowCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent);
+    if (parent.isValid()) {
+        return 0;
+    }
     return priv->size();
 }
 
 int TransactionTableModel::columnCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent);
+    if (parent.isValid()) {
+        return 0;
+    }
     return columns.length();
 }
 
@@ -407,9 +418,9 @@ QVariant TransactionTableModel::txAddressDecoration(const TransactionRecord *wtx
 QString TransactionTableModel::formatTxToAddress(const TransactionRecord *wtx, bool tooltip) const
 {
     QString watchAddress;
-    if (tooltip) {
+    if (tooltip && wtx->involvesWatchAddress) {
         // Mark transactions involving watch-only addresses by adding " (watch-only)"
-        watchAddress = wtx->involvesWatchAddress ? QString(" (") + tr("watch-only") + QString(")") : "";
+        watchAddress = QLatin1String(" (") + tr("watch-only") + QLatin1Char(')');
     }
 
     switch(wtx->type)
@@ -526,27 +537,30 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
         return QVariant();
     TransactionRecord *rec = static_cast<TransactionRecord*>(index.internalPointer());
 
-    switch(role)
-    {
+    const auto column = static_cast<ColumnIndex>(index.column());
+    switch (role) {
     case RawDecorationRole:
-        switch(index.column())
-        {
+        switch (column) {
         case Status:
             return txStatusDecoration(rec);
         case Watchonly:
             return txWatchonlyDecoration(rec);
+        case Date: return {};
+        case Type: return {};
         case ToAddress:
             return txAddressDecoration(rec);
-        }
-        break;
+        case Amount: return {};
+        } // no default case, so the compiler can warn about missing cases
+        assert(false);
     case Qt::DecorationRole:
     {
         QIcon icon = qvariant_cast<QIcon>(index.data(RawDecorationRole));
         return platformStyle->TextColorIcon(icon);
     }
     case Qt::DisplayRole:
-        switch(index.column())
-        {
+        switch (column) {
+        case Status: return {};
+        case Watchonly: return {};
         case Date:
             return formatTxDate(rec);
         case Type:
@@ -555,12 +569,11 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
             return formatTxToAddress(rec, false);
         case Amount:
             return formatTxAmount(rec, true, BitcoinUnits::SeparatorStyle::ALWAYS);
-        }
-        break;
+        } // no default case, so the compiler can warn about missing cases
+        assert(false);
     case Qt::EditRole:
         // Edit role is used for sorting, so return the unformatted values
-        switch(index.column())
-        {
+        switch (column) {
         case Status:
             return QString::fromStdString(rec->status.sortKey);
         case Date:
@@ -573,8 +586,8 @@ QVariant TransactionTableModel::data(const QModelIndex &index, int role) const
             return formatTxToAddress(rec, true);
         case Amount:
             return qint64(rec->amount);
-        }
-        break;
+        } // no default case, so the compiler can warn about missing cases
+        assert(false);
     case Qt::ToolTipRole:
         return formatTooltip(rec);
     case Qt::TextAlignmentRole:
@@ -716,7 +729,7 @@ void TransactionTablePriv::NotifyTransactionChanged(const uint256 &hash, ChangeT
 
     TransactionNotification notification(hash, status, showTransaction);
 
-    if (fQueueNotifications)
+    if (!m_loaded || m_loading)
     {
         vQueueNotifications.push_back(notification);
         return;
@@ -724,36 +737,34 @@ void TransactionTablePriv::NotifyTransactionChanged(const uint256 &hash, ChangeT
     notification.invoke(parent);
 }
 
-void TransactionTablePriv::ShowProgress(const std::string &title, int nProgress)
+void TransactionTablePriv::DispatchNotifications()
 {
-    if (nProgress == 0)
-        fQueueNotifications = true;
+    if (!m_loaded || m_loading) return;
 
-    if (nProgress == 100)
+    if (vQueueNotifications.size() > 10) { // prevent balloon spam, show maximum 10 balloons
+        bool invoked = QMetaObject::invokeMethod(parent, "setProcessingQueuedTransactions", Qt::QueuedConnection, Q_ARG(bool, true));
+        assert(invoked);
+    }
+    for (unsigned int i = 0; i < vQueueNotifications.size(); ++i)
     {
-        fQueueNotifications = false;
-        if (vQueueNotifications.size() > 10) { // prevent balloon spam, show maximum 10 balloons
-            bool invoked = QMetaObject::invokeMethod(parent, "setProcessingQueuedTransactions", Qt::QueuedConnection, Q_ARG(bool, true));
+        if (vQueueNotifications.size() - i <= 10) {
+            bool invoked = QMetaObject::invokeMethod(parent, "setProcessingQueuedTransactions", Qt::QueuedConnection, Q_ARG(bool, false));
             assert(invoked);
         }
-        for (unsigned int i = 0; i < vQueueNotifications.size(); ++i)
-        {
-            if (vQueueNotifications.size() - i <= 10) {
-                bool invoked = QMetaObject::invokeMethod(parent, "setProcessingQueuedTransactions", Qt::QueuedConnection, Q_ARG(bool, false));
-                assert(invoked);
-            }
 
-            vQueueNotifications[i].invoke(parent);
-        }
-        vQueueNotifications.clear();
+        vQueueNotifications[i].invoke(parent);
     }
+    vQueueNotifications.clear();
 }
 
 void TransactionTableModel::subscribeToCoreSignals()
 {
     // Connect signals to wallet
     m_handler_transaction_changed = walletModel->wallet().handleTransactionChanged(std::bind(&TransactionTablePriv::NotifyTransactionChanged, priv, std::placeholders::_1, std::placeholders::_2));
-    m_handler_show_progress = walletModel->wallet().handleShowProgress(std::bind(&TransactionTablePriv::ShowProgress, priv, std::placeholders::_1, std::placeholders::_2));
+    m_handler_show_progress = walletModel->wallet().handleShowProgress([this](const std::string&, int progress) {
+        priv->m_loading = progress < 100;
+        priv->DispatchNotifications();
+    });
 }
 
 void TransactionTableModel::unsubscribeFromCoreSignals()

@@ -7,3 +7,5 @@ check: FORCE
 	$(MAKE) -C .. test_elements_qt_check
 elements-qt elements-qt.exe: FORCE
 	 $(MAKE) -C .. elements_qt
+apk: FORCE
+	$(MAKE) -C .. elements_qt_apk

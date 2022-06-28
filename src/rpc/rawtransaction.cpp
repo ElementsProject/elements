@@ -14,11 +14,13 @@
 #include <key_io.h>
 #include <merkleblock.h>
 #include <net.h>
+#include <node/blockstorage.h>
 #include <node/coin.h>
 #include <node/context.h>
 #include <node/psbt.h>
 #include <node/transaction.h>
 #include <pegins.h>
+#include <policy/packages.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <primitives/transaction.h>
@@ -47,13 +49,12 @@
 #include <blind.h>
 #include <issuance.h>
 
-
 #include <numeric>
 #include <stdint.h>
 
 #include <univalue.h>
 
-static void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
+static void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry, CChainState& active_chainstate)
 {
     // Call into TxToUniv() in bitcoin-common to decode the transaction hex.
     //
@@ -66,10 +67,10 @@ static void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& 
         LOCK(cs_main);
 
         entry.pushKV("blockhash", hashBlock.GetHex());
-        CBlockIndex* pindex = LookupBlockIndex(hashBlock);
+        CBlockIndex* pindex = active_chainstate.m_blockman.LookupBlockIndex(hashBlock);
         if (pindex) {
-            if (::ChainActive().Contains(pindex)) {
-                entry.pushKV("confirmations", 1 + ::ChainActive().Height() - pindex->nHeight);
+            if (active_chainstate.m_chain.Contains(pindex)) {
+                entry.pushKV("confirmations", 1 + active_chainstate.m_chain.Height() - pindex->nHeight);
                 entry.pushKV("time", pindex->GetBlockTime());
                 entry.pushKV("blocktime", pindex->GetBlockTime());
             }
@@ -97,7 +98,7 @@ static RPCHelpMan getrawtransaction()
                 "If verbose is 'false' or omitted, returns a string that is serialized, hex-encoded data for 'txid'.\n",
                 {
                     {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                    {"verbose", RPCArg::Type::BOOL, /* default */ "false", "If false, return a string, otherwise return a json object"},
+                    {"verbose", RPCArg::Type::BOOL, RPCArg::Default{false}, "If false, return a string, otherwise return a json object"},
                     {"blockhash", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The block in which to look for the transaction"},
                 },
                 {
@@ -121,7 +122,7 @@ static RPCHelpMan getrawtransaction()
                                  {RPCResult::Type::OBJ, "", "",
                                  {
                                      {RPCResult::Type::STR_HEX, "txid", "The transaction id"},
-                                     {RPCResult::Type::STR, "vout", ""},
+                                     {RPCResult::Type::NUM, "vout", "The output number"},
                                      {RPCResult::Type::OBJ, "scriptSig", "The script",
                                      {
                                          {RPCResult::Type::STR, "asm", "asm"},
@@ -144,9 +145,10 @@ static RPCHelpMan getrawtransaction()
                                      {
                                          {RPCResult::Type::STR, "asm", "the asm"},
                                          {RPCResult::Type::STR, "hex", "the hex"},
-                                         {RPCResult::Type::NUM, "reqSigs", "The required sigs"},
+                                         {RPCResult::Type::NUM, "reqSigs", /* optional */ true, "(DEPRECATED, returned only if config option -deprecatedrpc=addresses is passed) Number of required signatures"},
                                          {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
-                                         {RPCResult::Type::ARR, "addresses", "",
+                                         {RPCResult::Type::STR, "address", /* optional */ true, "bitcoin address (only if a well-defined address exists)"},
+                                         {RPCResult::Type::ARR, "addresses", /* optional */ true, "(DEPRECATED, returned only if config option -deprecatedrpc=addresses is passed) Array of bitcoin addresses",
                                          {
                                              {RPCResult::Type::STR, "address", ""},
                                          }},
@@ -154,7 +156,8 @@ static RPCHelpMan getrawtransaction()
                                          {RPCResult::Type::STR, "pegout_asm", "(only pegout) pegout scriptpubkey (asm)"},
                                          {RPCResult::Type::STR_HEX, "pegout_hex", "(only pegout) pegout scriptpubkey (hex)"},
                                          {RPCResult::Type::STR, "pegout_type", "(only pegout) The pegout type, eg 'pubkeyhash'"},
-                                         {RPCResult::Type::ARR, "pegout_addresses", "(only pegout)",
+                                         {RPCResult::Type::STR, "pegout_address", "(only pegout)"},
+                                         {RPCResult::Type::ARR, "pegout_addresses", /* optional */ true, "(DEPRECATED, returned only if config option -deprecatedrpc=addresses is passed)",
                                          {
                                              {RPCResult::Type::STR, "address", ""},
                                          }},
@@ -177,7 +180,8 @@ static RPCHelpMan getrawtransaction()
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    const NodeContext& node = EnsureNodeContext(request.context);
+    const NodeContext& node = EnsureAnyNodeContext(request.context);
+    ChainstateManager& chainman = EnsureChainman(node);
 
     bool in_active_chain = true;
     uint256 hash = ParseHashV(request.params[0], "parameter 1");
@@ -199,11 +203,11 @@ static RPCHelpMan getrawtransaction()
         LOCK(cs_main);
 
         uint256 blockhash = ParseHashV(request.params[2], "parameter 3");
-        blockindex = LookupBlockIndex(blockhash);
+        blockindex = chainman.m_blockman.LookupBlockIndex(blockhash);
         if (!blockindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block hash not found");
         }
-        in_active_chain = ::ChainActive().Contains(blockindex);
+        in_active_chain = chainman.ActiveChain().Contains(blockindex);
     }
 
     bool f_txindex_ready = false;
@@ -236,7 +240,7 @@ static RPCHelpMan getrawtransaction()
 
     UniValue result(UniValue::VOBJ);
     if (blockindex) result.pushKV("in_active_chain", in_active_chain);
-    TxToJSON(*tx, hash_block, result);
+    TxToJSON(*tx, hash_block, result, chainman.ActiveChainstate());
     return result;
 },
     };
@@ -265,35 +269,36 @@ static RPCHelpMan gettxoutproof()
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
     std::set<uint256> setTxids;
-    uint256 oneTxid;
     UniValue txids = request.params[0].get_array();
+    if (txids.empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Parameter 'txids' cannot be empty");
+    }
     for (unsigned int idx = 0; idx < txids.size(); idx++) {
-        const UniValue& txid = txids[idx];
-        uint256 hash(ParseHashV(txid, "txid"));
-        if (setTxids.count(hash)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated txid: ") + txid.get_str());
+        auto ret = setTxids.insert(ParseHashV(txids[idx], "txid"));
+        if (!ret.second) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated txid: ") + txids[idx].get_str());
         }
-        setTxids.insert(hash);
-        oneTxid = hash;
     }
 
     CBlockIndex* pblockindex = nullptr;
     uint256 hashBlock;
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
     if (!request.params[1].isNull()) {
         LOCK(cs_main);
         hashBlock = ParseHashV(request.params[1], "blockhash");
-        pblockindex = LookupBlockIndex(hashBlock);
+        pblockindex = chainman.m_blockman.LookupBlockIndex(hashBlock);
         if (!pblockindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
     } else {
         LOCK(cs_main);
+        CChainState& active_chainstate = chainman.ActiveChainstate();
 
         // Loop through txids and try to find which block they're in. Exit loop once a block is found.
         for (const auto& tx : setTxids) {
-            const Coin& coin = AccessByTxid(::ChainstateActive().CoinsTip(), tx);
+            const Coin& coin = AccessByTxid(active_chainstate.CoinsTip(), tx);
             if (!coin.IsSpent()) {
-                pblockindex = ::ChainActive()[coin.nHeight];
+                pblockindex = active_chainstate.m_chain[coin.nHeight];
                 break;
             }
         }
@@ -308,11 +313,11 @@ static RPCHelpMan gettxoutproof()
     LOCK(cs_main);
 
     if (pblockindex == nullptr) {
-        const CTransactionRef tx = GetTransaction(/* block_index */ nullptr, /* mempool */ nullptr, oneTxid, Params().GetConsensus(), hashBlock);
+        const CTransactionRef tx = GetTransaction(/* block_index */ nullptr, /* mempool */ nullptr, *setTxids.begin(), Params().GetConsensus(), hashBlock);
         if (!tx || hashBlock.IsNull()) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not yet in block");
         }
-        pblockindex = LookupBlockIndex(hashBlock);
+        pblockindex = chainman.m_blockman.LookupBlockIndex(hashBlock);
         if (!pblockindex) {
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Transaction index corrupt");
         }
@@ -370,10 +375,11 @@ static RPCHelpMan verifytxoutproof()
     if (merkleBlock.txn.ExtractMatches(vMatch, vIndex) != merkleBlock.header.hashMerkleRoot)
         return res;
 
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
     LOCK(cs_main);
 
-    const CBlockIndex* pindex = LookupBlockIndex(merkleBlock.header.GetHash());
-    if (!pindex || !::ChainActive().Contains(pindex) || pindex->nTx == 0) {
+    const CBlockIndex* pindex = chainman.m_blockman.LookupBlockIndex(merkleBlock.header.GetHash());
+    if (!pindex || !chainman.ActiveChain().Contains(pindex) || pindex->nTx == 0) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found in chain");
     }
 
@@ -404,7 +410,7 @@ static RPCHelpMan createrawtransaction()
                                 {
                                     {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
                                     {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                    {"sequence", RPCArg::Type::NUM, /* default */ "depends on the value of the 'replaceable' and 'locktime' arguments", "The sequence number"},
+                                    {"sequence", RPCArg::Type::NUM, RPCArg::DefaultHint{"depends on the value of the 'replaceable' and 'locktime' arguments"}, "The sequence number"},
                                     {"pegin_bitcoin_tx", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "(only for pegin inputs) The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress"},
                                     {"pegin_txout_proof", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "(only for pegin inputs) A rawtxoutproof (in hex) generated by the mainchain daemon's `gettxoutproof` containing a proof of only bitcoin_tx"},
                                     {"pegin_claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "(only for pegin inputs) The claim script generated by getpeginaddress."},
@@ -417,7 +423,7 @@ static RPCHelpMan createrawtransaction()
                             "For compatibility reasons, a dictionary, which holds the key-value pairs directly, is also\n"
                             "                             accepted as second parameter.",
                         {
-                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                            {"", RPCArg::Type::OBJ_USER_KEYS, RPCArg::Optional::OMITTED, "",
                                 {
                                     {"address", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "A key-value pair. The key (string) is the bitcoin address, the value (float or string) is the amount in " + CURRENCY_UNIT},
                                     {"asset", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The asset tag for this output if it is not the main chain asset"},
@@ -445,8 +451,8 @@ static RPCHelpMan createrawtransaction()
                                 },
                         },
                         },
-                    {"locktime", RPCArg::Type::NUM, /* default */ "0", "Raw locktime. Non-0 value also locktime-activates inputs"},
-                    {"replaceable", RPCArg::Type::BOOL, /* default */ "false", "Marks this transaction as BIP125-replaceable.\n"
+                    {"locktime", RPCArg::Type::NUM, RPCArg::Default{0}, "Raw locktime. Non-0 value also locktime-activates inputs"},
+                    {"replaceable", RPCArg::Type::BOOL, RPCArg::Default{false}, "Marks this transaction as BIP125-replaceable.\n"
             "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible."},
                 },
                 RPCResult{
@@ -460,6 +466,8 @@ static RPCHelpMan createrawtransaction()
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
+
     RPCTypeCheck(request.params, {
         UniValue::VARR,
         UniValue::VARR,
@@ -472,7 +480,7 @@ static RPCHelpMan createrawtransaction()
     if (!request.params[3].isNull()) {
         rbf = request.params[3].isTrue();
     }
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, chainman.ActiveChain().Tip());
 
     return EncodeHexTx(CTransaction(rawTx));
 },
@@ -485,7 +493,7 @@ static RPCHelpMan decoderawtransaction()
                 "\nReturn a JSON object representing the serialized, hex-encoded transaction.\n",
                 {
                     {"hexstring", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction hex string"},
-                    {"iswitness", RPCArg::Type::BOOL, /* default */ "depends on heuristic tests", "Whether the transaction hex is a serialized witness transaction.\n"
+                    {"iswitness", RPCArg::Type::BOOL, RPCArg::DefaultHint{"depends on heuristic tests"}, "Whether the transaction hex is a serialized witness transaction.\n"
                         "If iswitness is not present, heuristic tests will be used in decoding.\n"
                         "If true, only witness deserialization will be tried.\n"
                         "If false, only non-witness deserialization will be tried.\n"
@@ -531,9 +539,10 @@ static RPCHelpMan decoderawtransaction()
                                 {
                                     {RPCResult::Type::STR, "asm", "the asm"},
                                     {RPCResult::Type::STR_HEX, "hex", "the hex"},
-                                    {RPCResult::Type::NUM, "reqSigs", "The required sigs"},
+                                    {RPCResult::Type::NUM, "reqSigs", /* optional */ true, "(DEPRECATED, returned only if config option -deprecatedrpc=addresses is passed) Number of required signatures"},
                                     {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
-                                    {RPCResult::Type::ARR, "addresses", "",
+                                    {RPCResult::Type::STR, "address", /* optional */ true, "bitcoin address (only if a well-defined address exists)"},
+                                    {RPCResult::Type::ARR, "addresses", /* optional */ true, "(DEPRECATED, returned only if config option -deprecatedrpc=addresses is passed) Array of bitcoin addresses",
                                     {
                                         {RPCResult::Type::STR, "address", "bitcoin address"},
                                     }},
@@ -589,8 +598,9 @@ static RPCHelpMan decodescript()
                     {
                         {RPCResult::Type::STR, "asm", "Script public key"},
                         {RPCResult::Type::STR, "type", "The output type (e.g. "+GetAllOutputTypes()+")"},
-                        {RPCResult::Type::NUM, "reqSigs", "The required signatures"},
-                        {RPCResult::Type::ARR, "addresses", "",
+                        {RPCResult::Type::STR, "address", /* optional */ true, "bitcoin address (only if a well-defined address exists)"},
+                        {RPCResult::Type::NUM, "reqSigs", /* optional */ true, "(DEPRECATED, returned only if config option -deprecatedrpc=addresses is passed) Number of required signatures"},
+                        {RPCResult::Type::ARR, "addresses", /* optional */ true, "(DEPRECATED, returned only if config option -deprecatedrpc=addresses is passed) Array of bitcoin addresses",
                         {
                             {RPCResult::Type::STR, "address", "bitcoin address"},
                         }},
@@ -600,8 +610,9 @@ static RPCHelpMan decodescript()
                             {RPCResult::Type::STR, "asm", "String representation of the script public key"},
                             {RPCResult::Type::STR_HEX, "hex", "Hex string of the script public key"},
                             {RPCResult::Type::STR, "type", "The type of the script public key (e.g. witness_v0_keyhash or witness_v0_scripthash)"},
-                            {RPCResult::Type::NUM, "reqSigs", "The required signatures (always 1)"},
-                            {RPCResult::Type::ARR, "addresses", "(always length 1)",
+                            {RPCResult::Type::STR, "address", /* optional */ true, "bitcoin address (only if a well-defined address exists)"},
+                            {RPCResult::Type::NUM, "reqSigs", /* optional */ true, "(DEPRECATED, returned only if config option -deprecatedrpc=addresses is passed) Number of required signatures"},
+                            {RPCResult::Type::ARR, "addresses", /* optional */ true, "(DEPRECATED, returned only if config option -deprecatedrpc=addresses is passed) Array of bitcoin addresses",
                             {
                                 {RPCResult::Type::STR, "address", "segwit address"},
                             }},
@@ -713,10 +724,11 @@ static RPCHelpMan combinerawtransaction()
     CCoinsView viewDummy;
     CCoinsViewCache view(&viewDummy);
     {
-        const CTxMemPool& mempool = EnsureMemPool(request.context);
-        LOCK(cs_main);
-        LOCK(mempool.cs);
-        CCoinsViewCache &viewChain = ::ChainstateActive().CoinsTip();
+        NodeContext& node = EnsureAnyNodeContext(request.context);
+        const CTxMemPool& mempool = EnsureMemPool(node);
+        ChainstateManager& chainman = EnsureChainman(node);
+        LOCK2(cs_main, mempool.cs);
+        CCoinsViewCache &viewChain = chainman.ActiveChainstate().CoinsTip();
         CCoinsViewMemPool viewMempool(&viewChain, mempool);
         view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
 
@@ -782,7 +794,8 @@ static RPCHelpMan signrawtransactionwithkey()
                                 },
                         },
                         },
-                    {"sighashtype", RPCArg::Type::STR, /* default */ "ALL", "The signature hash type. Must be one of:\n"
+                    {"sighashtype", RPCArg::Type::STR, RPCArg::Default{"DEFAULT"}, "The signature hash type. Must be one of:\n"
+            "       \"DEFAULT\"\n"
             "       \"ALL\"\n"
             "       \"NONE\"\n"
             "       \"SINGLE\"\n"
@@ -822,6 +835,8 @@ static RPCHelpMan signrawtransactionwithkey()
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
+
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VARR, UniValue::VSTR}, true);
 
     CMutableTransaction mtx;
@@ -845,14 +860,14 @@ static RPCHelpMan signrawtransactionwithkey()
     for (const CTxIn& txin : mtx.vin) {
         coins[txin.prevout]; // Create empty map entry keyed by prevout.
     }
-    NodeContext& node = EnsureNodeContext(request.context);
+    NodeContext& node = EnsureAnyNodeContext(request.context);
     FindCoins(node, coins);
 
     // Parse the prevtxs array
     ParsePrevouts(request.params[2], &keystore, coins);
 
     UniValue result(UniValue::VOBJ);
-    SignTransaction(mtx, &keystore, coins, request.params[3], result);
+    SignTransaction(mtx, &keystore, coins, request.params[3], result, chainman.ActiveChain().Tip());
     return result;
 },
     };
@@ -862,15 +877,16 @@ static RPCHelpMan sendrawtransaction()
 {
     return RPCHelpMan{"sendrawtransaction",
                 "\nSubmit a raw transaction (serialized, hex-encoded) to local node and network.\n"
-                "\nNote that the transaction will be sent unconditionally to all peers, so using this\n"
+                "\nThe transaction will be sent unconditionally to all peers, so using sendrawtransaction\n"
                 "for manual rebroadcast may degrade privacy by leaking the transaction's origin, as\n"
                 "nodes will normally not rebroadcast non-wallet transactions already in their mempool.\n"
-                "\nAlso see createrawtransaction and signrawtransactionwithkey calls.\n",
+                "\nA specific exception, RPC_TRANSACTION_ALREADY_IN_CHAIN, may throw if the transaction cannot be added to the mempool.\n"
+                "\nRelated RPCs: createrawtransaction, signrawtransactionwithkey\n",
                 {
                     {"hexstring", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex string of the raw transaction"},
-                    {"maxfeerate", RPCArg::Type::AMOUNT, /* default */ FormatMoney(DEFAULT_MAX_RAW_TX_FEE_RATE.GetFeePerK()),
+                    {"maxfeerate", RPCArg::Type::AMOUNT, RPCArg::Default{FormatMoney(DEFAULT_MAX_RAW_TX_FEE_RATE.GetFeePerK())},
                         "Reject transactions whose fee rate is higher than the specified value, expressed in " + CURRENCY_UNIT +
-                            "/kB.\nSet to 0 to accept any fee rate.\n"},
+                            "/kvB.\nSet to 0 to accept any fee rate.\n"},
                 },
                 RPCResult{
                     RPCResult::Type::STR_HEX, "", "The transaction hash in hex"
@@ -917,7 +933,7 @@ static RPCHelpMan sendrawtransaction()
 
     std::string err_string;
     AssertLockNotHeld(cs_main);
-    NodeContext& node = EnsureNodeContext(request.context);
+    NodeContext& node = EnsureAnyNodeContext(request.context);
     const TransactionError err = BroadcastTransaction(node, tx, err_string, max_raw_tx_fee, /*relay*/ true, /*wait_callback*/ true);
     if (TransactionError::OK != err) {
         throw JSONRPCTransactionError(err, err_string);
@@ -931,26 +947,33 @@ static RPCHelpMan sendrawtransaction()
 static RPCHelpMan testmempoolaccept()
 {
     return RPCHelpMan{"testmempoolaccept",
-                "\nReturns result of mempool acceptance tests indicating if raw transaction (serialized, hex-encoded) would be accepted by mempool.\n"
-                "\nThis checks if the transaction violates the consensus or policy rules.\n"
+                "\nReturns result of mempool acceptance tests indicating if raw transaction(s) (serialized, hex-encoded) would be accepted by mempool.\n"
+                "\nIf multiple transactions are passed in, parents must come before children and package policies apply: the transactions cannot conflict with any mempool transactions or each other.\n"
+                "\nIf one transaction fails, other transactions may not be fully validated (the 'allowed' key will be blank).\n"
+                "\nThe maximum number of transactions allowed is " + ToString(MAX_PACKAGE_COUNT) + ".\n"
+                "\nThis checks if transactions violate the consensus or policy rules.\n"
                 "\nSee sendrawtransaction call.\n",
                 {
-                    {"rawtxs", RPCArg::Type::ARR, RPCArg::Optional::NO, "An array of hex strings of raw transactions.\n"
-            "                                        Length must be one for now.",
+                    {"rawtxs", RPCArg::Type::ARR, RPCArg::Optional::NO, "An array of hex strings of raw transactions.",
                         {
                             {"rawtx", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, ""},
                         },
                         },
-                    {"maxfeerate", RPCArg::Type::AMOUNT, /* default */ FormatMoney(DEFAULT_MAX_RAW_TX_FEE_RATE.GetFeePerK()), "Reject transactions whose fee rate is higher than the specified value, expressed in " + CURRENCY_UNIT + "/kB\n"},
+                    {"maxfeerate", RPCArg::Type::AMOUNT, RPCArg::Default{FormatMoney(DEFAULT_MAX_RAW_TX_FEE_RATE.GetFeePerK())},
+                     "Reject transactions whose fee rate is higher than the specified value, expressed in " + CURRENCY_UNIT + "/kvB\n"},
                 },
                 RPCResult{
                     RPCResult::Type::ARR, "", "The result of the mempool acceptance test for each raw transaction in the input array.\n"
-                        "Length is exactly one for now.",
+                        "Returns results for each transaction in the same order they were passed in.\n"
+                        "It is possible for transactions to not be fully validated ('allowed' unset) if another transaction failed.\n",
                     {
                         {RPCResult::Type::OBJ, "", "",
                         {
                             {RPCResult::Type::STR_HEX, "txid", "The transaction hash in hex"},
-                            {RPCResult::Type::BOOL, "allowed", "If the mempool allows this tx to be inserted"},
+                            {RPCResult::Type::STR_HEX, "wtxid", "The transaction witness hash in hex"},
+                            {RPCResult::Type::STR, "package-error", "Package validation error, if any (only possible if rawtxs had more than 1 transaction)."},
+                            {RPCResult::Type::BOOL, "allowed", "Whether this tx would be accepted to the mempool and pass client-specified maxfeerate."
+                                                               "If not present, the tx was not fully validated due to a failure in another tx in the list."},
                             {RPCResult::Type::NUM, "vsize", "Virtual transaction size as defined in BIP 141. This is different from actual serialized size for witness transactions as witness data is discounted (only present when 'allowed' is true)"},
                             {RPCResult::Type::OBJ, "fees", "Transaction fees (only present if 'allowed' is true)",
                             {
@@ -976,69 +999,87 @@ static RPCHelpMan testmempoolaccept()
         UniValue::VARR,
         UniValueType(), // VNUM or VSTR, checked inside AmountFromValue()
     });
-
-    if (request.params[0].get_array().size() != 1) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Array must contain exactly one raw transaction for now");
+    const UniValue raw_transactions = request.params[0].get_array();
+    if (raw_transactions.size() < 1 || raw_transactions.size() > MAX_PACKAGE_COUNT) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Array must contain between 1 and " + ToString(MAX_PACKAGE_COUNT) + " transactions.");
     }
-
-    CMutableTransaction mtx;
-    if (!DecodeHexTx(mtx, request.params[0].get_array()[0].get_str())) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed. Make sure the tx has at least one input.");
-    }
-    CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
-    const uint256& tx_hash = tx->GetHash();
 
     const CFeeRate max_raw_tx_fee_rate = request.params[1].isNull() ?
                                              DEFAULT_MAX_RAW_TX_FEE_RATE :
                                              CFeeRate(AmountFromValue(request.params[1]));
 
-    CTxMemPool& mempool = EnsureMemPool(request.context);
-    int64_t virtual_size = GetVirtualTransactionSize(*tx);
-    CAmount max_raw_tx_fee = max_raw_tx_fee_rate.GetFee(virtual_size);
-
-    UniValue result(UniValue::VARR);
-    UniValue result_0(UniValue::VOBJ);
-    result_0.pushKV("txid", tx_hash.GetHex());
-
-    TxValidationState state;
-    bool test_accept_res;
-    CAmount fee{0};
-    {
-        LOCK(cs_main);
-        test_accept_res = AcceptToMemoryPool(mempool, state, std::move(tx),
-            nullptr /* plTxnReplaced */, false /* bypass_limits */, /* test_accept */ true, &fee);
+    std::vector<CTransactionRef> txns;
+    txns.reserve(raw_transactions.size());
+    for (const auto& rawtx : raw_transactions.getValues()) {
+        CMutableTransaction mtx;
+        if (!DecodeHexTx(mtx, rawtx.get_str())) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR,
+                               "TX decode failed: " + rawtx.get_str() + " Make sure the tx has at least one input.");
+        }
+        txns.emplace_back(MakeTransactionRef(std::move(mtx)));
     }
 
-    // Check that fee does not exceed maximum fee
-    if (test_accept_res && max_raw_tx_fee && fee > max_raw_tx_fee) {
-        result_0.pushKV("allowed", false);
-        result_0.pushKV("reject-reason", "max-fee-exceeded");
-        result.push_back(std::move(result_0));
-        return result;
-    }
-    result_0.pushKV("allowed", test_accept_res);
+    NodeContext& node = EnsureAnyNodeContext(request.context);
+    CTxMemPool& mempool = EnsureMemPool(node);
+    CChainState& chainstate = EnsureChainman(node).ActiveChainstate();
+    const PackageMempoolAcceptResult package_result = [&] {
+        LOCK(::cs_main);
+        if (txns.size() > 1) return ProcessNewPackage(chainstate, mempool, txns, /* test_accept */ true);
+        return PackageMempoolAcceptResult(txns[0]->GetWitnessHash(),
+               AcceptToMemoryPool(chainstate, mempool, txns[0], /* bypass_limits */ false, /* test_accept*/ true));
+    }();
 
-    // Only return the fee and vsize if the transaction would pass ATMP.
-    // These can be used to calculate the feerate.
-    if (test_accept_res) {
-        result_0.pushKV("vsize", virtual_size);
-        UniValue fees(UniValue::VOBJ);
-        fees.pushKV("base", ValueFromAmount(fee));
-        result_0.pushKV("fees", fees);
-    } else {
-        if (state.IsInvalid()) {
-            if (state.GetResult() == TxValidationResult::TX_MISSING_INPUTS) {
-                result_0.pushKV("reject-reason", "missing-inputs");
+    UniValue rpc_result(UniValue::VARR);
+    // We will check transaction fees while we iterate through txns in order. If any transaction fee
+    // exceeds maxfeerate, we will leave the rest of the validation results blank, because it
+    // doesn't make sense to return a validation result for a transaction if its ancestor(s) would
+    // not be submitted.
+    bool exit_early{false};
+    for (const auto& tx : txns) {
+        UniValue result_inner(UniValue::VOBJ);
+        result_inner.pushKV("txid", tx->GetHash().GetHex());
+        result_inner.pushKV("wtxid", tx->GetWitnessHash().GetHex());
+        if (package_result.m_state.GetResult() == PackageValidationResult::PCKG_POLICY) {
+            result_inner.pushKV("package-error", package_result.m_state.GetRejectReason());
+        }
+        auto it = package_result.m_tx_results.find(tx->GetWitnessHash());
+        if (exit_early || it == package_result.m_tx_results.end()) {
+            // Validation unfinished. Just return the txid and wtxid.
+            rpc_result.push_back(result_inner);
+            continue;
+        }
+        const auto& tx_result = it->second;
+        if (tx_result.m_result_type == MempoolAcceptResult::ResultType::VALID) {
+            const CAmount fee = tx_result.m_base_fees.value();
+            // Check that fee does not exceed maximum fee
+            const int64_t virtual_size = GetVirtualTransactionSize(*tx);
+            const CAmount max_raw_tx_fee = max_raw_tx_fee_rate.GetFee(virtual_size);
+            if (max_raw_tx_fee && fee > max_raw_tx_fee) {
+                result_inner.pushKV("allowed", false);
+                result_inner.pushKV("reject-reason", "max-fee-exceeded");
+                exit_early = true;
             } else {
-                result_0.pushKV("reject-reason", strprintf("%s", state.GetRejectReason()));
+                // Only return the fee and vsize if the transaction would pass ATMP.
+                // These can be used to calculate the feerate.
+                result_inner.pushKV("allowed", true);
+                result_inner.pushKV("vsize", virtual_size);
+                UniValue fees(UniValue::VOBJ);
+                fees.pushKV("base", ValueFromAmount(fee));
+                result_inner.pushKV("fees", fees);
             }
         } else {
-            result_0.pushKV("reject-reason", state.GetRejectReason());
+            result_inner.pushKV("allowed", false);
+            const TxValidationState state = tx_result.m_state;
+            if (state.GetResult() == TxValidationResult::TX_MISSING_INPUTS) {
+                result_inner.pushKV("reject-reason", "missing-inputs");
+            } else {
+                result_inner.pushKV("reject-reason", state.GetRejectReason());
+            }
         }
+        rpc_result.push_back(result_inner);
     }
-
-    result.push_back(std::move(result_0));
-    return result;
+    return rpc_result;
 },
     };
 }
@@ -1266,7 +1307,7 @@ static RPCHelpMan decodepsbt()
 
     UniValue result(UniValue::VOBJ);
 
-    if (psbtx.tx != nullopt) {
+    if (psbtx.tx != std::nullopt) {
         // Add the decoded tx
         UniValue tx_univ(UniValue::VOBJ);
         TxToUniv(CTransaction(*psbtx.tx), uint256(), tx_univ, false);
@@ -1292,15 +1333,15 @@ static RPCHelpMan decodepsbt()
 
     // Add PSBTv2 stuff
     if (psbtx.GetVersion() == 2) {
-        if (psbtx.tx_version != nullopt) {
+        if (psbtx.tx_version != std::nullopt) {
             result.pushKV("tx_version", *psbtx.tx_version);
         }
-        if (psbtx.fallback_locktime != nullopt) {
+        if (psbtx.fallback_locktime != std::nullopt) {
             result.pushKV("fallback_locktime", static_cast<uint64_t>(*psbtx.fallback_locktime));
         }
         result.pushKV("input_count", static_cast<uint64_t>(psbtx.inputs.size()));
         result.pushKV("output_count", static_cast<uint64_t>(psbtx.inputs.size()));
-        if (psbtx.m_tx_modifiable != nullopt) {
+        if (psbtx.m_tx_modifiable != std::nullopt) {
             result.pushKV("inputs_modifiable", psbtx.m_tx_modifiable->test(0));
             result.pushKV("outputs_modifiable", psbtx.m_tx_modifiable->test(1));
             result.pushKV("has_sighash_single", psbtx.m_tx_modifiable->test(2));
@@ -1434,22 +1475,22 @@ static RPCHelpMan decodepsbt()
             if (!input.prev_txid.IsNull()) {
                 in.pushKV("previous_txid", input.prev_txid.GetHex());
             }
-            if (input.prev_out != nullopt) {
+            if (input.prev_out != std::nullopt) {
                 in.pushKV("previous_vout", static_cast<uint64_t>(*input.prev_out));
             }
-            if (input.sequence != nullopt) {
+            if (input.sequence != std::nullopt) {
                 in.pushKV("sequence", static_cast<uint64_t>(*input.sequence));
             }
-            if (input.time_locktime != nullopt) {
+            if (input.time_locktime != std::nullopt) {
                 in.pushKV("time_locktime", static_cast<uint64_t>(*input.time_locktime));
             }
-            if (input.height_locktime!= nullopt) {
+            if (input.height_locktime!= std::nullopt) {
                 in.pushKV("height_locktime", static_cast<uint64_t>(*input.height_locktime));
             }
         }
 
         // Issuance Value
-        if (input.m_issuance_value != nullopt) {
+        if (input.m_issuance_value != std::nullopt) {
             in.pushKV("issuance_value", ValueFromAmount(*input.m_issuance_value));
         }
 
@@ -1469,7 +1510,7 @@ static RPCHelpMan decodepsbt()
         }
 
         // Issuance inflation keys amount
-        if (input.m_issuance_inflation_keys_amount != nullopt) {
+        if (input.m_issuance_inflation_keys_amount != std::nullopt) {
             in.pushKV("issuance_reissuance_amount", ValueFromAmount(*input.m_issuance_inflation_keys_amount));
         }
 
@@ -1500,36 +1541,36 @@ static RPCHelpMan decodepsbt()
 
         // Peg-in stuff
         if (Params().GetConsensus().ParentChainHasPow()) {
-            if (input.m_peg_in_tx.which() > 0) {
-                const Sidechain::Bitcoin::CTransactionRef& peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(input.m_peg_in_tx);
+            if (input.m_peg_in_tx.index() > 0) {
+                const auto peg_in_tx = std::get_if<Sidechain::Bitcoin::CTransactionRef>(&input.m_peg_in_tx);
                 if (peg_in_tx) {
                     CDataStream ss_tx(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    ss_tx << peg_in_tx;
+                    ss_tx << *peg_in_tx;
                     in.pushKV("pegin_bitcoin_tx", HexStr(ss_tx));
                 }
             }
-            if (input.m_peg_in_txout_proof.which() > 0) {
-                const Sidechain::Bitcoin::CMerkleBlock& txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(input.m_peg_in_txout_proof);
-                if (!txout_proof.header.IsNull()) {
+            if (input.m_peg_in_txout_proof.index() > 0) {
+                const auto txout_proof = std::get_if<Sidechain::Bitcoin::CMerkleBlock>(&input.m_peg_in_txout_proof);
+                if (txout_proof) {
                     CDataStream ss_mb(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    ss_mb << txout_proof;
+                    ss_mb << *txout_proof;
                     in.pushKV("pegin_txout_proof", HexStr(ss_mb));
                 }
             }
         } else {
-            if (input.m_peg_in_tx.which() > 0) {
-                const CTransactionRef& peg_in_tx = boost::get<CTransactionRef>(input.m_peg_in_tx);
+            if (input.m_peg_in_tx.index() > 0) {
+                const auto peg_in_tx = std::get_if<CTransactionRef>(&input.m_peg_in_tx);
                 if (peg_in_tx) {
                     CDataStream ss_tx(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    ss_tx << peg_in_tx;
+                    ss_tx << *peg_in_tx;
                     in.pushKV("pegin_bitcoin_tx", HexStr(ss_tx));
                 }
             }
-            if (input.m_peg_in_txout_proof.which() > 0) {
-                const CMerkleBlock& txout_proof = boost::get<CMerkleBlock>(input.m_peg_in_txout_proof);
-                if (!txout_proof.header.IsNull()) {
+            if (input.m_peg_in_txout_proof.index() > 0) {
+                const auto txout_proof = std::get_if<CMerkleBlock>(&input.m_peg_in_txout_proof);
+                if (txout_proof) {
                     CDataStream ss_mb(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    ss_mb << txout_proof;
+                    ss_mb << *txout_proof;
                     in.pushKV("pegin_txout_proof", HexStr(ss_mb));
                 }
             }
@@ -1541,7 +1582,7 @@ static RPCHelpMan decodepsbt()
         if (!input.m_peg_in_genesis_hash.IsNull()) {
             in.pushKV("pegin_genesis_hash", input.m_peg_in_genesis_hash.GetHex());
         }
-        if (input.m_peg_in_value != nullopt) {
+        if (input.m_peg_in_value != std::nullopt) {
             in.pushKV("pegin_value", ValueFromAmount(*input.m_peg_in_value));
         }
         if (!input.m_peg_in_witness.IsNull()) {
@@ -1614,10 +1655,10 @@ static RPCHelpMan decodepsbt()
 
         // PSBTv2 stuff
         if (psbtx.GetVersion() == 2) {
-            if (output.amount != nullopt) {
+            if (output.amount != std::nullopt) {
                 out.pushKV("amount", ValueFromAmount(*output.amount));
             }
-            if (output.script != nullopt) {
+            if (output.script != std::nullopt) {
                 UniValue spk(UniValue::VOBJ);
                 ScriptPubKeyToUniv(*output.script, spk, true);
                 out.pushKV("script", spk);
@@ -1660,7 +1701,7 @@ static RPCHelpMan decodepsbt()
         }
 
         // Blinder index
-        if (output.m_blinder_index != nullopt) {
+        if (output.m_blinder_index != std::nullopt) {
             out.pushKV("blinder_index", (int64_t)*output.m_blinder_index);
         }
 
@@ -1826,7 +1867,7 @@ static RPCHelpMan finalizepsbt()
                 "Implements the Finalizer and Extractor roles.\n",
                 {
                     {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "A base64 string of a PSBT"},
-                    {"extract", RPCArg::Type::BOOL, /* default */ "true", "If true and the transaction is complete,\n"
+                    {"extract", RPCArg::Type::BOOL, RPCArg::Default{true}, "If true and the transaction is complete,\n"
             "                             extract and return the complete transaction in normal network serialization instead of the PSBT."},
                 },
                 RPCResult{
@@ -1890,7 +1931,7 @@ static RPCHelpMan createpsbt()
                                 {
                                     {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
                                     {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                    {"sequence", RPCArg::Type::NUM, /* default */ "depends on the value of the 'replaceable' and 'locktime' arguments", "The sequence number"},
+                                    {"sequence", RPCArg::Type::NUM, RPCArg::DefaultHint{"depends on the value of the 'replaceable' and 'locktime' arguments"}, "The sequence number"},
                                     {"pegin_bitcoin_tx", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress"},
                                     {"pegin_txout_proof", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A rawtxoutproof (in hex) generated by the mainchain daemon's `gettxoutproof` containing a proof of only bitcoin_tx"},
                                     {"pegin_claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The witness program generated by getpeginaddress."},
@@ -1898,7 +1939,7 @@ static RPCHelpMan createpsbt()
                                     {"issuance_tokens", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The number of asset issuance tokens to generate"},
                                     {"asset_entropy", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "For new asset issuance, this is any additional entropy to be used in the asset tag calculation. For reissuance, this is the original asaset entropy"},
                                     {"asset_blinding_nonce", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Do not set for new asset issuance. For reissuance, this is the blinding factor for reissuance token output for the asset being reissued"},
-                                    {"blind_reissuance",  RPCArg::Type::BOOL, /* default */ "true", "Whether to mark the issuance input for blinding or not. Only affects issuances with re-issuance tokens."},
+                                    {"blind_reissuance",  RPCArg::Type::BOOL, RPCArg::Default{true}, "Whether to mark the issuance input for blinding or not. Only affects issuances with re-issuance tokens."},
                                 },
                                 },
                         },
@@ -1908,7 +1949,7 @@ static RPCHelpMan createpsbt()
                             "For compatibility reasons, a dictionary, which holds the key-value pairs directly, is also\n"
                             "                             accepted as second parameter.",
                         {
-                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                            {"", RPCArg::Type::OBJ_USER_KEYS, RPCArg::Optional::OMITTED, "",
                                 {
                                     {"address", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "A key-value pair. The key (string) is the bitcoin address, the value (float or string) is the amount in " + CURRENCY_UNIT},
                                     {"blinder_index", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The index of the input whose signer will blind this output. Must be provided if this output is to be blinded"},
@@ -1922,10 +1963,10 @@ static RPCHelpMan createpsbt()
                                 },
                         },
                         },
-                    {"locktime", RPCArg::Type::NUM, /* default */ "0", "Raw locktime. Non-0 value also locktime-activates inputs"},
-                    {"replaceable", RPCArg::Type::BOOL, /* default */ "false", "Marks this transaction as BIP125 replaceable.\n"
+                    {"locktime", RPCArg::Type::NUM, RPCArg::Default{0}, "Raw locktime. Non-0 value also locktime-activates inputs"},
+                    {"replaceable", RPCArg::Type::BOOL, RPCArg::Default{false}, "Marks this transaction as BIP125 replaceable.\n"
                             "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible."},
-                    {"psbt_version", RPCArg::Type::NUM, /* default */ "2", "The PSBT version number to use."},
+                    {"psbt_version", RPCArg::Type::NUM, RPCArg::Default{2}, "The PSBT version number to use."},
                 },
                 RPCResult{
                     RPCResult::Type::STR, "", "The resulting raw transaction (base64-encoded string)"
@@ -1937,6 +1978,8 @@ static RPCHelpMan createpsbt()
 {
     if (!g_con_elementsmode)
         throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
 
     RPCTypeCheck(request.params, {
         UniValue::VARR,
@@ -1952,7 +1995,7 @@ static RPCHelpMan createpsbt()
         rbf = request.params[3].isTrue();
     }
     std::map<CTxOut, PSBTOutput> psbt_outs;
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, &psbt_outs, true /* allow_peg_in */, true /* allow_issuance */);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, chainman.ActiveChain().Tip(), &psbt_outs, true /* allow_peg_in */, true /* allow_issuance */);
 
     // Make a blank psbt
     uint32_t psbt_version = 2;
@@ -2032,9 +2075,9 @@ static RPCHelpMan converttopsbt()
                 "createpsbt and walletcreatefundedpsbt should be used for new applications.\n",
                 {
                     {"hexstring", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex string of a raw transaction"},
-                    {"permitsigdata", RPCArg::Type::BOOL, /* default */ "false", "If true, any signatures in the input will be discarded and conversion\n"
+                    {"permitsigdata", RPCArg::Type::BOOL, RPCArg::Default{false}, "If true, any signatures in the input will be discarded and conversion\n"
                             "                              will continue. If false, RPC will fail if any signatures are present."},
-                    {"iswitness", RPCArg::Type::BOOL, /* default */ "depends on heuristic tests", "Whether the transaction hex is a serialized witness transaction.\n"
+                    {"iswitness", RPCArg::Type::BOOL, RPCArg::DefaultHint{"depends on heuristic tests"}, "Whether the transaction hex is a serialized witness transaction.\n"
                         "If iswitness is not present, heuristic tests will be used in decoding.\n"
                         "If true, only witness deserialization will be tried.\n"
                         "If false, only non-witness deserialization will be tried.\n"
@@ -2095,7 +2138,7 @@ static RPCHelpMan converttopsbt()
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
     ssTx << psbtx;
 
-    return EncodeBase64(MakeUCharSpan(ssTx));
+    return EncodeBase64(ssTx);
 },
     };
 }
@@ -2110,7 +2153,7 @@ static RPCHelpMan utxoupdatepsbt()
                     {"", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "An output descriptor"},
                     {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "An object with an output descriptor and extra information", {
                          {"desc", RPCArg::Type::STR, RPCArg::Optional::NO, "An output descriptor"},
-                         {"range", RPCArg::Type::RANGE, "1000", "Up to what index HD chains should be explored (either end or [begin,end])"},
+                         {"range", RPCArg::Type::RANGE, RPCArg::Default{1000}, "Up to what index HD chains should be explored (either end or [begin,end])"},
                     }},
                 }},
             },
@@ -2146,9 +2189,11 @@ static RPCHelpMan utxoupdatepsbt()
     CCoinsView viewDummy;
     CCoinsViewCache view(&viewDummy);
     {
-        const CTxMemPool& mempool = EnsureMemPool(request.context);
+        NodeContext& node = EnsureAnyNodeContext(request.context);
+        const CTxMemPool& mempool = EnsureMemPool(node);
+        ChainstateManager& chainman = EnsureChainman(node);
         LOCK2(cs_main, mempool.cs);
-        CCoinsViewCache &viewChain = ::ChainstateActive().CoinsTip();
+        CCoinsViewCache &viewChain = chainman.ActiveChainstate().CoinsTip();
         CCoinsViewMemPool viewMempool(&viewChain, mempool);
         view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
 
@@ -2160,6 +2205,7 @@ static RPCHelpMan utxoupdatepsbt()
     }
 
     // Fill the inputs
+    const PrecomputedTransactionData txdata = PrecomputePSBTData(psbtx);
     for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
         PSBTInput& input = psbtx.inputs.at(i);
 
@@ -2176,7 +2222,7 @@ static RPCHelpMan utxoupdatepsbt()
         // Update script/keypath information using descriptor data.
         // Note that SignPSBTInput does a lot more than just constructing ECDSA signatures
         // we don't actually care about those here, in fact.
-        SignPSBTInput(public_provider, psbtx, i, /* sighash_type */ 1);
+        SignPSBTInput(public_provider, psbtx, i, &txdata, /* sighash_type */ 1);
     }
 
     // Update script/keypath information using descriptor data.
@@ -2186,7 +2232,7 @@ static RPCHelpMan utxoupdatepsbt()
 
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
     ssTx << psbtx;
-    return EncodeBase64(MakeUCharSpan(ssTx));
+    return EncodeBase64(ssTx);
 },
     };
 }
@@ -2300,7 +2346,7 @@ static RPCHelpMan joinpsbts()
 
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
     ssTx << shuffled_psbt;
-    return EncodeBase64(MakeUCharSpan(ssTx));
+    return EncodeBase64(ssTx);
 },
     };
 }
@@ -2347,7 +2393,7 @@ static RPCHelpMan analyzepsbt()
                         }},
                     }},
                     {RPCResult::Type::NUM, "estimated_vsize", /* optional */ true, "Estimated vsize of the final signed transaction"},
-                    {RPCResult::Type::STR_AMOUNT, "estimated_feerate", /* optional */ true, "Estimated feerate of the final signed transaction in " + CURRENCY_UNIT + "/kB. Shown only if all UTXO slots in the PSBT have been filled"},
+                    {RPCResult::Type::STR_AMOUNT, "estimated_feerate", /* optional */ true, "Estimated feerate of the final signed transaction in " + CURRENCY_UNIT + "/kvB. Shown only if all UTXO slots in the PSBT have been filled"},
                     {RPCResult::Type::STR_AMOUNT, "fee", /* optional */ true, "The transaction fee paid. Shown only if all UTXO slots in the PSBT have been filled"},
                     {RPCResult::Type::STR, "next", "Role of the next person that this psbt needs to go to"},
                     {RPCResult::Type::STR, "error", /* optional */ true, "Error message (if there is one)"},
@@ -2436,13 +2482,13 @@ static RPCHelpMan analyzepsbt()
     }
     if (!outputs_result.empty()) result.pushKV("outputs", outputs_result);
 
-    if (psbta.estimated_vsize != nullopt) {
+    if (psbta.estimated_vsize != std::nullopt) {
         result.pushKV("estimated_vsize", (int)*psbta.estimated_vsize);
     }
-    if (psbta.estimated_feerate != nullopt) {
+    if (psbta.estimated_feerate != std::nullopt) {
         result.pushKV("estimated_feerate", ValueFromAmount(psbta.estimated_feerate->GetFeePerK()));
     }
-    if (psbta.fee != nullopt) {
+    if (psbta.fee != std::nullopt) {
         result.pushKV("fee", ValueFromAmount(*psbta.fee));
     }
     result.pushKV("next", PSBTRoleName(psbta.next));
@@ -2491,7 +2537,7 @@ static RPCHelpMan rawblindrawtransaction()
                         }
                     },
                     {"totalblinder", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Ignored for now."},
-                    {"ignoreblindfail", RPCArg::Type::BOOL, /* default */ "true", "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
+                    {"ignoreblindfail", RPCArg::Type::BOOL, RPCArg::Default{true}, "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
                 },
                 RPCResult{
                      RPCResult::Type::STR, "transaction", "hex string of the transaction"
@@ -2499,6 +2545,8 @@ static RPCHelpMan rawblindrawtransaction()
                 RPCExamples{""},
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
+    NodeContext& node = EnsureAnyNodeContext(request.context);
+    ChainstateManager& chainman = EnsureChainman(node);
     std::vector<unsigned char> txData(ParseHexV(request.params[0], "argument 1"));
     CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
     CMutableTransaction tx;
@@ -2537,7 +2585,7 @@ static RPCHelpMan rawblindrawtransaction()
             "Invalid parameter: one (potentially empty) input asset blind for each input must be provided");
     }
 
-    const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    const auto& fedpegscripts = GetValidFedpegScripts(chainman.ActiveChain().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
 
     std::vector<CAmount> input_amounts;
     std::vector<uint256> input_blinds;
@@ -2755,8 +2803,8 @@ static RPCHelpMan rawissueasset()
                                     {"asset_address", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Destination address of generated asset. Required if `asset_amount` given."},
                                     {"token_amount", RPCArg::Type::AMOUNT, RPCArg::Optional::OMITTED_NAMED_ARG, "Amount of reissuance token to generate, if any."},
                                     {"token_address", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Destination address of generated reissuance tokens. Required if `token_amount` given."},
-                                    {"blind", RPCArg::Type::BOOL, /* default */ "true", "Whether to mark the issuance input for blinding or not. Only affects issuances with re-issuance tokens."},
-                                    {"contract_hash", RPCArg::Type::STR_HEX, /* default */ "0000...0000", "Contract hash that is put into issuance definition. Must be 32 bytes worth in hex string form. This will affect the asset id."},
+                                    {"blind", RPCArg::Type::BOOL, RPCArg::Default{true}, "Whether to mark the issuance input for blinding or not. Only affects issuances with re-issuance tokens."},
+                                    {"contract_hash", RPCArg::Type::STR_HEX, RPCArg::Default{"0000...0000"}, "Contract hash that is put into issuance definition. Must be 32 bytes worth in hex string form. This will affect the asset id."},
                                 }
                             }
                         }
@@ -2822,7 +2870,7 @@ static RPCHelpMan rawissueasset()
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing corresponding asset_address");
             }
             asset_dest = DecodeDestination(asset_address_uni.get_str());
-            if (boost::get<CNoDestination>(&asset_dest)) {
+            if (std::get_if<CNoDestination>(&asset_dest)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid asset address provided: %s", asset_address_uni.get_str()));
             }
         }
@@ -2839,7 +2887,7 @@ static RPCHelpMan rawissueasset()
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing corresponding token_address");
             }
             token_dest = DecodeDestination(token_address_uni.get_str());
-            if (boost::get<CNoDestination>(&token_dest)) {
+            if (std::get_if<CNoDestination>(&token_dest)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid token address provided: %s", token_address_uni.get_str()));
             }
         }
@@ -2954,7 +3002,7 @@ static RPCHelpMan rawreissueasset()
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Reissuance missing asset_address");
         }
         CTxDestination asset_dest = DecodeDestination(asset_address_uni.get_str());
-        if (boost::get<CNoDestination>(&asset_dest)) {
+        if (std::get_if<CNoDestination>(&asset_dest)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid asset address provided: %s", asset_address_uni.get_str()));
         }
 
@@ -2993,7 +3041,7 @@ static RPCHelpMan calculateasset()
                 {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Transaction id of the output that will be spent for this issuance."},
                 {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "Output index of the output that will be spent for this issuance."},
                 {"asset_entropy", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Additional asset entropy to be included in the asset tag. This is the contract hash."},
-                {"blind_reissuance", RPCArg::Type::BOOL, /* default */ "true", "Whether the reissuance asset tag will be blinded"},
+                {"blind_reissuance", RPCArg::Type::BOOL, RPCArg::Default{true}, "Whether the reissuance asset tag will be blinded"},
             },
             RPCResult{
                 RPCResult::Type::OBJ, "", "",
@@ -3143,34 +3191,34 @@ void RegisterRawTransactionRPCCommands(CRPCTable &t)
 {
 // clang-format off
 static const CRPCCommand commands[] =
-{ //  category              name                            actor (function)            argNames
+{ //  category              actor (function)            argNames
   //  --------------------- ------------------------        -----------------------     ----------
-    { "rawtransactions",    "getrawtransaction",            &getrawtransaction,         {"txid","verbose","blockhash"} },
-    { "rawtransactions",    "createrawtransaction",         &createrawtransaction,      {"inputs","outputs","locktime","replaceable"} },
-    { "rawtransactions",    "decoderawtransaction",         &decoderawtransaction,      {"hexstring","iswitness"} },
-    { "rawtransactions",    "decodescript",                 &decodescript,              {"hexstring"} },
-    { "rawtransactions",    "sendrawtransaction",           &sendrawtransaction,        {"hexstring","maxfeerate"} },
-    { "rawtransactions",    "combinerawtransaction",        &combinerawtransaction,     {"txs"} },
-    { "rawtransactions",    "signrawtransactionwithkey",    &signrawtransactionwithkey, {"hexstring","privkeys","prevtxs","sighashtype"} },
-    { "rawtransactions",    "testmempoolaccept",            &testmempoolaccept,         {"rawtxs","maxfeerate"} },
-    { "rawtransactions",    "decodepsbt",                   &decodepsbt,                {"psbt"} },
-    { "rawtransactions",    "combinepsbt",                  &combinepsbt,               {"txs"} },
-    { "rawtransactions",    "finalizepsbt",                 &finalizepsbt,              {"psbt","extract"} },
-    { "rawtransactions",    "createpsbt",                   &createpsbt,                {"inputs","outputs","locktime","replaceable","psbt_version"} },
-    { "rawtransactions",    "converttopsbt",                &converttopsbt,             {"hexstring","permitsigdata","iswitness"} },
-    { "rawtransactions",    "utxoupdatepsbt",               &utxoupdatepsbt,            {"psbt","descriptors"} },
+    { "rawtransactions",    &getrawtransaction,           },
+    { "rawtransactions",    &createrawtransaction,        },
+    { "rawtransactions",    &decoderawtransaction,        },
+    { "rawtransactions",    &decodescript,                },
+    { "rawtransactions",    &sendrawtransaction,          },
+    { "rawtransactions",    &combinerawtransaction,       },
+    { "rawtransactions",    &signrawtransactionwithkey,   },
+    { "rawtransactions",    &testmempoolaccept,           },
+    { "rawtransactions",    &decodepsbt,                  },
+    { "rawtransactions",    &combinepsbt,                 },
+    { "rawtransactions",    &finalizepsbt,                },
+    { "rawtransactions",    &createpsbt,                  },
+    { "rawtransactions",    &converttopsbt,               },
+    { "rawtransactions",    &utxoupdatepsbt,              },
 #if 0
-    { "rawtransactions",    "joinpsbts",                    &joinpsbts,                 {"txs"} },
+    { "rawtransactions",    &joinpsbts,                   },
 #endif
-    { "rawtransactions",    "analyzepsbt",                  &analyzepsbt,               {"psbt"} },
+    { "rawtransactions",    &analyzepsbt,                 },
 
-    { "blockchain",         "gettxoutproof",                &gettxoutproof,             {"txids","blockhash"} },
-    { "blockchain",         "verifytxoutproof",             &verifytxoutproof,          {"proof"} },
-    { "rawtransactions",    "rawissueasset",                &rawissueasset,             {"transaction","issuances"}},
-    { "rawtransactions",    "rawreissueasset",              &rawreissueasset,           {"transaction","reissuances"}},
-    { "rawtransactions",    "rawblindrawtransaction",       &rawblindrawtransaction,    {"hexstring","inputamountblinders","inputamounts","inputassets","inputassetblinders","totalblinder","ignoreblindfail"} },
-    { "rawtransactions",    "calculateasset",               &calculateasset,            {"txid", "vout", "asset_entropy", "blind_reissuance"} },
-    { "rawtransactions",    "updatepsbtpegin",              &updatepsbtpegin,           {"psbt", "input", "value", "bitcoin_tx", "txout_proof", "claim_script", "genesis_hash"} },
+    { "blockchain",         &gettxoutproof,               },
+    { "blockchain",         &verifytxoutproof,            },
+    { "rawtransactions",    &rawissueasset,               },
+    { "rawtransactions",    &rawreissueasset,             },
+    { "rawtransactions",    &rawblindrawtransaction,      },
+    { "rawtransactions",    &calculateasset,              },
+    { "rawtransactions",    &updatepsbtpegin,             },
 };
 // clang-format on
     for (const auto& c : commands) {

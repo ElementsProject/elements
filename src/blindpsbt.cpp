@@ -201,7 +201,7 @@ BlindProofResult VerifyBlindProofs(const PSBTOutput& o) {
         return BlindProofResult::NOT_FULLY_BLINDED;
     }
 
-    if (o.amount != nullopt) {
+    if (o.amount != std::nullopt) {
         if (o.m_blind_value_proof.empty()) {
             return BlindProofResult::MISSING_VALUE_PROOF;
         } else if (!VerifyBlindValueProof(*o.amount, o.m_value_commitment, o.m_blind_value_proof, o.m_asset_commitment)) {
@@ -248,7 +248,7 @@ bool SubtractScalars(uint256& a, const uint256& b)
     }
 
     uint256 sub(b);
-    if (secp256k1_ec_privkey_negate(secp256k1_blind_context, sub.begin()) != 1) return false;
+    if (secp256k1_ec_seckey_negate(secp256k1_blind_context, sub.begin()) != 1) return false;
 
     // If a is 0, then the result of this subtraction is the negation of b (i.e. sub)
     if (a.IsNull()) {
@@ -257,7 +257,7 @@ bool SubtractScalars(uint256& a, const uint256& b)
     }
 
     // Neither a nor b are null, do a = a - b
-    if (secp256k1_ec_privkey_tweak_add(secp256k1_blind_context, a.begin(), sub.begin()) != 1) return false;
+    if (secp256k1_ec_seckey_tweak_add(secp256k1_blind_context, a.begin(), sub.begin()) != 1) return false;
     return true;
 }
 
@@ -278,7 +278,7 @@ bool CalculateScalarOffset(uint256& out, CAmount value, const uint256& asset_bli
     // We need to pack the 8 byte CAmount into a uint256 with the correct padding, so start it at 24 bytes from the front
     WriteBE64(val.begin() + 24, value);
     if (value > 0) {
-        if (secp256k1_ec_privkey_tweak_mul(secp256k1_blind_context, out.begin(), val.begin()) != 1) return false;
+        if (secp256k1_ec_seckey_tweak_mul(secp256k1_blind_context, out.begin(), val.begin()) != 1) return false;
     } else {
         out = value_blinder;
         return true;
@@ -288,12 +288,12 @@ bool CalculateScalarOffset(uint256& out, CAmount value, const uint256& asset_bli
         if (secp256k1_ec_seckey_negate(secp256k1_blind_context, value_negated.begin()) != 1) {
             return false;
         }
-        // Special-case zero, which would otherwise cause `secp256k1_ec_privkey_tweak_add` to fail
+        // Special-case zero, which would otherwise cause `secp256k1_ec_seckey_tweak_add` to fail
         if (value_negated == out) {
             out = uint256{};
             return true;
         }
-        if (secp256k1_ec_privkey_tweak_add(secp256k1_blind_context, out.begin(), value_blinder.begin()) != 1) return false;
+        if (secp256k1_ec_seckey_tweak_add(secp256k1_blind_context, out.begin(), value_blinder.begin()) != 1) return false;
     }
     return true;
 }
@@ -315,12 +315,12 @@ bool ComputeAndAddToScalarOffset(uint256& a, CAmount value, const uint256& asset
         if (secp256k1_ec_seckey_negate(secp256k1_blind_context, scalar_negated.begin()) != 1) {
             return false;
         }
-        // Special-case zero, which would otherwise cause `secp256k1_ec_privkey_tweak_add` to fail
+        // Special-case zero, which would otherwise cause `secp256k1_ec_seckey_tweak_add` to fail
         if (scalar_negated == a) {
             a = uint256{};
         } else {
             // If we have a, then add the scalar to it.
-            if (secp256k1_ec_privkey_tweak_add(secp256k1_blind_context, a.begin(), scalar.begin()) != 1) return false;
+            if (secp256k1_ec_seckey_tweak_add(secp256k1_blind_context, a.begin(), scalar.begin()) != 1) return false;
         }
     }
     return true;
@@ -490,7 +490,7 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
         }
 
         // Check this is our output to blind
-        if (output.m_blinder_index == nullopt || our_input_data.count(*output.m_blinder_index) == 0) continue;
+        if (output.m_blinder_index == std::nullopt || our_input_data.count(*output.m_blinder_index) == 0) continue;
 
         // Things we are going to stuff into the PSBTOutput if everything is successful
         CConfidentialValue value_commitment;

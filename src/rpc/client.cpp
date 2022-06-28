@@ -122,15 +122,16 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "createpsbt", 1, "outputs" },
     { "createpsbt", 2, "locktime" },
     { "createpsbt", 3, "replaceable" },
-    { "createpsbt", 5, "psbt_version" },
+    { "createpsbt", 4, "psbt_version" },
     { "combinepsbt", 0, "txs"},
-    { "joinpsbts", 0, "txs"},
     { "finalizepsbt", 1, "extract"},
     { "converttopsbt", 1, "permitsigdata"},
     { "converttopsbt", 2, "iswitness"},
     { "gettxout", 1, "n" },
     { "gettxout", 2, "include_mempool" },
     { "gettxoutproof", 0, "txids" },
+    { "gettxoutsetinfo", 1, "hash_or_height" },
+    { "gettxoutsetinfo", 2, "use_index"},
     { "lockunspent", 0, "unlock" },
     { "lockunspent", 1, "transactions" },
     { "send", 0, "outputs" },
@@ -187,6 +188,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "createwallet", 4, "avoid_reuse"},
     { "createwallet", 5, "descriptors"},
     { "createwallet", 6, "load_on_startup"},
+    { "createwallet", 7, "external_signer"},
     { "loadwallet", 1, "load_on_startup"},
     { "unloadwallet", 1, "load_on_startup"},
     { "getnodeaddresses", 0, "count"},
@@ -194,6 +196,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "stop", 0, "wait" },
     //
     // ELEMENTS:
+    { "calcfastmerkleroot", 0, "leaves" },
     { "combineblocksigs", 1, "signatures" },
     { "sendtomainchain", 1, "amount" },
     { "sendtomainchain", 2, "subtractfeefromamount" },
@@ -214,12 +217,10 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "rawblindrawtransaction", 2, "inputamounts" },
     { "rawblindrawtransaction", 3, "inputassets" },
     { "rawblindrawtransaction", 4, "inputassetblinders" },
-    { "rawblindrawtransaction", 5, "totalblinder" },
     { "rawblindrawtransaction", 6, "ignoreblindfail" },
     { "blindrawtransaction", 1, "ignoreblindfail" },
     { "blindrawtransaction", 2, "asset_commitments" },
     { "blindrawtransaction", 3, "blind_issuances" },
-    { "blindrawtransaction", 4, "totalblinder" },
     { "destroyamount", 1, "amount" },
     { "destroyamount", 3, "verbose"},
     { "sendmany", 8 , "output_assets" },
@@ -252,14 +253,9 @@ public:
 
 CRPCConvertTable::CRPCConvertTable()
 {
-    const unsigned int n_elem =
-        (sizeof(vRPCConvertParams) / sizeof(vRPCConvertParams[0]));
-
-    for (unsigned int i = 0; i < n_elem; i++) {
-        members.insert(std::make_pair(vRPCConvertParams[i].methodName,
-                                      vRPCConvertParams[i].paramIdx));
-        membersByName.insert(std::make_pair(vRPCConvertParams[i].methodName,
-                                            vRPCConvertParams[i].paramName));
+    for (const auto& cp : vRPCConvertParams) {
+        members.emplace(cp.methodName, cp.paramIdx);
+        membersByName.emplace(cp.methodName, cp.paramName);
     }
 }
 

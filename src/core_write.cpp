@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2019 The Bitcoin Core developers
+// Copyright (c) 2009-2020 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -13,9 +13,11 @@
 #include <script/standard.h>
 #include <serialize.h>
 #include <streams.h>
+#include <undo.h>
 #include <univalue.h>
-#include <util/system.h>
+#include <util/check.h>
 #include <util/strencodings.h>
+#include <util/system.h>
 
 #include <secp256k1_rangeproof.h>
 
@@ -43,14 +45,17 @@ public:
 };
 static RPCRawTransaction_ECC_Init ecc_init_on_load;
 
-UniValue ValueFromAmount(const CAmount& amount)
+UniValue ValueFromAmount(const CAmount amount)
 {
-    bool sign = amount < 0;
-    int64_t n_abs = (sign ? -amount : amount);
-    int64_t quotient = n_abs / COIN;
-    int64_t remainder = n_abs % COIN;
+    static_assert(COIN > 1);
+    int64_t quotient = amount / COIN;
+    int64_t remainder = amount % COIN;
+    if (amount < 0) {
+        quotient = -quotient;
+        remainder = -remainder;
+    }
     return UniValue(UniValue::VNUM,
-            strprintf("%s%d.%08d", sign ? "-" : "", quotient, remainder));
+            strprintf("%s%d.%08d", amount < 0 ? "-" : "", quotient, remainder));
 }
 
 std::string FormatScript(const CScript& script)
@@ -189,10 +194,11 @@ void ScriptToUniv(const CScript& script, UniValue& out, bool include_address)
 }
 
 // ELEMENTS:
-static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex, bool is_parent_chain)
+static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex, bool include_addresses, bool is_parent_chain)
 {
     const std::string prefix = is_parent_chain ? "pegout_" : "";
     TxoutType type;
+    CTxDestination address;
     std::vector<CTxDestination> addresses;
     int nRequired;
 
@@ -205,36 +211,47 @@ static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& o
         return;
     }
 
-    out.pushKV(prefix + "reqSigs", nRequired);
-    out.pushKV(prefix + "type", GetTxnOutputType(type));
-
-    UniValue a(UniValue::VARR);
-    if (is_parent_chain) {
-        for (const CTxDestination& addr : addresses) {
-            a.push_back(EncodeParentDestination(addr));
-        }
-    } else {
-        for (const CTxDestination& addr : addresses) {
-            a.push_back(EncodeDestination(addr));
+    if (ExtractDestination(scriptPubKey, address)) {
+        if (is_parent_chain) {
+            out.pushKV(prefix + "address", EncodeParentDestination(address));
+        } else {
+            out.pushKV(prefix + "address", EncodeDestination(address));
         }
     }
-    out.pushKV(prefix + "addresses", a);
+    out.pushKV(prefix + "type", GetTxnOutputType(type));
+
+    if (include_addresses) {
+        UniValue a(UniValue::VARR);
+        if (is_parent_chain) {
+            for (const CTxDestination& addr : addresses) {
+                a.push_back(EncodeParentDestination(addr));
+            }
+        } else {
+            for (const CTxDestination& addr : addresses) {
+                a.push_back(EncodeDestination(addr));
+            }
+        }
+        out.pushKV(prefix + "addresses", a);
+        out.pushKV(prefix + "reqSigs", nRequired);
+    }
 }
 
+// TODO: from v23 ("addresses" and "reqSigs" deprecated) this method should be refactored to remove the `include_addresses` option
+// this method can also be combined with `ScriptToUniv` as they will overlap
 void ScriptPubKeyToUniv(const CScript& scriptPubKey,
-                        UniValue& out, bool fIncludeHex)
+                        UniValue& out, bool fIncludeHex, bool include_addresses)
 {
-    SidechainScriptPubKeyToJSON(scriptPubKey, out, fIncludeHex, false);
+    SidechainScriptPubKeyToJSON(scriptPubKey, out, fIncludeHex, include_addresses, false);
 
     uint256 pegout_chain;
     CScript pegout_scriptpubkey;
     if (scriptPubKey.IsPegoutScript(pegout_chain, pegout_scriptpubkey)) {
         out.pushKV("pegout_chain", pegout_chain.GetHex());
-        SidechainScriptPubKeyToJSON(pegout_scriptpubkey, out, fIncludeHex, true);
+        SidechainScriptPubKeyToJSON(pegout_scriptpubkey, out, fIncludeHex, include_addresses, true);
     }
 }
 
-void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags)
+void TxToUniv(const CTransaction& tx, const uint256& hashBlock, bool include_addresses, UniValue& entry, bool include_hex, int serialize_flags, const CTxUndo* txundo)
 {
     entry.pushKV("txid", tx.GetHash().GetHex());
     entry.pushKV("hash", tx.GetWitnessHash().GetHex());
@@ -250,13 +267,14 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
     entry.pushKV("weight", GetTransactionWeight(tx));
     entry.pushKV("locktime", (int64_t)tx.nLockTime);
 
-    UniValue vin(UniValue::VARR);
+    UniValue vin{UniValue::VARR};
+
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         const CTxIn& txin = tx.vin[i];
         UniValue in(UniValue::VOBJ);
-        if (tx.IsCoinBase())
+        if (tx.IsCoinBase()) {
             in.pushKV("coinbase", HexStr(txin.scriptSig));
-        else {
+        } else {
             in.pushKV("txid", txin.prevout.hash.GetHex());
             in.pushKV("vout", (int64_t)txin.prevout.n);
             UniValue o(UniValue::VOBJ);
@@ -326,6 +344,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
     }
     entry.pushKV("vin", vin);
 
+    CAmountMap fee_map{};
     UniValue vout(UniValue::VARR);
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
         const CTxOut& txout = tx.vout[i];
@@ -359,6 +378,10 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             out.pushKV("valuecommitment", txout.nValue.GetHex());
         }
         if (g_con_elementsmode) {
+            if (txout.IsFee()) {
+                fee_map[txout.nAsset.GetAsset()] += txout.nValue.GetAmount();
+            }
+
             if (txout.nAsset.IsExplicit()) {
                 out.pushKV("asset", txout.nAsset.GetAsset().GetHex());
             } else {
@@ -372,11 +395,24 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         out.pushKV("n", (int64_t)i);
 
         UniValue o(UniValue::VOBJ);
-        ScriptPubKeyToUniv(txout.scriptPubKey, o, true);
+        ScriptPubKeyToUniv(txout.scriptPubKey, o, true, include_addresses);
         out.pushKV("scriptPubKey", o);
         vout.push_back(out);
     }
     entry.pushKV("vout", vout);
+
+    // ELEMENTS: add fee map rather than single fee. Unlike other areas of the RPC,
+    //  we do not look up labels here and will always use the asset hex (contrast
+    //  `AmountMapToUniv` in rpc/util.cpp. This is because this is a pure function
+    //  so we do not have access to `policyAsset` or `gAssetsDir`. (We will get link
+    //  errors if we try to use these.)
+    if (g_con_elementsmode) {
+        UniValue fee_obj(UniValue::VOBJ);
+        for(std::map<CAsset, CAmount>::const_iterator it = fee_map.begin(); it != fee_map.end(); ++it) {
+            fee_obj.pushKV(it->first.GetHex(), ValueFromAmount(it->second));
+        }
+        entry.pushKV("fee", fee_obj);
+    }
 
     if (!hashBlock.IsNull())
         entry.pushKV("blockhash", hashBlock.GetHex());

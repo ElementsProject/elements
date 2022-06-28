@@ -24,7 +24,7 @@ BASE58_INVALID_PREFIX = '17VZNX1SN5NtKa8UQFxwQbFeFc3iqRYhem'
 
 INVALID_ADDRESS = 'asfah14i8fajz0123f'
 
-## ELEMENTS
+# ELEMENTS
 BLECH32_VALID = 'el1qq0umk3pez693jrrlxz9ndlkuwne93gdu9g83mhhzuyf46e3mdzfpva0w48gqgzgrklncnm0k5zeyw8my2ypfsmxh4xcjh2rse'
 BLECH32_INVALID_BLECH32 = 'el1pq0umk3pez693jrrlxz9ndlkuwne93gdu9g83mhhzuyf46e3mdzfpva0w48gqgzgrklncnm0k5zeyw8my2ypfsxguu9nrdg2pc'
 BLECH32_INVALID_BLECH32M = 'el1qq0umk3pez693jrrlxz9ndlkuwne93gdu9g83mhhzuyf46e3mdzfpva0w48gqgzgrklncnm0k5zeyw8my2ypfsnnmzrstzt7de'
@@ -84,7 +84,7 @@ class InvalidAddressErrorMessageTest(BitcoinTestFramework):
         assert not info['isvalid']
         assert_equal(info['error'], 'Invalid address format')
 
-        ## ELEMENTS
+        # ELEMENTS
         info = node.validateaddress(BLECH32_INVALID_SIZE)
         assert not info['isvalid']
         assert_equal(info['error'], 'Invalid Blech32 address data size')
@@ -116,7 +116,7 @@ class InvalidAddressErrorMessageTest(BitcoinTestFramework):
 
         assert_raises_rpc_error(-5, "Invalid address format", node.getaddressinfo, INVALID_ADDRESS)
 
-        ## ELEMENTS
+        # ELEMENTS
         assert_raises_rpc_error(-5, "Invalid Blech32 address data size", node.getaddressinfo, BLECH32_INVALID_SIZE)
 
         assert_raises_rpc_error(-5, "Invalid prefix for Blech32 address", node.getaddressinfo, BLECH32_INVALID_PREFIX)

@@ -63,8 +63,8 @@ bool PartiallySignedTransaction::Merge(const PartiallySignedTransaction& psbt)
     for (auto& scalar : psbt.m_scalar_offsets) {
         m_scalar_offsets.insert(scalar);
     }
-    if (fallback_locktime == nullopt && psbt.fallback_locktime != nullopt) fallback_locktime = psbt.fallback_locktime;
-    if (m_tx_modifiable == nullopt && psbt.m_tx_modifiable != nullopt) m_tx_modifiable = psbt.m_tx_modifiable;
+    if (fallback_locktime == std::nullopt && psbt.fallback_locktime != std::nullopt) fallback_locktime = psbt.fallback_locktime;
+    if (m_tx_modifiable == std::nullopt && psbt.m_tx_modifiable != std::nullopt) m_tx_modifiable = psbt.m_tx_modifiable;
     unknown.insert(psbt.unknown.begin(), psbt.unknown.end());
 
     return true;
@@ -72,32 +72,32 @@ bool PartiallySignedTransaction::Merge(const PartiallySignedTransaction& psbt)
 
 bool PartiallySignedTransaction::ComputeTimeLock(uint32_t& locktime) const
 {
-    Optional<uint32_t> time_lock{0};
-    Optional<uint32_t> height_lock{0};
+    std::optional<uint32_t> time_lock{0};
+    std::optional<uint32_t> height_lock{0};
     for (const PSBTInput& input : inputs) {
-        if (input.time_locktime != nullopt && input.height_locktime == nullopt) {
+        if (input.time_locktime != std::nullopt && input.height_locktime == std::nullopt) {
             height_lock.reset(); // Transaction can no longer have a height locktime
-            if (time_lock == nullopt) {
+            if (time_lock == std::nullopt) {
                 return false;
             }
-        } else if (input.time_locktime == nullopt && input.height_locktime != nullopt) {
+        } else if (input.time_locktime == std::nullopt && input.height_locktime != std::nullopt) {
             time_lock.reset(); // Transaction can no longer have a time locktime
-            if (height_lock == nullopt) {
+            if (height_lock == std::nullopt) {
                 return false;
             }
         }
-        if (input.time_locktime && time_lock != nullopt) {
+        if (input.time_locktime && time_lock != std::nullopt) {
             time_lock = std::max(time_lock, input.time_locktime);
         }
-        if (input.height_locktime && height_lock != nullopt) {
+        if (input.height_locktime && height_lock != std::nullopt) {
             height_lock = std::max(height_lock, input.height_locktime);
         }
     }
-    if (height_lock != nullopt && *height_lock > 0) {
+    if (height_lock != std::nullopt && *height_lock > 0) {
         locktime = *height_lock;
         return true;
     }
-    if (time_lock != nullopt && *time_lock > 0) {
+    if (time_lock != std::nullopt && *time_lock > 0) {
         locktime = *time_lock;
         return true;
     }
@@ -107,7 +107,7 @@ bool PartiallySignedTransaction::ComputeTimeLock(uint32_t& locktime) const
 
 CMutableTransaction PartiallySignedTransaction::GetUnsignedTx(bool force_unblinded) const
 {
-    if (tx != nullopt) {
+    if (tx != std::nullopt) {
         return *tx;
     }
 
@@ -123,7 +123,7 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx(bool force_unblind
         txin.nSequence = input.sequence.value_or(max_sequence);
         txin.assetIssuance.assetBlindingNonce = input.m_issuance_blinding_nonce;
         txin.assetIssuance.assetEntropy = input.m_issuance_asset_entropy;
-        if (input.m_issuance_value != nullopt && input.m_issuance_inflation_keys_amount != nullopt && force_unblinded) {
+        if (input.m_issuance_value != std::nullopt && input.m_issuance_inflation_keys_amount != std::nullopt && force_unblinded) {
             txin.assetIssuance.nAmount.SetToAmount(*input.m_issuance_value);
             txin.assetIssuance.nInflationKeys.SetToAmount(*input.m_issuance_inflation_keys_amount);
         } else {
@@ -138,8 +138,8 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx(bool force_unblind
         txout.scriptPubKey = *output.script;
 
         bool exp_value = output.m_value_commitment.IsNull() || force_unblinded;
-        exp_value = exp_value && output.amount != nullopt;
-        if (!output.m_value_commitment.IsNull() && output.amount != nullopt) {
+        exp_value = exp_value && output.amount != std::nullopt;
+        if (!output.m_value_commitment.IsNull() && output.amount != std::nullopt) {
             exp_value = exp_value && !output.m_blind_value_proof.empty();
             exp_value = exp_value && !output.m_asset_commitment.IsNull();
             exp_value = exp_value && VerifyBlindValueProof(*output.amount, output.m_value_commitment, output.m_blind_value_proof, output.m_asset_commitment);
@@ -176,7 +176,7 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx(bool force_unblind
 
 uint256 PartiallySignedTransaction::GetUniqueID() const
 {
-    if (tx != nullopt) {
+    if (tx != std::nullopt) {
         return tx->GetHash();
     }
 
@@ -195,7 +195,7 @@ bool PartiallySignedTransaction::AddInput(PSBTInput& psbtin)
 {
     // Check required fields are present and this input is not a duplicate
     if (psbtin.prev_txid.IsNull() ||
-        psbtin.prev_out == nullopt ||
+        psbtin.prev_out == std::nullopt ||
         std::find_if(inputs.begin(), inputs.end(),
         [psbtin](const PSBTInput& psbt) {
             return psbt.prev_txid == psbtin.prev_txid && psbt.prev_out == psbtin.prev_out;
@@ -204,7 +204,7 @@ bool PartiallySignedTransaction::AddInput(PSBTInput& psbtin)
         return false;
     }
 
-    if (tx != nullopt) {
+    if (tx != std::nullopt) {
         // This is a v0 psbt, so do the v0 AddInput
         CTxIn txin(COutPoint(psbtin.prev_txid, *psbtin.prev_out));
         if (std::find(tx->vin.begin(), tx->vin.end(), txin) != tx->vin.end()) {
@@ -220,7 +220,7 @@ bool PartiallySignedTransaction::AddInput(PSBTInput& psbtin)
 
     // No global tx, must be PSBTv2.
     // Check inputs modifiable flag
-    if (m_tx_modifiable == nullopt || !m_tx_modifiable->test(0)) {
+    if (m_tx_modifiable == std::nullopt || !m_tx_modifiable->test(0)) {
         return false;
     }
 
@@ -229,32 +229,32 @@ bool PartiallySignedTransaction::AddInput(PSBTInput& psbtin)
     // The BIP states that we should also do this if m_tx_modifiable's bit 2 is set
     // (Has SIGHASH_SINGLE flag) but since we are only adding inputs at the end of the vector,
     // we don't care about that.
-    bool iterate_inputs = psbtin.time_locktime != nullopt || psbtin.height_locktime != nullopt;
+    bool iterate_inputs = psbtin.time_locktime != std::nullopt || psbtin.height_locktime != std::nullopt;
     if (iterate_inputs) {
         uint32_t old_timelock;
         if (!ComputeTimeLock(old_timelock)) {
             return false;
         }
 
-        Optional<uint32_t> time_lock = psbtin.time_locktime;
-        Optional<uint32_t> height_lock = psbtin.height_locktime;
+        std::optional<uint32_t> time_lock = psbtin.time_locktime;
+        std::optional<uint32_t> height_lock = psbtin.height_locktime;
         bool has_sigs = false;
         for (const PSBTInput& input : inputs) {
-            if (input.time_locktime != nullopt && input.height_locktime == nullopt) {
+            if (input.time_locktime != std::nullopt && input.height_locktime == std::nullopt) {
                 height_lock.reset(); // Transaction can no longer have a height locktime
-                if (time_lock == nullopt) {
+                if (time_lock == std::nullopt) {
                     return false;
                 }
-            } else if (input.time_locktime == nullopt && input.height_locktime != nullopt) {
+            } else if (input.time_locktime == std::nullopt && input.height_locktime != std::nullopt) {
                 time_lock.reset(); // Transaction can no longer have a time locktime
-                if (height_lock == nullopt) {
+                if (height_lock == std::nullopt) {
                     return false;
                 }
             }
-            if (input.time_locktime && time_lock != nullopt) {
+            if (input.time_locktime && time_lock != std::nullopt) {
                 time_lock = std::max(time_lock, input.time_locktime);
             }
-            if (input.height_locktime && height_lock != nullopt) {
+            if (input.height_locktime && height_lock != std::nullopt) {
                 height_lock = std::max(height_lock, input.height_locktime);
             }
             if (!input.partial_sigs.empty()) {
@@ -262,9 +262,9 @@ bool PartiallySignedTransaction::AddInput(PSBTInput& psbtin)
             }
         }
         uint32_t new_timelock = fallback_locktime.value_or(0);
-        if (height_lock != nullopt && *height_lock > 0) {
+        if (height_lock != std::nullopt && *height_lock > 0) {
             new_timelock = *height_lock;
-        } else if (time_lock != nullopt && *time_lock > 0) {
+        } else if (time_lock != std::nullopt && *time_lock > 0) {
             new_timelock = *time_lock;
         }
         if (has_sigs && old_timelock != new_timelock) {
@@ -279,11 +279,11 @@ bool PartiallySignedTransaction::AddInput(PSBTInput& psbtin)
 
 bool PartiallySignedTransaction::AddOutput(const PSBTOutput& psbtout)
 {
-    if (psbtout.amount == nullopt || psbtout.script == nullopt) {
+    if (psbtout.amount == std::nullopt || psbtout.script == std::nullopt) {
         return false;
     }
 
-    if (tx != nullopt) {
+    if (tx != std::nullopt) {
         // This is a v0 psbt, do the v0 AddOutput
         CTxOut txout(CAsset(), *psbtout.amount, *psbtout.script);
         tx->vout.push_back(txout);
@@ -293,7 +293,7 @@ bool PartiallySignedTransaction::AddOutput(const PSBTOutput& psbtout)
 
     // No global tx, must be PSBTv2
     // Check outputs are modifiable
-    if (m_tx_modifiable == nullopt || !m_tx_modifiable->test(1)) {
+    if (m_tx_modifiable == std::nullopt || !m_tx_modifiable->test(1)) {
         return false;
     }
     outputs.push_back(psbtout);
@@ -423,18 +423,18 @@ bool PSBTInput::Merge(const PSBTInput& input)
     if (witness_script.empty() && !input.witness_script.empty()) witness_script = input.witness_script;
     if (final_script_sig.empty() && !input.final_script_sig.empty()) final_script_sig = input.final_script_sig;
     if (final_script_witness.IsNull() && !input.final_script_witness.IsNull()) final_script_witness = input.final_script_witness;
-    if (sequence == nullopt && input.sequence != nullopt) sequence = input.sequence;
-    if (time_locktime == nullopt && input.time_locktime != nullopt) time_locktime = input.time_locktime;
-    if (height_locktime == nullopt && input.height_locktime != nullopt) height_locktime = input.height_locktime;
+    if (sequence == std::nullopt && input.sequence != std::nullopt) sequence = input.sequence;
+    if (time_locktime == std::nullopt && input.time_locktime != std::nullopt) time_locktime = input.time_locktime;
+    if (height_locktime == std::nullopt && input.height_locktime != std::nullopt) height_locktime = input.height_locktime;
 
-    if (m_issuance_value == nullopt && m_issuance_value_commitment.IsNull() && input.m_issuance_value != nullopt) m_issuance_value = input.m_issuance_value;
+    if (m_issuance_value == std::nullopt && m_issuance_value_commitment.IsNull() && input.m_issuance_value != std::nullopt) m_issuance_value = input.m_issuance_value;
     if (m_issuance_value_commitment.IsNull() && !input.m_issuance_value_commitment.IsNull()) {
         m_issuance_value_commitment = input.m_issuance_value_commitment;
         m_issuance_value.reset();
     }
     if (m_issuance_rangeproof.empty() && !input.m_issuance_rangeproof.empty()) m_issuance_rangeproof = input.m_issuance_rangeproof;
     if (m_issuance_inflation_keys_rangeproof.empty() && !input.m_issuance_inflation_keys_rangeproof.empty()) m_issuance_inflation_keys_rangeproof = input.m_issuance_inflation_keys_rangeproof;
-    if (m_issuance_inflation_keys_amount == nullopt && m_issuance_inflation_keys_commitment.IsNull() && input.m_issuance_inflation_keys_amount != nullopt) m_issuance_inflation_keys_amount = input.m_issuance_inflation_keys_amount;
+    if (m_issuance_inflation_keys_amount == std::nullopt && m_issuance_inflation_keys_commitment.IsNull() && input.m_issuance_inflation_keys_amount != std::nullopt) m_issuance_inflation_keys_amount = input.m_issuance_inflation_keys_amount;
     if (m_issuance_inflation_keys_commitment.IsNull() && !input.m_issuance_inflation_keys_commitment.IsNull()) {
         m_issuance_inflation_keys_commitment = input.m_issuance_inflation_keys_commitment;
         m_issuance_inflation_keys_amount.reset();
@@ -444,11 +444,11 @@ bool PSBTInput::Merge(const PSBTInput& input)
     if (m_blind_issuance_value_proof.empty() && !input.m_blind_issuance_value_proof.empty()) m_blind_issuance_value_proof = input.m_blind_issuance_value_proof;
     if (m_blind_issuance_inflation_keys_proof.empty() && !input.m_blind_issuance_inflation_keys_proof.empty()) m_blind_issuance_inflation_keys_proof = input.m_blind_issuance_inflation_keys_proof;
 
-    if (m_peg_in_tx.which() == 0 && input.m_peg_in_tx.which() != 0) m_peg_in_tx = input.m_peg_in_tx;
-    if (m_peg_in_txout_proof.which() == 0 && input.m_peg_in_txout_proof.which() != 0) m_peg_in_txout_proof = input.m_peg_in_txout_proof;
+    if (m_peg_in_tx.index() == 0 && input.m_peg_in_tx.index() != 0) m_peg_in_tx = input.m_peg_in_tx;
+    if (m_peg_in_txout_proof.index() == 0 && input.m_peg_in_txout_proof.index() != 0) m_peg_in_txout_proof = input.m_peg_in_txout_proof;
     if (m_peg_in_claim_script.empty() && !input.m_peg_in_claim_script.empty()) m_peg_in_claim_script = input.m_peg_in_claim_script;
     if (m_peg_in_genesis_hash.IsNull() && !input.m_peg_in_genesis_hash.IsNull()) m_peg_in_genesis_hash = input.m_peg_in_genesis_hash;
-    if (m_peg_in_value == nullopt && input.m_peg_in_value != nullopt) m_peg_in_value = input.m_peg_in_value;
+    if (m_peg_in_value == std::nullopt && input.m_peg_in_value != std::nullopt) m_peg_in_value = input.m_peg_in_value;
     if (m_peg_in_witness.IsNull() && !input.m_peg_in_witness.IsNull()) m_peg_in_witness = input.m_peg_in_witness;
 
     if (m_utxo_rangeproof.empty() && !input.m_utxo_rangeproof.empty()) m_utxo_rangeproof = input.m_utxo_rangeproof;
@@ -530,11 +530,11 @@ bool PSBTOutput::Merge(const PSBTOutput& output)
 
 CTxOut PSBTOutput::GetTxOut() const
 {
-    assert(script != nullopt);
+    assert(script != std::nullopt);
     if (!m_value_commitment.IsNull() && !m_asset_commitment.IsNull()) {
         return CTxOut(m_asset_commitment, m_value_commitment, *script);
     }
-    assert(amount != nullopt);
+    assert(amount != std::nullopt);
     assert(!m_asset.IsNull());
     return CTxOut(CConfidentialAsset(CAsset(m_asset)), CConfidentialValue(*amount), *script);
 }
@@ -600,20 +600,37 @@ void UpdatePSBTOutput(const SigningProvider& provider, PartiallySignedTransactio
     psbt_out.FromSignatureData(sigdata);
 }
 
-bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& psbt, int index, int sighash, SignatureData* out_sigdata, bool use_dummy)
+PrecomputedTransactionData PrecomputePSBTData(const PartiallySignedTransaction& psbt)
+{
+    const CMutableTransaction tx = psbt.GetUnsignedTx();
+    bool have_all_spent_outputs = true;
+    std::vector<CTxOut> utxos(psbt.inputs.size());
+    for (size_t idx = 0; idx < psbt.inputs.size(); ++idx) {
+        if (!psbt.inputs[idx].GetUTXO(utxos[idx])) have_all_spent_outputs = false;
+    }
+    PrecomputedTransactionData txdata{Params().HashGenesisBlock()};
+    if (have_all_spent_outputs) {
+        txdata.Init(tx, std::move(utxos), true);
+    } else {
+        txdata.Init(tx, {}, true);
+    }
+    return txdata;
+}
+
+bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& psbt, int index, const PrecomputedTransactionData* txdata, int sighash, SignatureData* out_sigdata)
 {
     PSBTInput& input = psbt.inputs.at(index);
 
     // If this input is a peg-in, also make the peg-in witness
-    if (input.m_peg_in_tx.which() != 0
-        && input.m_peg_in_txout_proof.which() != 0
+    if (input.m_peg_in_tx.index() != 0
+        && input.m_peg_in_txout_proof.index() != 0
         && !input.m_peg_in_claim_script.empty()
         && !input.m_peg_in_genesis_hash.IsNull()
-        && input.m_peg_in_value != nullopt) {
+        && input.m_peg_in_value != std::nullopt) {
         if (Params().GetConsensus().ParentChainHasPow()) {
-            input.m_peg_in_witness = CreatePeginWitness(*input.m_peg_in_value, Params().GetConsensus().pegged_asset, input.m_peg_in_genesis_hash, input.m_peg_in_claim_script, boost::get<Sidechain::Bitcoin::CTransactionRef&>(input.m_peg_in_tx), boost::get<Sidechain::Bitcoin::CMerkleBlock>(input.m_peg_in_txout_proof));
+            input.m_peg_in_witness = CreatePeginWitness(*input.m_peg_in_value, Params().GetConsensus().pegged_asset, input.m_peg_in_genesis_hash, input.m_peg_in_claim_script, *std::get_if<Sidechain::Bitcoin::CTransactionRef>(&input.m_peg_in_tx), *std::get_if<Sidechain::Bitcoin::CMerkleBlock>(&input.m_peg_in_txout_proof));
         } else {
-            input.m_peg_in_witness = CreatePeginWitness(*input.m_peg_in_value, Params().GetConsensus().pegged_asset, input.m_peg_in_genesis_hash, input.m_peg_in_claim_script, boost::get<CTransactionRef&>(input.m_peg_in_tx), boost::get<CMerkleBlock>(input.m_peg_in_txout_proof));
+            input.m_peg_in_witness = CreatePeginWitness(*input.m_peg_in_value, Params().GetConsensus().pegged_asset, input.m_peg_in_genesis_hash, input.m_peg_in_claim_script, *std::get_if<CTransactionRef>(&input.m_peg_in_tx), *std::get_if<CMerkleBlock>(&input.m_peg_in_txout_proof));
         }
     }
 
@@ -656,10 +673,10 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
 
     sigdata.witness = false;
     bool sig_complete;
-    if (use_dummy) {
+    if (txdata == nullptr) {
         sig_complete = ProduceSignature(provider, DUMMY_SIGNATURE_CREATOR, utxo.scriptPubKey, sigdata);
     } else {
-        MutableTransactionSignatureCreator creator(&tx, index, utxo.nValue, sighash);
+        MutableTransactionSignatureCreator creator(&tx, index, utxo.nValue, txdata, sighash);
         sig_complete = ProduceSignature(provider, creator, utxo.scriptPubKey, sigdata);
     }
     // Verify that a witness signature was produced in case one was required.
@@ -691,8 +708,9 @@ bool FinalizePSBT(PartiallySignedTransaction& psbtx)
     //   PartiallySignedTransaction did not understand them), this will combine them into a final
     //   script.
     bool complete = true;
+    const PrecomputedTransactionData txdata = PrecomputePSBTData(psbtx);
     for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
-        complete &= SignPSBTInput(DUMMY_SIGNING_PROVIDER, psbtx, i, SIGHASH_ALL);
+        complete &= SignPSBTInput(DUMMY_SIGNING_PROVIDER, psbtx, i, &txdata, SIGHASH_ALL);
     }
 
     return complete;
@@ -758,7 +776,7 @@ std::string EncodePSBT(const PartiallySignedTransaction& psbt)
 {
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
     ssTx << psbt;
-    return EncodeBase64(MakeUCharSpan(ssTx));
+    return EncodeBase64(ssTx);
 }
 
 bool DecodeBase64PSBT(PartiallySignedTransaction& psbt, const std::string& base64_tx, std::string& error)
@@ -774,7 +792,7 @@ bool DecodeBase64PSBT(PartiallySignedTransaction& psbt, const std::string& base6
 
 bool DecodeRawPSBT(PartiallySignedTransaction& psbt, const std::string& tx_data, std::string& error)
 {
-    CDataStream ss_data(tx_data.data(), tx_data.data() + tx_data.size(), SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream ss_data(MakeUCharSpan(tx_data), SER_NETWORK, PROTOCOL_VERSION);
     try {
         ss_data >> psbt;
         if (!ss_data.empty()) {
@@ -790,7 +808,7 @@ bool DecodeRawPSBT(PartiallySignedTransaction& psbt, const std::string& tx_data,
 
 uint32_t PartiallySignedTransaction::GetVersion() const
 {
-    if (m_version != nullopt) {
+    if (m_version != std::nullopt) {
         return *m_version;
     }
     return 0;
@@ -872,7 +890,7 @@ void PartiallySignedTransaction::CacheUnsignedTxPieces()
 {
     // To make things easier, we split up the global unsigned transaction
     // and use the PSBTv2 fields for PSBTv0.
-    if (tx != nullopt) {
+    if (tx != std::nullopt) {
         SetupFromTx(*tx);
     }
 }

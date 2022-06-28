@@ -7,8 +7,12 @@
 #include <validation.h>
 #include <httpserver.h>
 #include <index/blockfilterindex.h>
+#include <index/coinstatsindex.h>
 #include <index/txindex.h>
 #include <interfaces/chain.h>
+#include <interfaces/echo.h>
+#include <interfaces/init.h>
+#include <interfaces/ipc.h>
 #include <key_io.h>
 #include <node/context.h>
 #include <outputtype.h>
@@ -20,7 +24,6 @@
 #include <script/descriptor.h>
 #include <util/check.h>
 #include <util/message.h> // For MessageSign(), MessageVerify()
-#include <util/ref.h>
 #include <util/strencodings.h>
 #include <util/system.h>
 
@@ -127,7 +130,7 @@ static RPCHelpMan createmultisig()
                         {
                             {"key", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The hex-encoded public key"},
                         }},
-                    {"address_type", RPCArg::Type::STR, /* default */ "legacy", "The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\"."},
+                    {"address_type", RPCArg::Type::STR, RPCArg::Default{"legacy"}, "The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\"."},
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
@@ -163,6 +166,9 @@ static RPCHelpMan createmultisig()
     if (!request.params[2].isNull()) {
         if (!ParseOutputType(request.params[2].get_str(), output_type)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[2].get_str()));
+        }
+        if (output_type == OutputType::BECH32M) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "createmultisig cannot create bech32m multisig addresses");
         }
     }
 
@@ -341,11 +347,11 @@ static RPCHelpMan verifymessage()
 
     switch (MessageVerify(strAddress, strSign, strMessage)) {
     case MessageVerificationResult::ERR_INVALID_ADDRESS:
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     case MessageVerificationResult::ERR_ADDRESS_NO_KEY:
         throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
     case MessageVerificationResult::ERR_MALFORMED_SIGNATURE:
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Malformed base64 encoding");
+        throw JSONRPCError(RPC_TYPE_ERROR, "Malformed base64 encoding");
     case MessageVerificationResult::ERR_PUBKEY_NOT_RECOVERED:
     case MessageVerificationResult::ERR_NOT_SIGNED:
         return false;
@@ -401,13 +407,13 @@ static RPCHelpMan signmessagewithprivkey()
 static RPCHelpMan setmocktime()
 {
     return RPCHelpMan{"setmocktime",
-                "\nSet the local time to given timestamp (-regtest only)\n",
-                {
-                    {"timestamp", RPCArg::Type::NUM, RPCArg::Optional::NO, UNIX_EPOCH_TIME + "\n"
-            "   Pass 0 to go back to using the system time."},
-                },
-                RPCResult{RPCResult::Type::NONE, "", ""},
-                RPCExamples{""},
+        "\nSet the local time to given timestamp (-regtest only)\n",
+        {
+            {"timestamp", RPCArg::Type::NUM, RPCArg::Optional::NO, UNIX_EPOCH_TIME + "\n"
+             "Pass 0 to go back to using the system time."},
+        },
+        RPCResult{RPCResult::Type::NONE, "", ""},
+        RPCExamples{""},
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
     if (!Params().IsMockableChain()) {
@@ -422,10 +428,14 @@ static RPCHelpMan setmocktime()
     LOCK(cs_main);
 
     RPCTypeCheck(request.params, {UniValue::VNUM});
-    int64_t time = request.params[0].get_int64();
+    const int64_t time{request.params[0].get_int64()};
+    if (time < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Mocktime can not be negative: %s.", time));
+    }
     SetMockTime(time);
-    if (request.context.Has<NodeContext>()) {
-        for (const auto& chain_client : request.context.Get<NodeContext>().chain_clients) {
+    auto node_context = util::AnyPtr<NodeContext>(request.context);
+    if (node_context) {
+        for (const auto& chain_client : node_context->chain_clients) {
             chain_client->setMockTime(time);
         }
     }
@@ -453,15 +463,15 @@ static RPCHelpMan mockscheduler()
     // check params are valid values
     RPCTypeCheck(request.params, {UniValue::VNUM});
     int64_t delta_seconds = request.params[0].get_int64();
-    if ((delta_seconds <= 0) || (delta_seconds > 3600)) {
+    if (delta_seconds <= 0 || delta_seconds > 3600) {
         throw std::runtime_error("delta_time must be between 1 and 3600 seconds (1 hr)");
     }
 
+    auto node_context = util::AnyPtr<NodeContext>(request.context);
     // protect against null pointer dereference
-    CHECK_NONFATAL(request.context.Has<NodeContext>());
-    NodeContext& node = request.context.Get<NodeContext>();
-    CHECK_NONFATAL(node.scheduler);
-    node.scheduler->MockForward(std::chrono::seconds(delta_seconds));
+    CHECK_NONFATAL(node_context);
+    CHECK_NONFATAL(node_context->scheduler);
+    node_context->scheduler->MockForward(std::chrono::seconds(delta_seconds));
 
     return NullUniValue;
 },
@@ -508,7 +518,7 @@ static RPCHelpMan getmemoryinfo()
     return RPCHelpMan{"getmemoryinfo",
                 "Returns an object containing information about memory usage.\n",
                 {
-                    {"mode", RPCArg::Type::STR, /* default */ "\"stats\"", "determines what kind of information is returned.\n"
+                    {"mode", RPCArg::Type::STR, RPCArg::Default{"stats"}, "determines what kind of information is returned.\n"
             "  - \"stats\" returns general statistics about memory usage in the daemon.\n"
             "  - \"mallocinfo\" returns an XML string describing low-level heap state (only available if compiled with glibc 2.10+)."},
                 },
@@ -661,12 +671,10 @@ static RPCHelpMan echo(const std::string& name)
                     {"arg8", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, ""},
                     {"arg9", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, ""},
                 },
-                RPCResult{RPCResult::Type::NONE, "", "Returns whatever was passed in"},
+                RPCResult{RPCResult::Type::ANY, "", "Returns whatever was passed in"},
                 RPCExamples{""},
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    if (request.fHelp) throw std::runtime_error(self.ToString());
-
     if (request.params[9].isStr()) {
         CHECK_NONFATAL(request.params[9].get_str() != "trigger_internal_bug");
     }
@@ -678,6 +686,43 @@ static RPCHelpMan echo(const std::string& name)
 
 static RPCHelpMan echo() { return echo("echo"); }
 static RPCHelpMan echojson() { return echo("echojson"); }
+
+static RPCHelpMan echoipc()
+{
+    return RPCHelpMan{
+        "echoipc",
+        "\nEcho back the input argument, passing it through a spawned process in a multiprocess build.\n"
+        "This command is for testing.\n",
+        {{"arg", RPCArg::Type::STR, RPCArg::Optional::NO, "The string to echo",}},
+        RPCResult{RPCResult::Type::STR, "echo", "The echoed string."},
+        RPCExamples{HelpExampleCli("echo", "\"Hello world\"") +
+                    HelpExampleRpc("echo", "\"Hello world\"")},
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue {
+            std::unique_ptr<interfaces::Echo> echo;
+            if (interfaces::Ipc* ipc = Assert(EnsureAnyNodeContext(request.context).init)->ipc()) {
+                // Spawn a new bitcoin-node process and call makeEcho to get a
+                // client pointer to a interfaces::Echo instance running in
+                // that process. This is just for testing. A slightly more
+                // realistic test spawning a different executable instead of
+                // the same executable would add a new bitcoin-echo executable,
+                // and spawn bitcoin-echo below instead of bitcoin-node. But
+                // using bitcoin-node avoids the need to build and install a
+                // new executable just for this one test.
+                auto init = ipc->spawnProcess("bitcoin-node");
+                echo = init->makeEcho();
+                ipc->addCleanup(*echo, [init = init.release()] { delete init; });
+            } else {
+                // IPC support is not available because this is a bitcoind
+                // process not a bitcoind-node process, so just create a local
+                // interfaces::Echo object and return it so the `echoipc` RPC
+                // method will work, and the python test calling `echoipc`
+                // can expect the same result.
+                echo = interfaces::MakeEcho();
+            }
+            return echo->echo(request.params[0].get_str());
+        },
+    };
+}
 
 static UniValue SummaryToJSON(const IndexSummary&& summary, std::string index_name)
 {
@@ -724,6 +769,10 @@ static RPCHelpMan getindexinfo()
         result.pushKVs(SummaryToJSON(g_txindex->GetSummary(), index_name));
     }
 
+    if (g_coin_stats_index) {
+        result.pushKVs(SummaryToJSON(g_coin_stats_index->GetSummary(), index_name));
+    }
+
     ForEachBlockFilterIndex([&result, &index_name](const BlockFilterIndex& index) {
         result.pushKVs(SummaryToJSON(index.GetSummary(), index_name));
     });
@@ -736,11 +785,9 @@ static RPCHelpMan getindexinfo()
 //
 // ELEMENTS CALLS
 
-UniValue tweakfedpegscript(const JSONRPCRequest& request)
+static RPCHelpMan tweakfedpegscript()
 {
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
-        throw std::runtime_error(
-            RPCHelpMan{"tweakfedpegscript",
+    return RPCHelpMan{"tweakfedpegscript",
                 "\nReturns a tweaked fedpegscript.\n",
                 {
                     {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Script to tweak the fedpegscript with. For example obtained as a result of getpeginaddress."},
@@ -754,13 +801,14 @@ UniValue tweakfedpegscript(const JSONRPCRequest& request)
                     }
                 },
                 RPCExamples{""},
-            }.ToString());
-
+                [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     if (!IsHex(request.params[0].get_str())) {
         throw JSONRPCError(RPC_TYPE_ERROR, "the first argument must be a hex string");
     }
 
-    CScript fedpegscript = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */).front().second;
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
+    CScript fedpegscript = GetValidFedpegScripts(chainman.ActiveChain().Tip(), Params().GetConsensus(), true /* nextblock_validation */).front().second;
 
     if (!request.params[1].isNull()) {
         if (IsHex(request.params[1].get_str())) {
@@ -783,6 +831,8 @@ UniValue tweakfedpegscript(const JSONRPCRequest& request)
     ret.pushKV("address", EncodeParentDestination(parent_addr));
 
     return ret;
+},
+    };
 }
 
 UniValue FormatPAKList(CPAKList &paklist) {
@@ -804,11 +854,9 @@ UniValue FormatPAKList(CPAKList &paklist) {
     return paklist_value;
 }
 
-UniValue getpakinfo(const JSONRPCRequest& request)
+static RPCHelpMan getpakinfo()
 {
-    if (request.fHelp || request.params.size() != 0)
-        throw std::runtime_error(
-            RPCHelpMan{"getpakinfo",
+    return RPCHelpMan{"getpakinfo",
                 "\nReturns relevant pegout authorization key (PAK) information about this node, both from blockchain data.\n",
                 {},
                 RPCResult{
@@ -821,18 +869,37 @@ UniValue getpakinfo(const JSONRPCRequest& request)
                     }
                 },
                 RPCExamples{""},
-            }.ToString());
-
+                [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     LOCK(cs_main);
 
     UniValue ret(UniValue::VOBJ);
-    CPAKList paklist = GetActivePAKList(::ChainActive().Tip(), Params().GetConsensus());
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
+    CPAKList paklist = GetActivePAKList(chainman.ActiveChain().Tip(), Params().GetConsensus());
     ret.pushKV("block_paklist", FormatPAKList(paklist));
 
     return ret;
+},
+    };
 }
 
-UniValue calcfastmerkleroot(const JSONRPCRequest& request)
+static RPCHelpMan calcfastmerkleroot()
+{
+    return RPCHelpMan{"calcfastmerkleroot",
+                "\nhidden utility RPC for computing sha2 midstates\n",
+                {
+                    {"leaves", RPCArg::Type::ARR, RPCArg::Optional::NO, "array of data to compute the fast merkle root of.",
+                        {
+                            {"data", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "hex-encoded data"},
+                        }},
+                },
+                RPCResult{
+                    RPCResult::Type::STR_HEX, "", "merkle root of provided data"
+                },
+                RPCExamples{
+                    HelpExampleCli("calcfastmerkleroot", "[\"a\", \"b\", \"c\"]")
+                },
+                [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
     std::vector<uint256> leaves;
     for (const UniValue& leaf : request.params[0].get_array().getValues()) {
@@ -846,30 +913,37 @@ UniValue calcfastmerkleroot(const JSONRPCRequest& request)
     UniValue ret(UniValue::VOBJ);
     ret.setStr(root.GetHex());
     return ret;
+},
+    };
 }
 
-UniValue dumpassetlabels(const JSONRPCRequest& request)
+static RPCHelpMan dumpassetlabels()
 {
-    if (request.fHelp || request.params.size() != 0)
-        throw std::runtime_error(
-            RPCHelpMan{"dumpassetlabels",
+    return RPCHelpMan{"dumpassetlabels",
                 "\nLists all known asset id/label pairs in this wallet. This list can be modified with `-assetdir` configuration argument.\n",
                 {},
-                RPCResults{},
+                RPCResult{
+                    RPCResult::Type::OBJ, "labels", "",
+                    {
+                        {RPCResult::Type::ELISION, "", "the label for each asset id"},
+                    },
+                },
                 RPCExamples{
                     HelpExampleCli("dumpassetlabels", "" )
             + HelpExampleRpc("dumpassetlabels", "" )
                 },
-            }.ToString());
-
+                [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     UniValue obj(UniValue::VOBJ);
     for (const auto& as : gAssetsDir.GetKnownAssets()) {
         obj.pushKV(gAssetsDir.GetLabel(as), as.GetHex());
     }
     return obj;
+},
+    };
 }
 
-class BlindingPubkeyAdderVisitor : public boost::static_visitor<>
+class BlindingPubkeyAdderVisitor
 {
 public:
     CPubKey blind_key;
@@ -897,6 +971,11 @@ public:
         id.blinding_pubkey = blind_key;
     }
 
+    void operator()(WitnessV1Taproot& tap) const
+    {
+        tap.blinding_pubkey = blind_key;
+    }
+
     void operator()(WitnessUnknown& id) const
     {
         id.blinding_pubkey = blind_key;
@@ -906,11 +985,9 @@ public:
 };
 
 
-UniValue createblindedaddress(const JSONRPCRequest& request)
+static RPCHelpMan createblindedaddress()
 {
-    if (request.fHelp || request.params.size() != 2)
-        throw std::runtime_error(
-            RPCHelpMan{"createblindedaddress",
+    return RPCHelpMan{"createblindedaddress",
                 "\nCreates a blinded address using the provided blinding key.\n",
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The unblinded address to be blinded."},
@@ -925,8 +1002,8 @@ UniValue createblindedaddress(const JSONRPCRequest& request)
             "\nAs a json rpc call\n"
             + HelpExampleRpc("createblindedaddress", "HEZk3iQi1jC49bxUriTtynnXgWWWdAYx16, ec09811118b6febfa5ebe68642e5091c418fbace07e655da26b4a845a691fc2d")
                 },
-            }.ToString());
-
+                [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     CTxDestination address = DecodeDestination(request.params[0].get_str());
     if (!IsValidDestination(address)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address or script");
@@ -947,8 +1024,10 @@ UniValue createblindedaddress(const JSONRPCRequest& request)
     key.Set(keydata.begin(), keydata.end());
 
     // Append blinding key and return
-    boost::apply_visitor(BlindingPubkeyAdderVisitor(key), address);
+    std::visit(BlindingPubkeyAdderVisitor(key), address);
     return EncodeDestination(address);
+},
+    };
 }
 
 
@@ -960,29 +1039,30 @@ void RegisterMiscRPCCommands(CRPCTable &t)
 // clang-format off
 
 static const CRPCCommand commands[] =
-{ //  category              name                      actor (function)         argNames
+{ //  category              actor (function)
   //  --------------------- ------------------------  -----------------------  ----------
-    { "control",            "getmemoryinfo",          &getmemoryinfo,          {"mode"} },
-    { "control",            "logging",                &logging,                {"include", "exclude"}},
-    { "util",               "validateaddress",        &validateaddress,        {"address"} },
-    { "util",               "createmultisig",         &createmultisig,         {"nrequired","keys","address_type"} },
-    { "util",               "deriveaddresses",        &deriveaddresses,        {"descriptor", "range"} },
-    { "util",               "getdescriptorinfo",      &getdescriptorinfo,      {"descriptor"} },
-    { "util",               "verifymessage",          &verifymessage,          {"address","signature","message"} },
-    { "util",               "signmessagewithprivkey", &signmessagewithprivkey, {"privkey","message"} },
-    { "util",               "getindexinfo",           &getindexinfo,           {"index_name"} },
+    { "control",            &getmemoryinfo,           },
+    { "control",            &logging,                 },
+    { "util",               &validateaddress,         },
+    { "util",               &createmultisig,          },
+    { "util",               &deriveaddresses,         },
+    { "util",               &getdescriptorinfo,       },
+    { "util",               &verifymessage,           },
+    { "util",               &signmessagewithprivkey,  },
+    { "util",               &getindexinfo,            },
     // ELEMENTS:
-    { "util",               "getpakinfo",             &getpakinfo,             {}},
-    { "util",               "tweakfedpegscript",      &tweakfedpegscript,      {"claim_script", "fedpegscript"} },
-    { "util",               "createblindedaddress",   &createblindedaddress,   {"address", "blinding_key"}},
-    { "util",               "dumpassetlabels",        &dumpassetlabels,        {}},
-    { "hidden",             "calcfastmerkleroot",     &calcfastmerkleroot,     {"leaves"} },
+    { "util",               &getpakinfo,              },
+    { "util",               &tweakfedpegscript,       },
+    { "util",               &createblindedaddress,    },
+    { "util",               &dumpassetlabels,         },
+    { "hidden",             &calcfastmerkleroot,      },
 
     /* Not shown in help */
-    { "hidden",             "setmocktime",            &setmocktime,            {"timestamp"}},
-    { "hidden",             "mockscheduler",          &mockscheduler,          {"delta_time"}},
-    { "hidden",             "echo",                   &echo,                   {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
-    { "hidden",             "echojson",               &echojson,               {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
+    { "hidden",             &setmocktime,             },
+    { "hidden",             &mockscheduler,           },
+    { "hidden",             &echo,                    },
+    { "hidden",             &echojson,                },
+    { "hidden",             &echoipc,                 },
 };
 // clang-format on
     for (const auto& c : commands) {

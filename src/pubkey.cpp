@@ -1,13 +1,20 @@
-// Copyright (c) 2009-2019 The Bitcoin Core developers
+// Copyright (c) 2009-2020 The Bitcoin Core developers
 // Copyright (c) 2017 The Zcash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <pubkey.h>
 
+#include <hash.h>
 #include <secp256k1.h>
+#include <secp256k1_extrakeys.h>
 #include <secp256k1_recovery.h>
 #include <secp256k1_schnorrsig.h>
+#include <span.h>
+#include <uint256.h>
+
+#include <algorithm>
+#include <cassert>
 
 namespace
 {
@@ -173,6 +180,12 @@ XOnlyPubKey::XOnlyPubKey(Span<const unsigned char> bytes)
     std::copy(bytes.begin(), bytes.end(), m_keydata.begin());
 }
 
+bool XOnlyPubKey::IsFullyValid() const
+{
+    secp256k1_xonly_pubkey pubkey;
+    return secp256k1_xonly_pubkey_parse(secp256k1_context_verify, &pubkey, m_keydata.data());
+}
+
 bool XOnlyPubKey::VerifySchnorr(const Span<const unsigned char> msg, Span<const unsigned char> sigbytes) const
 {
     assert(sigbytes.size() == 64);
@@ -222,17 +235,17 @@ bool CPubKey::TweakMulVerify(const CPubKey& untweaked, const uint256& tweak) con
     return *this == CPubKey(out_pk, out_pk + out_len);
 }
 
-Optional<std::pair<XOnlyPubKey, bool>> XOnlyPubKey::CreateTapTweak(const uint256* merkle_root) const
+std::optional<std::pair<XOnlyPubKey, bool>> XOnlyPubKey::CreateTapTweak(const uint256* merkle_root) const
 {
     secp256k1_xonly_pubkey base_point;
-    if (!secp256k1_xonly_pubkey_parse(secp256k1_context_verify, &base_point, data())) return nullopt;
+    if (!secp256k1_xonly_pubkey_parse(secp256k1_context_verify, &base_point, data())) return std::nullopt;
     secp256k1_pubkey out;
     uint256 tweak = ComputeTapTweakHash(merkle_root);
-    if (!secp256k1_xonly_pubkey_tweak_add(secp256k1_context_verify, &out, &base_point, tweak.data())) return nullopt;
+    if (!secp256k1_xonly_pubkey_tweak_add(secp256k1_context_verify, &out, &base_point, tweak.data())) return std::nullopt;
     int parity = -1;
     std::pair<XOnlyPubKey, bool> ret;
     secp256k1_xonly_pubkey out_xonly;
-    if (!secp256k1_xonly_pubkey_from_pubkey(secp256k1_context_verify, &out_xonly, &parity, &out)) return nullopt;
+    if (!secp256k1_xonly_pubkey_from_pubkey(secp256k1_context_verify, &out_xonly, &parity, &out)) return std::nullopt;
     secp256k1_xonly_pubkey_serialize(secp256k1_context_verify, ret.first.data(), &out_xonly);
     assert(parity == 0 || parity == 1);
     ret.second = parity;
@@ -361,7 +374,7 @@ void CExtPubKey::DecodeWithVersion(const unsigned char code[BIP32_EXTKEY_WITH_VE
 bool CExtPubKey::Derive(CExtPubKey &out, unsigned int _nChild) const {
     out.nDepth = nDepth + 1;
     CKeyID id = pubkey.GetID();
-    memcpy(&out.vchFingerprint[0], &id, 4);
+    memcpy(out.vchFingerprint, &id, 4);
     out.nChild = _nChild;
     return pubkey.Derive(out.pubkey, out.chaincode, _nChild, chaincode);
 }
@@ -395,4 +408,8 @@ ECCVerifyHandle::~ECCVerifyHandle()
         secp256k1_context_destroy(secp256k1_context_verify);
         secp256k1_context_verify = nullptr;
     }
+}
+
+const secp256k1_context* GetVerifyContext() {
+    return secp256k1_context_verify;
 }

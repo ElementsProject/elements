@@ -71,6 +71,9 @@ private Q_SLOTS:
     void updateDisplayUnit();
     void updateAssetTypes();
 
+protected:
+    void changeEvent(QEvent* e) override;
+
 private:
     SendAssetsRecipient recipient;
     Ui::SendCoinsEntry *ui;

@@ -20,13 +20,12 @@
             "scriptPubKey": {
                 "asm": "OP_HASH160 6edf12858999f0dae74f9c692e6694ee3621b2ac OP_EQUAL",
                 "hex": "a9146edf12858999f0dae74f9c692e6694ee3621b2ac87",
-                "reqSigs": 1,
-                "type": "scripthash",
-                "addresses": [
-                    "3BoFUz1StqcNcgUTZE5cC1eFhuYFzj3fGH"
-                ]
+                "address": "3BoFUz1StqcNcgUTZE5cC1eFhuYFzj3fGH",
+                "type": "scripthash"
             }
         }
     ],
+    "fee": {
+    },
     "hex": "01000000000001010000000000000000000000000000000000000000000000000000000000000000010000000005f5e1000017a9146edf12858999f0dae74f9c692e6694ee3621b2ac8700000000"
 }

@@ -27,9 +27,8 @@ from test_framework.key import ECKey
 
 from test_framework.messages import (
     CBlock,
-    CTransaction,
-    FromHex,
-    WitToHex
+    tx_from_hex,
+    from_hex,
 )
 
 from test_framework import util
@@ -77,7 +76,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
         utxo = self.nodes[1].listunspent(1, 1, [addr])[0]
-        utxo_tx = FromHex(CTransaction(), self.nodes[1].getrawtransaction(utxo["txid"]))
+        utxo_tx = tx_from_hex(self.nodes[1].getrawtransaction(utxo["txid"]))
         utxo_spk = CScript(hex_str_to_bytes(utxo["scriptPubKey"]))
         utxo_value = utxo_tx.vout[utxo["vout"]].nValue
 
@@ -100,9 +99,9 @@ class SighashRangeproofTest(BitcoinTestFramework):
                 }]
             )[0]["hex"]
         blinded_hex = self.nodes[1].blindrawtransaction(unsigned_hex)
-        blinded_tx = FromHex(CTransaction(), blinded_hex)
+        blinded_tx = tx_from_hex(blinded_hex)
         signed_hex = self.nodes[1].signrawtransactionwithwallet(blinded_hex)["hex"]
-        signed_tx = FromHex(CTransaction(), signed_hex)
+        signed_tx = tx_from_hex(signed_hex)
 
         # Make sure that the tx the node produced is always valid.
         test_accept = self.nodes[0].testmempoolaccept([signed_hex])[0]
@@ -153,7 +152,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
 
         if sighash_rangeproof_aware:
             signed_hex = self.nodes[1].signrawtransactionwithwallet(blinded_hex, [], "ALL|RANGEPROOF")["hex"]
-            signed_tx = FromHex(CTransaction(), signed_hex)
+            signed_tx = tx_from_hex(signed_hex)
 
             # Make sure that the tx that the node signed is valid
             test_accept = self.nodes[0].testmempoolaccept([signed_hex])[0]
@@ -179,7 +178,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
     def assert_tx_standard(self, tx, assert_standard=True):
         # Test the standardness of the tx by submitting it to the mempool.
 
-        test_accept = self.nodes[0].testmempoolaccept([WitToHex(tx)])[0]
+        test_accept = self.nodes[0].testmempoolaccept([tx.serialize(with_witness=True).hex()])[0]
         if assert_standard:
             assert test_accept["allowed"], "tx was not accepted: {}".format(test_accept["reject-reason"])
         else:
@@ -188,13 +187,13 @@ class SighashRangeproofTest(BitcoinTestFramework):
     def assert_tx_valid(self, tx, assert_valid=True):
         # Test the validity of the transaction by manually mining a block that contains the tx.
 
-        block = FromHex(CBlock(), self.nodes[2].getnewblockhex())
+        block = from_hex(CBlock(), self.nodes[2].getnewblockhex())
         assert len(block.vtx) > 0
         block.vtx.append(tx)
         block.hashMerkleRoot = block.calc_merkle_root()
         add_witness_commitment(block)
         block.solve()
-        block_hex = WitToHex(block)
+        block_hex = block.serialize(with_witness=True).hex()
 
         # First test the testproposed block RPC.
         if assert_valid:
@@ -264,7 +263,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
             self.assert_tx_standard(tx, True)
             self.assert_tx_valid(tx, True)
 
-        # Ensure that if we then use the old sighash algorith that doesn't hash
+        # Ensure that if we then use the old sighash algorithm that doesn't hash
         # the rangeproofs, the signature is no longer valid.
         for address_type in ADDRESS_TYPES:
             self.log.info("Post-activation invalid sighash for {} address".format(address_type))

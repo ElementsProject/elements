@@ -7,29 +7,27 @@
 NOTE: The test is designed to prevent cases when compatibility is broken accidentally.
 In case we need to break mempool compatibility we can continue to use the test by just bumping the version number.
 
-Download node binaries:
-test/get_previous_releases.py -b v0.19.1 v0.18.1 v0.17.2 v0.16.3 v0.15.2
-
-Only v0.15.2 is required by this test. The rest is used in other backwards compatibility tests.
+The previous release v0.15.2 is required by this test, see test/README.md.
 """
 
 import os
 
+from test_framework.blocktools import COINBASE_MATURITY
 from test_framework.test_framework import BitcoinTestFramework
+from test_framework.wallet import MiniWallet
 
 
 class MempoolCompatibilityTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
-        self.wallet_names = [None, self.default_wallet_name]
+        self.wallet_names = [None]
 
     def skip_test_if_missing_module(self):
-        self.skip_if_no_wallet()
         self.skip_if_no_previous_releases()
 
     def setup_network(self):
         self.add_nodes(self.num_nodes, versions=[
-            150200, # oldest version supported by the test framework
+            190100,  # oldest version with getmempoolinfo.loaded (used to avoid intermittent issues)
             None,
         ])
         self.start_nodes()
@@ -38,8 +36,15 @@ class MempoolCompatibilityTest(BitcoinTestFramework):
     def run_test(self):
         self.log.info("Test that mempool.dat is compatible between versions")
 
-        old_node = self.nodes[0]
-        new_node = self.nodes[1]
+        old_node, new_node = self.nodes
+        new_wallet = MiniWallet(new_node)
+        new_wallet.generate(1)
+        new_node.generate(COINBASE_MATURITY)
+        # Sync the nodes to ensure old_node has the block that contains the coinbase that new_wallet will spend.
+        # Otherwise, because coinbases are only valid in a block and not as loose txns, if the nodes aren't synced
+        # unbroadcasted_tx won't pass old_node's `MemPoolAccept::PreChecks`.
+        self.connect_nodes(0, 1)
+        self.sync_blocks()
         recipient = old_node.getnewaddress()
         self.stop_node(1)
 
@@ -58,7 +63,7 @@ class MempoolCompatibilityTest(BitcoinTestFramework):
         assert old_tx_hash in new_node.getrawmempool()
 
         self.log.info("Add unbroadcasted tx to mempool on new node and shutdown")
-        unbroadcasted_tx_hash = new_node.sendtoaddress(recipient, 0.0001)
+        unbroadcasted_tx_hash = new_wallet.send_self_transfer(from_node=new_node)['txid']
         assert unbroadcasted_tx_hash in new_node.getrawmempool()
         mempool = new_node.getrawmempool(True)
         assert mempool[unbroadcasted_tx_hash]['unbroadcast']
@@ -71,6 +76,7 @@ class MempoolCompatibilityTest(BitcoinTestFramework):
         self.start_node(0, ['-nowallet'])
         assert old_tx_hash in old_node.getrawmempool()
         assert unbroadcasted_tx_hash in old_node.getrawmempool()
+
 
 if __name__ == "__main__":
     MempoolCompatibilityTest().main()

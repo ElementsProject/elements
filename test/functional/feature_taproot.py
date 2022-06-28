@@ -5,6 +5,7 @@
 # Test Taproot softfork (BIPs 340-342)
 
 from test_framework.blocktools import (
+    COINBASE_MATURITY,
     create_coinbase,
     create_block,
     add_witness_commitment,
@@ -18,8 +19,9 @@ from test_framework.messages import (
     CTxIn,
     CTxInWitness,
     CTxOut,
-    CTxOutValue, CTxOutWitness,
-    ToHex, uint256_from_str,
+    CTxOutValue,
+    CTxOutWitness,
+    uint256_from_str,
 )
 from test_framework.script import (
     ANNEX_TAG,
@@ -58,7 +60,6 @@ from test_framework.script import (
     OP_ENDIF,
     OP_EQUAL,
     OP_EQUALVERIFY,
-    OP_HASH160,
     OP_IF,
     OP_NOP,
     OP_NOT,
@@ -77,13 +78,18 @@ from test_framework.script import (
     is_op_success,
     taproot_construct,
 )
+from test_framework.script_util import (
+    key_to_p2wpkh_script,
+    keyhash_to_p2pkh_script,
+    script_to_p2sh_script,
+    script_to_p2wsh_script,
+)
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_raises_rpc_error, assert_equal
 from test_framework import util
 from test_framework.key import generate_privkey, compute_xonly_pubkey, sign_schnorr, tweak_add_privkey, ECKey
 from test_framework.address import (
     hash160,
-    sha256,
 )
 from collections import OrderedDict, namedtuple
 from io import BytesIO
@@ -184,17 +190,17 @@ def default_negflag(ctx):
     """Default expression for "negflag": tap.negflag."""
     return get(ctx, "tap").negflag
 
-def default_pubkey_inner(ctx):
-    """Default expression for "pubkey_inner": tap.inner_pubkey."""
-    return get(ctx, "tap").inner_pubkey
+def default_pubkey_internal(ctx):
+    """Default expression for "pubkey_internal": tap.internal_pubkey."""
+    return get(ctx, "tap").internal_pubkey
 
 def default_merklebranch(ctx):
     """Default expression for "merklebranch": tapleaf.merklebranch."""
     return get(ctx, "tapleaf").merklebranch
 
 def default_controlblock(ctx):
-    """Default expression for "controlblock": combine leafversion, negflag, pubkey_inner, merklebranch."""
-    return bytes([get(ctx, "leafversion") + get(ctx, "negflag")]) + get(ctx, "pubkey_inner") + get(ctx, "merklebranch")
+    """Default expression for "controlblock": combine leafversion, negflag, pubkey_internal, merklebranch."""
+    return bytes([get(ctx, "leafversion") + get(ctx, "negflag")]) + get(ctx, "pubkey_internal") + get(ctx, "merklebranch")
 
 #ELEMENTS: taphash depends on genesis hash
 def default_sighash(ctx):
@@ -350,9 +356,9 @@ DEFAULT_CONTEXT = {
     "tapleaf": default_tapleaf,
     # The script to push, and include in the sighash, for a taproot script path spend.
     "script_taproot": default_script_taproot,
-    # The inner pubkey for a taproot script path spend (32 bytes).
-    "pubkey_inner": default_pubkey_inner,
-    # The negation flag of the inner pubkey for a taproot script path spend.
+    # The internal pubkey for a taproot script path spend (32 bytes).
+    "pubkey_internal": default_pubkey_internal,
+    # The negation flag of the internal pubkey for a taproot script path spend.
     "negflag": default_negflag,
     # The leaf version to include in the sighash (this does not affect the one in the control block).
     "leafversion": default_leafversion,
@@ -456,6 +462,8 @@ def make_spender(comment, *, tap=None, witv0=False, script=None, pkh=None, p2sh=
     * standard: whether the (valid version of) spending is expected to be standard
     * err_msg: a string with an expected error message for failure (or None, if not cared about)
     * sigops_weight: the pre-taproot sigops weight consumed by a successful spend
+    * need_vin_vout_mismatch: whether this test requires being tested in a transaction input that has no corresponding
+                              transaction output.
     """
 
     conf = dict()
@@ -472,13 +480,13 @@ def make_spender(comment, *, tap=None, witv0=False, script=None, pkh=None, p2sh=
             # P2WPKH
             assert script is None
             pubkeyhash = hash160(pkh)
-            spk = CScript([OP_0, pubkeyhash])
-            conf["scriptcode"] = CScript([OP_DUP, OP_HASH160, pubkeyhash, OP_EQUALVERIFY, OP_CHECKSIG])
+            spk = key_to_p2wpkh_script(pkh)
+            conf["scriptcode"] = keyhash_to_p2pkh_script(pubkeyhash)
             conf["script_witv0"] = None
             conf["inputs"] = [getter("sign"), pkh]
         elif script is not None:
             # P2WSH
-            spk = CScript([OP_0, sha256(script)])
+            spk = script_to_p2wsh_script(script)
             conf["scriptcode"] = script
             conf["script_witv0"] = script
         else:
@@ -489,7 +497,7 @@ def make_spender(comment, *, tap=None, witv0=False, script=None, pkh=None, p2sh=
             # P2PKH
             assert script is None
             pubkeyhash = hash160(pkh)
-            spk = CScript([OP_DUP, OP_HASH160, pubkeyhash, OP_EQUALVERIFY, OP_CHECKSIG])
+            spk = keyhash_to_p2pkh_script(pubkeyhash)
             conf["scriptcode"] = spk
             conf["inputs"] = [getter("sign"), pkh]
         elif script is not None:
@@ -510,7 +518,7 @@ def make_spender(comment, *, tap=None, witv0=False, script=None, pkh=None, p2sh=
     if p2sh:
         # P2SH wrapper can be combined with anything else
         conf["script_p2sh"] = spk
-        spk = CScript([OP_HASH160, hash160(spk), OP_EQUAL])
+        spk = script_to_p2sh_script(spk)
 
     conf = {**conf, **kwargs}
 
@@ -531,11 +539,10 @@ def add_spender(spenders, *args, **kwargs):
 
 def random_checksig_style(pubkey):
     """Creates a random CHECKSIG* tapscript that would succeed with only the valid signature on witness stack."""
-    return bytes(CScript([pubkey, OP_CHECKSIG]))
     opcode = random.choice([OP_CHECKSIG, OP_CHECKSIGVERIFY, OP_CHECKSIGADD])
-    if (opcode == OP_CHECKSIGVERIFY):
+    if opcode == OP_CHECKSIGVERIFY:
         ret = CScript([pubkey, opcode, OP_1])
-    elif (opcode == OP_CHECKSIGADD):
+    elif opcode == OP_CHECKSIGADD:
         num = random.choice([0, 0x7fffffff, -0x7fffffff])
         ret = CScript([num, pubkey, opcode, num + 1, OP_EQUAL])
     else:
@@ -795,8 +802,8 @@ def spenders_taproot_active():
     add_spender(spenders, "spendpath/negflag", tap=tap, leaf="128deep", **SINGLE_SIG, key=secs[0], failure={"negflag": lambda ctx: 1 - default_negflag(ctx)}, **ERR_WITNESS_PROGRAM_MISMATCH)
     # Test that bitflips in the Merkle branch invalidate it.
     add_spender(spenders, "spendpath/bitflipmerkle", tap=tap, leaf="128deep", **SINGLE_SIG, key=secs[0], failure={"merklebranch": bitflipper(default_merklebranch)}, **ERR_WITNESS_PROGRAM_MISMATCH)
-    # Test that bitflips in the inner pubkey invalidate it.
-    add_spender(spenders, "spendpath/bitflippubkey", tap=tap, leaf="128deep", **SINGLE_SIG, key=secs[0], failure={"pubkey_inner": bitflipper(default_pubkey_inner)}, **ERR_WITNESS_PROGRAM_MISMATCH)
+    # Test that bitflips in the internal pubkey invalidate it.
+    add_spender(spenders, "spendpath/bitflippubkey", tap=tap, leaf="128deep", **SINGLE_SIG, key=secs[0], failure={"pubkey_internal": bitflipper(default_pubkey_internal)}, **ERR_WITNESS_PROGRAM_MISMATCH)
     # Test that empty witnesses are invalid.
     add_spender(spenders, "spendpath/emptywit", tap=tap, leaf="128deep", **SINGLE_SIG, key=secs[0], failure={"witness": []}, **ERR_EMPTY_WITNESS)
     # Test that adding garbage to the control block invalidates it.
@@ -1204,13 +1211,18 @@ def dump_json_test(tx, input_utxos, idx, success, failure):
 # Data type to keep track of UTXOs, where they were created, and how to spend them.
 UTXOData = namedtuple('UTXOData', 'outpoint,output,spender')
 
+
 class TaprootTest(BitcoinTestFramework):
     def add_options(self, parser):
         parser.add_argument("--dumptests", dest="dump_tests", default=False, action="store_true",
                             help="Dump generated test cases to directory set by TEST_DUMP_DIR environment variable")
+        parser.add_argument("--previous_release", dest="previous_release", default=False, action="store_true",
+                            help="Use a previous release as taproot-inactive node")
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
+        if self.options.previous_release:
+            self.skip_if_no_previous_releases()
 
     def set_test_params(self):
         self.num_nodes = 2
@@ -1219,7 +1231,19 @@ class TaprootTest(BitcoinTestFramework):
         # ELEMENTS: to preserve tests which depend on the exact number of outputs,
         #  we turn one of the original outputs into a fee output, which routinely
         #  results in us burning massive amounts of coin. Hence -maxtxfee.
-        self.extra_args = [["-par=1", "-vbparams=taproot:1:1"], ["-par=1", "-maxtxfee=100.0"]]
+        self.extra_args = [["-par=1"], ["-par=1", "-maxtxfee=100.0"]]
+        if self.options.previous_release:
+            self.wallet_names = [None, self.default_wallet_name]
+        else:
+            self.extra_args[0].append("-vbparams=taproot:1:1")
+
+    def setup_nodes(self):
+        self.add_nodes(self.num_nodes, self.extra_args, versions=[
+            200100 if self.options.previous_release else None,
+            None,
+        ])
+        self.start_nodes()
+        self.import_deterministic_coinbase_privkeys()
 
     def block_submit(self, node, txs, msg, err_msg, cb_pubkey=None, fees=0, sigops_weight=0, witness=False, accept=False):
 
@@ -1243,7 +1267,7 @@ class TaprootTest(BitcoinTestFramework):
         if err_msg is not None:
             assert block_response is not None
             assert block_response is not None and err_msg in block_response, "Missing error message '%s' from block response '%s': %s" % (err_msg, "(None)" if block_response is None else block_response, msg)
-        if (accept):
+        if accept:
             assert node.getbestblockhash() == block.hash, "Failed to accept: %s (response: %s)" % (msg, block_response)
             self.tip = block.sha256
             self.lastblockhash = block.hash
@@ -1329,7 +1353,7 @@ class TaprootTest(BitcoinTestFramework):
             fund_tx.vout.append(CTxOut(10000)) # ELEMENTS: and fee
             fund_tx.wit.vtxoutwit.append(CTxOutWitness())
             # Ask the wallet to sign
-            ss = BytesIO(bytes.fromhex(node.signrawtransactionwithwallet(ToHex(fund_tx))["hex"]))
+            ss = BytesIO(bytes.fromhex(node.signrawtransactionwithwallet(fund_tx.serialize().hex())["hex"]))
             fund_tx.deserialize(ss)
             # Construct UTXOData entries
             fund_tx.rehash()
@@ -1470,22 +1494,32 @@ class TaprootTest(BitcoinTestFramework):
 
         # Post-taproot activation tests go first (pre-taproot tests' blocks are invalid post-taproot).
         self.log.info("Post-activation tests...")
-        self.nodes[1].generate(101)
+        self.nodes[1].generate(COINBASE_MATURITY + 1)
         global g_genesis_hash
         g_genesis_hash = uint256_from_str(bytes.fromhex(self.nodes[1].getblockhash(0))[::-1])
         self.test_spenders(self.nodes[1], spenders_taproot_active(), input_counts=[1, 2, 2, 2, 2, 3])
 
-        # Transfer funds to pre-taproot node.
+        # Re-connect nodes in case they have been disconnected
+        self.disconnect_nodes(0, 1)
+        self.connect_nodes(0, 1)
+
+        # Transfer value of the largest 500 coins to pre-taproot node.
         addr = self.nodes[0].getnewaddress()
+
+        unsp = self.nodes[1].listunspent()
+        unsp = sorted(unsp, key=lambda i: i['amount'], reverse=True)
+        unsp = unsp[:500]
+
         rawtx = self.nodes[1].createrawtransaction(
             inputs=[{
                 'txid': i['txid'],
                 'vout': i['vout']
-            } for i in self.nodes[1].listunspent()],
-            outputs=[{addr: self.nodes[1].getbalance()['bitcoin']}],
+            } for i in unsp],
+            outputs=[{addr: sum(i['amount'] for i in unsp)}]
         )
         rawtx = self.nodes[1].signrawtransactionwithwallet(rawtx)['hex']
-        # Transaction is too large to fit into the mempool, so put it into a block
+
+        # Mine a block with the transaction
         block = create_block(tmpl=self.nodes[1].getblocktemplate(NORMAL_GBT_REQUEST_PARAMS), txlist=[rawtx])
         add_witness_commitment(block)
         block.rehash()

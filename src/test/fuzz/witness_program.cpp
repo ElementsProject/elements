@@ -12,23 +12,21 @@
 
 #include <test/fuzz/fuzz.h>
 
-static const CHashWriter HASHER_TAPLEAF_ELEMENTS = TaggedHash("TapLeaf/elements");
-
 class DummySigChecker : public MutableTransactionSignatureChecker {
     bool CheckECDSASignature(const std::vector<unsigned char>& vchSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion, unsigned int flags) const override { return !vchSig.empty() && vchSig[0] > 0x80; }
 
     bool CheckSchnorrSignature(Span<const unsigned char> sig, Span<const unsigned char> pubkey, SigVersion sigversion, const ScriptExecutionData& execdata, ScriptError* serror = nullptr) const override { return !sig.empty() && sig[0] > 0x80; }
 
 public:
-    DummySigChecker(const CMutableTransaction* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn, const PrecomputedTransactionData& txdataIn) : MutableTransactionSignatureChecker{txToIn, nInIn, amountIn, txdataIn} {}
+    DummySigChecker(const CMutableTransaction* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn, const PrecomputedTransactionData& txdataIn, MissingDataBehavior mdb) : MutableTransactionSignatureChecker{txToIn, nInIn, amountIn, txdataIn, mdb} {}
 };
 
-void initialize()
+void initialize_witness_program()
 {
     static const ECCVerifyHandle verify_handle;
 }
 
-void test_one_input(const std::vector<uint8_t>& buffer)
+FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
 {
     CDataStream ds(buffer, SER_NETWORK, INIT_PROTO_VERSION);
     try {
@@ -90,7 +88,7 @@ void test_one_input(const std::vector<uint8_t>& buffer)
                 tx.witness.vtxinwit[i].scriptWitness.stack.push_back(program);
             }
             txdata.Init(tx, std::move(spent_outs));
-            DummySigChecker checker{&tx, nIn, amountIn, txdata};
+            DummySigChecker checker{&tx, nIn, amountIn, txdata, MissingDataBehavior::ASSERT_FAIL};
 
             VerifyScript(/* scriptSig */ CScript{}, scriptPubKey, &witness, flags, checker, /* serror */ NULL);
         /* segwit v1 (taproot) */
@@ -136,7 +134,7 @@ void test_one_input(const std::vector<uint8_t>& buffer)
                 tx.witness.vtxinwit[i].scriptWitness.stack.push_back(control);
             }
             txdata.Init(tx, std::move(spent_outs));
-            GenericTransactionSignatureChecker checker{&tx, nIn, amountIn, txdata};
+            GenericTransactionSignatureChecker checker{&tx, nIn, amountIn, txdata, MissingDataBehavior::ASSERT_FAIL};
 
             VerifyScript(/* scriptSig */ CScript{}, scriptPubKey, &witness, flags, checker, /* serror */ NULL);
         }

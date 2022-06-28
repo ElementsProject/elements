@@ -10,12 +10,9 @@
 #include <chainparams.h>
 #include <util/strencodings.h>
 
-#include <boost/variant/apply_visitor.hpp>
-#include <boost/variant/static_visitor.hpp>
-
+#include <algorithm>
 #include <assert.h>
 #include <string.h>
-#include <algorithm>
 
 /// Maximum witness length for Bech32 addresses.
 static constexpr std::size_t BECH32_WITNESS_PROG_MAX_LEN = 40;
@@ -24,7 +21,7 @@ static constexpr std::size_t BLECH32_WITNESS_PROG_MAX_LEN = 40;
 
 namespace
 {
-class DestinationEncoder : public boost::static_visitor<std::string>
+class DestinationEncoder
 {
 private:
     const CChainParams& m_params;
@@ -104,6 +101,23 @@ public:
         return bech32::Encode(bech32::Encoding::BECH32, hrp, data);
     }
 
+    std::string operator()(const WitnessV1Taproot& tap) const
+    {
+        std::vector<unsigned char> data = {1};
+        data.reserve(53);
+        if (tap.blinding_pubkey.IsFullyValid()) {
+            std::vector<unsigned char> bytes(tap.blinding_pubkey.begin(), tap.blinding_pubkey.end());
+            bytes.insert(bytes.end(), tap.begin(), tap.end());
+            ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, bytes.begin(), bytes.end());
+            const std::string& hrp = for_parent ? m_params.ParentBlech32HRP() : m_params.Blech32HRP();
+            return blech32::Encode(blech32::Encoding::BLECH32M, hrp, data);
+        }
+
+        ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, tap.begin(), tap.end());
+        const std::string& hrp = for_parent ? m_params.ParentBech32HRP() : m_params.Bech32HRP();
+        return bech32::Encode(bech32::Encoding::BECH32M, hrp, data);
+    }
+
     std::string operator()(const WitnessUnknown& id) const
     {
         if (id.version < 1 || id.version > 16 || id.length < 2 || id.length > 40) {
@@ -125,11 +139,14 @@ public:
     }
 
     std::string operator()(const CNoDestination& no) const { return {}; }
-    std::string operator()(const NullData& null) const { return {}; }
+    std::string operator()(const NullData& null) const { return "null"; }
 };
 
 CTxDestination DecodeDestination(const std::string& str, const CChainParams& params, const bool for_parent, std::string& error_str)
 {
+    // ELEMENTS: special case nulldata as "null"
+    if (str == "null") return NullData{};
+
     std::vector<unsigned char> data;
     size_t pk_size = CPubKey::COMPRESSED_SIZE;
     uint160 hash;
@@ -222,6 +239,13 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
                 return CNoDestination();
             }
 
+            if (version == 1 && data.size() == WITNESS_V1_TAPROOT_SIZE) {
+                static_assert(WITNESS_V1_TAPROOT_SIZE == WitnessV1Taproot::size());
+                WitnessV1Taproot tap;
+                std::copy(data.begin(), data.end(), tap.begin());
+                return tap;
+            }
+
             if (version > 16) {
                 error_str = "Invalid Bech32 address witness version";
                 return CNoDestination();
@@ -293,6 +317,13 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
 
                 error_str = "Invalid Blech32 v0 address data size";
                 return CNoDestination();
+            }
+
+            if (version == 1 && data.size() == WITNESS_V1_TAPROOT_SIZE) {
+                static_assert(WITNESS_V1_TAPROOT_SIZE == WitnessV1Taproot::size());
+                WitnessV1Taproot tap;
+                std::copy(data.begin(), data.end(), tap.begin());
+                return tap;
             }
 
             if (version > 16) {
@@ -401,7 +432,7 @@ std::string EncodeExtKey(const CExtKey& key)
 
 std::string EncodeDestination(const CTxDestination& dest)
 {
-    return boost::apply_visitor(DestinationEncoder(Params(), false), dest);
+    return std::visit(DestinationEncoder(Params(), false), dest);
 }
 
 CTxDestination DecodeDestination(const std::string& str, std::string& error_msg)
@@ -433,7 +464,7 @@ bool IsValidDestinationString(const std::string& str)
 
 std::string EncodeParentDestination(const CTxDestination& dest)
 {
-    return boost::apply_visitor(DestinationEncoder(Params(), true), dest);
+    return std::visit(DestinationEncoder(Params(), true), dest);
 }
 
 CTxDestination DecodeParentDestination(const std::string& str, std::string& error_msg)

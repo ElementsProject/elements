@@ -396,8 +396,8 @@ private:
     uint32_t m_first_false_pos = NO_FALSE;
 
 public:
-    bool empty() { return m_stack_size == 0; }
-    bool all_true() { return m_first_false_pos == NO_FALSE; }
+    bool empty() const { return m_stack_size == 0; }
+    bool all_true() const { return m_first_false_pos == NO_FALSE; }
     void push_back(bool f)
     {
         if (m_first_false_pos == NO_FALSE && !f) {
@@ -567,8 +567,8 @@ static bool EvalChecksig(const valtype& sig, const valtype& pubkey, CScript::con
     assert(false);
 }
 
-static const CHashWriter HASHER_TAPLEAF_ELEMENTS = TaggedHash("TapLeaf/elements");
-static const CHashWriter HASHER_TAPBRANCH_ELEMENTS = TaggedHash("TapBranch/elements");
+const CHashWriter HASHER_TAPLEAF_ELEMENTS = TaggedHash("TapLeaf/elements");
+const CHashWriter HASHER_TAPBRANCH_ELEMENTS = TaggedHash("TapBranch/elements");
 static const CHashWriter HASHER_TAPSIGHASH_ELEMENTS = TaggedHash("TapSighash/elements");
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, SigVersion sigversion, ScriptExecutionData& execdata, ScriptError* serror)
@@ -1839,7 +1839,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     auto inps = checker.GetTxvIn();
                     const PrecomputedTransactionData *cache = checker.GetPrecomputedTransactionData();
                     // Return error if the evaluation context is unavailable
-                    // TODO: Handle accoding to MissingDataBehavior
+                    // TODO: Handle according to MissingDataBehavior
                     if (!inps || !cache || !cache->m_bip341_taproot_ready)
                         return set_error(serror, SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE);
                     const std::vector<CTxOut>& spent_outputs = cache->m_spent_outputs;
@@ -1911,7 +1911,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
 
                     // Even tough this value should never 2^25(MAX_SIZE), this can set to any value in exotic custom contexts
                     // safe to check that this in 4 byte positive number before pushing it
-                    // TODO: Handle accoding to MissingDataBehavior
+                    // TODO: Handle according to MissingDataBehavior
                     if (checker.GetnIn() > MAX_SIZE)
                         return set_error(serror, SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE);
                     stack.push_back(CScriptNum(static_cast<int64_t>(checker.GetnIn())).getvch());
@@ -1935,7 +1935,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     auto outs = checker.GetTxvOut();
                     const PrecomputedTransactionData *cache = checker.GetPrecomputedTransactionData();
                     // Return error if the evaluation context is unavailable
-                    // TODO: Handle accoding to MissingDataBehavior
+                    // TODO: Handle according to MissingDataBehavior
                     if (!outs || !cache || !cache->m_bip341_taproot_ready)
                         return set_error(serror, SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE);
                     assert(cache->m_output_spk_single_hashes.size() == outs->size());
@@ -2022,7 +2022,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                         {
                             const PrecomputedTransactionData *cache = checker.GetPrecomputedTransactionData();
                             // Return error if the evaluation context is unavailable
-                            // TODO: Handle accoding to MissingDataBehavior
+                            // TODO: Handle according to MissingDataBehavior
                             if (!cache || !cache->m_bip341_taproot_ready)
                                 return set_error(serror, SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE);
                             push8_le(stack, cache->m_tx_weight);
@@ -2497,7 +2497,7 @@ std::vector<uint256> GetSpentScriptPubKeysSHA256(const std::vector<CTxOut>& outp
     std::vector<uint256> spent_spk_single_hashes;
     spent_spk_single_hashes.reserve(outputs_spent.size());
     for (const auto& txout : outputs_spent) {
-        // Normal serialization using the << operater would also serialize the length, therefore we directly write using CSHA256
+        // Normal serialization using the << operator would also serialize the length, therefore we directly write using CSHA256
         uint256 spent_spk_single_hash;
         CSHA256().Write(txout.scriptPubKey.data(), txout.scriptPubKey.size()).Finalize(spent_spk_single_hash.data());
         spent_spk_single_hashes.push_back(std::move(spent_spk_single_hash));
@@ -2512,7 +2512,7 @@ std::vector<uint256> GetOutputScriptPubKeysSHA256(const T& txTo)
     std::vector<uint256> out_spk_single_hashes;
     out_spk_single_hashes.reserve(txTo.vout.size());
     for (const auto& txout : txTo.vout) {
-        // Normal serialization using the << operater would also serialize the length, therefore we directly write using CSHA256
+        // Normal serialization using the << operator would also serialize the length, therefore we directly write using CSHA256
         uint256 out_spk_single_hash;
         CSHA256().Write(txout.scriptPubKey.data(), txout.scriptPubKey.size()).Finalize(out_spk_single_hash.data());
         out_spk_single_hashes.push_back(std::move(out_spk_single_hash));
@@ -2538,7 +2538,7 @@ uint256 GetRangeproofsHash(const T& txTo) {
 } // namespace
 
 template <class T>
-void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent_outputs)
+void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent_outputs, bool force)
 {
     assert(!m_spent_outputs_ready);
 
@@ -2549,9 +2549,9 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
     }
 
     // Determine which precomputation-impacting features this transaction uses.
-    bool uses_bip143_segwit = false;
-    bool uses_bip341_taproot = false;
-    for (size_t inpos = 0; inpos < txTo.vin.size(); ++inpos) {
+    bool uses_bip143_segwit = force;
+    bool uses_bip341_taproot = force;
+    for (size_t inpos = 0; inpos < txTo.vin.size() && !(uses_bip143_segwit && uses_bip341_taproot); ++inpos) {
         if (inpos < txTo.witness.vtxinwit.size() && !txTo.witness.vtxinwit[inpos].scriptWitness.IsNull()) {
             if (m_spent_outputs_ready && m_spent_outputs[inpos].scriptPubKey.size() == 2 + WITNESS_V1_TAPROOT_SIZE &&
                 m_spent_outputs[inpos].scriptPubKey[0] == OP_1) {
@@ -2608,16 +2608,28 @@ PrecomputedTransactionData::PrecomputedTransactionData(const T& txTo)
 }
 
 // explicit instantiation
-template void PrecomputedTransactionData::Init(const CTransaction& txTo, std::vector<CTxOut>&& spent_outputs);
-template void PrecomputedTransactionData::Init(const CMutableTransaction& txTo, std::vector<CTxOut>&& spent_outputs);
+template void PrecomputedTransactionData::Init(const CTransaction& txTo, std::vector<CTxOut>&& spent_outputs, bool force);
+template void PrecomputedTransactionData::Init(const CMutableTransaction& txTo, std::vector<CTxOut>&& spent_outputs, bool force);
 template PrecomputedTransactionData::PrecomputedTransactionData(const CTransaction& txTo);
 template PrecomputedTransactionData::PrecomputedTransactionData(const CMutableTransaction& txTo);
 
 PrecomputedTransactionData::PrecomputedTransactionData(const uint256& hash_genesis_block)
         : m_tapsighash_hasher(CHashWriter(HASHER_TAPSIGHASH_ELEMENTS) << hash_genesis_block << hash_genesis_block) {}
 
+static bool HandleMissingData(MissingDataBehavior mdb)
+{
+    switch (mdb) {
+    case MissingDataBehavior::ASSERT_FAIL:
+        assert(!"Missing data");
+        break;
+    case MissingDataBehavior::FAIL:
+        return false;
+    }
+    assert(!"Unknown MissingDataBehavior value");
+}
+
 template<typename T>
-bool SignatureHashSchnorr(uint256& hash_out, const ScriptExecutionData& execdata, const T& tx_to, uint32_t in_pos, uint8_t hash_type, SigVersion sigversion, const PrecomputedTransactionData& cache)
+bool SignatureHashSchnorr(uint256& hash_out, const ScriptExecutionData& execdata, const T& tx_to, uint32_t in_pos, uint8_t hash_type, SigVersion sigversion, const PrecomputedTransactionData& cache, MissingDataBehavior mdb)
 {
     uint8_t ext_flag, key_version;
     switch (sigversion) {
@@ -2637,7 +2649,9 @@ bool SignatureHashSchnorr(uint256& hash_out, const ScriptExecutionData& execdata
         assert(false);
     }
     assert(in_pos < tx_to.vin.size());
-    assert(cache.m_bip341_taproot_ready && cache.m_spent_outputs_ready);
+    if (!(cache.m_bip341_taproot_ready && cache.m_spent_outputs_ready)) {
+        return HandleMissingData(mdb);
+    }
 
     CHashWriter ss = cache.m_tapsighash_hasher;
 
@@ -2857,6 +2871,9 @@ bool GenericTransactionSignatureChecker<T>::CheckECDSASignature(const std::vecto
     int nHashType = vchSig.back();
     vchSig.pop_back();
 
+    // Witness sighashes need the amount.
+    if (sigversion == SigVersion::WITNESS_V0 && amount.IsNull()) return HandleMissingData(m_mdb);
+
     uint256 sighash = SignatureHash(scriptCode, *txTo, nIn, nHashType, amount, sigversion, flags, this->txdata);
 
     if (!VerifyECDSASignature(vchSig, pubkey, sighash))
@@ -2885,8 +2902,8 @@ bool GenericTransactionSignatureChecker<T>::CheckSchnorrSignature(Span<const uns
         if (hashtype == SIGHASH_DEFAULT) return set_error(serror, SCRIPT_ERR_SCHNORR_SIG_HASHTYPE);
     }
     uint256 sighash;
-    assert(this->txdata);
-    if (!SignatureHashSchnorr(sighash, execdata, *txTo, nIn, hashtype, sigversion, *this->txdata)) {
+    if (!this->txdata) return HandleMissingData(m_mdb);
+    if (!SignatureHashSchnorr(sighash, execdata, *txTo, nIn, hashtype, sigversion, *this->txdata, m_mdb)) {
         return set_error(serror, SCRIPT_ERR_SCHNORR_SIG_HASHTYPE);
     }
     if (!VerifySchnorrSignature(sig, pubkey, sighash)) return set_error(serror, SCRIPT_ERR_SCHNORR_SIG);
@@ -2914,9 +2931,9 @@ bool GenericTransactionSignatureChecker<T>::CheckLockTime(const CScriptNum& nLoc
     if (nLockTime > (int64_t)txTo->nLockTime)
         return false;
 
-    // Finally the nLockTime feature can be disabled and thus
-    // CHECKLOCKTIMEVERIFY bypassed if every txin has been
-    // finalized by setting nSequence to maxint. The
+    // Finally the nLockTime feature can be disabled in IsFinalTx()
+    // and thus CHECKLOCKTIMEVERIFY bypassed if every txin has
+    // been finalized by setting nSequence to maxint. The
     // transaction would be allowed into the blockchain, making
     // the opcode ineffective.
     //
@@ -3057,12 +3074,14 @@ static bool ExecuteWitnessScript(const Span<const valtype>& stack_span, const CS
     return true;
 }
 
-static bool VerifyTaprootCommitment(const std::vector<unsigned char>& control, const std::vector<unsigned char>& program, const CScript& script, uint256& tapleaf_hash)
+uint256 ComputeTapleafHash(uint8_t leaf_version, const CScript& script)
+{
+    return (CHashWriter(HASHER_TAPLEAF_ELEMENTS) << leaf_version << script).GetSHA256();
+}
+
+uint256 ComputeTaprootMerkleRoot(Span<const unsigned char> control, const uint256& tapleaf_hash)
 {
     const int path_len = (control.size() - TAPROOT_CONTROL_BASE_SIZE) / TAPROOT_CONTROL_NODE_SIZE;
-    const XOnlyPubKey p{uint256(std::vector<unsigned char>(control.begin() + 1, control.begin() + TAPROOT_CONTROL_BASE_SIZE))};
-    const XOnlyPubKey q{uint256(program)};
-    tapleaf_hash = (CHashWriter(HASHER_TAPLEAF_ELEMENTS) << uint8_t(control[0] & TAPROOT_LEAF_MASK) << script).GetSHA256();
     uint256 k = tapleaf_hash;
     for (int i = 0; i < path_len; ++i) {
         CHashWriter ss_branch = CHashWriter{HASHER_TAPBRANCH_ELEMENTS};
@@ -3074,8 +3093,21 @@ static bool VerifyTaprootCommitment(const std::vector<unsigned char>& control, c
         }
         k = ss_branch.GetSHA256();
     }
+    return k;
+}
+
+static bool VerifyTaprootCommitment(const std::vector<unsigned char>& control, const std::vector<unsigned char>& program, const uint256& tapleaf_hash)
+{
+    assert(control.size() >= TAPROOT_CONTROL_BASE_SIZE);
+    assert(program.size() >= uint256::size());
+    //! The internal pubkey (x-only, so no Y coordinate parity).
+    const XOnlyPubKey p{uint256(std::vector<unsigned char>(control.begin() + 1, control.begin() + TAPROOT_CONTROL_BASE_SIZE))};
+    //! The output pubkey (taken from the scriptPubKey).
+    const XOnlyPubKey q{uint256(program)};
+    // Compute the Merkle root from the leaf and the provided path.
+    const uint256 merkle_root = ComputeTaprootMerkleRoot(control, tapleaf_hash);
     // Verify that the output pubkey matches the tweaked internal pubkey, after correcting for parity.
-    return q.CheckTapTweak(p, k, control[0] & 1);
+    return q.CheckTapTweak(p, merkle_root, control[0] & 1);
 }
 
 static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, const std::vector<unsigned char>& program, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror, bool is_p2sh)
@@ -3093,7 +3125,7 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
             const valtype& script_bytes = SpanPopBack(stack);
             exec_script = CScript(script_bytes.begin(), script_bytes.end());
             uint256 hash_exec_script;
-            CSHA256().Write(&exec_script[0], exec_script.size()).Finalize(hash_exec_script.begin());
+            CSHA256().Write(exec_script.data(), exec_script.size()).Finalize(hash_exec_script.begin());
             if (memcmp(hash_exec_script.begin(), program.data(), 32)) {
                 return set_error(serror, SCRIPT_ERR_WITNESS_PROGRAM_MISMATCH);
             }
@@ -3135,7 +3167,8 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
             if (control.size() < TAPROOT_CONTROL_BASE_SIZE || control.size() > TAPROOT_CONTROL_MAX_SIZE || ((control.size() - TAPROOT_CONTROL_BASE_SIZE) % TAPROOT_CONTROL_NODE_SIZE) != 0) {
                 return set_error(serror, SCRIPT_ERR_TAPROOT_WRONG_CONTROL_SIZE);
             }
-            if (!VerifyTaprootCommitment(control, program, exec_script, execdata.m_tapleaf_hash)) {
+            execdata.m_tapleaf_hash = ComputeTapleafHash(control[0] & TAPROOT_LEAF_MASK, exec_script);
+            if (!VerifyTaprootCommitment(control, program, execdata.m_tapleaf_hash)) {
                 return set_error(serror, SCRIPT_ERR_WITNESS_PROGRAM_MISMATCH);
             }
             execdata.m_tapleaf_hash_init = true;

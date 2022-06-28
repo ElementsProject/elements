@@ -68,7 +68,7 @@
               </property>
               <property name="maximumSize">
                <size>
-                <width>30</width>
+                <width>45</width>
                 <height>16777215</height>
                </size>
               </property>
@@ -88,9 +88,6 @@
                 <width>24</width>
                 <height>24</height>
                </size>
-              </property>
-              <property name="flat">
-               <bool>true</bool>
               </property>
              </widget>
             </item>
@@ -203,13 +200,6 @@
                    <verstretch>0</verstretch>
                   </sizepolicy>
                  </property>
-                 <property name="font">
-                  <font>
-                   <family>Monospace</family>
-                   <weight>75</weight>
-                   <bold>true</bold>
-                  </font>
-                 </property>
                  <property name="cursor">
                   <cursorShape>IBeamCursor</cursorShape>
                  </property>
@@ -271,13 +261,6 @@
                    <verstretch>0</verstretch>
                   </sizepolicy>
                  </property>
-                 <property name="font">
-                  <font>
-                   <family>Monospace</family>
-                   <weight>75</weight>
-                   <bold>true</bold>
-                  </font>
-                 </property>
                  <property name="cursor">
                   <cursorShape>IBeamCursor</cursorShape>
                  </property>
@@ -312,13 +295,6 @@
                    <horstretch>0</horstretch>
                    <verstretch>0</verstretch>
                   </sizepolicy>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <family>Monospace</family>
-                   <weight>75</weight>
-                   <bold>true</bold>
-                  </font>
                  </property>
                  <property name="cursor">
                   <cursorShape>IBeamCursor</cursorShape>
@@ -381,13 +357,6 @@
                </item>
                <item row="5" column="2">
                 <widget class="QLabel" name="labelWatchTotal">
-                 <property name="font">
-                  <font>
-                   <family>Monospace</family>
-                   <weight>75</weight>
-                   <bold>true</bold>
-                  </font>
-                 </property>
                  <property name="cursor">
                   <cursorShape>IBeamCursor</cursorShape>
                  </property>
@@ -413,13 +382,6 @@
                    <verstretch>0</verstretch>
                   </sizepolicy>
                  </property>
-                 <property name="font">
-                  <font>
-                   <family>Monospace</family>
-                   <weight>75</weight>
-                   <bold>true</bold>
-                  </font>
-                 </property>
                  <property name="cursor">
                   <cursorShape>IBeamCursor</cursorShape>
                  </property>
@@ -439,13 +401,6 @@
                </item>
                <item row="2" column="2">
                 <widget class="QLabel" name="labelWatchPending">
-                 <property name="font">
-                  <font>
-                   <family>Monospace</family>
-                   <weight>75</weight>
-                   <bold>true</bold>
-                  </font>
-                 </property>
                  <property name="cursor">
                   <cursorShape>IBeamCursor</cursorShape>
                  </property>
@@ -471,13 +426,6 @@
                    <verstretch>0</verstretch>
                   </sizepolicy>
                  </property>
-                 <property name="font">
-                  <font>
-                   <family>Monospace</family>
-                   <weight>75</weight>
-                   <bold>true</bold>
-                  </font>
-                 </property>
                  <property name="cursor">
                   <cursorShape>IBeamCursor</cursorShape>
                  </property>
@@ -502,13 +450,6 @@
                    <horstretch>0</horstretch>
                    <verstretch>0</verstretch>
                   </sizepolicy>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <family>Monospace</family>
-                   <weight>75</weight>
-                   <bold>true</bold>
-                  </font>
                  </property>
                  <property name="cursor">
                   <cursorShape>IBeamCursor</cursorShape>
@@ -610,7 +551,7 @@
              </layout>
             </item>
             <item>
-             <widget class="QListView" name="listTransactions">
+             <widget class="TransactionOverviewWidget" name="listTransactions">
               <property name="styleSheet">
                <string notr="true">QListView { background: transparent; }</string>
               </property>
@@ -622,6 +563,9 @@
               </property>
               <property name="horizontalScrollBarPolicy">
                <enum>Qt::ScrollBarAlwaysOff</enum>
+              </property>
+              <property name="sizeAdjustPolicy">
+               <enum>QAbstractScrollArea::AdjustToContents</enum>
               </property>
               <property name="selectionMode">
                <enum>QAbstractItemView::NoSelection</enum>
@@ -639,6 +583,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>TransactionOverviewWidget</class>
+   <extends>QListView</extends>
+   <header>qt/transactionoverviewwidget.h</header>
+  </customwidget>
+ </customwidgets>
  <resources>
   <include location="../bitcoin.qrc"/>
  </resources>

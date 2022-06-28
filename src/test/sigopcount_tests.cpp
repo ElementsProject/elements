@@ -76,7 +76,7 @@ static ScriptError VerifyWithFlag(const CTransaction& output, const CMutableTran
                 output.vout[0].scriptPubKey,
                 &inputi.witness.vtxinwit[0].scriptWitness,
                 flags,
-                TransactionSignatureChecker(&inputi, 0, output.vout[0].nValue),
+                TransactionSignatureChecker(&inputi, 0, output.vout[0].nValue, MissingDataBehavior::ASSERT_FAIL),
                 &error);
 
     BOOST_CHECK((ret == true) == (error == SCRIPT_ERR_OK));

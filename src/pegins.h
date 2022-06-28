@@ -14,7 +14,7 @@
 #include <script/script.h>
 #include <chain.h>
 
-#include <boost/variant.hpp>
+#include <variant>
 
 /** Calculates script necessary for p2ch peg-in transactions */
 CScript calculate_contract(const CScript& federationRedeemScript, const CScript& witnessProgram);
@@ -45,6 +45,6 @@ CScriptWitness CreatePeginWitness(const CAmount& value, const CAsset& asset, con
 CScriptWitness CreatePeginWitness(const CAmount& value, const CAsset& asset, const uint256& genesis_hash, const CScript& claim_script, const Sidechain::Bitcoin::CTransactionRef& tx_ref, const Sidechain::Bitcoin::CMerkleBlock& merkle_block);
 
 /** Break out the individual parts of the peg-in witness stack */
-bool DecomposePeginWitness(const CScriptWitness& witness, CAmount& value, CAsset& asset, uint256& genesis_hash, CScript& claim_script, boost::variant<boost::blank, Sidechain::Bitcoin::CTransactionRef, CTransactionRef>& tx, boost::variant<boost::blank, Sidechain::Bitcoin::CMerkleBlock, CMerkleBlock>& merkle_block);
+bool DecomposePeginWitness(const CScriptWitness& witness, CAmount& value, CAsset& asset, uint256& genesis_hash, CScript& claim_script, std::variant<std::monostate, Sidechain::Bitcoin::CTransactionRef, CTransactionRef>& tx, std::variant<std::monostate, Sidechain::Bitcoin::CMerkleBlock, CMerkleBlock>& merkle_block);
 
 #endif // BITCOIN_PEGINS_H

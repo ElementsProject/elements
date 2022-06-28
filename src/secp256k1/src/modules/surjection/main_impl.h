@@ -288,7 +288,6 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     unsigned char msg32[32];
 
     VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     ARG_CHECK(proof != NULL);
     ARG_CHECK(ephemeral_input_tags != NULL);
@@ -339,7 +338,7 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
      * homage to the rangeproof code which does this very cleverly to encode messages. */
     nonce = borromean_s[ring_input_index];
     secp256k1_scalar_clear(&borromean_s[ring_input_index]);
-    if (secp256k1_borromean_sign(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx, &proof->data[0], borromean_s, ring_pubkeys, &nonce, &blinding_key, rsizes, indices, 1, msg32, 32) == 0) {
+    if (secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, &proof->data[0], borromean_s, ring_pubkeys, &nonce, &blinding_key, rsizes, indices, 1, msg32, 32) == 0) {
         return 0;
     }
     for (i = 0; i < n_used_pubkeys; i++) {
@@ -361,7 +360,6 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
     unsigned char msg32[32];
 
     VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(proof != NULL);
     ARG_CHECK(ephemeral_input_tags != NULL);
     ARG_CHECK(ephemeral_output_tag != NULL);
@@ -392,7 +390,7 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
         }
     }
     secp256k1_surjection_genmessage(msg32, ephemeral_input_tags, n_total_pubkeys, ephemeral_output_tag);
-    return secp256k1_borromean_verify(&ctx->ecmult_ctx, NULL, &proof->data[0], borromean_s, ring_pubkeys, rsizes, 1, msg32, 32);
+    return secp256k1_borromean_verify(NULL, &proof->data[0], borromean_s, ring_pubkeys, rsizes, 1, msg32, 32);
 }
 
 #endif
