@@ -67,7 +67,7 @@ The currently defined elements global proprietary types are as follows:
 | None
 | No key data
 | <tt><8-bit uint></tt>
-| An 8 bit little endian unsigned integer as a bitfield for various elements specific transaction modification flags. Bit 0 is the PSET Blinded flag and it is set to 1 to indicate that the PSET has not been blinded yet. Once all confidential values, rangeproofs, and asset surjection proofs have been attached to the PSET, it must be set to 0.
+| An 8 bit unsigned integer as a bitfield for various elements specific transaction modification flags. Bit 0 is reserved and should not be used. If it is set when reading a PSET, it should be ignored. This field defaults to 0 and should not be output if its value is 0.
 |
 | 0
 | 2
@@ -390,7 +390,6 @@ For any output which is going to be blinded, the Creator must add the blinding p
 
 If any input is blinded, at least one of the outputs must also be blinded, i.e. it must have a <tt>PSBT_ELEMENTS_OUT_BLINDING_PUBKEY</tt>.
 Such an output can be a 0 value OP_RETURN output.
-Because blinding must occur, the Creator must set Bit 0 of <tt>PSBT_ELEMENTS_GLOBAL_TX_MODIFIABLE</tt> to indicate that blinding must be done prior to signing.
 
 The Creator decides whether and which inputs are issuance inputs.
 For those inputs, the fields <tt>PSBT_ELEMENTS_IN_ISSUANCE_BLINDING_NONCE</tt> and <tt>PSBT_ELEMENTS_IN_ISSUANCE_ASSET_ENTROPY</tt> are set.
