@@ -1426,7 +1426,7 @@ struct PartiallySignedTransaction
             // Scalar offsets
             for (const uint256& scalar : m_scalar_offsets) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_GLOBAL_SCALAR), scalar);
-                SerializeToVector(s, std::vector<unsigned char>());
+                s << PSBT_SEPARATOR; /* Zero length data value */
             }
         }
 
