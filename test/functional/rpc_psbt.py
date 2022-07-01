@@ -935,6 +935,11 @@ class PSBTTest(BitcoinTestFramework):
         # Test decoding error: invalid base64
         assert_raises_rpc_error(-22, "TX decode failed invalid base64", self.nodes[0].decodepsbt, ";definitely not base64;")
 
+        # Test serialisation acceptance of PSBT_ELEMENTS_GLOBAL_SCALAR
+        old_serialization = 'cHNldP8B+wQCAAAAAQIEAgAAAAEEAQABBQEAJ/wEcHNldAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAEAAA=='
+        new_serialization = 'cHNldP8B+wQCAAAAAQIEAgAAAAEEAQABBQEAJ/wEcHNldAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fIAAA'
+        assert_equal(self.nodes[1].decodepsbt(old_serialization), self.nodes[1].decodepsbt(new_serialization))
+
         # Send to all types of addresses
         addr1 = self.nodes[1].getnewaddress("", "bech32")
         txid1 = self.nodes[0].sendtoaddress(addr1, 11)

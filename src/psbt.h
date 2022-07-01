@@ -137,6 +137,9 @@ template<typename Stream, typename... X>
 void UnserializeFromVector(Stream& s, X&... args)
 {
     size_t expected_size = ReadCompactSize(s);
+    if (!expected_size) {
+        return; /* Zero size = no data to read */
+    }
     size_t remaining_before = s.size();
     UnserializeMany(s, args...);
     size_t remaining_after = s.size();
