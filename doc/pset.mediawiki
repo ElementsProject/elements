@@ -24,13 +24,20 @@ This BIP is licensed under the 2-clause BSD license.
 
 ==Specification==
 
-The Partially Signed Elements Transaction (PSET) format is identical to the BIP 370 PSBT format.
-The changes are new proprietary type fields, a new magic sequence, and new roles.
+The Partially Signed Elements Transaction (PSET) format extends the BIP 370 PSBT format.
+The changes are new proprietary type fields, a new magic sequence, new roles, and changes
+to make some PSBT fields conditionally mandatory.
+
 The fields added for PSET are only allowed when the PSBT version is 2.
 
 For elements, the identifier prefix string is <tt>pset</tt>.
 Note that previous implementations of PSET used a different prefix string and had different fields.
 The use of a new identifier prefix is to avoid conflicts with the previous implementations.
+
+The following PSBT fields are made conditionally mandatory:
+
+# <tt>PSBT_OUT_AMOUNT</tt> is not mandatory once a transaction output is blinded
+# <tt>PSBT_OUT_SCRIPT</tt> is not mandatory for L-BTC fee outputs
 
 The currently defined elements global proprietary types are as follows:
 
