@@ -275,7 +275,7 @@ The currently defined elements per-output proprietary types are as follows:
 | None
 | No key data
 | <tt><33 byte commitment></tt>
-| The 33 byte Value Commitment for this output. If provided, either <tt>PSBT_OUT_VALUE</tt> must be removed or <tt>PSBT_ELEMENTS_OUT_BLIND_VALUE_PROOF</tt> must be provided too.
+| The 33 byte Value Commitment for this output. If provided, either <tt>PSBT_OUT_AMOUNT</tt> must be removed or <tt>PSBT_ELEMENTS_OUT_BLIND_VALUE_PROOF</tt> must be provided too.
 |
 | 0
 | 2
