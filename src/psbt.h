@@ -346,14 +346,14 @@ struct PSBTInput
             }
 
             // Elements proprietary fields are only allowed with v2
-            // Issuance value
-            if (!m_issuance_value_commitment.IsNull()) {
-                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_VALUE_COMMITMENT));
-                SerializeToVector(s, m_issuance_value_commitment);
-            }
+            // Issuance value + commitment
             if (m_issuance_value != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_VALUE));
                 SerializeToVector(s, *m_issuance_value);
+            }
+            if (!m_issuance_value_commitment.IsNull()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_VALUE_COMMITMENT));
+                SerializeToVector(s, m_issuance_value_commitment);
             }
 
             // Issuance rangeproof
