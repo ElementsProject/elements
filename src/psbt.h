@@ -1015,14 +1015,14 @@ struct PSBTOutput
                 SerializeToVector(s, m_value_commitment);
             }
 
-            // Asset
-            if (!m_asset_commitment.IsNull()) {
-                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_ASSET_COMMITMENT));
-                SerializeToVector(s, m_asset_commitment);
-            }
+            // Asset + commitment
             if (!m_asset.IsNull()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_ASSET));
                 SerializeToVector(s, m_asset);
+            }
+            if (!m_asset_commitment.IsNull()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_ASSET_COMMITMENT));
+                SerializeToVector(s, m_asset_commitment);
             }
 
             // Value rangeproof
@@ -1055,13 +1055,13 @@ struct PSBTOutput
                 SerializeToVector(s, *m_blinder_index);
             }
 
-            // BLind value proof
+            // Blind value proof
             if (!m_blind_value_proof.empty()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_BLIND_VALUE_PROOF));
                 s << m_blind_value_proof;
             }
 
-            // BLind asset proof
+            // Blind asset proof
             if (!m_blind_asset_proof.empty()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_BLIND_ASSET_PROOF));
                 s << m_blind_asset_proof;
