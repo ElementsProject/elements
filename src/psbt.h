@@ -998,8 +998,12 @@ struct PSBTOutput
         SerializeHDKeypaths(s, hd_keypaths, CompactSizeWriter(PSBT_OUT_BIP32_DERIVATION));
 
         if (m_psbt_version >= 2) {
-            // Write spk
-            if (script != std::nullopt) {
+            // Write amount and spk
+            if (amount != std::nullopt) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_AMOUNT));
+                SerializeToVector(s, *amount);
+            }
+            if (script.has_value()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_SCRIPT));
                 s << *script;
             }
@@ -1009,10 +1013,6 @@ struct PSBTOutput
             if (!m_value_commitment.IsNull()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_VALUE_COMMITMENT));
                 SerializeToVector(s, m_value_commitment);
-            }
-            if (amount != std::nullopt) {
-                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_AMOUNT));
-                SerializeToVector(s, *amount);
             }
 
             // Asset
