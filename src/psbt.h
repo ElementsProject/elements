@@ -1662,6 +1662,9 @@ struct PartiallySignedTransaction
                                 m_scalar_offsets.insert(scalar);
                                 break;
                             }
+                            default:
+                                known = false;
+                                break;
                         }
                     }
 
