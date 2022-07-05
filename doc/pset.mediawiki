@@ -117,7 +117,7 @@ The currently defined elements per-input proprietary types are as follows:
 | 2
 |-
 | Issuance Inflation Keys Rangeproof
-| <tt>PSBT_ELEMENTS_IN_ISSUANCE_KEYS_RANGEPROOF = 0x03</tt>
+| <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_RANGEPROOF = 0x03</tt>
 | None
 | No key data
 | <tt><rangeproof></tt>
@@ -147,7 +147,7 @@ The currently defined elements per-input proprietary types are as follows:
 | 2
 |-
 | Peg-in Genesis Hash
-| <tt>PSBT_ELEMENTS_IN_PEG_IN_GENESIS = 0x06</tt>
+| <tt>PSBT_ELEMENTS_IN_PEG_IN_GENESIS_HASH = 0x06</tt>
 | None
 | No key data
 | <tt><hash></tt>
@@ -187,7 +187,7 @@ The currently defined elements per-input proprietary types are as follows:
 | 2
 |-
 | Issuance Inflation Keys Amount
-| <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS = 0x0a</tt>
+| <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_AMOUNT = 0x0a</tt>
 | None
 | No key data
 | <tt><64-bit int></tt>
@@ -201,7 +201,7 @@ The currently defined elements per-input proprietary types are as follows:
 | None
 | No key data
 | <tt><33 byte commitment></tt>
-| The 33 byte commitment to the inflation keys output value in this issuance. If provided, either <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS</tt> must be removed or <tt>PSBT_ELEMENTS_IN_ISSUANCE_BLIND_INFLATION_KEYS_PROOF</tt> must be provided too.
+| The 33 byte commitment to the inflation keys output value in this issuance. If provided, either <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_AMOUNT</tt> must be removed or <tt>PSBT_ELEMENTS_IN_ISSUANCE_BLIND_INFLATION_KEYS_PROOF</tt> must be provided too.
 |
 | 0
 | 2
@@ -251,7 +251,7 @@ The currently defined elements per-input proprietary types are as follows:
 | None
 | No key data
 | <tt><rangeproof></tt>
-| An explicit value rangeproof that proves that the value commitment in <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_COMMITMENT</tt> matches the explicit value in <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS</tt>. If provided, <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_COMMITMENT</tt> must be provided too.
+| An explicit value rangeproof that proves that the value commitment in <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_COMMITMENT</tt> matches the explicit value in <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_AMOUNT</tt>. If provided, <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_COMMITMENT</tt> must be provided too.
 |
 | 0
 | 2
@@ -394,7 +394,7 @@ Such an output can be a 0 value OP_RETURN output.
 The Creator decides whether and which inputs are issuance inputs.
 For those inputs, the fields <tt>PSBT_ELEMENTS_IN_ISSUANCE_BLINDING_NONCE</tt> and <tt>PSBT_ELEMENTS_IN_ISSUANCE_ASSET_ENTROPY</tt> are set.
 Such inputs must also have the issuance flag set in the outpoint of the input.
-The amount is added to the PSET input as <tt>PSBT_ELEMENTS_IN_ISSUANCE_VALUE</tt> and the amount for the issuance inflation keys output as <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS</tt>.
+The amount is added to the PSET input as <tt>PSBT_ELEMENTS_IN_ISSUANCE_VALUE</tt> and the amount for the issuance inflation keys output as <tt>PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_AMOUNT</tt>.
 
 The Creator decides whether and which inputs are Peg-in inputs.
 Peg-in inputs must have the Peg-in flag set in their outpoints.
