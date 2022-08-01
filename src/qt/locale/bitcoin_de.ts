@@ -1033,8 +1033,8 @@ Das Signieren ist nur mit Adressen vom Typ 'Legacy' möglich.</translation>
         <translation>Etwa %1 GB Daten werden in diesem Verzeichnis gespeichert.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the %2 block chain.</source>
-        <translation>%1 wird eine Kopie der %2-Blockchain herunterladen und speichern.</translation>
+        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
+        <translation>%1 wird heruntergeladen und als eine Kopie von dem Bitcoin Blockchain gespeichert.</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>

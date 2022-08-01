@@ -1033,8 +1033,8 @@ Somente é possível assinar com endereços do tipo 'legado'.</translation>
         <translation>Aproximadamente %1 GB de dados serão armazenados neste diretório.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the %2 block chain.</source>
-        <translation>%1 irá baixar e armazenar uma cópia da block chain do %2.</translation>
+        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
+        <translation>%1 irá baixar e armazenar uma cópia da block chain do Bitcoin.</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>

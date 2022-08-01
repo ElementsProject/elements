@@ -1017,8 +1017,8 @@ Podpisywanie jest możliwe tylko z adresami typu „legacy”.</translation>
         <translation>Około %1 GB danych zostanie zapisane w tym katalogu.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the %2 block chain.</source>
-        <translation>%1 pobierze i zapisze lokalnie kopię łańcucha bloków %2.</translation>
+        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
+        <translation>%1 pobierze i zapisze lokalnie kopię łańcucha bloków Bitcoin.</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>
