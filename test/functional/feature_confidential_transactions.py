@@ -272,6 +272,11 @@ class CTTest (BitcoinTestFramework):
 
         # Import the blinding key
         blindingkey = self.nodes[2].dumpblindingkey(address2)
+
+        # Check that importing keys from non-CT address works as intended
+        blindingkey2 = self.nodes[2].dumpblindingkey(unconfidential_address2)
+        assert_equal(blindingkey, blindingkey2)
+
         self.nodes[1].importblindingkey(address2, blindingkey)
         # Check the auditor's gettransaction and listreceivedbyaddress
         # Needs rescan to update wallet txns

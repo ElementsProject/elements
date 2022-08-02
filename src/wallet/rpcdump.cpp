@@ -2112,7 +2112,8 @@ RPCHelpMan importissuanceblindingkey()
 RPCHelpMan dumpblindingkey()
 {
     return RPCHelpMan{"dumpblindingkey",
-                "\nDumps the private blinding key for a CT address in hex.",
+                "\nDumps the private blinding key for a CT address in hex."
+                "\nNote: If the address is not a CT address, looks for blinding key corresponding to this non-CT address.",
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The CT address"},
                 },
@@ -2134,17 +2135,15 @@ RPCHelpMan dumpblindingkey()
     if (!IsValidDestination(dest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
     }
-    if (!IsBlindDestination(dest)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a CT address");
-    }
     CScript script = GetScriptForDestination(dest);
     CKey key;
     key = pwallet->GetBlindingKey(&script);
     if (key.IsValid()) {
         CPubKey pubkey(key.GetPubKey());
-        if (pubkey == GetDestinationBlindingKey(dest)) {
-            return HexStr(Span<const unsigned char>(key.begin(), key.size()));
+        if (IsBlindDestination(dest) && pubkey != GetDestinationBlindingKey(dest)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "CT address blinding key does not match the blinding key in wallet");
         }
+        return HexStr(Span<const unsigned char>(key.begin(), key.size()));
     }
 
     throw JSONRPCError(RPC_WALLET_ERROR, "Blinding key for address is unknown");
