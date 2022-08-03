@@ -91,5 +91,8 @@ const NetworkStyle* NetworkStyle::instantiate(const std::string& networkId)
     }
     // If it doesn't match any, use regtest since it's a custom chain
     assert(networkId != "regtest");
-    return instantiate("regtest");
+    // but keep the chain name in the title
+    NetworkStyle* instance = const_cast<NetworkStyle*>(instantiate("regtest"));
+    instance->titleAddText = titleAddText.c_str();
+    return instance;
 }
