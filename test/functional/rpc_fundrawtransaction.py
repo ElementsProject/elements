@@ -1049,7 +1049,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         # Make sure the default wallet will not be loaded when restarted with a high minrelaytxfee
         self.nodes[0].unloadwallet(self.default_wallet_name, False)
         feerate = Decimal("0.1")
-        self.restart_node(0, [f"-minrelaytxfee={feerate}", "-discardfee=0"]) # Set high minrelayfee, set discardfee to 0 for easier calculation
+        self.restart_node(0, ["-maxtxfee=10000000", f"-minrelaytxfee={feerate}", "-discardfee=0"]) # Set high minrelayfee, set discardfee to 0 for easier calculation
 
         self.nodes[0].loadwallet(self.default_wallet_name, True)
         funds = self.nodes[0].get_wallet_rpc(self.default_wallet_name)
@@ -1073,13 +1073,16 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_greater_than(fees, 0.01)
 
         def do_fund_send(target):
+            self.log.info("In do_fund_send target " + str(target))
             create_tx = tester.createrawtransaction([], [{funds.getnewaddress(): target}])
             funded_tx = tester.fundrawtransaction(create_tx)
             signed_tx = tester.signrawtransactionwithwallet(funded_tx["hex"])
             assert signed_tx["complete"]
             decoded_tx = tester.decoderawtransaction(signed_tx["hex"])
             assert_equal(len(decoded_tx["vin"]), 3)
+            print (tester.testmempoolaccept([signed_tx["hex"]]))
             assert tester.testmempoolaccept([signed_tx["hex"]])[0]["allowed"]
+            self.log.info("DONE do_fund_send target " + str(target))
 
         # We want to choose more value than is available in 2 inputs when considering the fee,
         # but not enough to need 3 inputs when not considering the fee.
