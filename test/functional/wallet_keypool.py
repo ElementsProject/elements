@@ -174,11 +174,11 @@ class KeyPoolTest(BitcoinTestFramework):
         res = w2.walletcreatefundedpsbt(inputs=[], outputs=[{destination: 0.00025000}], options={"subtractFeeFromOutputs": [0], "feeRate": 0.00010})
         assert_equal("psbt" in res, True)
         # should work without subtractFeeFromOutputs if the exact fee is subtracted from the amount
-        res = w2.walletcreatefundedpsbt(inputs=[], outputs=[{destination: 0.00021650}], options={"feeRate": 0.00010})
+        res = w2.walletcreatefundedpsbt(inputs=[], outputs=[{destination: 0.00008570}], options={"feeRate": 0.00010})
         assert_equal("psbt" in res, True)
 
         # dust change should be removed
-        res = w2.walletcreatefundedpsbt(inputs=[], outputs=[{destination: 0.00021000}], options={"feeRate": 0.00010})
+        res = w2.walletcreatefundedpsbt(inputs=[], outputs=[{destination: 0.00008200}], options={"feeRate": 0.00010})
         assert_equal("psbt" in res, True)
 
         # create a transaction without change at the maximum fee rate, such that the output is still spendable:

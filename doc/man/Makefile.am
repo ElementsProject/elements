@@ -18,7 +18,7 @@ if BUILD_BITCOIN_TX
 endif
 
 if BUILD_BITCOIN_UTIL
-  dist_man1_MANS+=bitcoin-util.1
+  dist_man1_MANS+=elements-util.1
 endif
 
 if ENABLE_WALLET
