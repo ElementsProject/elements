@@ -3464,7 +3464,7 @@ void CWalletTx::GetBlindingData(const unsigned int map_index, const std::vector<
         memcpy(asset_tag.begin(), &*(it + 73), 32);
         pubkey.Set(it + 105, it + 138);
 
-        if (conf_value.IsExplicit()) {
+        if (amount != -1 && conf_value.IsExplicit()) {
             assert(conf_value.GetAmount() == amount);
         }
     } else {
