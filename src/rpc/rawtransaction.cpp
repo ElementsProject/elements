@@ -2237,6 +2237,45 @@ static RPCHelpMan utxoupdatepsbt()
     };
 }
 
+static RPCHelpMan parsepsbt()
+{
+    return RPCHelpMan{"parsepsbt",
+            "\nparse and print a PSBT.\n",
+            {
+                {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "A base64 string of a PSBT"}
+            },
+            RPCResult {
+                RPCResult::Type::OBJ, "", "",
+                {
+                    {RPCResult::Type::STR, "psbt", "The base64-encoded partially signed transaction"},
+                        {RPCResult::Type::BOOL, "canonical", "Whether the input PSBT matches the output PSBT"}
+                }
+            },
+            RPCExamples {
+                HelpExampleCli("parsepsbt", "\"psbt\"")
+            },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    RPCTypeCheck(request.params, {UniValue::VSTR}, true);
+
+    // Unserialize the PSBT
+    PartiallySignedTransaction psbtx;
+    std::string error;
+    if (!DecodeBase64PSBT(psbtx, request.params[0].get_str(), error)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("PSBT decode failed %s", error));
+    }
+
+    // Serialize the PSBT
+    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
+    ssTx << psbtx;
+    const std::string encoded = EncodeBase64(ssTx);
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("psbt", encoded);
+    result.pushKV("canonical", encoded == request.params[0].get_str());
+    return result;
+},
+    };
+}
 #if 0
 static RPCHelpMan joinpsbts()
 {
@@ -3207,6 +3246,7 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    &createpsbt,                  },
     { "rawtransactions",    &converttopsbt,               },
     { "rawtransactions",    &utxoupdatepsbt,              },
+    { "rawtransactions",    &parsepsbt,                   },
 #if 0
     { "rawtransactions",    &joinpsbts,                   },
 #endif

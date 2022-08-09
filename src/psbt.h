@@ -137,6 +137,9 @@ template<typename Stream, typename... X>
 void UnserializeFromVector(Stream& s, X&... args)
 {
     size_t expected_size = ReadCompactSize(s);
+    if (!expected_size) {
+        return; /* Zero size = no data to read */
+    }
     size_t remaining_before = s.size();
     UnserializeMany(s, args...);
     size_t remaining_after = s.size();
@@ -343,14 +346,14 @@ struct PSBTInput
             }
 
             // Elements proprietary fields are only allowed with v2
-            // Issuance value
-            if (!m_issuance_value_commitment.IsNull()) {
-                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_VALUE_COMMITMENT));
-                SerializeToVector(s, m_issuance_value_commitment);
-            }
+            // Issuance value + commitment
             if (m_issuance_value != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_VALUE));
                 SerializeToVector(s, *m_issuance_value);
+            }
+            if (!m_issuance_value_commitment.IsNull()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_VALUE_COMMITMENT));
+                SerializeToVector(s, m_issuance_value_commitment);
             }
 
             // Issuance rangeproof
@@ -995,8 +998,12 @@ struct PSBTOutput
         SerializeHDKeypaths(s, hd_keypaths, CompactSizeWriter(PSBT_OUT_BIP32_DERIVATION));
 
         if (m_psbt_version >= 2) {
-            // Write spk
-            if (script != std::nullopt) {
+            // Write amount and spk
+            if (amount != std::nullopt) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_AMOUNT));
+                SerializeToVector(s, *amount);
+            }
+            if (script.has_value()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_SCRIPT));
                 s << *script;
             }
@@ -1007,19 +1014,15 @@ struct PSBTOutput
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_VALUE_COMMITMENT));
                 SerializeToVector(s, m_value_commitment);
             }
-            if (amount != std::nullopt) {
-                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_AMOUNT));
-                SerializeToVector(s, *amount);
-            }
 
-            // Asset
-            if (!m_asset_commitment.IsNull()) {
-                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_ASSET_COMMITMENT));
-                SerializeToVector(s, m_asset_commitment);
-            }
+            // Asset + commitment
             if (!m_asset.IsNull()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_ASSET));
                 SerializeToVector(s, m_asset);
+            }
+            if (!m_asset_commitment.IsNull()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_ASSET_COMMITMENT));
+                SerializeToVector(s, m_asset_commitment);
             }
 
             // Value rangeproof
@@ -1052,13 +1055,13 @@ struct PSBTOutput
                 SerializeToVector(s, *m_blinder_index);
             }
 
-            // BLind value proof
+            // Blind value proof
             if (!m_blind_value_proof.empty()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_BLIND_VALUE_PROOF));
                 s << m_blind_value_proof;
             }
 
-            // BLind asset proof
+            // Blind asset proof
             if (!m_blind_asset_proof.empty()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_BLIND_ASSET_PROOF));
                 s << m_blind_asset_proof;
@@ -1423,7 +1426,7 @@ struct PartiallySignedTransaction
             // Scalar offsets
             for (const uint256& scalar : m_scalar_offsets) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_GLOBAL_SCALAR), scalar);
-                SerializeToVector(s, std::vector<unsigned char>());
+                s << PSBT_SEPARATOR; /* Zero length data value */
             }
         }
 
@@ -1659,6 +1662,9 @@ struct PartiallySignedTransaction
                                 m_scalar_offsets.insert(scalar);
                                 break;
                             }
+                            default:
+                                known = false;
+                                break;
                         }
                     }
 
