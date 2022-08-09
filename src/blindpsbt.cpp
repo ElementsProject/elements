@@ -361,11 +361,13 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
             if (secp256k1_generator_generate(secp256k1_blind_context, &ephemeral_input_tags.back(), asset.GetAsset().begin()) != 1) {
                 return BlindingStatus::INVALID_ASSET;
             }
-        } else {
+        } else if (asset.IsCommitment()) {
             // Parse the asset commitment as a generator (because it is)
             if (secp256k1_generator_parse(secp256k1_blind_context, &ephemeral_input_tags.back(), asset.vchCommitment.data()) != 1) {
                 return BlindingStatus::INVALID_ASSET_COMMITMENT;
             }
+        } else {
+            return BlindingStatus::INVALID_ASSET; // Missing asset
         }
 
         fixed_input_tags.emplace_back();
