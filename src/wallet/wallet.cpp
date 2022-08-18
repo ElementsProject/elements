@@ -2048,11 +2048,15 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
             txin.assetIssuance.nAmount = input.m_issuance_value_commitment;
         } else if (input.m_issuance_value) {
             txin.assetIssuance.nAmount.SetToAmount(*input.m_issuance_value);
+        } else {
+            txin.assetIssuance.nAmount.SetNull();
         }
         if (!input.m_issuance_inflation_keys_commitment.IsNull()) {
             txin.assetIssuance.nInflationKeys = input.m_issuance_inflation_keys_commitment;
         } else if (input.m_issuance_inflation_keys_amount) {
             txin.assetIssuance.nInflationKeys.SetToAmount(*input.m_issuance_inflation_keys_amount);
+        } else {
+            txin.assetIssuance.nInflationKeys.SetNull();
         }
         if (!input.m_issuance_rangeproof.empty()) {
             txinwit.vchIssuanceAmountRangeproof = input.m_issuance_rangeproof;

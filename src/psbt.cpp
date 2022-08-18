@@ -123,12 +123,25 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx(bool force_unblind
         txin.nSequence = input.sequence.value_or(max_sequence);
         txin.assetIssuance.assetBlindingNonce = input.m_issuance_blinding_nonce;
         txin.assetIssuance.assetEntropy = input.m_issuance_asset_entropy;
-        if (input.m_issuance_value != std::nullopt && input.m_issuance_inflation_keys_amount != std::nullopt && force_unblinded) {
+        // If there is a commitment we should set the value to the commitment unless we are forcing unblinded.
+        // If we are forcing unblinded but there is no value, we just use the commitment.
+        if (input.m_issuance_value != std::nullopt && (input.m_issuance_value_commitment.IsNull() || force_unblinded)) {
             txin.assetIssuance.nAmount.SetToAmount(*input.m_issuance_value);
-            txin.assetIssuance.nInflationKeys.SetToAmount(*input.m_issuance_inflation_keys_amount);
-        } else {
+        }
+        else if(!input.m_issuance_value_commitment.IsNull()) {
             txin.assetIssuance.nAmount = input.m_issuance_value_commitment;
+        }
+        else {
+            txin.assetIssuance.nAmount.SetNull();
+        }
+        if (input.m_issuance_inflation_keys_amount != std::nullopt && (input.m_issuance_inflation_keys_commitment.IsNull() || force_unblinded)) {
+            txin.assetIssuance.nInflationKeys.SetToAmount(*input.m_issuance_value);
+        }
+        else if(!input.m_issuance_inflation_keys_commitment.IsNull()) {
             txin.assetIssuance.nInflationKeys = input.m_issuance_inflation_keys_commitment;
+        }
+        else {
+            txin.assetIssuance.nInflationKeys.SetNull();
         }
         mtx.vin.push_back(txin);
     }
@@ -531,12 +544,9 @@ bool PSBTOutput::Merge(const PSBTOutput& output)
 CTxOut PSBTOutput::GetTxOut() const
 {
     assert(script != std::nullopt);
-    if (!m_value_commitment.IsNull() && !m_asset_commitment.IsNull()) {
-        return CTxOut(m_asset_commitment, m_value_commitment, *script);
-    }
-    assert(amount != std::nullopt);
-    assert(!m_asset.IsNull());
-    return CTxOut(CConfidentialAsset(CAsset(m_asset)), CConfidentialValue(*amount), *script);
+    assert(amount != std::nullopt || !m_value_commitment.IsNull());
+    assert(!m_asset.IsNull() || !m_asset_commitment.IsNull());
+    return CTxOut(!m_asset_commitment.IsNull() ? m_asset_commitment : CAsset(m_asset), !m_value_commitment.IsNull() ? m_value_commitment : CConfidentialValue(*amount), *script);
 }
 
 bool PSBTOutput::IsBlinded() const
