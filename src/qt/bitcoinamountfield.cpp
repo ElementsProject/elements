@@ -121,7 +121,7 @@ public:
                 currentSingleStep = 100000000;  // a whole asset
             }
         }
-        val.second = val.second + steps * singleStep;
+        val.second = val.second + steps * currentSingleStep;
         val.second = qMax(val.second, CAmount(0));
         val.second = qBound(m_min_amount, val.second, m_max_amount);
         // FIXME: Add this back in when assets can have > MAX_MONEY
