@@ -32,7 +32,7 @@ This is the overarching structure of a serialized transaction. The rest of this 
 |Field|Required|Size|Data Type|Encoding|Notes| 
 |-----|--------|-----|---------|--------|-----|
 | Output Hash (TXID) | Yes | 32 bytes | `uint256` | Little-endian | Bytes of the output hash are encoded in little-endian. **NB**: this means that they appear backwards when serialized. |
-| Output Index | Yes | 4 bytes | `uint32_t` | Little-endian | **Output is a coinbase**: `0xffffffff`<br><br>The two most significant bits are reserved for flags.<br><br>**Output is a pegin:** second most significant bit is 1.<br><br>**Output is an asset issuance:** most significant bit is 1. |
+| Output Index | Yes | 4 bytes | `uint32_t` | Little-endian | **Input is a coinbase**: `0xffffffff`<br><br>The two most significant bits are reserved for flags.<br><br>**Input is a pegin:** second most significant bit is 1.<br><br>**Input has an asset issuance:** most significant bit is 1. |
 | ScriptSig Length | Yes | Varies | `VarInt` | | Set to `0x00` if the transaction is SegWit and the witness contains the signature. |
 | ScriptSig | If ScriptSig Length is non-zero | Varies | `hex` | Big-endian | |
 | Sequence | Yes | 4 bytes | `uint32_t` | Little-endian | |
@@ -44,8 +44,8 @@ Serialized format: `[Output Hash][Output Index][ScriptSig Length][ScriptSig][Seq
 
 |Field|Required|Size|Data Type|Encoding|Notes| 
 |-----|--------|-----|---------|--------|-----|
-| Asset | Yes | 1 or 33 bytes | `ConfidentialAsset` | |  |
-| Amount | Yes | 1 or 9 or 33 bytes | `ConfidentialAmount` | | |
+| Asset | Yes | 33 bytes | `ConfidentialAsset` | | Cannot be null. |
+| Amount | Yes | 9 or 33 bytes | `ConfidentialAmount` | | Cannot be null. |
 | Nonce | Yes | 1 or 33 bytes | `ConfidentialNonce` | | |
 | ScriptPubKey Length | Yes | Varies | `VarInt` | | | |
 | ScriptPubKey | If ScriptPubKey Length is non-zero | Varies | `hex` | Big-endian | |
@@ -95,9 +95,9 @@ The Surjection Proof must be empty if the output’s assetId is explicit.
 |Field|Required|Size|Data Type|Encoding|Notes| 
 |-----|--------|-----|---------|--------|-----|
 | Asset Blinding Nonce | Yes | 32 bytes | `hex` | | Zero for a new asset issuance; otherwise a blinding factor for the input. |
-| Asset Entropy | Yes | 32 bytes | `hex` | | Freeform entropy field, no consensus-defined meaning, but is used as additional entropy to the asset tag calculation. |
+| Asset Entropy | Yes | 32 bytes | `hex` | | **New issuances:** Freeform entropy field, no consensus-defined meaning, but is used as additional entropy to the asset tag calculation.<br><br>**Reissuances:** Required to be the asset's entropy value (from its initial issuance). |
 | Amount | Yes | 1 or 9 or 33 bytes | `ConfidentialAmount` | | Amount of the asset to issue. Both explicit and blinded amounts are supported. |
-| Num Inflation Keys | Yes | 1 or 9 or 33 bytes | `ConfidentialAmount` | | Number of inflation keys to issue. Both explicit and blinded amounts are supported. |
+| Num Inflation Keys | Yes | 1 or 9 or 33 bytes | `ConfidentialAmount` | | Number of inflation keys to issue. Both explicit and blinded amounts are supported.<br><br>**Note:** inflation keys cannot be reissued. |
 
 Serialized format: `[Asset Blinding Nonce][Asset entropy][Amount][Num Inflation Keys]`
 
