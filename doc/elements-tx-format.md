@@ -2,20 +2,23 @@
 
 This document describes the format used to serialize Elements transactions. Once a transaction has been converted into this raw, serialized form, it can be broadcast across the network.
 
-This document requires familiarity with the architecture of Bitcoin and Elements, as well the various parts that are expected in an Elements transaction (inputs, outputs, assets, pegin data, etc.). For more information on those, please refer to the [Elements code tutorial](https://elementsproject.org/elements-code-tutorial/overview).
+This document assumes some familiarity with Bitcoin and Elements (UTXOs, [Script](https://en.bitcoin.it/wiki/Script), assets, pegins, etc.). For more information on those, please refer to the [Bitcoin Wiki](https://en.bitcoin.it/wiki/Main_Page) and the [Elements Code Tutorial](https://elementsproject.org/elements-code-tutorial/overview).
 
 ### Data Types
 
-*Note:* The encoding column in the following tables corresponds to the way that the fields are serialized. In Bitcoin, numbers and hashes are serialized in little-endian, and this same notion carries over to Elements.
+*Notes*:
+* Fields in the following table are listed in the same order in which they are serialized.
 
-*Note:* Values are listed in multiples of 100,000,000 (this corresponds directly to how Bitcoin encodes value, where 1 BTC is divisible into 100,000,000 Satoshis). For example, a `ConfidentialAmount` representing 7 inflation keys would be encoded as 700,000,000.
+* The 'Encoding' column in the following tables corresponds to the way that the fields are serialized. In Bitcoin, numbers and hashes are interpreted as being encoded in little-endian, and this same policy carries over to Elements. Since hashes (TXIDs, Asset IDs, etc.) are stored as little-endian integers internally, when they are serialized their bytes will appear in reverse order and they will look backwards.
+
+* Values are defined in multiples of 100,000,000 (this corresponds directly to how Bitcoin encodes value, where 1 BTC is divisible into 100,000,000 Satoshis). For example, a `ConfidentialAmount` representing 7 units of something (`L-BTC`, inflation keys, etc.) would be encoded as 700,000,000.
 
 #### Transaction
 
 |Field|Required|Size|Data Type|Encoding|Notes| 
 |-----|--------|-----|---------|--------|-----|
 | Version | Yes | 4 bytes | `int32_t` | Little-endian | Transaction version number. Currently version 2 (see [BIP 68](https://github.com/bitcoin/bips/blob/master/bip-0068.mediawiki#specification)). | |
-| Flags | Yes | 1 byte | `unsigned char` | | Whether the transaction contains a witness. Either 0 (no witness) or 1. |
+| Flags | Yes | 1 byte | `unsigned char` | | 1 if the transaction contains a witness, otherwise 0. All other values are invalid. |
 | Num Inputs | Yes | Varies | `VarInt` | | Number of inputs to the transaction. |
 | Inputs | Yes | Varies | `Vector<TxIn>` | | |
 | Num Inputs | Yes | Varies | `VarInt` | | Number of outputs from the transaction. |
@@ -23,26 +26,39 @@ This document requires familiarity with the architecture of Bitcoin and Elements
 | Locktime | Yes | 4 bytes | `uint32_t` | Little-endian | See [BIP 113](https://github.com/bitcoin/bips/blob/master/bip-0113.mediawiki). |
 | Witness | Only if flags is 1 | Varies | `Witness` | | See [BIP 141](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki). Note that Elements witnesses contain more data than Bitcoin witnesses. This extra data is described further below. |
 
-Serialized format: `[Version][Flags][Num Inputs][Inputs][Num Outputs][Outputs][Locktime][Witness]`
-
 This is the overarching structure of a serialized transaction. The rest of this document contains further details on specific parts, as well as examples.
+
+#### Variable Length Integer (VarInt)
+
+This data type is derived from Bitcoin and allows an integer to be encoded depending on the represented value, to save space. Variable length integers always precede an vector of a type of data that may vary in length. Longer numbers are encoded in little-endian.
+
+Refer to the [Bitcoin protocol documentation](https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer) for a full description on how this type is serialized.
+
+#### Vector\<Type\>
+
+Each `Vector` begins with a `VarInt` describing the number of items it contains.
+
+If the vector is of type `hex`, then the size / structure of each individual item is not known in advance. In this case, each item begins with a `VarInt` describing its size `s` in bytes, followed by `s` bytes which should be interpreted as the item itself.
+Otherwise, size prefixes are omitted, and each item should be interpreted in accordance with the vector's type.
+
+In other words, the vector is serialized as follows: `[Length (n)][Item #1][Item #2][...][Item #n]`.
+
+Refer to the examples section below for more concrete examples of serialized vectors.
 
 #### TxIn
 
 |Field|Required|Size|Data Type|Encoding|Notes| 
 |-----|--------|-----|---------|--------|-----|
-| Output Hash (TXID) | Yes | 32 bytes | `uint256` | Little-endian | Bytes of the output hash are encoded in little-endian. **NB**: this means that they appear backwards when serialized. |
+| Output Hash (TXID) | Yes | 32 bytes | `uint256` | Little-endian | |
 | Output Index | Yes | 4 bytes | `uint32_t` | Little-endian | **Input is a coinbase**: `0xffffffff`<br><br>The two most significant bits are reserved for flags.<br><br>**Input is a pegin:** second most significant bit is 1.<br><br>**Input has an asset issuance:** most significant bit is 1. |
 | ScriptSig Length | Yes | Varies | `VarInt` | | Set to `0x00` if the transaction is SegWit and the witness contains the signature. |
 | ScriptSig | If ScriptSig Length is non-zero | Varies | `hex` | Big-endian | |
 | Sequence | Yes | 4 bytes | `uint32_t` | Little-endian | |
 | Asset Issuance | Only if the transaction has an issuance (as indicated by the Output Index) | Varies | `AssetIssuance` |  | |
 
-Serialized format: `[Output Hash][Output Index][ScriptSig Length][ScriptSig][Sequence][Asset Issuance]`
-
 #### TxOut
 
-|Field|Required|Size|Data Type|Encoding|Notes| 
+|Field|Required|Size|Data Type|Encoding|Notes|
 |-----|--------|-----|---------|--------|-----|
 | Asset | Yes | 33 bytes | `ConfidentialAsset` | | Cannot be null. |
 | Amount | Yes | 9 or 33 bytes | `ConfidentialAmount` | | Cannot be null. |
@@ -50,45 +66,40 @@ Serialized format: `[Output Hash][Output Index][ScriptSig Length][ScriptSig][Seq
 | ScriptPubKey Length | Yes | Varies | `VarInt` | | | |
 | ScriptPubKey | If ScriptPubKey Length is non-zero | Varies | `hex` | Big-endian | |
 
-Serialized format: `[Asset][Amount][Nonce][ScriptPubKey Length][ScriptPubKey]`
-
 #### Witness
 
 As noted above, the witness is only present for SegWit transactions.
 
-|Field|Required|Size|Data Type|Encoding|Notes| 
+|Field|Required|Size|Data Type|Encoding|Notes|
 |-----|--------|-----|---------|--------|-----|
 | Input Witnesses| Yes | Varies | `Vector<InputWitness>` | | There is exactly one input witness for each input in the transaction.<br><br>This number is not explicitly included in the witness — it is implied by the number of inputs. |
 | Output Witnesses| Yes | Varies | `Vector<OutputWitness>` | | There is exactly one output witness for each output in the transaction.<br><br>This number is not explicitly included in the witness — it is implied by the number of outputs. |
 
-Serialized format: `[Input Witnesses][Output Witnesses]`
-
 #### InputWitness
 
-|Field|Required|Size|Data Type|Encoding|Notes| 
+SegWit transactions have one such witness for each input.
+
+|Field|Required|Size|Data Type|Encoding|Notes|
 |-----|--------|-----|---------|--------|-----|
 | Issuance Amount Range Proof | Yes | Varies | `Proof` | | `0x00` → null. |
 | Inflation Keys Range Proof | Yes | Varies | `Proof` | | `0x00` → null. |
 | Script Witness | Yes | Varies | `Vec<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
 | Pegin Witness | Yes | Varies | `Vec<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
 
-Serialized format:
-`[Issuance Amount Range Proof][Inflation Keys Range Proof][Script Witness][Pegin Witness]`
-
 The range proofs must be empty if their asociated amounts (issuance / inflation keys) are explicit.
 
 #### OutputWitness
 
-|Field|Required|Size|Data Type|Encoding|Notes| 
+SegWit transactions have one such witness for each output.
+
+|Field|Required|Size|Data Type|Encoding|Notes|
 |-----|--------|-----|---------|--------|-----|
 | Surjection Proof | Yes | Varies | `Proof` | | Will be null (`0x00`) if corresponding output is not confidential. |
 | Range Proof | Yes | Varies | `Proof` | | Will be null (`0x00`) if corresponding output is not confidential. |
 
-Serialized format: `[Surjection Proof][Range Proof]`
-
 The Range Proof must be empty if the output’s amount is explicit. 
 
-The Surjection Proof must be empty if the output’s assetId is explicit.
+The Surjection Proof must be empty if the output’s asset ID is explicit.
 
 #### AssetIssuance
 
@@ -99,54 +110,33 @@ The Surjection Proof must be empty if the output’s assetId is explicit.
 | Amount | Yes | 1 or 9 or 33 bytes | `ConfidentialAmount` | | Amount of the asset to issue. Both explicit and blinded amounts are supported. |
 | Num Inflation Keys | Yes | 1 or 9 or 33 bytes | `ConfidentialAmount` | | Number of inflation keys to issue. Both explicit and blinded amounts are supported.<br><br>**Note:** inflation keys cannot be reissued. |
 
-Serialized format: `[Asset Blinding Nonce][Asset entropy][Amount][Num Inflation Keys]`
-
-#### Variable Length Integer (VarInt)
-
-This data type is derived from Bitcoin and allows an integer to be encoded depending on the represented value, to save space. Variable length integers always precede an vector of a type of data that may vary in length. Longer numbers are encoded in little-endian.
-
-Refer to the [Bitcoin protocol documentation](https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer) for a full description on how this type is serialized.
-
-#### Vector\<Type\>
-
-Serialized format: `[Length (n)][Item #1][Item #2][...][Item #n]`
-
-Each `Vector` begins with a `VarInt` describing the number of items it contains.
-
-If the vector is of type `hex`, then the size / structure of each individual item is not known in advance. In this case, each item begins with a `VarInt` describing its size `s` in bytes, followed by `s` bytes which should be interpreted as the item itself.
-Otherwise, size prefixes are omitted, and each item should be interpreted in accordance with the vector's type.
-
-Refer to the examples section below for more concrete examples of serialized vectors.
-
 #### ConfidentialAsset
 
-Serialized format: `[header][value]`
-
-A header byte of `0x00` indicates a “null” value with no subsequent bytes.
-A header byte of `0x01` indicates an “explicit” value with the following 32 bytes denoting the key used to generate the assetID (little-endian).
-A header byte of `0x0a` or `0x0b` indicates a blinded value encoded as a compressed elliptic curve point. With the least significant bit of the header byte denoting the least significant bit of the y-coordinate, and the remaining 32 bytes denoting the x-coordinate (big-endian). The point must be a point on the curve.
+|Field|Required|Size|Data Type|Encoding|Notes| 
+|-----|--------|-----|---------|--------|-----|
+| Header | Yes | 1 byte | | | A header byte of `0x00` indicates a “null” value with no subsequent bytes.<br><br>A header byte of `0x01` indicates an “explicit” value with the following 32 bytes denoting the key used to generate the asset ID (little-endian).<br><br>A header byte of `0x0a` or `0x0b` indicates a blinded value encoded as a compressed elliptic curve point. With the least significant bit of the header byte denoting the least significant bit of the y-coordinate, and the remaining 32 bytes denoting the x-coordinate (big-endian). The point must be a point on the curve. |
+| Value | If header byte is not `0x00` | 32 bytes | `hex` | Depends on header byte | |
 
 #### ConfidentialAmount
 
-Serialized format: `[header][value]`
-
-A header byte of `0x00` indicates a “null” value with no subsequent bytes.
-A header byte of `0x01` indicates an “explicit” value with the following 8 bytes denoting a 64-bit value (big-endian).  This value must be between 0 and `MAX_MONEY` inclusive.
-A header byte of `0x08` or `0x09` indicates a blinded value encoded as a compressed elliptic curve point. With the least significant bit of the header byte denoting the least significant bit of the y-coordinate, and the remaining 32 bytes denoting the x-coordinate (big-endian). The point must be a point on the curve.
+|Field|Required|Size|Data Type|Encoding|Notes| 
+|-----|--------|-----|---------|--------|-----|
+| Header | Yes | 1 byte | | | A header byte of `0x00` indicates a “null” value with no subsequent bytes.<br><br>A header byte of `0x01` indicates an “explicit” value with the following 8 bytes denoting a 64-bit value (big-endian).  This value must be between 0 and `MAX_MONEY` inclusive.<br><br>A header byte of `0x08` or `0x09` indicates a blinded value encoded as a compressed elliptic curve point. With the least significant bit of the header byte denoting the least significant bit of the y-coordinate, and the remaining 32 bytes denoting the x-coordinate (big-endian). The point must be a point on the curve. |
+| Value | If header byte is not `0x00` | 8 or 32 bytes | `hex` | Big-endian | |
 
 #### ConfidentialNonce
-Serialized format: `[header][value]`
 
-A header byte of `0x00` indicates a “null” value with no subsequent bytes.
-A header byte of `0x01` indicates an “explicit” value with the following 32 bytes denoting a value (big-endian).
-A header byte of `0x02` or `0x03` indicates a compressed elliptic curve point. With the least significant bit of the header byte denoting the least significant bit of the y-coordinate, and the remaining 32 bytes denoting the x-coordinate (big-endian). This point is not required to be on the curve.
+|Field|Required|Size|Data Type|Encoding|Notes| 
+|-----|--------|-----|---------|--------|-----|
+| Header | Yes | 1 byte | | | A header byte of `0x00` indicates a “null” value with no subsequent bytes.<br><br>A header byte of `0x01` indicates an “explicit” value with the following 32 bytes denoting a value (big-endian).<br><br>A header byte of `0x02` or `0x03` indicates a compressed elliptic curve point. With the least significant bit of the header byte denoting the least significant bit of the y-coordinate, and the remaining 32 bytes denoting the x-coordinate (big-endian). This point is not required to be on the curve. |
+| Value | If header byte is not `0x00` | 32 bytes | `hex` | Big-endian | |
 
 #### Proof
-Serialized format: `[length][value]`
 
-The length is a VarInt, and specifies the number of bytes in the subsequent value (big-endian).
-A length of `0x00` signifies a "null" value with no subsequent bytes.
-
+|Field|Required|Size|Data Type|Encoding|Notes| 
+|-----|--------|-----|---------|--------|-----|
+| Length | Yes | Varies | `VarInt` | | `0x00` → null. |
+| Value | If header byte is not `0x00` | Varies | `hex` | Big-endian | The proof itself. This should be interpreted based on the context (surjection proof, range proof, etc). |
 ## Examples
 
 #### Example 1
@@ -190,7 +180,7 @@ Deserialization:
 |                                      Output #1
 | 01 ................................. Asset Header (0x01 → explicit)
 | 499a818545f6bae39fc03b637f2a4e1e
-| 64e590cac1bc3a6f6d71aa4443654c14 ... Key used to generate assetID
+| 64e590cac1bc3a6f6d71aa4443654c14 ... Key used to generate asset ID
 |
 | 01 ................................. Amount header (0x01 → explicit)
 | 000000000000d6d8 ................... Amount: 0xd6d8 tL-Satoshis = 0.00055 tL-BTC
@@ -206,7 +196,7 @@ Deserialization:
 |                                      Output #2
 | 01 ................................. Asset header (0x01 → explicit)
 | 499a818545f6bae39fc03b637f2a4e1e
-| 64e590cac1bc3a6f6d71aa4443654c14 ... Key used to generate assetID
+| 64e590cac1bc3a6f6d71aa4443654c14 ... Key used to generate asset ID
 |
 | 01 ................................. Amount header (0x01 → explicit)
 | 00000000000f4240 ................... Amount: 0xf4240 tL-Satoshis = 0.01 tL-BTC
@@ -240,8 +230,8 @@ Deserialization:
 | 00 ................................. Pegin witness (0x00 → null)
 |
 |                                      Input #2 witness
-| 00 ................................. IssuanceAmountRangeproof (null)
-| 00 ................................. InflationKeysRangeproof (null)
+| 00 ................................. Issuance amount range proof (0x00 → null)
+| 00 ................................. Inflation keys range proof (0x00 → null)
 | 02 ................................. Script witness stack length
 | | 47 ............................... Stack item #1 length (0x47 = 71 bytes)
 | | | 304402203e13aa1c792fc14ff06f
@@ -378,7 +368,7 @@ Deserialization:
 |                                      Output #5
 | 01 ................................. Asset header (0x01 → explicit, unblinded value)
 | 230f4f5d4b7c6fa845806ee4f6771345
-| 9e1b69e8e60fcee2e4940c7a0d5de1b2 ... Key used to generate assetID
+| 9e1b69e8e60fcee2e4940c7a0d5de1b2 ... Key used to generate asset ID
 |
 | 01 ................................. Amount header (0x01 → explicit, unblinded value)
 | 00000000000069dc ................... Amount: 0x00000000000069dc = 0.00027100. Recall: values are divisible by 100,000,000.
@@ -392,8 +382,8 @@ Deserialization:
 ...................................... Input witnesses (1 per input)
 |
 |                                      Input witness #1
-| 00 ................................. Issuance amount rangeproof (0x00  → null)
-| 00 ................................. Inflation keys rangeproof (0x00 → null)
+| 00 ................................. Issuance amount range proof (0x00  → null)
+| 00 ................................. Inflation keys range proof (0x00 → null)
 | 02 ................................. Script witness stack
 | | 47 ............................... Stack item #1 length (0x47 = 71 bytes)
 | | | 3044022062d246df3e46f806c78e
@@ -491,7 +481,7 @@ Deserialization:
 |                                      Output #1
 | 01 ................................. Asset header (0x01 → explicit, unblinded value)
 | 6d521c38ec1ea15734ae22b7c4606441
-| 2829c0d0579f0a713d1c04ede979026f ... Key used to generate assetID
+| 2829c0d0579f0a713d1c04ede979026f ... Key used to generate asset ID
 |
 | 01 ................................. Amount header (0x01 → explicit, unblinded value) 
 | 00000000002b09c1 ................... Amount: 0.02820545 L-BTC
@@ -505,7 +495,7 @@ Deserialization:
 |                                      Output #2
 | 01 ................................. Asset header (0x01 → explicit, unblinded value)
 | 6d521c38ec1ea15734ae22b7c4606441
-| 2829c0d0579f0a713d1c04ede979026f ... Key used to generate assetID
+| 2829c0d0579f0a713d1c04ede979026f ... Key used to generate asset ID
 |
 | 01 ................................. Amount header (0x01 → explicit, unblinded value) 
 | 0000000000000027 ................... Amount: 0.00000039 L-BTC
@@ -520,8 +510,8 @@ Deserialization:
 ...................................... Input witnesses (1 per input)
 |
 |                                      Input witness #1
-| 00 ................................. Issuance amount rangeproof (null)
-| 00 ................................. Inflation keys rangeproof (null)
+| 00 ................................. Issuance amount range proof (null)
+| 00 ................................. Inflation keys range proof (null)
 | 02 ................................. Script witness stack length
 | | 47 ............................... Stack item #1 length (0x47 = 71 bytes)
 | | | 304402204f84bb59c2af17b76ba7
