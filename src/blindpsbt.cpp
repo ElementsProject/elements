@@ -387,55 +387,53 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
 
         // Handle issuances
         if (input.m_issuance_value != std::nullopt || input.m_issuance_value_commitment.IsCommitment() || input.m_issuance_inflation_keys_amount != std::nullopt || input.m_issuance_inflation_keys_commitment.IsCommitment()) {
-            if (!input.m_issuance_value_commitment.IsCommitment() && input.m_issuance_rangeproof.size() == 0 && input.m_issuance_inflation_keys_rangeproof.size() == 0) {
-                CAsset issuance_asset;
-                CAsset reissuance_asset;
+            CAsset issuance_asset;
+            CAsset reissuance_asset;
 
-                uint256 entropy;
-                if (!input.m_issuance_blinding_nonce.IsNull()) {
-                    // Reissuance, use assetEntropy as the asset entropy
-                    entropy = input.m_issuance_asset_entropy;
-                } else {
-                    // New issuance, make new entropy
-                    GenerateAssetEntropy(entropy, input.GetOutPoint(), input.m_issuance_asset_entropy);
+            uint256 entropy;
+            if (!input.m_issuance_blinding_nonce.IsNull()) {
+                // Reissuance, use assetEntropy as the asset entropy
+                entropy = input.m_issuance_asset_entropy;
+            } else {
+                // New issuance, make new entropy
+                GenerateAssetEntropy(entropy, input.GetOutPoint(), input.m_issuance_asset_entropy);
+            }
+
+            if (input.m_issuance_value != std::nullopt || input.m_issuance_value_commitment.IsCommitment()) {
+                // Asset isn't blinded yet. Add it to the list of input assets
+                CalculateAsset(issuance_asset, entropy);
+                fixed_input_tags.emplace_back();
+                memcpy(fixed_input_tags.back().data, issuance_asset.begin(), 32);
+                ephemeral_input_tags.emplace_back();
+                if (input.m_issuance_value_commitment.IsNull()) {
+                    if (secp256k1_generator_generate(secp256k1_blind_context, &ephemeral_input_tags.back(), issuance_asset.begin()) != 1) {
+                        return BlindingStatus::INVALID_ASSET;
+                    }
                 }
-
-                if (input.m_issuance_value != std::nullopt || input.m_issuance_value_commitment.IsCommitment()) {
-                    // Asset isn't blinded yet. Add it to the list of input assets
-                    CalculateAsset(issuance_asset, entropy);
-                    fixed_input_tags.emplace_back();
-                    memcpy(fixed_input_tags.back().data, issuance_asset.begin(), 32);
-                    ephemeral_input_tags.emplace_back();
-                    if (input.m_issuance_value_commitment.IsNull()) {
-                        if (secp256k1_generator_generate(secp256k1_blind_context, &ephemeral_input_tags.back(), issuance_asset.begin()) != 1) {
-                            return BlindingStatus::INVALID_ASSET;
-                        }
-                    }
-                    else {
-                        memcpy(ephemeral_input_tags.back().data, input.m_issuance_value_commitment.vchCommitment.data(), 33);
-                    }
-                    input_asset_blinders.emplace_back();
+                else {
+                    memcpy(ephemeral_input_tags.back().data, input.m_issuance_value_commitment.vchCommitment.data(), 33);
                 }
+                input_asset_blinders.emplace_back();
+            }
 
-                bool blind_issuance = input.m_issuance_inflation_keys_commitment.IsCommitment() || input.m_issuance_value_commitment.IsCommitment();
+            bool blind_issuance = input.m_issuance_value_commitment.IsCommitment();
 
-                if (input.m_issuance_blinding_nonce.IsNull() && (input.m_issuance_inflation_keys_amount != std::nullopt || input.m_issuance_inflation_keys_commitment.IsCommitment())) {
-                    // New issuance, do reissuance token things
-                    CalculateReissuanceToken(reissuance_asset, entropy, blind_issuance);
-                    // Add the reissuance_asset to the list of input assets
-                    fixed_input_tags.emplace_back();
-                    memcpy(fixed_input_tags.back().data, reissuance_asset.begin(), 32);
-                    ephemeral_input_tags.emplace_back();
-                    if (input.m_issuance_inflation_keys_commitment.IsNull()) {
-                        if (secp256k1_generator_generate(secp256k1_blind_context, &ephemeral_input_tags.back(), reissuance_asset.begin()) != 1) {
-                            return BlindingStatus::INVALID_ASSET;
-                        }
+            if (input.m_issuance_blinding_nonce.IsNull() && (input.m_issuance_inflation_keys_amount != std::nullopt || input.m_issuance_inflation_keys_commitment.IsCommitment())) {
+                // New issuance, do reissuance token things
+                CalculateReissuanceToken(reissuance_asset, entropy, blind_issuance);
+                // Add the reissuance_asset to the list of input assets
+                fixed_input_tags.emplace_back();
+                memcpy(fixed_input_tags.back().data, reissuance_asset.begin(), 32);
+                ephemeral_input_tags.emplace_back();
+                if (input.m_issuance_inflation_keys_commitment.IsNull()) {
+                    if (secp256k1_generator_generate(secp256k1_blind_context, &ephemeral_input_tags.back(), reissuance_asset.begin()) != 1) {
+                        return BlindingStatus::INVALID_ASSET;
                     }
-                    else if(input.m_issuance_inflation_keys_commitment.IsCommitment()){
-                        memcpy(ephemeral_input_tags.back().data, input.m_issuance_inflation_keys_commitment.vchCommitment.data(), 33);
-                    }
-                    input_asset_blinders.emplace_back();
                 }
+                else if(input.m_issuance_inflation_keys_commitment.IsCommitment()){
+                    memcpy(ephemeral_input_tags.back().data, input.m_issuance_inflation_keys_commitment.vchCommitment.data(), 33);
+                }
+                input_asset_blinders.emplace_back();
             }
         }
     }
