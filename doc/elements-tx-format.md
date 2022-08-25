@@ -9,7 +9,7 @@ This document assumes some familiarity with Bitcoin and Elements (UTXOs, [Script
 *Notes*:
 * Fields in the following table are listed in the same order in which they are serialized.
 
-* The 'Encoding' column in the following tables corresponds to the way that the fields are serialized. In Bitcoin, numbers and hashes are interpreted as being encoded in little-endian, and this same policy carries over to Elements. Since hashes (TXIDs, Asset IDs, etc.) are stored as little-endian integers internally, when they are serialized their bytes will appear in reverse order and they will look backwards.
+* The *Encoding* column in the following tables indicates how the fields are serialized.
 
 * Values are defined in multiples of 100,000,000 (this corresponds directly to how Bitcoin encodes value, where 1 BTC is divisible into 100,000,000 Satoshis). For example, a `ConfidentialAmount` representing 7 units of something (`L-BTC`, inflation keys, etc.) would be encoded as 700,000,000.
 
@@ -49,12 +49,14 @@ Refer to the examples section below for more concrete examples of serialized vec
 
 |Field|Required|Size|Data Type|Encoding|Notes| 
 |-----|--------|-----|---------|--------|-----|
-| Output Hash (TXID) | Yes | 32 bytes | `uint256` | Little-endian | |
+| Output Hash (TXID) | Yes | 32 bytes | `hex` | [^1] | |
 | Output Index | Yes | 4 bytes | `uint32_t` | Little-endian | **Input is a coinbase**: `0xffffffff`<br><br>The two most significant bits are reserved for flags.<br><br>**Input is a pegin:** second most significant bit is 1.<br><br>**Input has an asset issuance:** most significant bit is 1. |
 | ScriptSig Length | Yes | Varies | `VarInt` | | Set to `0x00` if the transaction is SegWit and the witness contains the signature. |
 | ScriptSig | If ScriptSig Length is non-zero | Varies | `hex` | Big-endian | |
 | Sequence | Yes | 4 bytes | `uint32_t` | Little-endian | |
 | Asset Issuance | Only if the transaction has an issuance (as indicated by the Output Index) | Varies | `AssetIssuance` |  | |
+
+[^1]: The hex encodings of hashes by the Elements client (TXID, asset ID) are byte-reversed, and so the bytes will need to be re-reversed to match the serialized data. This is the same situation as in Bitcoin. For example, the hash `1123...deff` would be displayed by the Bitcoin and Elements clients as `ffde...2311`. This is primarily for historical reasons: the Bitcoin client has always interpreted and displayed hashes as little-endian integers and parsed their bytes in reverse order.
 
 #### TxOut
 
