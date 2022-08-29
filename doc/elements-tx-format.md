@@ -2,7 +2,7 @@
 
 This document describes the format used to serialize Elements transactions. Once a transaction has been converted into this raw, serialized form, it can be broadcast across the network.
 
-This document assumes some familiarity with Bitcoin and Elements (UTXOs, [Script](https://en.bitcoin.it/wiki/Script), assets, pegins, etc.). For more information on those, please refer to the [Bitcoin Wiki](https://en.bitcoin.it/wiki/Main_Page) and the [Elements Code Tutorial](https://elementsproject.org/elements-code-tutorial/overview).
+This document assumes some familiarity with Bitcoin and Elements (UTXOs, [Script](https://en.bitcoin.it/wiki/Script), assets, peg-ins, etc.). For more information on those, please refer to the [Bitcoin Wiki](https://en.bitcoin.it/wiki/Main_Page) and the [Elements Code Tutorial](https://elementsproject.org/elements-code-tutorial/overview).
 
 ### Data Types
 
@@ -11,7 +11,7 @@ This document assumes some familiarity with Bitcoin and Elements (UTXOs, [Script
 
 * The *Encoding* column in the following tables indicates how the fields are serialized.
 
-* Values are defined in multiples of 100,000,000 (this corresponds directly to how Bitcoin encodes value, where 1 BTC is divisible into 100,000,000 Satoshis). For example, a `ConfidentialAmount` representing 7 units of something (`L-BTC`, inflation keys, etc.) would be encoded as 700,000,000.
+* All values are defined in terms of the smallest indivisible unit. For example, a value of 1 L-BTC would be defined as 100,000,000 (L-Satoshis).
 
 #### Transaction
 
@@ -50,9 +50,9 @@ Refer to the examples section below for more concrete examples of serialized vec
 |Field|Required|Size|Data Type|Encoding|Notes| 
 |-----|--------|-----|---------|--------|-----|
 | Output Hash (TXID) | Yes | 32 bytes | `hex` | [^1] | |
-| Output Index | Yes | 4 bytes | `uint32_t` | Little-endian | **Input is a coinbase**: `0xffffffff`<br><br>The two most significant bits are reserved for flags.<br><br>**Input is a pegin:** second most significant bit is 1.<br><br>**Input has an asset issuance:** most significant bit is 1. |
+| Output Index | Yes | 4 bytes | `uint32_t` | Little-endian | **Input is a coinbase**: `0xffffffff`<br><br>The two most significant bits are reserved for flags.<br><br>**Input is a peg-in:** second most significant bit is 1.<br><br>**Input has an asset issuance:** most significant bit is 1. |
 | ScriptSig Length | Yes | Varies | `VarInt` | | Set to `0x00` if the transaction is SegWit and the witness contains the signature. |
-| ScriptSig | If ScriptSig Length is non-zero | Varies | `hex` | Big-endian | |
+| ScriptSig | If ScriptSig Length is non-zero | Varies | `hex` | | |
 | Sequence | Yes | 4 bytes | `uint32_t` | Little-endian | |
 | Asset Issuance | Only if the transaction has an issuance (as indicated by the Output Index) | Varies | `AssetIssuance` |  | |
 
@@ -66,7 +66,7 @@ Refer to the examples section below for more concrete examples of serialized vec
 | Amount | Yes | 9 or 33 bytes | `ConfidentialAmount` | | Cannot be null. |
 | Nonce | Yes | 1 or 33 bytes | `ConfidentialNonce` | | |
 | ScriptPubKey Length | Yes | Varies | `VarInt` | | | |
-| ScriptPubKey | If ScriptPubKey Length is non-zero | Varies | `hex` | Big-endian | |
+| ScriptPubKey | If ScriptPubKey Length is non-zero | Varies | `hex` | | |
 
 #### Witness
 
@@ -86,9 +86,20 @@ SegWit transactions have one such witness for each input.
 | Issuance Amount Range Proof | Yes | Varies | `Proof` | | `0x00` → null. |
 | Inflation Keys Range Proof | Yes | Varies | `Proof` | | `0x00` → null. |
 | Script Witness | Yes | Varies | `Vec<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
-| Pegin Witness | Yes | Varies | `Vec<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
+| Peg-in Witness | Yes | Varies | `Vec<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
 
 The range proofs must be empty if their asociated amounts (issuance / inflation keys) are explicit.
+
+A non-empty peg-in witness stack should always have a length of 6, and the items should be interpreted as follows:
+
+1. The little-endian 64-bit value of the peg-in for the Peg-in Transaction.
+2. Asset ID of the asset being pegged in.
+3. The 32 byte genesis hash of the blockchain which originated the peg-in.
+4. Claim script for the Peg-in Transaction.
+5. The mainchain Peg-in Transaction serialized without witnesses.
+6. Merkle proof of transaction inclusion, from the mainchain.
+
+See *Example #3* in the Examples section below for a concrete example.
 
 #### OutputWitness
 
@@ -109,8 +120,8 @@ The Surjection Proof must be empty if the output’s asset ID is explicit.
 |-----|--------|-----|---------|--------|-----|
 | Asset Blinding Nonce | Yes | 32 bytes | `hex` | | Zero for a new asset issuance; otherwise a blinding factor for the input. |
 | Asset Entropy | Yes | 32 bytes | `hex` | | **New issuances:** Freeform entropy field, no consensus-defined meaning, but is used as additional entropy to the asset tag calculation.<br><br>**Reissuances:** Required to be the asset's entropy value (from its initial issuance). |
-| Amount | Yes | 1 or 9 or 33 bytes | `ConfidentialAmount` | | Amount of the asset to issue. Both explicit and blinded amounts are supported. |
-| Num Inflation Keys | Yes | 1 or 9 or 33 bytes | `ConfidentialAmount` | | Number of inflation keys to issue. Both explicit and blinded amounts are supported.<br><br>**Note:** inflation keys cannot be reissued. |
+| Amount | Yes | 1 or 9 or 33 bytes | `ConfidentialAmount` | | Amount of the asset to issue. Both explicit and blinded amounts are supported.<br><br>**Note**: cannot be explicitly set to 0 (should be null instead). |
+| Num Inflation Keys | Yes | 1 or 9 or 33 bytes | `ConfidentialAmount` | | Number of inflation keys to issue. Both explicit and blinded amounts are supported.<br><br>**Notes:**<br>  - Cannot be explicitly set to 0 (should be null instead).<br>  - Inflation keys cannot be reissued. |
 
 #### ConfidentialAsset
 
@@ -159,7 +170,7 @@ Deserialization:
 |
 |                                      Input #1
 | 90683fa6b0393b659df707b65e05cbfd
-| f92cc2688589a0ed4931e8a61dfe64c4 ... Outpoint TXID
+| f92cc2688589a0ed4931e8a61dfe64c4 ... Outpoint TXID: c464fe1da6e83149eda0898568c22cf9fdcb055eb607f79d653b39b0a63f6890
 | 00000000 ........................... Outpoint index
 |
 | 00 ................................. ScriptSig length
@@ -169,7 +180,7 @@ Deserialization:
 |
 |                                      Input #2
 | 8d83eb1b0826f46d473003d041116927
-| 470e2ce0f7cc0c634a983d438d770ac8 ... Outpoint TXID
+| 470e2ce0f7cc0c634a983d438d770ac8 ... Outpoint TXID: c80a778d433d984a630cccf7e02c0e4727691141d00330476df426081beb838d
 | 00000000 ........................... Outpoint index 
 |
 | 00 ................................. ScriptSig length
@@ -182,7 +193,7 @@ Deserialization:
 |                                      Output #1
 | 01 ................................. Asset Header (0x01 → explicit)
 | 499a818545f6bae39fc03b637f2a4e1e
-| 64e590cac1bc3a6f6d71aa4443654c14 ... Key used to generate asset ID
+| 64e590cac1bc3a6f6d71aa4443654c14 ... Asset ID: 144c654344aa716d6f3abcc1ca90e5641e4e2a7f633bc09fe3baf64585819a49
 |
 | 01 ................................. Amount header (0x01 → explicit)
 | 000000000000d6d8 ................... Amount: 0xd6d8 tL-Satoshis = 0.00055 tL-BTC
@@ -198,7 +209,7 @@ Deserialization:
 |                                      Output #2
 | 01 ................................. Asset header (0x01 → explicit)
 | 499a818545f6bae39fc03b637f2a4e1e
-| 64e590cac1bc3a6f6d71aa4443654c14 ... Key used to generate asset ID
+| 64e590cac1bc3a6f6d71aa4443654c14 ... Asset ID: 144c654344aa716d6f3abcc1ca90e5641e4e2a7f633bc09fe3baf64585819a49
 |
 | 01 ................................. Amount header (0x01 → explicit)
 | 00000000000f4240 ................... Amount: 0xf4240 tL-Satoshis = 0.01 tL-BTC
@@ -229,7 +240,7 @@ Deserialization:
 | | | 03207312a1d3e7c2aa5c5212e18f
 | | | 2fe0095e8d11e9ca78f4acc7f6e4
 | | | 0dbd21d2ed ..................... Stack item #2
-| 00 ................................. Pegin witness (0x00 → null)
+| 00 ................................. Peg-in witness (0x00 → null)
 |
 |                                      Input #2 witness
 | 00 ................................. Issuance amount range proof (0x00 → null)
@@ -246,7 +257,7 @@ Deserialization:
 | | | 03daa4c9684c369d4420b9f20e41
 | | | 16362b6a3786e9a12a4e1927d1a2
 | | | 5c4ffd931b ..................... Stack item #2
-| 00 ................................. Pegin witness stack length
+| 00 ................................. Peg-in witness stack length
 
 ...................................... Output witnesses (1 per output)
 |
@@ -277,7 +288,7 @@ Deserialization:
 |
 |                                      Input #1
 | eb87c50cb285fc7262a00ceefda34aaa
-| ac951ce5dd3e95c1bc85b7ce6a218ea5 ... Outpoint TXID 
+| ac951ce5dd3e95c1bc85b7ce6a218ea5 ... Outpoint TXID: a58e216aceb785bcc1953edde51c95acaa4aa3fdee0ca06272fc85b20cc587eb
 | 00000080 ........................... Output Index (little-endian → 0x80000000 → most significant bit is 1 → asset issuance)
 |
 | 00 ................................. ScriptSig length
@@ -298,7 +309,7 @@ Deserialization:
 | | 00000000c4b20100 ................. Amount: 0xc4b20100 = 3,300,000,000 → 33 units (each divisible by 100,000,000) 
 | |
 | | 01 ............................... Num inflation keys header (0x01 → explicit, unblinded value)
-| | 0000000029b92700 ................. Value. 0x29b92700 = 700,000,000 → 7 keys 
+| | 0000000029b92700 ................. Value. 0x29b92700 = 700,000,000 inflation keys
 
 05 ................................... Num outputs
 |
@@ -370,7 +381,7 @@ Deserialization:
 |                                      Output #5
 | 01 ................................. Asset header (0x01 → explicit, unblinded value)
 | 230f4f5d4b7c6fa845806ee4f6771345
-| 9e1b69e8e60fcee2e4940c7a0d5de1b2 ... Key used to generate asset ID
+| 9e1b69e8e60fcee2e4940c7a0d5de1b2 ... Asset ID: b2e15d0d7a0c94e4e2ce0fe6e8691b9e451377f6e46e8045a86f7c4b5d4f0f23
 |
 | 01 ................................. Amount header (0x01 → explicit, unblinded value)
 | 00000000000069dc ................... Amount: 0x00000000000069dc = 0.00027100. Recall: values are divisible by 100,000,000.
@@ -398,7 +409,7 @@ Deserialization:
 | | | 02d8aefaed1152469fa73d5ac7a1
 | | | 52a632e70a15a135d9f46c76f015
 | | | 78a3dd9f91 ..................... Stack item #2
-| 00 ................................. Pegin witness length
+| 00 ................................. Peg-in witness length
 
 ...................................... Output witnesses (1 per output)
 |
@@ -455,7 +466,7 @@ Deserialization:
 
 #### Example 3
 
-Signed pegin claim transaction on liquidv1 (production liquid).
+Signed peg-in claim transaction on liquidv1 (production liquid).
 
 Raw hex:
 ```
@@ -470,8 +481,8 @@ Deserialization:
 |
 |                                      Input #1
 | 3d0bfb6e61989331d67dac3b6adf067a
-| fda20f504cabb1a7364853a68a0bb6df ... Outpoint TXID 
-| 00000040 ........................... Output Index (little-endian → 0x40000000 → second most significant bit is 1 → pegin)
+| fda20f504cabb1a7364853a68a0bb6df ... Outpoint TXID: dfb60b8aa6534836a7b1ab4c500fa2fd7a06df6a3bac7dd6319398616efb0b3d
+| 00000040 ........................... Output Index (little-endian → 0x40000000 → second most significant bit is 1 → peg-in)
 |
 | 00 ................................. ScriptSig length
 | | .................................. ScriptSig (empty: segwit transaction)
@@ -483,7 +494,7 @@ Deserialization:
 |                                      Output #1
 | 01 ................................. Asset header (0x01 → explicit, unblinded value)
 | 6d521c38ec1ea15734ae22b7c4606441
-| 2829c0d0579f0a713d1c04ede979026f ... Key used to generate asset ID
+| 2829c0d0579f0a713d1c04ede979026f ... Asset ID: 6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d
 |
 | 01 ................................. Amount header (0x01 → explicit, unblinded value) 
 | 00000000002b09c1 ................... Amount: 0.02820545 L-BTC
@@ -497,7 +508,7 @@ Deserialization:
 |                                      Output #2
 | 01 ................................. Asset header (0x01 → explicit, unblinded value)
 | 6d521c38ec1ea15734ae22b7c4606441
-| 2829c0d0579f0a713d1c04ede979026f ... Key used to generate asset ID
+| 2829c0d0579f0a713d1c04ede979026f ... Asset ID: 6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d
 |
 | 01 ................................. Amount header (0x01 → explicit, unblinded value) 
 | 0000000000000027 ................... Amount: 0.00000039 L-BTC
@@ -526,29 +537,29 @@ Deserialization:
 | | | 02e776bdb5d8fc14d24b330c0efb
 | | | f34227cbba1cf25eb0778aa45f8b
 | | | 7cb3495046 ..................... Stack item #2
-| 06 ................................. Pegin witness stack length
+| 06 ................................. Peg-in witness stack length
 | | 08 ............................... Stack item #1 length  
-| | | e8092b0000000000 ............... Stack item #1
+| | | e8092b0000000000 ............... Peg-in value (little-endian): 0x2b09e8 = 0.02820545 BTC)
 | | 20 ............................... Stack item #2 length (0x20 = 32)
 | | | 6d521c38ec1ea15734ae22b7c46064 
 | | | 412829c0d0579f0a713d1c04ede979
-| | | 026f ........................... Stack item #2
+| | | 026f ........................... Asset ID: 6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d
 | | 20 ............................... Stack item #3 length (0x20 = 32)
 | | | 6fe28c0ab6f1b372c1a6a246ae63f7
 | | | 4f931e8365e15a089c68d619000000
-| | | 0000 ........................... Stack item #3
+| | | 0000 ........................... Genesis hash: 000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f
 | | 16 ............................... Stack item #4 length (0x16 = 22)
 | | | 0014504b2e2f011741aec712fb2f51
-| | | dc1537272f284a ................. Stack item #4
+| | | dc1537272f284a ................. Claim script
 | | 53 ............................... Stack item #5 length
 | | | 020000000113391c88becfe2a855a7
 | | | 4fb1890cabef7c81a4be742771046c
 | | | a0c38e29cfada50100000000000000
 | | | 8001e8092b000000000017a9144d73
 | | | 3642e6cc020cfd3b2ae52e4ef1b50b
-| | | e6a15f8700000000 ............... Stack item #5
+| | | e6a15f8700000000 ............... Serialized mainchain peg-in transaction
 | | fd9901 ........................... Stack item #6 length (0xfd9901 = 409, refer to VarInt docs for deserialization info)
-| | | 00004020fe6c0db88a5a5b747b(..).. Stack item #6 (shortened for brevity)
+| | | 00004020fe6c0db88a5a5b747b(..).. Mainchain transaction inclusion merkle proof (shortened for brevity)
 
 ...................................... Output witnesses (1 per output)
 |
