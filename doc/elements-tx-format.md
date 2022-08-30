@@ -26,6 +26,11 @@ This document assumes some familiarity with Bitcoin and Elements (UTXOs, [Script
 | Locktime | Yes | 4 bytes | `uint32_t` | Little-endian | See [BIP 113](https://github.com/bitcoin/bips/blob/master/bip-0113.mediawiki). |
 | Witness | Only if flags is 1 | Varies | `Witness` | | See [BIP 141](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki). Note that Elements witnesses contain more data than Bitcoin witnesses. This extra data is described further below. |
 
+Notable differences from Bitcoin:
+- In Bitcoin the *Flags* field is optional and it is two bytes long. In Elements, this field is mandatory and it is reduced to one byte.
+- In Bitcoin, only inputs have witnesses. In Elements, each output also has a witness section associated with it.
+- In Bitcoin transactions the *Locktime* appears immediately after the witnesses, whereas in Elements transactions it appears right before them.
+
 This is the overarching structure of a serialized transaction. The rest of this document contains further details on specific parts, as well as examples.
 
 #### Variable Length Integer (VarInt)
@@ -58,6 +63,10 @@ Refer to the examples section below for more concrete examples of serialized vec
 
 [^1]: The hex encodings of hashes by the Elements client (TXID, asset ID) are byte-reversed, and so the bytes will need to be re-reversed to match the serialized data. This is the same situation as in Bitcoin. For example, the hash `1123...deff` would be displayed by the Bitcoin and Elements clients as `ffde...2311`. This is primarily for historical reasons: the Bitcoin client has always interpreted and displayed hashes as little-endian integers and parsed their bytes in reverse order.
 
+Notable differences from Bitcoin:
+- In Elements, the *Output Index* field uses the two most significant bits to flag if the transaction is a peg-in transaction (1 << 30) or if it is an issuance (1 << 31). If these flags are present, they must be removed to refer to the output's index.
+- Inputs can allow for the issuance of new assets or for reissuances of these assets. To create a new asset, any input being spent can be used and a 0 value must be used in the issuance's blinding nonce field. To reissue an asset, the asset blinding factor is used in the issuance's blinding nonce field, and the asset being spent must be of the reissuance token's asset type.
+
 #### TxOut
 
 |Field|Required|Size|Data Type|Encoding|Notes|
@@ -89,6 +98,7 @@ SegWit transactions have one such witness for each input.
 | Peg-in Witness | Yes | Varies | `Vec<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
 
 The range proofs must be empty if their asociated amounts (issuance / inflation keys) are explicit.
+Refer [here](https://elementsproject.org/features/confidential-transactions/investigation) for more details on range proofs.
 
 A non-empty peg-in witness stack should always have a length of 6, and the items should be interpreted as follows:
 
@@ -101,19 +111,24 @@ A non-empty peg-in witness stack should always have a length of 6, and the items
 
 See *Example #3* in the Examples section below for a concrete example.
 
+Noable differences from Bitcoin:
+- Each input witness has four fields, rather than just one witness stack.
+
 #### OutputWitness
 
 SegWit transactions have one such witness for each output.
 
 |Field|Required|Size|Data Type|Encoding|Notes|
 |-----|--------|-----|---------|--------|-----|
-| Surjection Proof | Yes | Varies | `Proof` | | Will be null (`0x00`) if corresponding output is not confidential. |
-| Range Proof | Yes | Varies | `Proof` | | Will be null (`0x00`) if corresponding output is not confidential. |
+| Surjection Proof | Yes | Varies | `Proof` | | A non-null value indicates that the corresponding output's asset is blinded. |
+| Range Proof | Yes | Varies | `Proof` | | A non-null value indicates that the corresponding output's value is blinded. |
 
-The Range Proof must be empty if the output’s amount is explicit. 
+It is possible for an output's asset to be blinded but not its value, and vice-versa.
 
-The Surjection Proof must be empty if the output’s asset ID is explicit.
-
+More details:
+- [Confidential Assets](https://blockstream.com/bitcoin17-final41.pdf)
+- [Range Proofs](https://elementsproject.org/features/confidential-transactions/investigation)
+- [Surjection Proofs](https://github.com/ElementsProject/elements/blob/master/src/secp256k1/src/modules/surjection/surjection.md)
 #### AssetIssuance
 
 |Field|Required|Size|Data Type|Encoding|Notes| 
