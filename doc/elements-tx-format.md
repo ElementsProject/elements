@@ -35,16 +35,16 @@ This is the overarching structure of a serialized transaction. The rest of this 
 
 #### Variable Length Integer (VarInt)
 
-This data type is derived from Bitcoin and allows an integer to be encoded depending on the represented value, to save space.
+This data type is derived from Bitcoin, and allows an integer to be encoded with a variable length (which depends on the represented value), in order to save space.
 Variable length integers always precede a vector of a type of data that may vary in length and are used to indicate this length.
 Longer numbers are encoded in little-endian.
 
 | Value | Size | Format | Example |
 | ----- | ---- | ------ | ------- |
 | < `0xFD` | 1 byte | `uint8_t` | `0x0F` = 15 |
-| <= `0xFFFF` | 3 bytes | `0xFD` followed by the length as a `uint16_t` | `0xFD 00FF` = 65 280 |
-| <= `0xFFFF FFFF` | 5 bytes | `0xFE` followed by the length as a `uint32_t` | `0xFE 0000 00FF` = 4 278 190 080 |
-| <= `0xFFFF FFFF FFFF FFFF` | 9 bytes | `0xFF` followed by the length as a `uint64_t` | `0xFF 0000 0000 0000 00FF` = 18 374 686 479 671 623 680 |
+| <= `0xFFFF` | 3 bytes | `0xFD` followed by the number as a `uint16_t` | `0xFD 00FF` = 65 280 |
+| <= `0xFFFF FFFF` | 5 bytes | `0xFE` followed by the number as a `uint32_t` | `0xFE 0000 00FF` = 4 278 190 080 |
+| <= `0xFFFF FFFF FFFF FFFF` | 9 bytes | `0xFF` followed by the number as a `uint64_t` | `0xFF 0000 0000 0000 00FF` = 18 374 686 479 671 623 680 |
 
 #### Vector\<Type\>
 
@@ -101,24 +101,24 @@ SegWit transactions have one such witness for each input.
 | ----- | -------- | ---- | --------- | -------- | ----- |
 | Issuance Amount Range Proof | Yes | Varies | `Proof` | | `0x00` → null. |
 | Inflation Keys Range Proof | Yes | Varies | `Proof` | | `0x00` → null. |
-| Script Witness | Yes | Varies | `Vec<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
-| Peg-in Witness | Yes | Varies | `Vec<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
+| Script Witness | Yes | Varies | `Vector<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
+| Peg-in Witness | Yes | Varies | `Vector<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
 
 The range proofs must be empty if their asociated amounts (issuance / inflation keys) are explicit.
 Refer [here](https://elementsproject.org/features/confidential-transactions/investigation) for more details on range proofs.
 
 A non-empty peg-in witness stack should always have a length of 6, and the items should be interpreted as follows:
 
-1. The little-endian 64-bit value of the peg-in for the Peg-in Transaction.
+1. The little-endian 64-bit value of the peg-in for the peg-in transaction.
 2. Asset ID of the asset being pegged in.
 3. The 32 byte genesis hash of the blockchain which originated the peg-in.
-4. Claim script for the Peg-in Transaction.
-5. The mainchain Peg-in Transaction serialized without witnesses.
+4. Claim script for the peg-in transaction.
+5. The mainchain peg-in transaction serialized without witnesses.
 6. Merkle proof of transaction inclusion, from the mainchain.
 
 See *Example #3* in the Examples section below for a concrete example.
 
-Noable differences from Bitcoin:
+Notable differences from Bitcoin:
 - Each input witness has four fields, rather than just one witness stack.
 
 #### OutputWitness
