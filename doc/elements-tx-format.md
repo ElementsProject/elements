@@ -15,8 +15,8 @@ This document assumes some familiarity with Bitcoin and Elements (UTXOs, [Script
 
 #### Transaction
 
-|Field|Required|Size|Data Type|Encoding|Notes| 
-|-----|--------|-----|---------|--------|-----|
+| Field | Required | Size | Data Type | Encoding | Notes |
+| ----- | -------- | ---- | --------- | -------- | ----- |
 | Version | Yes | 4 bytes | `int32_t` | Little-endian | Transaction version number. Currently version 2 (see [BIP 68](https://github.com/bitcoin/bips/blob/master/bip-0068.mediawiki#specification)). | |
 | Flags | Yes | 1 byte | `unsigned char` | | 1 if the transaction contains a witness, otherwise 0. All other values are invalid. |
 | Num Inputs | Yes | Varies | `VarInt` | | Number of inputs to the transaction. |
@@ -35,9 +35,16 @@ This is the overarching structure of a serialized transaction. The rest of this 
 
 #### Variable Length Integer (VarInt)
 
-This data type is derived from Bitcoin and allows an integer to be encoded depending on the represented value, to save space. Variable length integers always precede an vector of a type of data that may vary in length. Longer numbers are encoded in little-endian.
+This data type is derived from Bitcoin and allows an integer to be encoded depending on the represented value, to save space.
+Variable length integers always precede a vector of a type of data that may vary in length and are used to indicate this length.
+Longer numbers are encoded in little-endian.
 
-Refer to the [Bitcoin protocol documentation](https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer) for a full description on how this type is serialized.
+| Value | Size | Format | Example |
+| ----- | ---- | ------ | ------- |
+| < `0xFD` | 1 byte | `uint8_t` | `0x0F` = 15 |
+| <= `0xFFFF` | 3 bytes | `0xFD` followed by the length as a `uint16_t` | `0xFD 00FF` = 65 280 |
+| <= `0xFFFF FFFF` | 5 bytes | `0xFE` followed by the length as a `uint32_t` | `0xFE 0000 00FF` = 4 278 190 080 |
+| <= `0xFFFF FFFF FFFF FFFF` | 9 bytes | `0xFF` followed by the length as a `uint64_t` | `0xFF 0000 0000 0000 00FF` = 18 374 686 479 671 623 680 |
 
 #### Vector\<Type\>
 
@@ -52,8 +59,8 @@ Refer to the examples section below for more concrete examples of serialized vec
 
 #### TxIn
 
-|Field|Required|Size|Data Type|Encoding|Notes| 
-|-----|--------|-----|---------|--------|-----|
+| Field | Required | Size | Data Type | Encoding | Notes |
+| ----- | -------- | ---- | --------- | -------- | ----- |
 | Output Hash (TXID) | Yes | 32 bytes | `hex` | [^1] | |
 | Output Index | Yes | 4 bytes | `uint32_t` | Little-endian | **Input is a coinbase**: `0xffffffff`<br><br>The two most significant bits are reserved for flags.<br><br>**Input is a peg-in:** second most significant bit is 1.<br><br>**Input has an asset issuance:** most significant bit is 1. |
 | ScriptSig Length | Yes | Varies | `VarInt` | | Set to `0x00` if the transaction is SegWit and the witness contains the signature. |
@@ -69,8 +76,8 @@ Notable differences from Bitcoin:
 
 #### TxOut
 
-|Field|Required|Size|Data Type|Encoding|Notes|
-|-----|--------|-----|---------|--------|-----|
+| Field | Required | Size | Data Type | Encoding | Notes |
+| ----- | -------- | ---- | --------- | -------- | ----- |
 | Asset | Yes | 33 bytes | `ConfidentialAsset` | | Cannot be null. |
 | Amount | Yes | 9 or 33 bytes | `ConfidentialAmount` | | Cannot be null. |
 | Nonce | Yes | 1 or 33 bytes | `ConfidentialNonce` | | |
@@ -81,17 +88,17 @@ Notable differences from Bitcoin:
 
 As noted above, the witness is only present for SegWit transactions.
 
-|Field|Required|Size|Data Type|Encoding|Notes|
-|-----|--------|-----|---------|--------|-----|
-| Input Witnesses| Yes | Varies | `Vector<InputWitness>` | | There is exactly one input witness for each input in the transaction.<br><br>This number is not explicitly included in the witness — it is implied by the number of inputs. |
-| Output Witnesses| Yes | Varies | `Vector<OutputWitness>` | | There is exactly one output witness for each output in the transaction.<br><br>This number is not explicitly included in the witness — it is implied by the number of outputs. |
+| Field | Required | Size | Data Type | Encoding | Notes |
+| ----- | -------- | ---- | --------- | -------- | ----- |
+| Input Witnesses | Yes | Varies | `Vector<InputWitness>` | | There is exactly one input witness for each input in the transaction.<br><br>This number is not explicitly included in the witness — it is implied by the number of inputs. |
+| Output Witnesses | Yes | Varies | `Vector<OutputWitness>` | | There is exactly one output witness for each output in the transaction.<br><br>This number is not explicitly included in the witness — it is implied by the number of outputs. |
 
 #### InputWitness
 
 SegWit transactions have one such witness for each input.
 
-|Field|Required|Size|Data Type|Encoding|Notes|
-|-----|--------|-----|---------|--------|-----|
+| Field | Required | Size | Data Type | Encoding | Notes |
+| ----- | -------- | ---- | --------- | -------- | ----- |
 | Issuance Amount Range Proof | Yes | Varies | `Proof` | | `0x00` → null. |
 | Inflation Keys Range Proof | Yes | Varies | `Proof` | | `0x00` → null. |
 | Script Witness | Yes | Varies | `Vec<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
@@ -118,8 +125,8 @@ Noable differences from Bitcoin:
 
 SegWit transactions have one such witness for each output.
 
-|Field|Required|Size|Data Type|Encoding|Notes|
-|-----|--------|-----|---------|--------|-----|
+| Field | Required | Size | Data Type | Encoding | Notes |
+| ----- | -------- | ---- | --------- | -------- | ----- |
 | Surjection Proof | Yes | Varies | `Proof` | | A non-null value indicates that the corresponding output's asset is blinded. |
 | Range Proof | Yes | Varies | `Proof` | | A non-null value indicates that the corresponding output's value is blinded. |
 
@@ -131,8 +138,8 @@ More details:
 - [Surjection Proofs](https://github.com/ElementsProject/elements/blob/master/src/secp256k1/src/modules/surjection/surjection.md)
 #### AssetIssuance
 
-|Field|Required|Size|Data Type|Encoding|Notes| 
-|-----|--------|-----|---------|--------|-----|
+| Field | Required | Size | Data Type | Encoding | Notes |
+| ----- | -------- | ---- | --------- | -------- | ----- |
 | Asset Blinding Nonce | Yes | 32 bytes | `hex` | | Zero for a new asset issuance; otherwise a blinding factor for the input. |
 | Asset Entropy | Yes | 32 bytes | `hex` | | **New issuances:** Freeform entropy field, no consensus-defined meaning, but is used as additional entropy to the asset tag calculation.<br><br>**Reissuances:** Required to be the asset's entropy value (from its initial issuance). |
 | Amount | Yes | 1 or 9 or 33 bytes | `ConfidentialAmount` | | Amount of the asset to issue. Both explicit and blinded amounts are supported.<br><br>**Note**: cannot be explicitly set to 0 (should be null instead). |
@@ -140,29 +147,29 @@ More details:
 
 #### ConfidentialAsset
 
-|Field|Required|Size|Data Type|Encoding|Notes| 
-|-----|--------|-----|---------|--------|-----|
+| Field | Required | Size | Data Type | Encoding | Notes |
+| ----- | -------- | ---- | --------- | -------- | ----- |
 | Header | Yes | 1 byte | | | A header byte of `0x00` indicates a “null” value with no subsequent bytes.<br><br>A header byte of `0x01` indicates an “explicit” value with the following 32 bytes denoting the key used to generate the asset ID (little-endian).<br><br>A header byte of `0x0a` or `0x0b` indicates a blinded value encoded as a compressed elliptic curve point. With the least significant bit of the header byte denoting the least significant bit of the y-coordinate, and the remaining 32 bytes denoting the x-coordinate (big-endian). The point must be a point on the curve. |
 | Value | If header byte is not `0x00` | 32 bytes | `hex` | Depends on header byte | |
 
 #### ConfidentialAmount
 
-|Field|Required|Size|Data Type|Encoding|Notes| 
-|-----|--------|-----|---------|--------|-----|
+| Field | Required | Size | Data Type | Encoding | Notes |
+| ----- | -------- | ---- | --------- | -------- | ----- |
 | Header | Yes | 1 byte | | | A header byte of `0x00` indicates a “null” value with no subsequent bytes.<br><br>A header byte of `0x01` indicates an “explicit” value with the following 8 bytes denoting a 64-bit value (big-endian).  This value must be between 0 and `MAX_MONEY` inclusive.<br><br>A header byte of `0x08` or `0x09` indicates a blinded value encoded as a compressed elliptic curve point. With the least significant bit of the header byte denoting the least significant bit of the y-coordinate, and the remaining 32 bytes denoting the x-coordinate (big-endian). The point must be a point on the curve. |
 | Value | If header byte is not `0x00` | 8 or 32 bytes | `hex` | Big-endian | |
 
 #### ConfidentialNonce
 
-|Field|Required|Size|Data Type|Encoding|Notes| 
-|-----|--------|-----|---------|--------|-----|
+| Field | Required | Size | Data Type | Encoding | Notes |
+| ----- | -------- | ---- | --------- | -------- | ----- |
 | Header | Yes | 1 byte | | | A header byte of `0x00` indicates a “null” value with no subsequent bytes.<br><br>A header byte of `0x01` indicates an “explicit” value with the following 32 bytes denoting a value (big-endian).<br><br>A header byte of `0x02` or `0x03` indicates a compressed elliptic curve point. With the least significant bit of the header byte denoting the least significant bit of the y-coordinate, and the remaining 32 bytes denoting the x-coordinate (big-endian). This point is not required to be on the curve. |
 | Value | If header byte is not `0x00` | 32 bytes | `hex` | Big-endian | |
 
 #### Proof
 
-|Field|Required|Size|Data Type|Encoding|Notes| 
-|-----|--------|-----|---------|--------|-----|
+| Field | Required | Size | Data Type | Encoding | Notes |
+| ----- | -------- | ---- | --------- | -------- | ----- |
 | Length | Yes | Varies | `VarInt` | | `0x00` → null. |
 | Value | If header byte is not `0x00` | Varies | `hex` | Big-endian | The proof itself. This should be interpreted based on the context (surjection proof, range proof, etc). |
 ## Examples
