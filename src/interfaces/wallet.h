@@ -36,6 +36,7 @@ struct PartiallySignedTransaction;
 struct WalletContext;
 struct bilingual_str;
 typedef uint8_t isminefilter;
+struct BlindDetails;
 
 namespace interfaces {
 
@@ -140,13 +141,14 @@ public:
         bool sign,
         int& change_pos,
         CAmount& fee,
-        std::vector<CAmount>& out_amounts,
+        BlindDetails* blind_details,
         bilingual_str& fail_reason) = 0;
 
     //! Commit transaction.
     virtual void commitTransaction(CTransactionRef tx,
         WalletValueMap value_map,
-        WalletOrderForm order_form) = 0;
+        WalletOrderForm order_form,
+        BlindDetails* blind_details) = 0;
 
     //! Return whether transaction can be abandoned.
     virtual bool transactionCanBeAbandoned(const uint256& txid) = 0;
