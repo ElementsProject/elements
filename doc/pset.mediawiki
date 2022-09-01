@@ -295,6 +295,16 @@ The currently defined elements per-input proprietary types are as follows:
 |
 | 0
 | 2
+|-
+| Blinded Issuance Flag
+| <tt>PSBT_ELEMENTS_IN_BLINDED_ISSUANCE = 0x15</tt>
+| None
+| No key data
+| <tt><1 byte boolean></tt>
+| A boolean flag. <tt>0x00</tt> indicates the issuance should not be blinded, <tt>0x01</tt> indicates it should be. If not specified, assumed to be <tt>0x01</tt>. Note that this does not indicate actual blinding status, but rather the expected blinding status prior to signing.
+|
+| 0
+| 2
 |}
 
 The currently defined elements per-output proprietary types are as follows:
