@@ -1218,6 +1218,7 @@ static RPCHelpMan decodepsbt()
                                 {RPCResult::Type::STR_HEX, "value_proof", /*optional=*/true, "The explicit value proof for this input"},
                                 {RPCResult::Type::STR_HEX, "explicit_asset", /*optional=*/true, "The explicit asset for this input"},
                                 {RPCResult::Type::STR_HEX, "asset_proof", /*optional=*/true, "The explicit asset proof for this input"},
+                                {RPCResult::Type::BOOL, "blinded_issuance", /*optional=*/true, "Whether the issuance should be blinded prior to signing"},
                                 {RPCResult::Type::OBJ_DYN, "unknown", "The unknown global fields",
                                 {
                                     {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
@@ -1611,6 +1612,10 @@ static RPCHelpMan decodepsbt()
         }
         if (!input.m_asset_proof.empty()) {
             in.pushKV("asset_proof", HexStr(input.m_asset_proof));
+        }
+
+        if (input.m_blinded_issuance.has_value()) {
+            in.pushKV("blinded_issuance", *input.m_blinded_issuance);
         }
 
         switch (VerifyBlindProofs(input)) {
