@@ -77,6 +77,7 @@ static constexpr uint8_t PSBT_ELEMENTS_IN_EXPLICIT_VALUE = 0x11;
 static constexpr uint8_t PSBT_ELEMENTS_IN_VALUE_PROOF = 0x12;
 static constexpr uint8_t PSBT_ELEMENTS_IN_EXPLICIT_ASSET = 0x13;
 static constexpr uint8_t PSBT_ELEMENTS_IN_ASSET_PROOF = 0x14;
+static constexpr uint8_t PSBT_ELEMENTS_IN_BLINDED_ISSUANCE = 0x15;
 
 // Output types
 static constexpr uint8_t PSBT_OUT_REDEEMSCRIPT = 0x00;
@@ -252,6 +253,7 @@ struct PSBTInput
     uint256 m_issuance_asset_entropy;
     std::vector<unsigned char> m_blind_issuance_value_proof;
     std::vector<unsigned char> m_blind_issuance_inflation_keys_proof;
+    std::optional<bool> m_blinded_issuance;
 
     // Peg-in
     std::variant<std::monostate, Sidechain::Bitcoin::CTransactionRef, CTransactionRef> m_peg_in_tx;
@@ -500,6 +502,11 @@ struct PSBTInput
             if (!m_asset_proof.empty()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ASSET_PROOF));
                 s << m_asset_proof;
+            }
+
+            if (m_blinded_issuance.has_value()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_BLINDED_ISSUANCE));
+                SerializeToVector(s, *m_blinded_issuance);
             }
         }
 
@@ -954,6 +961,18 @@ struct PSBTInput
                                     throw std::ios_base::failure("Input explicit asset proof is more than one byte type");
                                 }
                                 s >> m_value_proof;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_BLINDED_ISSUANCE:
+                            {
+                                if (!key_lookup.emplace(key).second) {
+                                    throw std::ios_base::failure("Duplicate Key, issuance needs blinded flag is already provided");
+                                } else if (key.size() != 1) {
+                                    throw std::ios_base::failure("Input issuance needs blinded flag is more than one byte type");
+                                }
+                                bool b;
+                                UnserializeFromVector(s, b);
+                                m_blinded_issuance = b;
                                 break;
                             }
                             default:
