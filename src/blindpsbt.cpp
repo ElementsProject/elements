@@ -386,99 +386,54 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
         }
 
         // Handle issuances
-        if (input.m_issuance_value) {
-            if (!input.m_issuance_value_commitment.IsCommitment() && input.m_issuance_rangeproof.size() == 0 && input.m_issuance_inflation_keys_rangeproof.size() == 0) {
-                CAsset issuance_asset;
-                CAsset reissuance_asset;
+        if (input.m_issuance_value != std::nullopt || input.m_issuance_value_commitment.IsCommitment() || input.m_issuance_inflation_keys_amount != std::nullopt || input.m_issuance_inflation_keys_commitment.IsCommitment()) {
+            CAsset issuance_asset;
+            CAsset reissuance_asset;
 
-                uint256 entropy;
-                if (!input.m_issuance_blinding_nonce.IsNull()) {
-                    // Reissuance, use assetEntropy as the asset entropy
-                    entropy = input.m_issuance_asset_entropy;
-                } else {
-                    // New issuance, make new entropy
-                    GenerateAssetEntropy(entropy, input.GetOutPoint(), input.m_issuance_asset_entropy);
-                }
+            uint256 entropy;
+            if (!input.m_issuance_blinding_nonce.IsNull()) {
+                // Reissuance, use assetEntropy as the asset entropy
+                entropy = input.m_issuance_asset_entropy;
+            } else {
+                // New issuance, make new entropy
+                GenerateAssetEntropy(entropy, input.GetOutPoint(), input.m_issuance_asset_entropy);
+            }
 
+            if (input.m_issuance_value != std::nullopt || input.m_issuance_value_commitment.IsCommitment()) {
                 // Asset isn't blinded yet. Add it to the list of input assets
                 CalculateAsset(issuance_asset, entropy);
                 fixed_input_tags.emplace_back();
                 memcpy(fixed_input_tags.back().data, issuance_asset.begin(), 32);
                 ephemeral_input_tags.emplace_back();
-                if (secp256k1_generator_generate(secp256k1_blind_context, &ephemeral_input_tags.back(), issuance_asset.begin()) != 1) {
-                    return BlindingStatus::INVALID_ASSET;
-                }
-                unsigned int iss_to_blind = 1; // Always do the first issuance blinding iteration for the issuance value
-
-                bool blind_issuance = our_issuances_to_blind.count(i) > 0;
-
-                if (input.m_issuance_blinding_nonce.IsNull() && input.m_issuance_inflation_keys_amount) {
-                    // New issuance, do reissuance token things
-                    CalculateReissuanceToken(reissuance_asset, entropy, blind_issuance);
-                    // Add the reissuance_asset to the list of input assets
-                    fixed_input_tags.emplace_back();
-                    memcpy(fixed_input_tags.back().data, reissuance_asset.begin(), 32);
-                    ephemeral_input_tags.emplace_back();
-                    if (secp256k1_generator_generate(secp256k1_blind_context, &ephemeral_input_tags.back(), reissuance_asset.begin()) != 1) {
+                if (input.m_issuance_value_commitment.IsNull()) {
+                    if (secp256k1_generator_generate(secp256k1_blind_context, &ephemeral_input_tags.back(), issuance_asset.begin()) != 1) {
                         return BlindingStatus::INVALID_ASSET;
-                    }
-                    iss_to_blind++; // If we have a reissuance, do the second blinding iteration for the inflation keys
-                }
-
-                if (blind_issuance) {
-                    for (unsigned int blind_i = 0; blind_i < iss_to_blind; ++blind_i) {
-                        // To blind an issuance, both the issuance value and the number of inflation keys need to be blinded
-                        // Since this process is basically the same for both, do it in a loop and switch based on the index
-                        bool blind_value = blind_i == 0; // True for blinding the value, false for blinding the inflation keys
-                        CAmount value = blind_value ? *input.m_issuance_value : *input.m_issuance_inflation_keys_amount;
-                        CAsset asset = blind_value ? issuance_asset : reissuance_asset;
-                        CKey blinding_privkey = blind_value ? our_issuances_to_blind.at(i).first : our_issuances_to_blind.at(i).second;
-
-                        uint256 value_blinder;
-                        GetStrongRandBytes(value_blinder.begin(), value_blinder.size());
-
-                        // Create unblinded generator. Throw away everything except asset_gen
-                        uint256 asset_blinder;
-                        CConfidentialAsset conf_asset;
-                        secp256k1_generator asset_gen;
-                        CreateAssetCommitment(conf_asset, asset_gen, asset, asset_blinder);
-                        input_asset_blinders.push_back(asset_blinder);
-
-                        // Compute the scalar for this blinding and add to the input scalar
-                        if (!ComputeAndAddToScalarOffset(input_scalar, value, asset_blinder, value_blinder)) return BlindingStatus::SCALAR_UNABLE;
-
-                        // Create value commitment
-                        secp256k1_pedersen_commitment value_commit;
-                        CConfidentialValue conf_value;
-                        CreateValueCommitment(conf_value, value_commit, value_blinder, asset_gen, value);
-
-                        // Nonce is the blinding key
-                        uint256 nonce = uint256(std::vector<unsigned char>(blinding_privkey.begin(), blinding_privkey.end()));
-
-                        // Generate rangeproof
-                        std::vector<unsigned char> rangeproof;
-                        bool rangeresult = CreateValueRangeProof(rangeproof, value_blinder, nonce, value, CScript(), value_commit, asset_gen, asset, asset_blinder);
-                        assert(rangeresult);
-
-                        // Create explicit value rangeproofs
-                        std::vector<unsigned char> blind_value_proof;
-                        rangeresult = CreateBlindValueProof(blind_value_proof, value_blinder, value, value_commit, asset_gen);
-                        assert(rangeresult);
-
-                        if (blind_value) {
-                            input.m_issuance_value_commitment = conf_value;
-                            input.m_issuance_rangeproof = rangeproof;
-                            input.m_blind_issuance_value_proof = blind_value_proof;
-                        } else {
-                            input.m_issuance_inflation_keys_commitment = conf_value;
-                            input.m_issuance_inflation_keys_rangeproof = rangeproof;
-                            input.m_blind_issuance_inflation_keys_proof = blind_value_proof;
-                        }
                     }
                 }
                 else {
-                    input_asset_blinders.emplace_back();
+                    memcpy(ephemeral_input_tags.back().data, input.m_issuance_value_commitment.vchCommitment.data(), 33);
                 }
+                input_asset_blinders.emplace_back();
+            }
+
+            bool blind_issuance = input.m_issuance_value_commitment.IsCommitment();
+
+            if (input.m_issuance_blinding_nonce.IsNull() && (input.m_issuance_inflation_keys_amount != std::nullopt || input.m_issuance_inflation_keys_commitment.IsCommitment())) {
+                // New issuance, do reissuance token things
+                CalculateReissuanceToken(reissuance_asset, entropy, blind_issuance);
+                // Add the reissuance_asset to the list of input assets
+                fixed_input_tags.emplace_back();
+                memcpy(fixed_input_tags.back().data, reissuance_asset.begin(), 32);
+                ephemeral_input_tags.emplace_back();
+                if (input.m_issuance_inflation_keys_commitment.IsNull()) {
+                    if (secp256k1_generator_generate(secp256k1_blind_context, &ephemeral_input_tags.back(), reissuance_asset.begin()) != 1) {
+                        return BlindingStatus::INVALID_ASSET;
+                    }
+                }
+                else if(input.m_issuance_inflation_keys_commitment.IsCommitment()){
+                    memcpy(ephemeral_input_tags.back().data, input.m_issuance_inflation_keys_commitment.vchCommitment.data(), 33);
+                }
+                input_asset_blinders.emplace_back();
             }
         }
     }

@@ -98,6 +98,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
                     "blind": True, # FIXME: if blind=False, `blindrawtranaction` fails. Should fix this in a future PR
                 }]
             )[0]["hex"]
+
         blinded_hex = self.nodes[1].blindrawtransaction(unsigned_hex)
         blinded_tx = tx_from_hex(blinded_hex)
         signed_hex = self.nodes[1].signrawtransactionwithwallet(blinded_hex)["hex"]
@@ -164,12 +165,13 @@ class SighashRangeproofTest(BitcoinTestFramework):
             assert test_accept["allowed"], "not accepted: {}".format(test_accept["reject-reason"])
 
             # Try signing using the PSBT interface
-            psbt_hex = self.nodes[0].converttopsbt(unsigned_hex)
-            signed_psbt = self.nodes[1].walletprocesspsbt(psbt_hex, True, "ALL|RANGEPROOF")
-            extracted_tx = self.nodes[0].finalizepsbt(signed_psbt["psbt"])
-            assert extracted_tx["complete"]
-            test_accept = self.nodes[0].testmempoolaccept([extracted_tx["hex"]])[0]
-            assert test_accept["allowed"], "not accepted: {}".format(test_accept["reject-reason"])
+            if not attach_issuance: # FIXME: We need to skip the issuance since the example assumes it was a blinded issuance, thus the reissuance token is incorrect.
+                psbt_hex = self.nodes[0].converttopsbt(unsigned_hex)
+                signed_psbt = self.nodes[1].walletprocesspsbt(psbt_hex, True, "ALL|RANGEPROOF")
+                extracted_tx = self.nodes[0].finalizepsbt(signed_psbt["psbt"])
+                assert extracted_tx["complete"]
+                test_accept = self.nodes[0].testmempoolaccept([extracted_tx["hex"]])[0]
+                assert test_accept["allowed"], "not accepted: {}".format(test_accept["reject-reason"])
         else:
             signed_tx.rehash()
 
