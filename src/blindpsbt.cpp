@@ -415,7 +415,8 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
         }
 
         // Handle issuances
-        if (input.m_issuance_value != std::nullopt || input.m_issuance_value_commitment.IsCommitment() || input.m_issuance_inflation_keys_amount != std::nullopt || input.m_issuance_inflation_keys_commitment.IsCommitment()) {
+        if ((!input.m_blinded_issuance.has_value() || input.m_blinded_issuance.value()) &&
+            (input.m_issuance_value != std::nullopt || input.m_issuance_value_commitment.IsCommitment() || input.m_issuance_inflation_keys_amount != std::nullopt || input.m_issuance_inflation_keys_commitment.IsCommitment())) {
             CAsset issuance_asset;
             CAsset reissuance_asset;
 
