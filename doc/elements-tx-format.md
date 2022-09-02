@@ -21,7 +21,7 @@ This document assumes some familiarity with Bitcoin and Elements (UTXOs, [Script
 | Flags | Yes | 1 byte | `unsigned char` | | 1 if the transaction contains a witness, otherwise 0. All other values are invalid. |
 | Num Inputs | Yes | Varies | `VarInt` | | Number of inputs to the transaction. |
 | Inputs | Yes | Varies | `Vector<TxIn>` | | |
-| Num Inputs | Yes | Varies | `VarInt` | | Number of outputs from the transaction. |
+| Num Outputs | Yes | Varies | `VarInt` | | Number of outputs from the transaction. |
 | Outputs | Yes | Varies | `Vector<TxOut>` | | |
 | Locktime | Yes | 4 bytes | `uint32_t` | Little-endian | See [BIP 113](https://github.com/bitcoin/bips/blob/master/bip-0113.mediawiki). |
 | Witness | Only if flags is 1 | Varies | `Witness` | | See [BIP 141](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki). Note that Elements witnesses contain more data than Bitcoin witnesses. This extra data is described further below. |
