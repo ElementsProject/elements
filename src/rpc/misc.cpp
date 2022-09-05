@@ -991,13 +991,13 @@ static RPCHelpMan createblindedaddress()
                 "\nCreates a blinded address using the provided blinding key.\n",
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The unblinded address to be blinded."},
-                    {"blinding_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The blinding public key. This can be obtained for a given address using `validateaddress`."},
+                    {"blinding_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The blinding public key. This can be obtained for a given address using `getaddressinfo` (`confidential_key` field)."},
                 },
                 RPCResult{
                     RPCResult::Type::STR, "blinded_address", "The blinded address"
                 },
                 RPCExamples{
-            "\nCreate a multisig address from 2 addresses\n"
+            "\nCreate a blinded address\n"
             + HelpExampleCli("createblindedaddress", "HEZk3iQi1jC49bxUriTtynnXgWWWdAYx16 ec09811118b6febfa5ebe68642e5091c418fbace07e655da26b4a845a691fc2d") +
             "\nAs a json rpc call\n"
             + HelpExampleRpc("createblindedaddress", "HEZk3iQi1jC49bxUriTtynnXgWWWdAYx16, ec09811118b6febfa5ebe68642e5091c418fbace07e655da26b4a845a691fc2d")
