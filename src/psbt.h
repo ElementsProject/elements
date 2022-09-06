@@ -960,7 +960,7 @@ struct PSBTInput
                                 } else if (subkey_len != 1) {
                                     throw std::ios_base::failure("Input explicit asset proof is more than one byte type");
                                 }
-                                s >> m_value_proof;
+                                s >> m_asset_proof;
                                 break;
                             }
                             case PSBT_ELEMENTS_IN_BLINDED_ISSUANCE:
