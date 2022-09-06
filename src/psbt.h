@@ -1028,7 +1028,7 @@ struct PSBTInput
             if ((m_explicit_value.has_value() || !m_value_proof.empty()) && (!m_explicit_value.has_value() || m_value_proof.empty())) {
                 throw std::ios_base::failure("Input explicit value and value proof must be provided together");
             }
-            if ((!m_explicit_asset.IsNull() || !m_asset_proof.empty()) && (!m_explicit_asset.IsNull() || m_asset_proof.empty())) {
+            if ((!m_explicit_asset.IsNull() || !m_asset_proof.empty()) && (m_explicit_asset.IsNull() || m_asset_proof.empty())) {
                 throw std::ios_base::failure("Input explicit asset and asset proof must be provided together");
             }
         }
