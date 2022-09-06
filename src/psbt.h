@@ -925,7 +925,7 @@ struct PSBTInput
                             {
                                 if (!key_lookup.emplace(key).second) {
                                     throw std::ios_base::failure("Duplicate Key, explicit value is already provided");
-                                } else if (key.size() != 1) {
+                                } else if (subkey_len != 1) {
                                     throw std::ios_base::failure("Input explicit value is more than one byte type");
                                 }
                                 CAmount v;
@@ -937,7 +937,7 @@ struct PSBTInput
                             {
                                 if (!key_lookup.emplace(key).second) {
                                     throw std::ios_base::failure("Duplicate Key, explicit value proof is already provided");
-                                } else if (key.size() != 1) {
+                                } else if (subkey_len != 1) {
                                     throw std::ios_base::failure("Input explicit value proof is more than one byte type");
                                 }
                                 s >> m_value_proof;
@@ -947,7 +947,7 @@ struct PSBTInput
                             {
                                 if (!key_lookup.emplace(key).second) {
                                     throw std::ios_base::failure("Duplicate Key, explicit asset is already provided");
-                                } else if (key.size() != 1) {
+                                } else if (subkey_len != 1) {
                                     throw std::ios_base::failure("Input explicit asset is more than one byte type");
                                 }
                                 UnserializeFromVector(s, m_explicit_asset);
@@ -957,7 +957,7 @@ struct PSBTInput
                             {
                                 if (!key_lookup.emplace(key).second) {
                                     throw std::ios_base::failure("Duplicate Key, explicit asset proof is already provided");
-                                } else if (key.size() != 1) {
+                                } else if (subkey_len != 1) {
                                     throw std::ios_base::failure("Input explicit asset proof is more than one byte type");
                                 }
                                 s >> m_value_proof;
@@ -967,7 +967,7 @@ struct PSBTInput
                             {
                                 if (!key_lookup.emplace(key).second) {
                                     throw std::ios_base::failure("Duplicate Key, issuance needs blinded flag is already provided");
-                                } else if (key.size() != 1) {
+                                } else if (subkey_len != 1) {
                                     throw std::ios_base::failure("Input issuance needs blinded flag is more than one byte type");
                                 }
                                 bool b;
