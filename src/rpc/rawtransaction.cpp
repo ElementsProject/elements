@@ -1214,6 +1214,11 @@ static RPCHelpMan decodepsbt()
                                     {RPCResult::Type::STR_HEX, "", "hex-encoded witness data (if any)"},
                                 }},
                                 {RPCResult::Type::STR_HEX, "utxo_rangeproof", "The rangeproof for the UTXO"},
+                                {RPCResult::Type::NUM, "explicit_value", /*optional=*/true, "The explicit value for this input"},
+                                {RPCResult::Type::STR_HEX, "value_proof", /*optional=*/true, "The explicit value proof for this input"},
+                                {RPCResult::Type::STR_HEX, "explicit_asset", /*optional=*/true, "The explicit asset for this input"},
+                                {RPCResult::Type::STR_HEX, "asset_proof", /*optional=*/true, "The explicit asset proof for this input"},
+                                {RPCResult::Type::BOOL, "blinded_issuance", /*optional=*/true, "Whether the issuance should be blinded prior to signing"},
                                 {RPCResult::Type::OBJ_DYN, "unknown", "The unknown global fields",
                                 {
                                     {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
@@ -1595,6 +1600,45 @@ static RPCHelpMan decodepsbt()
         if (!input.m_utxo_rangeproof.empty()) {
             in.pushKV("utxo_rangeproof", HexStr(input.m_utxo_rangeproof));
         }
+
+        if (input.m_explicit_value.has_value()) {
+            in.pushKV("explicit_value", ValueFromAmount(*input.m_explicit_value));
+        }
+        if (!input.m_value_proof.empty()) {
+            in.pushKV("value_proof", HexStr(input.m_value_proof));
+        }
+        if (!input.m_explicit_asset.IsNull()) {
+            in.pushKV("explicit_asset", input.m_explicit_asset.GetHex());
+        }
+        if (!input.m_asset_proof.empty()) {
+            in.pushKV("asset_proof", HexStr(input.m_asset_proof));
+        }
+
+        if (input.m_blinded_issuance.has_value()) {
+            in.pushKV("blinded_issuance", *input.m_blinded_issuance);
+        }
+
+        switch (VerifyBlindProofs(input)) {
+        case BlindProofResult::OK:
+            // all good
+            break;
+        case BlindProofResult::NOT_FULLY_BLINDED:
+            in.pushKV("status", "ERROR: Proofs provided for unblinded input");
+            break;
+        case BlindProofResult::MISSING_VALUE_PROOF:
+            in.pushKV("status", "WARNING: has confidential and explicit values but no proof connecting them");
+            break;
+        case BlindProofResult::MISSING_ASSET_PROOF:
+            in.pushKV("status", "WARNING: has confidential and explicit assets but no proof connecting them");
+            break;
+        case BlindProofResult::INVALID_VALUE_PROOF:
+            in.pushKV("status", "ERROR: has invalid value proof, the value may be a lie!");
+            break;
+        case BlindProofResult::INVALID_ASSET_PROOF:
+            in.pushKV("status", "ERROR: has invalid asset proof, the asset may be a lie!");
+            break;
+        }
+
 
         // Proprietary
         if (!input.m_proprietary.empty()) {

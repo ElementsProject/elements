@@ -17,6 +17,7 @@
 
 struct PartiallySignedTransaction;
 struct PSBTOutput;
+struct PSBTInput;
 
 enum class BlindingStatus
 {
@@ -52,5 +53,6 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
 bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset);
 bool VerifyBlindAssetProof(const uint256& asset, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset);
 BlindProofResult VerifyBlindProofs(const PSBTOutput& o);
+BlindProofResult VerifyBlindProofs(const PSBTInput& i);
 
 #endif //BITCOIN_BLINDPSBT_H
