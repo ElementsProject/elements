@@ -248,26 +248,25 @@ public:
         bool sign,
         int& change_pos,
         CAmount& fee,
-        std::vector<CAmount>& out_amounts,
+        BlindDetails* blind_details,
         bilingual_str& fail_reason) override
     {
         LOCK(m_wallet->cs_wallet);
         CTransactionRef tx;
         FeeCalculation fee_calc_out;
-        BlindDetails blind_details;
         if (!m_wallet->CreateTransaction(recipients, tx, fee, change_pos,
-                fail_reason, coin_control, fee_calc_out, sign, gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode) ? &blind_details : nullptr)) {
+                fail_reason, coin_control, fee_calc_out, sign, blind_details)) {
             return {};
         }
-        out_amounts = blind_details.o_amounts;
         return tx;
     }
     void commitTransaction(CTransactionRef tx,
         WalletValueMap value_map,
-        WalletOrderForm order_form) override
+        WalletOrderForm order_form,
+        BlindDetails* blind_details) override
     {
         LOCK(m_wallet->cs_wallet);
-        m_wallet->CommitTransaction(std::move(tx), std::move(value_map), std::move(order_form));
+        m_wallet->CommitTransaction(std::move(tx), std::move(value_map), std::move(order_form), blind_details);
     }
     bool transactionCanBeAbandoned(const uint256& txid) override { return m_wallet->TransactionCanBeAbandoned(txid); }
     bool abandonTransaction(const uint256& txid) override
