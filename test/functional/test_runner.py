@@ -108,6 +108,7 @@ BASE_SCRIPTS = [
     'feature_assetsdir.py',
     'feature_initial_reissuance_token.py',
     'feature_progress.py',
+    'rpc_getnewblockhex.py',
     # Longest test should go first, to favor running tests in parallel
     'wallet_hd.py --legacy-wallet',
     'wallet_hd.py --descriptors',
