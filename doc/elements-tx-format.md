@@ -104,7 +104,7 @@ SegWit transactions have one such witness for each input.
 | Script Witness | Yes | Varies | `Vector<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
 | Peg-in Witness | Yes | Varies | `Vector<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
 
-The range proofs must be empty if their asociated amounts (issuance / inflation keys) are explicit.
+The range proofs must be empty if their associated amounts (issuance / inflation keys) are explicit.
 Refer [here](https://elementsproject.org/features/confidential-transactions/investigation) for more details on range proofs.
 
 A non-empty peg-in witness stack should always have a length of 6, and the items should be interpreted as follows:
