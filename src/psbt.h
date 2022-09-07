@@ -73,6 +73,11 @@ static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_ASSET_ENTROPY = 0x0d;
 static constexpr uint8_t PSBT_ELEMENTS_IN_UTXO_RANGEPROOF = 0x0e;
 static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_BLIND_VALUE_PROOF = 0x0f;
 static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_BLIND_INFLATION_KEYS_PROOF = 0x10;
+static constexpr uint8_t PSBT_ELEMENTS_IN_EXPLICIT_VALUE = 0x11;
+static constexpr uint8_t PSBT_ELEMENTS_IN_VALUE_PROOF = 0x12;
+static constexpr uint8_t PSBT_ELEMENTS_IN_EXPLICIT_ASSET = 0x13;
+static constexpr uint8_t PSBT_ELEMENTS_IN_ASSET_PROOF = 0x14;
+static constexpr uint8_t PSBT_ELEMENTS_IN_BLINDED_ISSUANCE = 0x15;
 
 // Output types
 static constexpr uint8_t PSBT_OUT_REDEEMSCRIPT = 0x00;
@@ -248,6 +253,7 @@ struct PSBTInput
     uint256 m_issuance_asset_entropy;
     std::vector<unsigned char> m_blind_issuance_value_proof;
     std::vector<unsigned char> m_blind_issuance_inflation_keys_proof;
+    std::optional<bool> m_blinded_issuance;
 
     // Peg-in
     std::variant<std::monostate, Sidechain::Bitcoin::CTransactionRef, CTransactionRef> m_peg_in_tx;
@@ -259,6 +265,10 @@ struct PSBTInput
 
     // Auxiliary elements stuff
     std::vector<unsigned char> m_utxo_rangeproof;
+    std::optional<CAmount> m_explicit_value;
+    std::vector<unsigned char> m_value_proof;
+    uint256 m_explicit_asset;
+    std::vector<unsigned char> m_asset_proof;
 
     bool IsNull() const;
     void FillSignatureData(SignatureData& sigdata) const;
@@ -472,6 +482,31 @@ struct PSBTInput
             if (!m_blind_issuance_inflation_keys_proof.empty()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_BLIND_INFLATION_KEYS_PROOF));
                 s << m_blind_issuance_inflation_keys_proof;
+            }
+
+            // Explicit value and its proof
+            if (m_explicit_value.has_value()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_EXPLICIT_VALUE));
+                SerializeToVector(s, m_explicit_value.value());
+            }
+            if (!m_value_proof.empty()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_VALUE_PROOF));
+                s << m_value_proof;
+            }
+
+            // Explicit asset and its proof
+            if (!m_explicit_asset.IsNull()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_EXPLICIT_ASSET));
+                SerializeToVector(s, m_explicit_asset);
+            }
+            if (!m_asset_proof.empty()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ASSET_PROOF));
+                s << m_asset_proof;
+            }
+
+            if (m_blinded_issuance.has_value()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_BLINDED_ISSUANCE));
+                SerializeToVector(s, *m_blinded_issuance);
             }
         }
 
@@ -886,6 +921,60 @@ struct PSBTInput
                                 s >> m_blind_issuance_inflation_keys_proof;
                                 break;
                             }
+                            case PSBT_ELEMENTS_IN_EXPLICIT_VALUE:
+                            {
+                                if (!key_lookup.emplace(key).second) {
+                                    throw std::ios_base::failure("Duplicate Key, explicit value is already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input explicit value is more than one byte type");
+                                }
+                                CAmount v;
+                                UnserializeFromVector(s, v);
+                                m_explicit_value = v;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_VALUE_PROOF:
+                            {
+                                if (!key_lookup.emplace(key).second) {
+                                    throw std::ios_base::failure("Duplicate Key, explicit value proof is already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input explicit value proof is more than one byte type");
+                                }
+                                s >> m_value_proof;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_EXPLICIT_ASSET:
+                            {
+                                if (!key_lookup.emplace(key).second) {
+                                    throw std::ios_base::failure("Duplicate Key, explicit asset is already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input explicit asset is more than one byte type");
+                                }
+                                UnserializeFromVector(s, m_explicit_asset);
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_ASSET_PROOF:
+                            {
+                                if (!key_lookup.emplace(key).second) {
+                                    throw std::ios_base::failure("Duplicate Key, explicit asset proof is already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input explicit asset proof is more than one byte type");
+                                }
+                                s >> m_asset_proof;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_BLINDED_ISSUANCE:
+                            {
+                                if (!key_lookup.emplace(key).second) {
+                                    throw std::ios_base::failure("Duplicate Key, issuance needs blinded flag is already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input issuance needs blinded flag is more than one byte type");
+                                }
+                                bool b;
+                                UnserializeFromVector(s, b);
+                                m_blinded_issuance = b;
+                                break;
+                            }
                             default:
                             {
                                 known = false;
@@ -935,6 +1024,12 @@ struct PSBTInput
             }
             if (!m_issuance_inflation_keys_commitment.IsNull() && m_issuance_inflation_keys_rangeproof.empty()) {
                 throw std::ios_base::failure("Issuance inflation keys commitment provided without inflation keys rangeproof");
+            }
+            if ((m_explicit_value.has_value() || !m_value_proof.empty()) && (!m_explicit_value.has_value() || m_value_proof.empty())) {
+                throw std::ios_base::failure("Input explicit value and value proof must be provided together");
+            }
+            if ((!m_explicit_asset.IsNull() || !m_asset_proof.empty()) && (m_explicit_asset.IsNull() || m_asset_proof.empty())) {
+                throw std::ios_base::failure("Input explicit asset and asset proof must be provided together");
             }
         }
     }

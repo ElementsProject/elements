@@ -21,7 +21,7 @@ This document assumes some familiarity with Bitcoin and Elements (UTXOs, [Script
 | Flags | Yes | 1 byte | `unsigned char` | | 1 if the transaction contains a witness, otherwise 0. All other values are invalid. |
 | Num Inputs | Yes | Varies | `VarInt` | | Number of inputs to the transaction. |
 | Inputs | Yes | Varies | `Vector<TxIn>` | | |
-| Num Inputs | Yes | Varies | `VarInt` | | Number of outputs from the transaction. |
+| Num Outputs | Yes | Varies | `VarInt` | | Number of outputs from the transaction. |
 | Outputs | Yes | Varies | `Vector<TxOut>` | | |
 | Locktime | Yes | 4 bytes | `uint32_t` | Little-endian | See [BIP 113](https://github.com/bitcoin/bips/blob/master/bip-0113.mediawiki). |
 | Witness | Only if flags is 1 | Varies | `Witness` | | See [BIP 141](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki). Note that Elements witnesses contain more data than Bitcoin witnesses. This extra data is described further below. |
@@ -104,7 +104,7 @@ SegWit transactions have one such witness for each input.
 | Script Witness | Yes | Varies | `Vector<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
 | Peg-in Witness | Yes | Varies | `Vector<hex>` | | The vector represents the witness stack.<br>Can be empty (length of 0). |
 
-The range proofs must be empty if their asociated amounts (issuance / inflation keys) are explicit.
+The range proofs must be empty if their associated amounts (issuance / inflation keys) are explicit.
 Refer [here](https://elementsproject.org/features/confidential-transactions/investigation) for more details on range proofs.
 
 A non-empty peg-in witness stack should always have a length of 6, and the items should be interpreted as follows:
@@ -203,13 +203,13 @@ Deserialization:
 |                                      Input #2
 | 8d83eb1b0826f46d473003d041116927
 | 470e2ce0f7cc0c634a983d438d770ac8 ... Outpoint TXID: c80a778d433d984a630cccf7e02c0e4727691141d00330476df426081beb838d
-| 00000000 ........................... Outpoint index 
+| 00000000 ........................... Outpoint index
 |
 | 00 ................................. ScriptSig length
 | | .................................. ScriptSig (empty)
 |
 | ffffffff ........................... Sequence number: UINT32_MAX
- 
+
 02 ................................... Num Outputs
 |
 |                                      Output #1
@@ -239,7 +239,7 @@ Deserialization:
 | 03 ................................. Nonce header (0x03 → compressed point)
 | 72fdd5c6e805a50d73ab15ec41cfaadc
 | be408ecc7a5867621918f1070f84ec95 ... Nonce x-coordinate (big-endian)
-| 
+|
 | 16 ................................. ScriptPubKey length (0x16 = 22 bytes)
 | | 001424ae71d4804ca7dd1fa66486a8
 | | 7af9dff1663c84 ................... ScriptPubKey
@@ -317,18 +317,18 @@ Deserialization:
 | | .................................. ScriptSig (empty: segwit transaction)
 |
 | fdffffff ........................... Sequence number
-| 
+|
 | .................................... Asset issuance
 | | 000000000000000000000000000000
 | | 000000000000000000000000000000
 | | 0000 ............................. Asset blinding nonce (0 for new asset issuance)
-| | 
+| |
 | | 000000000000000000000000000000
 | | 000000000000000000000000000000
 | | 0000 ............................. Asset entropy
 | |
 | | 01 ............................... Amount header (0x01 → explicit, unblinded value)
-| | 00000000c4b20100 ................. Amount: 0xc4b20100 = 3,300,000,000 → 33 units (each divisible by 100,000,000) 
+| | 00000000c4b20100 ................. Amount: 0xc4b20100 = 3,300,000,000 → 33 units (each divisible by 100,000,000)
 | |
 | | 01 ............................... Num inflation keys header (0x01 → explicit, unblinded value)
 | | 0000000029b92700 ................. Value. 0x29b92700 = 700,000,000 inflation keys
@@ -343,7 +343,7 @@ Deserialization:
 | 08 ................................. Amount header (0x08 → blinded value)
 | 66abe471dfadfb650825abe6f757860b
 | 6760d30ff62bc7c9ebd438608f45368b ... Amount x-coordinate (big-endian)
-|                                      
+|
 | 02 ................................. Nonce header (0x02 → blinded value)
 | 115750003261bc64bb73d83401a91279
 | 6d0c0fb9d54c72751a7ca7a5149a9bdf ... Nonce x-coordinate (big-endian)
@@ -518,7 +518,7 @@ Deserialization:
 | 6d521c38ec1ea15734ae22b7c4606441
 | 2829c0d0579f0a713d1c04ede979026f ... Asset ID: 6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d
 |
-| 01 ................................. Amount header (0x01 → explicit, unblinded value) 
+| 01 ................................. Amount header (0x01 → explicit, unblinded value)
 | 00000000002b09c1 ................... Amount: 0.02820545 L-BTC
 |
 | 00 ................................. Nonce header (0x00 → null)
@@ -532,7 +532,7 @@ Deserialization:
 | 6d521c38ec1ea15734ae22b7c4606441
 | 2829c0d0579f0a713d1c04ede979026f ... Asset ID: 6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d
 |
-| 01 ................................. Amount header (0x01 → explicit, unblinded value) 
+| 01 ................................. Amount header (0x01 → explicit, unblinded value)
 | 0000000000000027 ................... Amount: 0.00000039 L-BTC
 |
 | 00 ................................. Nonce header (0x00 → null)
@@ -560,10 +560,10 @@ Deserialization:
 | | | f34227cbba1cf25eb0778aa45f8b
 | | | 7cb3495046 ..................... Stack item #2
 | 06 ................................. Peg-in witness stack length
-| | 08 ............................... Stack item #1 length  
+| | 08 ............................... Stack item #1 length
 | | | e8092b0000000000 ............... Peg-in value (little-endian): 0x2b09e8 = 0.02820545 BTC)
 | | 20 ............................... Stack item #2 length (0x20 = 32)
-| | | 6d521c38ec1ea15734ae22b7c46064 
+| | | 6d521c38ec1ea15734ae22b7c46064
 | | | 412829c0d0579f0a713d1c04ede979
 | | | 026f ........................... Asset ID: 6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d
 | | 20 ............................... Stack item #3 length (0x20 = 32)

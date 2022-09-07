@@ -255,6 +255,56 @@ The currently defined elements per-input proprietary types are as follows:
 |
 | 0
 | 2
+|-
+| Explicit Value
+| <tt>PSBT_ELEMENTS_IN_EXPLICIT_VALUE = 0x11</tt>
+| None
+| No key data
+| <tt><64-bit little endian int value></tt>
+| The explicit value for the input being spent. If provided, <tt>PSBT_ELEMENTS_IN_VALUE_PROOF</tt> must be provided too. Must not be provided if the input's value in the UTXO is already explicit.
+|
+| 0
+| 2
+|-
+| Explicit Value Proof
+| <tt>PSBT_ELEMENTS_IN_VALUE_PROOF = 0x12</tt>
+| None
+| No key data
+| <tt><rangeproof></tt>
+| An explicit value rangeproof that proves that the value commitment in this input's UTXO matches the explicit value in <tt>PSBT_ELEMENTS_IN_EXPLICIT_VALUE</tt>. If provided, <tt>PSBT_ELEMENTS_IN_EXPLICIT_VALUE</tt> must be provided too.
+|
+| 0
+| 2
+|-
+| Explicit Asset
+| <tt>PSBT_ELEMENTS_IN_EXPLICIT_ASSET = 0x13</tt>
+| None
+| No key data
+| <tt><32 byte asset tag></tt>
+| The explicit asset for the input being spent. If provided, <tt>PSBT_ELEMENTS_IN_ASSET_PROOF</tt> must be provided too. Must not be provided if the input's asset in the UTXO is already explicit.
+|
+| 0
+| 2
+|-
+| Explicit Asset Proof
+| <tt>PSBT_ELEMENTS_IN_ASSET_PROOF = 0x14</tt>
+| None
+| No key data
+| <tt><proof></tt>
+| An asset surjection proof with this input's asset as the only asset in the input set in order to prove that the asset commitment in the UTXO matches the explicit asset in <tt>PSBT_ELEMENTS_IN_EXPLICIT_ASSET</tt>. If provided, <tt>PSBT_ELEMENTS_IN_EXPLICIT_ASSET</tt> must be provided too.
+|
+| 0
+| 2
+|-
+| Blinded Issuance Flag
+| <tt>PSBT_ELEMENTS_IN_BLINDED_ISSUANCE = 0x15</tt>
+| None
+| No key data
+| <tt><1 byte boolean></tt>
+| A boolean flag. <tt>0x00</tt> indicates the issuance should not be blinded, <tt>0x01</tt> indicates it should be. If not specified, assumed to be <tt>0x01</tt>. Note that this does not indicate actual blinding status, but rather the expected blinding status prior to signing.
+|
+| 0
+| 2
 |}
 
 The currently defined elements per-output proprietary types are as follows:
