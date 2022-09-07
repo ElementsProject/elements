@@ -220,6 +220,35 @@ BlindProofResult VerifyBlindProofs(const PSBTOutput& o) {
     return BlindProofResult::OK;
 }
 
+BlindProofResult VerifyBlindProofs(const PSBTInput& i) {
+    CTxOut utxo;
+    if (!i.GetUTXO(utxo)) {
+        return BlindProofResult::OK;
+    }
+
+    if (i.m_explicit_value != std::nullopt) {
+        if (i.m_value_proof.empty()) {
+            return BlindProofResult::MISSING_VALUE_PROOF;
+        } else if (!utxo.nValue.IsCommitment()) {
+            return BlindProofResult::NOT_FULLY_BLINDED;
+        } else if (!VerifyBlindValueProof(*i.m_explicit_value, utxo.nValue, i.m_value_proof, utxo.nAsset)) {
+            return BlindProofResult::INVALID_VALUE_PROOF;
+        }
+    }
+
+    if (!i.m_explicit_asset.IsNull()) {
+        if (i.m_asset_proof.empty()) {
+            return BlindProofResult::MISSING_ASSET_PROOF;
+        } else if (!utxo.nAsset.IsCommitment()) {
+            return BlindProofResult::NOT_FULLY_BLINDED;
+        } else if (!VerifyBlindAssetProof(i.m_explicit_asset, i.m_asset_proof, utxo.nAsset)) {
+            return BlindProofResult::INVALID_ASSET_PROOF;
+        }
+    }
+
+    return BlindProofResult::OK;
+}
+
 void CreateAssetCommitment(CConfidentialAsset& conf_asset, secp256k1_generator& asset_gen, const CAsset& asset, const uint256& asset_blinder)
 {
     conf_asset.vchCommitment.resize(CConfidentialAsset::nCommittedSize);
@@ -386,7 +415,8 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
         }
 
         // Handle issuances
-        if (input.m_issuance_value != std::nullopt || input.m_issuance_value_commitment.IsCommitment() || input.m_issuance_inflation_keys_amount != std::nullopt || input.m_issuance_inflation_keys_commitment.IsCommitment()) {
+        if ((!input.m_blinded_issuance.has_value() || input.m_blinded_issuance.value()) &&
+            (input.m_issuance_value != std::nullopt || input.m_issuance_value_commitment.IsCommitment() || input.m_issuance_inflation_keys_amount != std::nullopt || input.m_issuance_inflation_keys_commitment.IsCommitment())) {
             CAsset issuance_asset;
             CAsset reissuance_asset;
 
