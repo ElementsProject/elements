@@ -207,6 +207,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "rawreissueasset", 1, "reissuances" },
     { "getnewblockhex", 0, "min_tx_age" },
     { "getnewblockhex", 1, "proposed_parameters" },
+    { "getnewblockhex", 2, "commit_data" },
     { "testproposedblock", 1, "acceptnonstd" },
     { "issueasset", 0, "assetamount" },
     { "issueasset", 1, "tokenamount" },

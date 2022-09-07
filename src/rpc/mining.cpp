@@ -1277,7 +1277,7 @@ static RPCHelpMan getnewblockhex()
                 "\nGets hex representation of a proposed, unmined new block\n",
                 {
                     {"min_tx_age", RPCArg::Type::NUM, RPCArg::Default{0}, "How many seconds a transaction must have been in the mempool to be included in the block proposal. This may help with faster block convergence among functionaries using compact blocks."},
-                    {"proposed_parameters", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED , "Parameters to be used in dynamic federations blocks as proposals. During a period of `-dynamic_epoch_length` blocks, 4/5 of total blocks must signal these parameters for the proposal to become activated in the next epoch.",
+                    {"proposed_parameters", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "Parameters to be used in dynamic federations blocks as proposals. During a period of `-dynamic_epoch_length` blocks, 4/5 of total blocks must signal these parameters for the proposal to become activated in the next epoch.",
                         {
                             {"signblockscript", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex-encoded block signing script to propose"},
                             {"max_block_witness", RPCArg::Type::NUM, RPCArg::Optional::NO, "Total size in witness bytes that are allowed in the dynamic federations block witness for blocksigning"},
@@ -1289,7 +1289,11 @@ static RPCHelpMan getnewblockhex()
                             },
                         },
                         "proposed_parameters"},
-                        {"commit_data", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "Data in hex to be committed to in an additional coinbase output."},
+                    {"commit_data", RPCArg::Type::ARR, RPCArg::Optional::OMITTED, "Array of data in hex to be committed to in additional coinbase outputs.",
+                        {
+                            {"", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex encoded string for commit data"},
+                        },
+                    },
                 },
                 RPCResult{
                     RPCResult::Type::STR_HEX, "blockhex", "the block hex",
@@ -1346,18 +1350,31 @@ static RPCHelpMan getnewblockhex()
         proposed.m_serialize_type = 2;
     }
 
-    // Any commitment required for non-consensus reasons.
-    // This will be placed in the first coinbase output.
-    CScript data_commitment;
+    // Any commitments required for non-consensus reasons.
+    // These will be placed in the first coinbase outputs.
+    std::vector<CScript> data_commitments;
     if (!request.params[2].isNull()) {
-        std::vector<unsigned char> data_bytes = ParseHex(request.params[2].get_str());
-        data_commitment = CScript() << OP_RETURN << data_bytes;
+        UniValue commitments(UniValue::VARR);
+
+        // backwards compatibility: attempt to parse as a string first
+        if (request.params[2].isStr()) {
+            UniValue hex = request.params[2].get_str();
+            commitments.push_back(hex);
+        } else {
+            commitments = request.params[2].get_array();
+        }
+
+        for (unsigned int i = 0; i < commitments.size(); i++) {
+            std::vector<unsigned char> data_bytes = ParseHex(commitments[i].get_str());
+            CScript data_commitment = CScript() << OP_RETURN << data_bytes;
+            data_commitments.push_back(data_commitment);
+        }
     }
 
     CScript feeDestinationScript = Params().GetConsensus().mandatory_coinbase_destination;
     if (feeDestinationScript == CScript()) feeDestinationScript = CScript() << OP_TRUE;
     const NodeContext& node = EnsureAnyNodeContext(request.context);
-    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainman.ActiveChainstate(), *node.mempool, Params()).CreateNewBlock(feeDestinationScript, std::chrono::seconds(required_wait), &proposed, data_commitment.empty() ? nullptr : &data_commitment));
+    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainman.ActiveChainstate(), *node.mempool, Params()).CreateNewBlock(feeDestinationScript, std::chrono::seconds(required_wait), &proposed, data_commitments.empty() ? nullptr : &data_commitments));
     if (!pblocktemplate.get()) {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
     }
