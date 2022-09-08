@@ -978,7 +978,7 @@ public:
 
         nDefaultPort = 18891;
         vSeeds.clear();
-        vFixedSeeds.clear();
+        vFixedSeeds = std::vector<uint8_t>(std::begin(pnSeed6_liquidtestnet), std::end(pnSeed6_liquidtestnet));
 
         default_magic_str = "410EDD62";
         default_signblockscript = "51210217e403ddb181872c32a0cd468c710040b2f53d8cac69f18dad07985ee37e9a7151ae";
