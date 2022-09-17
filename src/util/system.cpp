@@ -827,6 +827,31 @@ fs::path GetDefaultDataDir()
 }
 #endif
 
+fs::path GetMainchainDefaultDataDir()
+{
+    // Windows: C:\Users\Username\AppData\Roaming\Bitcoin
+    // macOS: ~/Library/Application Support/Bitcoin
+    // Unix-like: ~/.bitcoin
+#ifdef WIN32
+    // Windows
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "Bitcoin";
+#else
+    fs::path pathRet;
+    char* pszHome = getenv("HOME");
+    if (pszHome == nullptr || strlen(pszHome) == 0)
+        pathRet = fs::path("/");
+    else
+        pathRet = fs::path(pszHome);
+#ifdef MAC_OSX
+    // macOS
+    return pathRet / "Library/Application Support/Bitcoin";
+#else
+    // Unix-like
+    return pathRet / ".bitcoin";
+#endif
+#endif
+}
+
 bool CheckDataDirOption()
 {
     std::string datadir = gArgs.GetArg("-datadir", "");
