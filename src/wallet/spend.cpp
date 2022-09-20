@@ -718,25 +718,29 @@ static uint32_t GetLocktimeForNewTransaction(interfaces::Chain& chain, const uin
 }
 
 // Reset all non-global blinding details.
-void resetBlindDetails(BlindDetails* det) {
+static void resetBlindDetails(BlindDetails* det, bool preserve_output_data = false) {
     det->i_amount_blinds.clear();
     det->i_asset_blinds.clear();
     det->i_assets.clear();
     det->i_amounts.clear();
 
     det->o_amounts.clear();
-    det->o_pubkeys.clear();
+    if (!preserve_output_data) {
+        det->o_pubkeys.clear();
+    }
     det->o_amount_blinds.clear();
     det->o_assets.clear();
     det->o_asset_blinds.clear();
 
-    det->num_to_blind = 0;
-    det->change_to_blind = 0;
-    det->only_recipient_blind_index = -1;
-    det->only_change_pos = -1;
+    if (!preserve_output_data) {
+        det->num_to_blind = 0;
+        det->change_to_blind = 0;
+        det->only_recipient_blind_index = -1;
+        det->only_change_pos = -1;
+    }
 }
 
-bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& txNew, std::vector<CInputCoin>& selected_coins, bilingual_str& error) {
+static bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& txNew, std::vector<CInputCoin>& selected_coins, bilingual_str& error) {
     int num_inputs_blinded = 0;
 
     // Fill in input blinding details
@@ -1393,15 +1397,15 @@ bool CWallet::CreateTransactionInternal(
                     blind_details->num_to_blind--;
                     blind_details->change_to_blind--;
 
-                    // FIXME: I promise this makes sense and fixes an actual problem
-                    // with the wallet that users could encounter. But no human could
-                    // follow the logic as to what this does or why it is safe. After
-                    // the 22.0 rebase we need to double-back and replace the blinding
-                    // logic to eliminate a bunch of edge cases and make this logic
-                    // incomprehensible. But in the interest of minimizing diff during
-                    // the rebase I am going to do this for now.
+                    // FIXME: If we drop the change *and* this means we have only one
+                    //  blinded output *and* we have no blinded inputs, then this puts
+                    //  us in a situation where BlindTransaction will fail. This is
+                    //  prevented in fillBlindDetails, which adds an OP_RETURN output
+                    //  to handle this case. So do this ludicrous hack to accomplish
+                    //  this. This whole lump of un-followable-logic needs to be replaced
+                    //  by a complete rewriting of the wallet blinding logic.
                     if (blind_details->num_to_blind == 1) {
-                        resetBlindDetails(blind_details);
+                        resetBlindDetails(blind_details, true /* don't wipe output data */);
                         if (!fillBlindDetails(blind_details, this, txNew, selected_coins, error)) {
                             return false;
                         }
@@ -1535,6 +1539,7 @@ bool CWallet::CreateTransactionInternal(
             int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
             assert(ret != -1);
             if (ret != blind_details->num_to_blind) {
+                WalletLogPrintf("ERROR: tried to blind %d outputs but only blinded %d\n", (int) blind_details->num_to_blind, (int) ret);
                 error = _("Unable to blind the transaction properly. This should not happen.");
                 return false;
             }
