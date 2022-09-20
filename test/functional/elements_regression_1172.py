@@ -39,6 +39,22 @@ class WalletCtTest(BitcoinTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
+    def test_send(self, amt, from_idx, to_idx, confidential):
+        # Try to send those coins to yet another wallet, sending a large enough amount
+        # that the change output is dropped.
+        address = self.nodes[to_idx].getnewaddress()
+        if not confidential:
+            address = self.nodes[to_idx].getaddressinfo(address)['unconfidential']
+        txid = self.nodes[from_idx].sendtoaddress(address, amt)
+        self.log.info(f"Sent {amt} LBTC to node {to_idx} in {txid}")
+        self.nodes[from_idx].generate(2)
+        self.sync_all()
+
+        for i in range(self.num_nodes):
+            self.log.info(f"Finished with node {i} balance: {self.nodes[i].getbalance()}")
+        assert_equal(self.nodes[from_idx].getbalance(), { "bitcoin": Decimal(0) })
+        assert_equal(self.nodes[to_idx].getbalance(), { "bitcoin": amt })
+
     def run_test(self):
         # Mine 101 blocks to get the initial coins out of IBD
         self.nodes[0].generate(COINBASE_MATURITY + 1)
@@ -57,16 +73,23 @@ class WalletCtTest(BitcoinTestFramework):
         # Try to send those coins to yet another wallet, sending a large enough amount
         # that the change output is dropped.
         amt = satoshi_round(Decimal(0.9995))
-        txid = self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), amt)
-        self.log.info(f"Sent {amt} LBTC to node 2 in {txid}")
-        self.nodes[1].generate(2)
-        self.sync_all()
+        self.test_send(amt, 1, 2, True)
 
-        for i in range(self.num_nodes):
-            self.log.info(f"Finished with node {i} balance: {self.nodes[i].getbalance()}")
+        # Repeat, sending to a non-confidential output
+        amt = satoshi_round(Decimal(amt - Decimal(0.00035)))
+        self.test_send(amt, 2, 1, False)
 
-        assert_equal(self.nodes[1].getbalance(), { "bitcoin": Decimal(0) })
-        assert_equal(self.nodes[2].getbalance(), { "bitcoin": amt })
+        # Again, sending from non-confidential to non-confidential
+        amt = satoshi_round(Decimal(amt - Decimal(0.00033)))
+        self.test_send(amt, 1, 2, False)
+
+        # Finally sending from non-confidential to confidential
+        amt = satoshi_round(Decimal(amt - Decimal(0.0005)))
+        self.test_send(amt, 2, 1, True)
+
+        # Then send the coins again to make sure they're spendable
+        amt = satoshi_round(Decimal(amt - Decimal(0.0005)))
+        self.test_send(amt, 1, 2, True)
 
 if __name__ == '__main__':
     WalletCtTest().main()
