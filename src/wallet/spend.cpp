@@ -1404,7 +1404,7 @@ bool CWallet::CreateTransactionInternal(
                     //  to handle this case. So do this ludicrous hack to accomplish
                     //  this. This whole lump of un-followable-logic needs to be replaced
                     //  by a complete rewriting of the wallet blinding logic.
-                    if (blind_details->num_to_blind == 1) {
+                    if (blind_details->num_to_blind < 2) {
                         resetBlindDetails(blind_details, true /* don't wipe output data */);
                         if (!fillBlindDetails(blind_details, this, txNew, selected_coins, error)) {
                             return false;
