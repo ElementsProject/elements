@@ -1080,6 +1080,28 @@ bool CWallet::CreateTransactionInternal(
         //  the blinding logic.
         coin_selection_params.tx_noinputs_size += 70 + 66 +(MAX_RANGEPROOF_SIZE + DEFAULT_SURJECTIONPROOF_SIZE + WITNESS_SCALE_FACTOR - 1)/WITNESS_SCALE_FACTOR;
     }
+    // If we are going to issue an asset, add the issuance data to the noinputs_size so that
+    // we allocate enough coins for them.
+    if (issuance_details) {
+        size_t issue_count = 0;
+        for (unsigned int i = 0; i < txNew.vout.size(); i++) {
+            if (txNew.vout[i].nAsset.IsExplicit() && txNew.vout[i].nAsset.GetAsset() == CAsset(uint256S("1"))) {
+                issue_count++;
+            } else if (txNew.vout[i].nAsset.IsExplicit() && txNew.vout[i].nAsset.GetAsset() == CAsset(uint256S("2"))) {
+                issue_count++;
+            }
+        }
+        if (issue_count > 0) {
+            // Allocate space for blinding nonce, entropy, and whichever of nAmount/nInflationKeys is null
+            coin_selection_params.tx_noinputs_size += 2 * 32 + 2 * (2 - issue_count);
+        }
+        // Allocate non-null nAmount/nInflationKeys and rangeproofs
+        if (issuance_details->blind_issuance) {
+            coin_selection_params.tx_noinputs_size += issue_count * (33 * WITNESS_SCALE_FACTOR + MAX_RANGEPROOF_SIZE + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR;
+        } else {
+            coin_selection_params.tx_noinputs_size += issue_count * 9;
+        }
+    }
 
     // Include the fees for things that aren't inputs, excluding the change output
     const CAmount not_input_fees = coin_selection_params.m_effective_feerate.GetFee(coin_selection_params.tx_noinputs_size);

@@ -91,6 +91,36 @@ class WalletCtTest(BitcoinTestFramework):
         amt = satoshi_round(Decimal(amt - Decimal(0.0005)))
         self.test_send(amt, 1, 2, True)
 
+        addresses = [ self.nodes[1].getnewaddress() for i in range(15) ] \
+            + [ self.nodes[2].getnewaddress() for i in range(15) ]
+        txid = self.nodes[2].sendmany(amounts={address: satoshi_round(Decimal(0.00025)) for address in addresses})
+        self.log.info(f"Sent many small UTXOs to nodes 1 and 2 in {txid}")
+        self.nodes[2].generate(2)
+        self.sync_all()
+
+        self.log.info(f"Issuing some assets from node 1")
+        # Try issuing assets
+        amt = satoshi_round(Decimal(1))
+        res1 = self.nodes[1].issueasset(amt, amt, True);
+        res2 = self.nodes[1].issueasset(amt, amt, False);
+
+        assets = [ res1["asset"], res1["token"], res2["asset"], res2["token"] ]
+        addresses = [ self.nodes[2].getnewaddress() for i in range(len(assets)) ]
+        txid = self.nodes[1].sendmany(
+            amounts={address: amt for address in addresses},
+            output_assets={addresses[i]: assets[i] for i in range(len(assets))},
+        )
+        self.log.info(f"Sent them to node 2 in {txid}")
+        self.nodes[1].generate(2)
+        self.sync_all()
+        # Send them back
+        addresses = [ self.nodes[1].getnewaddress() for i in range(len(assets)) ]
+        txid = self.nodes[2].sendmany(
+            amounts={address: amt for address in addresses},
+            output_assets={addresses[i]: assets[i] for i in range(len(assets))},
+        )
+        self.log.info(f"Sent them back to node 1 in {txid}")
+
 if __name__ == '__main__':
     WalletCtTest().main()
 
