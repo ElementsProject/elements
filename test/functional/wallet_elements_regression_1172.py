@@ -101,8 +101,8 @@ class WalletCtTest(BitcoinTestFramework):
         self.log.info(f"Issuing some assets from node 1")
         # Try issuing assets
         amt = satoshi_round(Decimal(1))
-        res1 = self.nodes[1].issueasset(amt, amt, True);
-        res2 = self.nodes[1].issueasset(amt, amt, False);
+        res1 = self.nodes[1].issueasset(amt, amt, True)
+        res2 = self.nodes[1].issueasset(amt, amt, False)
 
         assets = [ res1["asset"], res1["token"], res2["asset"], res2["token"] ]
         addresses = [ self.nodes[2].getnewaddress() for i in range(len(assets)) ]
