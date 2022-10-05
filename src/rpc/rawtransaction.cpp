@@ -1530,7 +1530,7 @@ static RPCHelpMan decodepsbt()
         }
 
         // Issuance blind inflation keys value proof
-        if (!input.m_blind_issuance_value_proof.empty()) {
+        if (!input.m_blind_issuance_inflation_keys_proof.empty()) {
             in.pushKV("blind_reissuance_amount_proof", HexStr(input.m_blind_issuance_inflation_keys_proof));
         }
 
