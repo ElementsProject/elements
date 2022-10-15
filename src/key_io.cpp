@@ -323,6 +323,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
                 static_assert(WITNESS_V1_TAPROOT_SIZE == WitnessV1Taproot::size());
                 WitnessV1Taproot tap;
                 std::copy(data.begin(), data.end(), tap.begin());
+                tap.blinding_pubkey = blinding_pubkey;
                 return tap;
             }
 
