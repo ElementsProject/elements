@@ -679,6 +679,14 @@ class PSBTTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
+        # Check include_explicit option
+        psbt = self.nodes[2].walletcreatefundedpsbt([{"txid": txid_conf_2, "vout": 1}], [{self.get_address(True, 0): 24.998, "blinder_index": 0}, {"fee": 0.001}], 0, {"include_explicit": True})["psbt"]
+        decoded = self.nodes[1].decodepsbt(psbt)
+        assert "explicit_value" in decoded["inputs"][0]
+        assert "value_proof" in decoded["inputs"][0]
+        assert "explicit_asset" in decoded["inputs"][0]
+        assert "asset_proof" in decoded["inputs"][0]
+
         # Try to send conf->conf
         conf_addr_4 = self.get_address(True, 0)
         psbt = self.nodes[2].createpsbt([{"txid": txid_conf_2, "vout": 1}], [{conf_addr_4: 24.998, "blinder_index": 0}, {"fee": 0.001}])
