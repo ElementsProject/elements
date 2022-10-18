@@ -175,6 +175,10 @@ static bool CreateBlindAssetProof(std::vector<unsigned char>& assetproof, const 
 
 bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
 {
+    if (conf_value.IsNull() || conf_asset.IsNull()) {
+        return false;
+    }
+
     secp256k1_pedersen_commitment value_commit;
     if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.vchCommitment.data()) == 0) {
         return false;
