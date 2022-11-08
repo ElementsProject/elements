@@ -4110,7 +4110,19 @@ bool BlockManager::LoadBlockIndex(
     CBlockTreeDB& blocktree,
     std::set<CBlockIndex*, CBlockIndexWorkComparator>& block_index_candidates)
 {
-    if (!blocktree.LoadBlockIndexGuts(consensus_params, [this](const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return this->InsertBlockIndex(hash); }))
+    int trim_below_height = 0;
+    if (fTrimHeaders) {
+        int max_height = 0;
+        if (!blocktree.WalkBlockIndexGutsForMaxHeight(&max_height)) {
+            LogPrintf("LoadBlockIndex: Somehow failed to WalkBlockIndexGutsForMaxHeight.\n");
+            return false;
+        }
+
+        int must_keep_headers = (consensus_params.total_valid_epochs + 2) * consensus_params.dynamic_epoch_length;
+        int extra_headers_buffer = consensus_params.dynamic_epoch_length * 2; // XXX arbitrary
+        trim_below_height = max_height - must_keep_headers - extra_headers_buffer;
+    }
+    if (!blocktree.LoadBlockIndexGuts(consensus_params, [this](const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return this->InsertBlockIndex(hash); }, trim_below_height))
         return false;
 
     // Calculate nChainWork
