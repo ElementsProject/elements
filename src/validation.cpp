@@ -76,7 +76,7 @@ static const unsigned int EXTRA_DESCENDANT_TX_SIZE_LIMIT = 10000;
 /** Maximum kilobytes for transactions to store for processing during reorg */
 static const unsigned int MAX_DISCONNECTED_TX_POOL_SIZE = 20000;
 /** Time to wait between writing blocks/block index to disk. */
-static constexpr std::chrono::hours DATABASE_WRITE_INTERVAL{1};
+static constexpr std::chrono::minutes DATABASE_WRITE_INTERVAL{5};
 /** Time to wait between flushing chainstate to disk. */
 static constexpr std::chrono::hours DATABASE_FLUSH_INTERVAL{24};
 /** Maximum age of our tip for us to be considered current for fee estimation */
@@ -2346,12 +2346,39 @@ bool CChainState::FlushStateToDisk(
                 }
                 std::vector<const CBlockIndex*> vBlocks;
                 vBlocks.reserve(setDirtyBlockIndex.size());
+                std::set<CBlockIndex*> setTrimmableBlockIndex(setDirtyBlockIndex);
                 for (std::set<CBlockIndex*>::iterator it = setDirtyBlockIndex.begin(); it != setDirtyBlockIndex.end(); ) {
                     vBlocks.push_back(*it);
                     setDirtyBlockIndex.erase(it++);
                 }
                 if (!pblocktree->WriteBatchSync(vFiles, nLastBlockFile, vBlocks)) {
                     return AbortNode(state, "Failed to write to block index database");
+                }
+
+                if (fTrimHeaders) {
+                    LogPrintf("Flushing block index, trimming headers, setTrimmableBlockIndex.size(): %d\n", setTrimmableBlockIndex.size());
+                    int trim_height = m_chain.Height() - nMustKeepFullHeaders;
+                    int min_height = std::numeric_limits<int>::max();
+                    CBlockIndex* min_index = nullptr;
+                    for (std::set<CBlockIndex*>::iterator it = setTrimmableBlockIndex.begin(); it != setTrimmableBlockIndex.end(); it++) {
+                        (*it)->assert_untrimmed();
+                        if ((*it)->nHeight < trim_height) {
+                            (*it)->trim();
+                            if ((*it)->nHeight < min_height) {
+                                min_height = (*it)->nHeight;
+                                min_index = *it;
+                            }
+                        }
+                    }
+
+                    // Handle any remaining untrimmed blocks that were too recent for trimming last time we flushed.
+                    if (min_index) {
+                        min_index = min_index->pprev;
+                        while (min_index && !min_index->trimmed()) {
+                            min_index->trim();
+                            min_index = min_index->pprev;
+                        }
+                    }
                 }
             }
             // Finally remove any pruned files
