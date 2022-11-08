@@ -2464,13 +2464,13 @@ void CChainState::UpdateTip(const CBlockIndex* pindexNew)
       !warning_messages.empty() ? strprintf(" warning='%s'", warning_messages.original) : "");
 
     // Do some logging if dynafed parameters changed.
-    if (pindexNew->pprev && !pindexNew->dynafed_params.IsNull()) {
+    if (pindexNew->pprev && !pindexNew->dynafed_params().IsNull()) {
         int height = pindexNew->nHeight;
         uint256 hash = pindexNew->GetBlockHash();
-        uint256 root = pindexNew->dynafed_params.m_current.CalculateRoot();
-        if (pindexNew->pprev->dynafed_params.IsNull()) {
+        uint256 root = pindexNew->dynafed_params().m_current.CalculateRoot();
+        if (pindexNew->pprev->dynafed_params().IsNull()) {
             LogPrintf("Dynafed activated in block %d:%s: %s\n", height, hash.GetHex(), root.GetHex());
-        } else if (root != pindexNew->pprev->dynafed_params.m_current.CalculateRoot()) {
+        } else if (root != pindexNew->pprev->dynafed_params().m_current.CalculateRoot()) {
             LogPrintf("New dynafed parameters activated in block %d:%s: %s\n", height, hash.GetHex(), root.GetHex());
         }
     }

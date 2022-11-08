@@ -248,13 +248,13 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
         result.pushKV("difficulty", GetDifficulty(blockindex));
         result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     } else {
-        if (blockindex->dynafed_params.IsNull()) {
-            result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
-            result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
-            result.pushKV("signblock_challenge", HexStr(blockindex->proof.challenge));
+        if (blockindex->dynafed_params().IsNull()) {
+            result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->get_proof().solution));
+            result.pushKV("signblock_witness_hex", HexStr(blockindex->get_proof().solution));
+            result.pushKV("signblock_challenge", HexStr(blockindex->get_proof().challenge));
         } else {
-            result.pushKV("signblock_witness_hex", EncodeHexScriptWitness(blockindex->m_signblock_witness));
-            result.pushKV("dynamic_parameters", dynaParamsToJSON(blockindex->dynafed_params));
+            result.pushKV("signblock_witness_hex", EncodeHexScriptWitness(blockindex->signblock_witness()));
+            result.pushKV("dynamic_parameters", dynaParamsToJSON(blockindex->dynafed_params()));
         }
     }
     result.pushKV("nTx", (uint64_t)blockindex->nTx);

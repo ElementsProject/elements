@@ -192,10 +192,51 @@ public:
     uint32_t nTime{0};
     uint32_t nBits{0};
     uint32_t nNonce{0};
-    CProof proof{};
+
+protected:
+    std::optional<CProof> proof{};
     // Dynamic federation fields
-    DynaFedParams dynafed_params{};
-    CScriptWitness m_signblock_witness{};
+    std::optional<DynaFedParams> m_dynafed_params{};
+    std::optional<CScriptWitness> m_signblock_witness{};
+
+    bool m_trimmed{false};
+
+    friend class CBlockTreeDB;
+
+public:
+
+    // Irrevocably remove blocksigning and dynafed-related stuff from this
+    // in-memory copy of the block header.
+    void trim() {
+        assert_untrimmed();
+        m_trimmed = true;
+        proof = std::nullopt;
+        m_dynafed_params = std::nullopt;
+        m_signblock_witness = std::nullopt;
+    }
+
+    bool trimmed() const {
+        return m_trimmed;
+    }
+
+    void assert_untrimmed() const {
+        assert(!m_trimmed);
+    }
+
+    const CProof& get_proof() const {
+        assert_untrimmed();
+        return proof.value();
+    }
+
+    const DynaFedParams& dynafed_params() const {
+        assert_untrimmed();
+        return m_dynafed_params.value();
+    }
+
+    const CScriptWitness& signblock_witness() const {
+        assert_untrimmed();
+        return m_signblock_witness.value();
+    }
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId{0};
@@ -214,7 +255,7 @@ public:
           nBits{block.nBits},
           nNonce{block.nNonce},
           proof{block.proof},
-          dynafed_params{block.m_dynafed_params},
+          m_dynafed_params{block.m_dynafed_params},
           m_signblock_witness{block.m_signblock_witness}
     {
     }
@@ -239,6 +280,7 @@ public:
 
     CBlockHeader GetBlockHeader() const
     {
+        assert_untrimmed();
         CBlockHeader block;
         block.nVersion       = nVersion;
         if (pprev)
@@ -250,9 +292,9 @@ public:
         }
         block.nBits          = nBits;
         block.nNonce         = nNonce;
-        block.proof          = proof;
-        block.m_dynafed_params  = dynafed_params;
-        block.m_signblock_witness = m_signblock_witness;
+        block.proof          = proof.value();
+        block.m_dynafed_params  = m_dynafed_params.value();
+        block.m_signblock_witness = m_signblock_witness.value();
         return block;
     }
 
@@ -366,12 +408,12 @@ public:
             nVersion = ~CBlockHeader::DYNAFED_HF_MASK & nVersion;
             return is_dyna;
         } else {
-            return !dynafed_params.IsNull();
+            return !dynafed_params().IsNull();
         }
     }
     bool RemoveDynaFedMaskOnSerialize(bool for_read) const {
         assert(!for_read);
-        return !dynafed_params.IsNull();
+        return !dynafed_params().IsNull();
     }
 
     SERIALIZE_METHODS(CDiskBlockIndex, obj)
@@ -394,7 +436,7 @@ public:
             READWRITE(obj.nVersion);
         } else {
             int32_t nVersion = obj.nVersion;
-            if (!obj.dynafed_params.IsNull()) {
+            if (!obj.dynafed_params().IsNull()) {
                 nVersion |= CBlockHeader::DYNAFED_HF_MASK;
             }
             READWRITE(nVersion);
@@ -406,11 +448,14 @@ public:
         READWRITE(obj.nTime);
         // For compatibility with elements 0.14 based chains
         if (g_signed_blocks) {
+            SER_READ(obj, obj.m_dynafed_params = DynaFedParams());
+            SER_READ(obj, obj.m_signblock_witness = CScriptWitness());
+            SER_READ(obj, obj.proof = CProof());
             if (is_dyna) {
-                READWRITE(obj.dynafed_params);
-                READWRITE(obj.m_signblock_witness.stack);
+                READWRITE(obj.m_dynafed_params.value());
+                READWRITE(obj.m_signblock_witness.value().stack);
             } else {
-                READWRITE(obj.proof);
+                READWRITE(obj.proof.value());
             }
         } else {
             READWRITE(obj.nBits);
@@ -420,6 +465,7 @@ public:
 
     uint256 GetBlockHash() const
     {
+        assert_untrimmed();
         CBlockHeader block;
         block.nVersion        = nVersion;
         block.hashPrevBlock   = hashPrev;
@@ -430,8 +476,8 @@ public:
         }
         block.nBits           = nBits;
         block.nNonce          = nNonce;
-        block.proof           = proof;
-        block.m_dynafed_params   = dynafed_params;
+        block.proof           = proof.value();
+        block.m_dynafed_params   = m_dynafed_params.value();
         return block.GetHash();
     }
 

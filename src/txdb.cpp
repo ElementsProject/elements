@@ -335,7 +335,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->proof          = diskindex.proof;
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
-                pindexNew->dynafed_params       = diskindex.dynafed_params;
+                pindexNew->m_dynafed_params       = diskindex.m_dynafed_params;
                 pindexNew->m_signblock_witness = diskindex.m_signblock_witness;
 
                 const uint256 block_hash = pindexNew->GetBlockHash();

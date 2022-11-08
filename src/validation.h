@@ -649,6 +649,7 @@ public:
     //! @returns A reference to the in-memory cache of the UTXO set.
     CCoinsViewCache& CoinsTip() EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     {
+        assert(m_coins_views);
         assert(m_coins_views->m_cacheview);
         return *m_coins_views->m_cacheview.get();
     }
