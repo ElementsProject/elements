@@ -49,7 +49,7 @@ extern bool fTrimHeaders;
 /** Minimum number of full untrimmed headers to keep, for blocks we have. */
 extern uint64_t nMustKeepFullHeaders;
 /** Target number of headers to download beyond the blocks we have. */
-// XXX: this currently only operates when in header trim mode, but it's really independent of that.
+// NOTE: this currently only operates when in header trim mode, but it's really independent of that.
 extern uint64_t nHeaderDownloadBuffer;
 
 //! Check whether the block associated with this index entry is pruned or not.
@@ -78,6 +78,8 @@ bool ReadBlockFromDisk(CBlock& block, const FlatFilePos& pos, const Consensus::P
 bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus::Params& consensusParams);
 bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const FlatFilePos& pos, const CMessageHeader::MessageStartChars& message_start);
 bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex, const CMessageHeader::MessageStartChars& message_start);
+// ELEMENTS:
+bool ReadBlockHeaderFromDisk(class CBlockHeader& header, const CBlockIndex* pindex, const Consensus::Params& consensusParams);
 
 bool UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex* pindex);
 bool WriteUndoDataForBlock(const CBlockUndo& blockundo, BlockValidationState& state, CBlockIndex* pindex, const CChainParams& chainparams);

@@ -221,7 +221,14 @@ static bool rest_headers(const std::any& context,
     case RetFormat::BINARY: {
         CDataStream ssHeader(SER_NETWORK, PROTOCOL_VERSION);
         for (const CBlockIndex *pindex : headers) {
-            ssHeader << pindex->GetBlockHeader();
+            if (pindex->trimmed()) {
+                CBlockHeader tmp;
+                ReadBlockHeaderFromDisk(tmp, pindex, Params().GetConsensus());
+                ssHeader << tmp;
+
+            } else {
+                ssHeader << pindex->GetBlockHeader();
+            }
         }
 
         std::string binaryHeader = ssHeader.str();
@@ -233,8 +240,14 @@ static bool rest_headers(const std::any& context,
     case RetFormat::HEX: {
         CDataStream ssHeader(SER_NETWORK, PROTOCOL_VERSION);
         for (const CBlockIndex *pindex : headers) {
-            ssHeader << pindex->GetBlockHeader();
-        }
+            if (pindex->trimmed()) {
+                CBlockHeader tmp;
+                ReadBlockHeaderFromDisk(tmp, pindex, Params().GetConsensus());
+                ssHeader << tmp;
+
+            } else {
+                ssHeader << pindex->GetBlockHeader();
+            }        }
 
         std::string strHex = HexStr(ssHeader) + "\n";
         req->WriteHeader("Content-Type", "text/plain");
