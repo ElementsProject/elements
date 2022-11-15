@@ -48,7 +48,7 @@ static constexpr auto UNCONDITIONAL_RELAY_DELAY = 2min;
 /** Headers download timeout.
  *  Timeout = base + per_header * (expected number of headers) */
 static constexpr auto HEADERS_DOWNLOAD_TIMEOUT_BASE = 15min;
-static constexpr auto HEADERS_DOWNLOAD_TIMEOUT_PER_HEADER = 1ms;
+static constexpr auto HEADERS_DOWNLOAD_TIMEOUT_PER_HEADER = 2ms;
 /** Protect at least this many outbound peers from disconnection due to slow/
  * behind headers chain.
  */
@@ -2084,14 +2084,47 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, const Peer& peer,
             nodestate->m_last_block_announcement = GetTime();
         }
 
-        if (nCount == MAX_HEADERS_RESULTS && !all_duplicate) {
-            // Headers message had its maximum size; the peer may have more headers.
-            // TODO: optimize: if pindexLast is an ancestor of m_chainman.ActiveChain().Tip or pindexBestHeader, continue
-            // from there instead.
-            // HOWEVER, if all headers we got this time were duplicates that we already had, don't ask for any more.
-            LogPrint(BCLog::NET, "more getheaders (%d) to end to peer=%d (startheight:%d)\n",
-                                 pindexLast->nHeight, pfrom.GetId(), peer.m_starting_height);
-            m_connman.PushMessage(&pfrom, msgMaker.Make(NetMsgType::GETHEADERS, m_chainman.ActiveChain().GetLocator(pindexLast), uint256()));
+        uint64_t headers_ahead = pindexLast->nHeight - m_chainman.ActiveHeight();
+        bool got_enough_headers = fTrimHeaders && (headers_ahead >= nHeaderDownloadBuffer);
+
+        // If a peer gives us as many headers as possible, this is implicitly a signal that the
+        //   peer has more headers to send us. In Bitcoin Core, the node always asks for more
+        //   headers at this point. Our logic is slightly more complex, because:
+        // (1) There is an apparent bug in the Bitcoin Core state machine here, where we can
+        //   end up downloading headers from lots of peers at the same time by accident, which we
+        //   work around rather than truly fix;
+        // (2) For various reasons we may want to avoid letting the header downloads get "too
+        //   far ahead" of block downloads, so we may pause syncing for that reasons.
+        if (nCount == MAX_HEADERS_RESULTS) {
+            if (all_duplicate && !nodestate->fSyncStarted) {
+                // In this case two things are true:
+                // 1) This node's most recent batch of headers only included ones we already had.
+                // 2) We don't have this node marked as a peer to header-sync from.
+                // This happens when some exogenous event, like an INV of a new block, causes us
+                //   to ask a peer for an unbounded number of headers, when we're already in the
+                //   process of downloading the headers from a different peer.
+                // In this case the right thing to do is simply stop syncing headers from this
+                //   peer; it's redundant. Here we do nothing; since we don't ask the peer for
+                //   more headers, it will stop sending them.
+            } else if (got_enough_headers) {
+                // If we're trying to save memory on headers, and we've already got plenty of headers,
+                //   pause until we're ready for more.
+                LogPrint(BCLog::NET, "Pausing header sync from peer=%d, because the last one was too far ahead of block sync (%d >> %d)\n", pfrom.GetId(), pindexLast->nHeight, m_chainman.ActiveHeight());
+                if (nodestate->fSyncStarted) {
+                    // Cancel sync from this node, so we don't penalize it later.
+                    // This will cause us to automatically start syncing from a different node (or restart syncing from the same node) later,
+                    //   if we still need to sync headers.
+                    nSyncStarted--;
+                    nodestate->fSyncStarted = false;
+                    nodestate->m_headers_sync_timeout = 0us;
+                }
+            } else {
+                // TODO: optimize: if pindexLast is an ancestor of m_chainman.ActiveChain().Tip or pindexBestHeader, continue
+                // from there instead.
+                LogPrint(BCLog::NET, "more getheaders (%d) to end to peer=%d (startheight:%d)\n",
+                                    pindexLast->nHeight, pfrom.GetId(), peer.m_starting_height);
+                m_connman.PushMessage(&pfrom, msgMaker.Make(NetMsgType::GETHEADERS, m_chainman.ActiveChain().GetLocator(pindexLast), uint256()));
+            }
         }
 
         // If this set of headers is valid and ends in a block with at least as
@@ -4476,7 +4509,10 @@ bool PeerManagerImpl::SendMessages(CNode* pto)
         if (pindexBestHeader == nullptr)
             pindexBestHeader = m_chainman.ActiveChain().Tip();
         bool fFetch = state.fPreferredDownload || (nPreferredDownload == 0 && !pto->fClient && !pto->IsAddrFetchConn()); // Download if this is a nice peer, or we have no nice peers and this one might do.
-        if (!state.fSyncStarted && !pto->fClient && !fImporting && !fReindex) {
+        uint64_t headers_ahead = pindexBestHeader->nHeight - m_chainman.ActiveHeight();
+        // ELEMENTS: Only download if our headers aren't "too far ahead" of our blocks.
+        bool got_enough_headers = fTrimHeaders && (headers_ahead >= nHeaderDownloadBuffer);
+        if (!state.fSyncStarted && !pto->fClient && !fImporting && !fReindex && !got_enough_headers) {
             // Only actively request headers from a single peer, unless we're close to today.
             if ((nSyncStarted == 0 && fFetch) || pindexBestHeader->GetBlockTime() > GetAdjustedTime() - 24 * 60 * 60) {
                 state.fSyncStarted = true;
