@@ -446,11 +446,14 @@ public:
         READWRITE(obj.hashPrev);
         READWRITE(obj.hashMerkleRoot);
         READWRITE(obj.nTime);
+
+        // Allocate objects in the optional<> fields when reading, since READWRITE will not do this
+        SER_READ(obj, obj.m_dynafed_params = DynaFedParams());
+        SER_READ(obj, obj.m_signblock_witness = CScriptWitness());
+        SER_READ(obj, obj.proof = CProof());
+
         // For compatibility with elements 0.14 based chains
         if (g_signed_blocks) {
-            SER_READ(obj, obj.m_dynafed_params = DynaFedParams());
-            SER_READ(obj, obj.m_signblock_witness = CScriptWitness());
-            SER_READ(obj, obj.proof = CProof());
             if (is_dyna) {
                 READWRITE(obj.m_dynafed_params.value());
                 READWRITE(obj.m_signblock_witness.value().stack);
