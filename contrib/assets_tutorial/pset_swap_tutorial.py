@@ -210,9 +210,9 @@ for out in outputs:
         elif out in decoded_c["vout"]:
             blinder_idx = carol_idx
 
-        # The crappy rawtransaction API requires that we reconstruct blinded addresses,
-        # which are split between the "addresses" and "nonce" field
-        address = out["scriptPubKey"]["addresses"][0]
+        # The rawtransaction API requires that we reconstruct the blinded address,
+        # which is split between the "address" and "nonce" (blinding pubkey) fields
+        address = out["scriptPubKey"]["address"]
         if "commitmentnonce" in out:
             address = alice.createblindedaddress(address, out["commitmentnonce"])
 
