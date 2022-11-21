@@ -608,10 +608,11 @@ public:
                   bool sign = true,
                   bool bip32derivs = true,
                   bool imbalance_ok = false,
-                  size_t* n_signed = nullptr) const;
+                  size_t* n_signed = nullptr,
+                  bool include_explicit = false) const;
 
     // ELEMENTS
-    TransactionError FillPSBTData(PartiallySignedTransaction& psbtx, bool bip32derivs = false) const;
+    TransactionError FillPSBTData(PartiallySignedTransaction& psbtx, bool bip32derivs = false, bool include_explicit = false) const;
     TransactionError SignPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type = 1, bool sign = true, bool imbalance_ok = false, bool bip32derivs = false, size_t* n_signed = nullptr) const;
     BlindingStatus WalletBlindPSBT(PartiallySignedTransaction& psbtx) const;
     // end ELEMENTS
