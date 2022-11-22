@@ -251,6 +251,7 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
         if (blockindex->dynafed_params.IsNull()) {
             result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
             result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
+            result.pushKV("signblock_challenge", HexStr(blockindex->proof.challenge));
         } else {
             result.pushKV("signblock_witness_hex", EncodeHexScriptWitness(blockindex->m_signblock_witness));
             result.pushKV("dynamic_parameters", dynaParamsToJSON(blockindex->dynafed_params));
