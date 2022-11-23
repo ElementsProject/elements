@@ -3166,10 +3166,17 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
         LogPrint(BCLog::NET, "getheaders %d to %s from peer=%d\n", (pindex ? pindex->nHeight : -1), hashStop.IsNull() ? "end" : hashStop.ToString(), pfrom.GetId());
         for (; pindex; pindex = m_chainman.ActiveChain().Next(pindex))
         {
+            if (pindex->trimmed()) {
+                // For simplicity, if any of the headers they're asking for are trimmed,
+                //   just drop the request.
+                LogPrint(BCLog::NET, "%s: ignoring getheaders from peer=%i which would return at least one trimmed header\n", __func__, pfrom.GetId());
+                return;
+            }
             vHeaders.push_back(pindex->GetBlockHeader());
             if (--nLimit <= 0 || pindex->GetBlockHash() == hashStop)
                 break;
         }
+
         // pindex can be nullptr either if we sent m_chainman.ActiveChain().Tip() OR
         // if our peer has m_chainman.ActiveChain().Tip() (and thus we are sending an empty
         // headers message). In both cases it's safe to update
