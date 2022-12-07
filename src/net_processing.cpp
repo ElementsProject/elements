@@ -910,6 +910,10 @@ bool PeerManagerImpl::TipMayBeStale()
 
 bool PeerManagerImpl::CanDirectFetch()
 {
+    if(!m_chainman.ActiveChain().Tip()) {
+        LogPrint(BCLog::NET, "Startup crash avoided\n");
+        return false;
+    }
     return m_chainman.ActiveChain().Tip()->GetBlockTime() > GetAdjustedTime() - m_chainparams.GetConsensus().nPowTargetSpacing * 20;
 }
 
