@@ -136,8 +136,21 @@ static bool CreateBlindValueProof(std::vector<unsigned char>& rangeproof, const 
     return res == 1;
 }
 
+bool CreateBlindValueProof(std::vector<unsigned char>& rangeproof, const uint256& value_blinder, const CAmount amount, const CConfidentialValue& conf_value, const CConfidentialAsset& conf_asset)
+{
+    secp256k1_pedersen_commitment value_commit;
+    int ret = secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.vchCommitment.data());
+    assert(ret == 1);
+
+    secp256k1_generator asset_gen;
+    ret = secp256k1_generator_parse(secp256k1_blind_context, &asset_gen, conf_asset.vchCommitment.data());
+    assert(ret == 1);
+
+    return CreateBlindValueProof(rangeproof, value_blinder, amount, value_commit, asset_gen);
+}
+
 // Create an explicit value rangeproof which proves that the commitment commits to an explicit value
-static bool CreateBlindAssetProof(std::vector<unsigned char>& assetproof, const CAsset& asset, const CConfidentialAsset& asset_commit, const uint256& asset_blinder)
+bool CreateBlindAssetProof(std::vector<unsigned char>& assetproof, const CAsset& asset, const CConfidentialAsset& asset_commit, const uint256& asset_blinder)
 {
     const unsigned char zero32[32] = {0};
     secp256k1_surjectionproof proof;
@@ -175,6 +188,10 @@ static bool CreateBlindAssetProof(std::vector<unsigned char>& assetproof, const 
 
 bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
 {
+    if (conf_value.IsNull() || conf_asset.IsNull()) {
+        return false;
+    }
+
     secp256k1_pedersen_commitment value_commit;
     if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.vchCommitment.data()) == 0) {
         return false;

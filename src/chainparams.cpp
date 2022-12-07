@@ -735,6 +735,9 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
  * Custom params for testing.
  */
 class CCustomParams : public CRegTestParams {
+protected:
+    std::string default_magic_str = "5319F20E";
+    std::string default_signblockscript = "51";
     void UpdateFromArgs(const ArgsManager& args)
     {
         UpdateActivationParametersFromArgs(args);
@@ -757,7 +760,7 @@ class CCustomParams : public CRegTestParams {
         consensus.nMinimumChainWork = uint256S(args.GetArg("-con_nminimumchainwork", "0x0"));
         consensus.defaultAssumeValid = uint256S(args.GetArg("-con_defaultassumevalid", "0x00"));
         // TODO: Embed in genesis block in nTime field with new genesis block type
-        consensus.dynamic_epoch_length = args.GetArg("-dynamic_epoch_length", 10);
+        consensus.dynamic_epoch_length = args.GetArg("-dynamic_epoch_length", consensus.dynamic_epoch_length);
         // Default junk keys for testing
         consensus.first_extension_space = {ParseHex("02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f")};
         std::vector<std::string> pak_list_str = args.GetArgs("-pak");
@@ -772,12 +775,16 @@ class CCustomParams : public CRegTestParams {
         fDefaultConsistencyChecks = args.GetBoolArg("-fdefaultconsistencychecks", fDefaultConsistencyChecks);
         m_is_test_chain = args.GetBoolArg("-fmineblocksondemand", m_is_test_chain);
 
-        bech32_hrp = args.GetArg("-bech32_hrp", "ert");
-        blech32_hrp = args.GetArg("-blech32_hrp", "el");
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-pubkeyprefix", 235));
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-scriptprefix", 75));
-        base58Prefixes[BLINDED_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-blindedprefix", 4));
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1, args.GetArg("-secretprefix", 239));
+        bech32_hrp = args.GetArg("-bech32_hrp", bech32_hrp);
+        blech32_hrp = args.GetArg("-blech32_hrp", blech32_hrp);
+        assert(base58Prefixes[PUBKEY_ADDRESS].size() == 1);
+        assert(base58Prefixes[SCRIPT_ADDRESS].size() == 1);
+        assert(base58Prefixes[BLINDED_ADDRESS].size() == 1);
+        assert(base58Prefixes[SECRET_KEY].size() == 1);
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-pubkeyprefix", base58Prefixes[PUBKEY_ADDRESS][0]));
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-scriptprefix", base58Prefixes[SCRIPT_ADDRESS][0]));
+        base58Prefixes[BLINDED_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-blindedprefix", base58Prefixes[BLINDED_ADDRESS][0]));
+        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1, args.GetArg("-secretprefix", base58Prefixes[SECRET_KEY][0]));
         base58Prefixes[PARENT_PUBKEY_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-parentpubkeyprefix", 111));
         base58Prefixes[PARENT_SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-parentscriptprefix", 196));
         parent_bech32_hrp = args.GetArg("-parent_bech32_hrp", "bcrt");
@@ -792,7 +799,7 @@ class CCustomParams : public CRegTestParams {
         assert(IsHex(extprvprefix) && extprvprefix.size() == 8 && "-extprvkeyprefix must be hex string of length 8");
         base58Prefixes[EXT_SECRET_KEY] = ParseHex(extprvprefix);
 
-        const std::string magic_str = args.GetArg("-pchmessagestart", "5319F20E");
+        const std::string magic_str = args.GetArg("-pchmessagestart", default_magic_str);
         assert(IsHex(magic_str) && magic_str.size() == 8 && "-pchmessagestart must be hex string of length 8");
         const std::vector<unsigned char> magic_byte = ParseHex(magic_str);
         std::copy(begin(magic_byte), end(magic_byte), pchMessageStart);
@@ -812,10 +819,9 @@ class CCustomParams : public CRegTestParams {
         consensus.genesis_style = args.GetArg("-con_genesis_style", "elements");
 
         // Block signing encumberance script, default of 51 aka OP_TRUE
-        std::vector<unsigned char> sign_bytes = ParseHex(args.GetArg("-signblockscript", "51"));
+        std::vector<unsigned char> sign_bytes = ParseHex(args.GetArg("-signblockscript", default_signblockscript));
         consensus.signblockscript = CScript(sign_bytes.begin(), sign_bytes.end());
-        // Default signature size is the size of dummy push, and single 72 byte DER signature
-        consensus.max_block_signature_size = args.GetArg("-con_max_block_sig_size", 74);
+        consensus.max_block_signature_size = args.GetArg("-con_max_block_sig_size", consensus.max_block_signature_size);
         g_signed_blocks = args.GetBoolArg("-con_signed_blocks", true);
 
         // Note: These globals are needed to avoid circular dependencies.
@@ -834,11 +840,11 @@ class CCustomParams : public CRegTestParams {
         // Custom chains connect coinbase outputs to db by default
         consensus.connect_genesis_outputs = args.GetArg("-con_connect_genesis_outputs", true);
 
-        initialFreeCoins = args.GetArg("-initialfreecoins", 0);
+        initialFreeCoins = args.GetArg("-initialfreecoins", initialFreeCoins);
 
-        anyonecanspend_aremine = args.GetBoolArg("-anyonecanspendaremine", true);
+        anyonecanspend_aremine = args.GetBoolArg("-anyonecanspendaremine", anyonecanspend_aremine);
 
-        consensus.has_parent_chain = args.GetBoolArg("-con_has_parent_chain", true);
+        consensus.has_parent_chain = args.GetBoolArg("-con_has_parent_chain", consensus.has_parent_chain);
 
         enforce_pak = args.GetBoolArg("-enforce_pak", false);
 
@@ -846,7 +852,7 @@ class CCustomParams : public CRegTestParams {
         multi_data_permitted = args.GetBoolArg("-multi_data_permitted", enforce_pak);
 
         // bitcoin regtest is the parent chain by default
-        parentGenesisBlockHash = uint256S(args.GetArg("-parentgenesisblockhash", "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
+        parentGenesisBlockHash = uint256S(args.GetArg("-parentgenesisblockhash", parentGenesisBlockHash.GetHex()));
         // Either it has a parent chain or not
         const bool parent_genesis_is_null = parentGenesisBlockHash == uint256();
         assert(consensus.has_parent_chain != parent_genesis_is_null);
@@ -880,11 +886,6 @@ class CCustomParams : public CRegTestParams {
             consensus.subsidy_asset = CAsset(uint256S(args.GetArg("-subsidyasset", "0x00")));
         }
 
-        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
-        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
-        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
-        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].min_activation_height = 0; // No activation delay
-
         UpdateElementsActivationParametersFromArgs(consensus, args);
         // END ELEMENTS fields
     }
@@ -914,9 +915,81 @@ public:
     CCustomParams(const std::string& chain, const ArgsManager& args) : CRegTestParams(args)
     {
         strNetworkID = chain;
+
+        //default settings
+        initialFreeCoins = 0;
+        anyonecanspend_aremine = true;
+        // Default signature size is the size of dummy push, and single 72 byte DER signature
+        consensus.max_block_signature_size = 74;
+        consensus.dynamic_epoch_length = 10;
+        // bitcoin regtest is the parent chain by default
+        consensus.has_parent_chain = true;
+        parentGenesisBlockHash = uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206");
+
+        bech32_hrp = "ert";
+        blech32_hrp = "el";
+
+        base58Prefixes[PUBKEY_ADDRESS]  = std::vector<unsigned char>(1, 235);
+        base58Prefixes[SCRIPT_ADDRESS]  = std::vector<unsigned char>(1, 75);
+        base58Prefixes[BLINDED_ADDRESS] = std::vector<unsigned char>(1, 4);
+        base58Prefixes[SECRET_KEY]      = std::vector<unsigned char>(1, 239);
+
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].min_activation_height = 0; // No activation delay
+
         UpdateFromArgs(args);
         SetGenesisBlock();
         consensus.hashGenesisBlock = genesis.GetHash();
+    }
+};
+
+/**
+ * Liquid testnet (customparams with a few defaults).
+ */
+class CLiquidTestNetParams : public CCustomParams {
+public:
+    CLiquidTestNetParams(const std::string& chain, const ArgsManager& args) : CCustomParams(chain, args)
+    {
+        strNetworkID = chain;
+        // not a debug chain
+        fDefaultConsistencyChecks = false;
+
+        initialFreeCoins = 2100000000000000;
+        anyonecanspend_aremine = false;
+        consensus.max_block_signature_size = 150;
+        consensus.dynamic_epoch_length = 1000;
+
+        // no parent chain by default
+        consensus.has_parent_chain = false;
+        parentGenesisBlockHash = uint256();
+
+        bech32_hrp = "tex";
+        blech32_hrp = "tlq";
+
+        base58Prefixes[PUBKEY_ADDRESS]  = std::vector<unsigned char>(1, 36);
+        base58Prefixes[SCRIPT_ADDRESS]  = std::vector<unsigned char>(1, 19);
+        base58Prefixes[BLINDED_ADDRESS] = std::vector<unsigned char>(1, 23);
+        base58Prefixes[SECRET_KEY]      = std::vector<unsigned char>(1, base58Prefixes[SECRET_KEY][0]);
+
+        // disable automatic dynafed
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = 0;
+
+        nDefaultPort = 18891;
+        vSeeds.clear();
+        vFixedSeeds = std::vector<uint8_t>(std::begin(pnSeed6_liquidtestnet), std::end(pnSeed6_liquidtestnet));
+
+        default_magic_str = "410EDD62";
+        default_signblockscript = "51210217e403ddb181872c32a0cd468c710040b2f53d8cac69f18dad07985ee37e9a7151ae";
+        UpdateFromArgs(args);
+        multi_data_permitted = true;
+        SetGenesisBlock();
+        consensus.hashGenesisBlock = genesis.GetHash();
+        if (!args.IsArgSet("-seednode")) {
+            vSeeds.emplace_back("seed.liquid-testnet.blockstream.com");
+            vSeeds.emplace_back("seed.liquidtestnet.com");
+        }
     }
 };
 
@@ -1461,6 +1534,8 @@ std::unique_ptr<const CChainParams> CreateChainParams(const ArgsManager& args, c
         return std::unique_ptr<CChainParams>(new CLiquidV1Params());
     } else if (chain == CBaseChainParams::LIQUID1TEST) {
         return std::unique_ptr<CChainParams>(new CLiquidV1TestParams(args));
+    } else if (chain == CBaseChainParams::LIQUIDTESTNET) {
+        return std::unique_ptr<CChainParams>(new CLiquidTestNetParams(chain, args));
     }
 
     return std::unique_ptr<CChainParams>(new CCustomParams(chain, args));
