@@ -2007,6 +2007,28 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, const Peer& peer,
         return;
     }
 
+    // If we are already too far ahead of where we want to be on headers, discard
+    //   the received headers. We can still get ahead by up to a single maximum-sized
+    //   headers message here, but never further, so that's fine.
+    if (pindexBestHeader) {
+        uint64_t headers_ahead = pindexBestHeader->nHeight - m_chainman.ActiveHeight();
+        bool too_far_ahead = fTrimHeaders && (headers_ahead >= nHeaderDownloadBuffer);
+        if (too_far_ahead) {
+            LogPrint(BCLog::NET, "Discarding received headers and pausing header sync from peer=%d, because we are too far ahead of block sync (%d > %d, %d new headers received)\n", pfrom.GetId(), pindexBestHeader->nHeight, m_chainman.ActiveHeight(), nCount);
+            LOCK(cs_main);
+            CNodeState *nodestate = State(pfrom.GetId());
+            if (nodestate->fSyncStarted) {
+                // Cancel sync from this node, so we don't penalize it later.
+                // This will cause us to automatically start syncing from a different node (or restart syncing from the same node) later,
+                //   if we still need to sync headers.
+                nSyncStarted--;
+                nodestate->fSyncStarted = false;
+                nodestate->m_headers_sync_timeout = 0us;
+            }
+            return;
+        }
+    }
+
     bool received_new_header = false;
     const CBlockIndex *pindexLast = nullptr;
     {
@@ -2084,17 +2106,11 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, const Peer& peer,
             nodestate->m_last_block_announcement = GetTime();
         }
 
-        uint64_t headers_ahead = pindexLast->nHeight - m_chainman.ActiveHeight();
-        bool got_enough_headers = fTrimHeaders && (headers_ahead >= nHeaderDownloadBuffer);
-
         // If a peer gives us as many headers as possible, this is implicitly a signal that the
         //   peer has more headers to send us. In Bitcoin Core, the node always asks for more
-        //   headers at this point. Our logic is slightly more complex, because:
-        // (1) There is an apparent bug in the Bitcoin Core state machine here, where we can
-        //   end up downloading headers from lots of peers at the same time by accident, which we
-        //   work around rather than truly fix;
-        // (2) For various reasons we may want to avoid letting the header downloads get "too
-        //   far ahead" of block downloads, so we may pause syncing for that reasons.
+        //   headers at this point. Our logic is slightly more complex, to work around an apparent
+        //   bug in the Bitcoin Core state machine, where we can end up downloading headers from
+        ///  lots of peers at the same time by accident.
         if (nCount == MAX_HEADERS_RESULTS) {
             if (all_duplicate && !nodestate->fSyncStarted) {
                 // In this case two things are true:
@@ -2106,18 +2122,6 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, const Peer& peer,
                 // In this case the right thing to do is simply stop syncing headers from this
                 //   peer; it's redundant. Here we do nothing; since we don't ask the peer for
                 //   more headers, it will stop sending them.
-            } else if (got_enough_headers) {
-                // If we're trying to save memory on headers, and we've already got plenty of headers,
-                //   pause until we're ready for more.
-                LogPrint(BCLog::NET, "Pausing header sync from peer=%d, because the last one was too far ahead of block sync (%d >> %d)\n", pfrom.GetId(), pindexLast->nHeight, m_chainman.ActiveHeight());
-                if (nodestate->fSyncStarted) {
-                    // Cancel sync from this node, so we don't penalize it later.
-                    // This will cause us to automatically start syncing from a different node (or restart syncing from the same node) later,
-                    //   if we still need to sync headers.
-                    nSyncStarted--;
-                    nodestate->fSyncStarted = false;
-                    nodestate->m_headers_sync_timeout = 0us;
-                }
             } else {
                 // TODO: optimize: if pindexLast is an ancestor of m_chainman.ActiveChain().Tip or pindexBestHeader, continue
                 // from there instead.
