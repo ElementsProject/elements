@@ -182,9 +182,9 @@ class KeyPoolTest(BitcoinTestFramework):
         assert_equal("psbt" in res, True)
 
         # create a transaction without change at the maximum fee rate, such that the output is still spendable:
-        res = w2.walletcreatefundedpsbt(inputs=[], outputs=[{destination: 0.00025000}], options={"subtractFeeFromOutputs": [0], "feeRate": 0.0008824})
+        res = w2.walletcreatefundedpsbt(inputs=[], outputs=[{destination: 0.00025000}], options={"subtractFeeFromOutputs": [0], "feeRate": 0.0008823})
         assert_equal("psbt" in res, True)
-        assert_equal(res["fee"], Decimal("0.00016853"))
+        assert_equal(res["fee"], Decimal("0.00016852"))
 
         # creating a 10,000 sat transaction with a manual change address should be possible
         res = w2.walletcreatefundedpsbt(inputs=[], outputs=[{destination: 0.00025000}], options={"subtractFeeFromOutputs": [0], "feeRate": 0.00010, "changeAddress": addr.pop()})

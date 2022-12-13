@@ -50,6 +50,7 @@ static const int TOOLTIP_WRAP_THRESHOLD = 80;
 #define QAPP_APP_NAME_SIGNET "Elements-Qt-signet"
 #define QAPP_APP_NAME_REGTEST "Elements-Qt-regtest"
 #define QAPP_APP_NAME_LIQUID "Elements-Qt (Liquid)"
+#define QAPP_APP_NAME_LIQUIDTESTNET "Elements-Qt (liquidtestnet)"
 
 /* One gigabyte (GB) in bytes */
 static constexpr uint64_t GB_BYTES{1000000000};

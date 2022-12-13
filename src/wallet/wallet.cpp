@@ -5,6 +5,7 @@
 
 #include <wallet/wallet.h>
 
+#include <blindpsbt.h>
 #include <chain.h>
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
@@ -1371,9 +1372,10 @@ CAmountMap CWallet::GetDebit(const CTransaction& tx, const isminefilter& filter)
 bool CWallet::IsHDEnabled() const
 {
     // All Active ScriptPubKeyMans must be HD for this to be true
-    bool result = true;
+    bool result = false;
     for (const auto& spk_man : GetActiveScriptPubKeyMans()) {
-        result &= spk_man->IsHDEnabled();
+        if (!spk_man->IsHDEnabled()) return false;
+        result = true;
     }
     return result;
 }
@@ -1817,7 +1819,7 @@ bool CWallet::SignTransaction(CMutableTransaction& tx, const std::map<COutPoint,
 }
 
 // ELEMENTS: split FillPSBT into FillPSBData and SignPSBT
-TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool bip32derivs) const
+TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool bip32derivs, bool include_explicit) const
 {
     const PrecomputedTransactionData txdata = PrecomputePSBTData(psbtx);
     LOCK(cs_wallet);
@@ -1840,6 +1842,17 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
                 // Set the UTXO rangeproof separately, if it's there
                 if (*input.prev_out < wtx.tx->witness.vtxoutwit.size() && !wtx.tx->witness.vtxoutwit[*input.prev_out].vchRangeproof.empty()) {
                     input.m_utxo_rangeproof = wtx.tx->witness.vtxoutwit[*input.prev_out].vchRangeproof;
+                }
+                const CTxOut& utxo = wtx.tx->vout[*input.prev_out];
+                if (include_explicit && utxo.nAsset.IsCommitment()) {
+                    const CAsset asset = wtx.GetOutputAsset(*input.prev_out);
+                    input.m_explicit_asset = asset.id;
+                    CreateBlindAssetProof(input.m_asset_proof, asset, utxo.nAsset, wtx.GetOutputAssetBlindingFactor(*input.prev_out));
+
+                    if (utxo.nValue.IsCommitment()) {
+                        input.m_explicit_value = wtx.GetOutputValueOut(*input.prev_out);
+                        CreateBlindValueProof(input.m_value_proof, wtx.GetOutputAmountBlindingFactor(*input.prev_out), *input.m_explicit_value, utxo.nValue, utxo.nAsset);
+                    }
                 }
             }
         }
@@ -2109,11 +2122,11 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
 }
 
 // This function remains for backwards compatibility. It will not succeed in Elements unless everything involved is non-blinded.
-TransactionError CWallet::FillPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool bip32derivs, bool imbalance_ok, size_t* n_signed) const
+TransactionError CWallet::FillPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool bip32derivs, bool imbalance_ok, size_t* n_signed, bool include_explicit) const
 {
     complete = false;
     TransactionError te;
-    te = FillPSBTData(psbtx, bip32derivs);
+    te = FillPSBTData(psbtx, bip32derivs, include_explicit);
     if (te != TransactionError::OK) {
         return te;
     }
@@ -3607,7 +3620,8 @@ void CWallet::LoadActiveScriptPubKeyMan(uint256 id, OutputType type, bool intern
     auto spk_man = m_spk_managers.at(id).get();
     spk_mans[type] = spk_man;
 
-    if (spk_mans_other[type] == spk_man) {
+    const auto it = spk_mans_other.find(type);
+    if (it != spk_mans_other.end() && it->second == spk_man) {
         spk_mans_other.erase(type);
     }
 
