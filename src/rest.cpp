@@ -225,7 +225,6 @@ static bool rest_headers(const std::any& context,
                 CBlockHeader tmp;
                 ReadBlockHeaderFromDisk(tmp, pindex, Params().GetConsensus());
                 ssHeader << tmp;
-
             } else {
                 ssHeader << pindex->GetBlockHeader();
             }
@@ -247,7 +246,8 @@ static bool rest_headers(const std::any& context,
 
             } else {
                 ssHeader << pindex->GetBlockHeader();
-            }        }
+            }
+        }
 
         std::string strHex = HexStr(ssHeader) + "\n";
         req->WriteHeader("Content-Type", "text/plain");

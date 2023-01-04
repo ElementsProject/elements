@@ -318,7 +318,7 @@ bool CBlockTreeDB::WalkBlockIndexGutsForMaxHeight(int* nHeight) {
         if (pcursor->GetKey(key) && key.first == DB_BLOCK_INDEX) {
             i++;
             if (i > 10'000) {
-                // Under the (accurate) assumption hat the headers on disk are effectively in random height order,
+                // Under the (accurate) assumption that the headers on disk are effectively in random height order,
                 //   we have a good-enough (conservative) estimate of the max height very quickly, and don't need to
                 //   waste more time. Shortcutting like this will cause us to keep a few extra headers, which is fine.
                 break;

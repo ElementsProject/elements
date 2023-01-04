@@ -4141,7 +4141,7 @@ bool BlockManager::LoadBlockIndex(
     if (fTrimHeaders) {
         int max_height = 0;
         if (!blocktree.WalkBlockIndexGutsForMaxHeight(&max_height)) {
-            LogPrintf("LoadBlockIndex: Somehow failed to WalkBlockIndexGutsForMaxHeight.\n");
+            LogPrintf("LoadBlockIndex: Failed to WalkBlockIndexGutsForMaxHeight.\n");
             return false;
         }
 
