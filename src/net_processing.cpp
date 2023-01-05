@@ -911,7 +911,7 @@ bool PeerManagerImpl::TipMayBeStale()
 bool PeerManagerImpl::CanDirectFetch()
 {
     if(!m_chainman.ActiveChain().Tip()) {
-        LogPrint(BCLog::NET, "Startup crash avoided\n");
+        LogPrint(BCLog::NET, "Tried to call CanDirectFetch with no currently-active chain.\n");
         return false;
     }
     return m_chainman.ActiveChain().Tip()->GetBlockTime() > GetAdjustedTime() - m_chainparams.GetConsensus().nPowTargetSpacing * 20;

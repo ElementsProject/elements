@@ -339,7 +339,7 @@ bool CBlockTreeDB::WalkBlockIndexGutsForMaxHeight(int* nHeight) {
     return true;
 }
 
-bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, std::function<CBlockIndex*(const uint256&)> insertBlockIndex, int trim_below_height)
+bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, std::function<CBlockIndex*(const uint256&)> insertBlockIndex, int trimBelowHeight)
 {
     std::unique_ptr<CDBIterator> pcursor(NewIterator());
 
@@ -371,10 +371,10 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->nTx            = diskindex.nTx;
 
                 n_total++;
-                if (diskindex.nHeight >= trim_below_height) {
+                if (diskindex.nHeight >= trimBelowHeight) {
                     n_untrimmed++;
-                    pindexNew->proof          = diskindex.proof;
-                    pindexNew->m_dynafed_params       = diskindex.m_dynafed_params;
+                    pindexNew->proof               = diskindex.proof;
+                    pindexNew->m_dynafed_params    = diskindex.m_dynafed_params;
                     pindexNew->m_signblock_witness = diskindex.m_signblock_witness;
 
                     const uint256 block_hash = pindexNew->GetBlockHash();

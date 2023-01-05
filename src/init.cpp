@@ -980,22 +980,25 @@ bool AppInitParameterInteraction(const ArgsManager& args)
         fPruneMode = true;
     }
 
+    uint32_t epoch_length = chainparams.GetConsensus().dynamic_epoch_length;
+    if (epoch_length == std::numeric_limits<uint32_t>::max()) {
+        // That's the default value, for non-dynafed chains and some tests. Pick a more sensible default here.
+        epoch_length = 20160;
+    }
+
     if (args.IsArgSet("-trim_headers")) {
         LogPrintf("Configured for header-trimming mode. This will reduce memory usage substantially, but we will be unable to serve as a full P2P peer, and certain header fields may be missing from JSON RPC output.\n");
         fTrimHeaders = true;
         // This calculation is driven by GetValidFedpegScripts in pegins.cpp, which walks the chain
         //   back to current epoch start, and then an additional total_valid_epochs on top of that.
         //   We add one epoch here for the current partial epoch, and then another one for good luck.
-        // NB: If we're non-dynafed, then:
-        //   - total_valid_epochs = 1
-        //   - dynamic_epoch_length = std::numeric_limits<uint32_t>::max()
-        //   So this will work out to an unhelpfully-large number. XXX: Is this a problem?
-        nMustKeepFullHeaders = (chainparams.GetConsensus().total_valid_epochs + 2) * (chainparams.GetConsensus().dynamic_epoch_length);
+
+        nMustKeepFullHeaders = (chainparams.GetConsensus().total_valid_epochs + 2) * epoch_length;
         // This is the number of headers we can have in flight downloading at a time, beyond the
         //   set of blocks we've already validated. Capping this is necessary to keep memory usage
         //   bounded during IBD.
     }
-    nHeaderDownloadBuffer = chainparams.GetConsensus().dynamic_epoch_length * 2;
+    nHeaderDownloadBuffer = epoch_length * 2;
 
     nConnectTimeout = args.GetArg("-timeout", DEFAULT_CONNECT_TIMEOUT);
     if (nConnectTimeout <= 0) {
