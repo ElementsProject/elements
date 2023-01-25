@@ -307,6 +307,9 @@ bool CBlockTreeDB::WritePAKList(const std::vector<std::vector<unsigned char> >& 
         return Write(std::make_pair(DB_PAK, uint256S("1")), offline_list) && Write(std::make_pair(DB_PAK, uint256S("2")), online_list) && Write(std::make_pair(DB_PAK, uint256S("3")), reject);
 }
 
+/** Note that we only get a conservative (lower) estimate of the max header height here,
+ * obtained by sampling the first 10,000 headers on disk (which are in random order) and
+ * taking the highest block we see. */
 bool CBlockTreeDB::WalkBlockIndexGutsForMaxHeight(int* nHeight) {
     std::unique_ptr<CDBIterator> pcursor(NewIterator());
     *nHeight = 0;

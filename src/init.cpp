@@ -425,7 +425,7 @@ void SetupServerArgs(ArgsManager& argsman)
     hidden_args.emplace_back("-sysperms");
 #endif
     argsman.AddArg("-txindex", strprintf("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)", DEFAULT_TXINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    argsman.AddArg("-trim_headers", strprintf("Trim old headers in memory, removing blocksigning and dynafed-related fields. Saves memory, but blocks us from serving blocks or headers to peers, and removes trimmed fields from some JSON RPC outputs. (default: false)"), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    argsman.AddArg("-trim_headers", strprintf("Trim old headers in memory (by default older than 2 epochs), removing blocksigning and dynafed-related fields. Saves memory, but blocks us from serving blocks or headers to peers, and removes trimmed fields from some JSON RPC outputs. (default: false)"), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     argsman.AddArg("-blockfilterindex=<type>",
                  strprintf("Maintain an index of compact filters by block (default: %s, values: %s).", DEFAULT_BLOCKFILTERINDEX, ListBlockFilterTypes()) +
                  " If <type> is not supplied or if <type> = 1, indexes for all known types are enabled.",
