@@ -282,7 +282,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
 {
     UniValue result;
     if (blockindex->trimmed()) {
-        CBlockIndex tmp = CBlockIndex(block.GetBlockHeader());  // XXX: lifetimes?
+        CBlockIndex tmp = CBlockIndex(block.GetBlockHeader());
         result = blockheaderToJSON(tip, &tmp);
     } else {
         result = blockheaderToJSON(tip, blockindex);
