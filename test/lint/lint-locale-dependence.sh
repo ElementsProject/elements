@@ -40,9 +40,11 @@ export LC_ALL=C
 KNOWN_VIOLATIONS=(
     "src/bitcoin-tx.cpp.*stoul"
     "src/bitcoin-tx.cpp.*trim_right"
+    "src/chain.h.*trim"
     "src/dbwrapper.cpp.*stoul"
     "src/dbwrapper.cpp:.*vsnprintf"
     "src/httprpc.cpp.*trim"
+    "src/init.cpp.*trim"
     "src/node/blockstorage.cpp:.*atoi"
     "src/qt/rpcconsole.cpp:.*atoi"
     "src/rest.cpp:.*strtol"

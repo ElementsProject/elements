@@ -248,13 +248,26 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
         result.pushKV("difficulty", GetDifficulty(blockindex));
         result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     } else {
-        if (blockindex->dynafed_params.IsNull()) {
-            result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
-            result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
-            result.pushKV("signblock_challenge", HexStr(blockindex->proof.challenge));
+        if (blockindex->dynafed_params().IsNull()) {
+            if (blockindex->trimmed()) {
+                result.pushKV("signblock_witness_asm", "<trimmed>");
+                result.pushKV("signblock_witness_hex", "<trimmed>");
+                result.pushKV("signblock_challenge", "<trimmed>");
+                result.pushKV("warning", "Fields missing due to -trim_headers flag.");
+            } else {
+                result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->get_proof().solution));
+                result.pushKV("signblock_witness_hex", HexStr(blockindex->get_proof().solution));
+                result.pushKV("signblock_challenge", HexStr(blockindex->get_proof().challenge));
+            }
         } else {
-            result.pushKV("signblock_witness_hex", EncodeHexScriptWitness(blockindex->m_signblock_witness));
-            result.pushKV("dynamic_parameters", dynaParamsToJSON(blockindex->dynafed_params));
+            if (blockindex->trimmed()) {
+                result.pushKV("signblock_witness_hex", "<trimmed>");
+                result.pushKV("dynamic_parameters", "<trimmed>");
+                result.pushKV("warning", "Fields missing due to -trim_headers flag.");
+            } else {
+                result.pushKV("signblock_witness_hex", EncodeHexScriptWitness(blockindex->signblock_witness()));
+                result.pushKV("dynamic_parameters", dynaParamsToJSON(blockindex->dynafed_params()));
+            }
         }
     }
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
@@ -267,7 +280,13 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
 
 UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails)
 {
-    UniValue result = blockheaderToJSON(tip, blockindex);
+    UniValue result;
+    if (blockindex->trimmed()) {
+        CBlockIndex tmp = CBlockIndex(block.GetBlockHeader());
+        result = blockheaderToJSON(tip, &tmp);
+    } else {
+        result = blockheaderToJSON(tip, blockindex);
+    }
 
     result.pushKV("strippedsize", (int)::GetSerializeSize(block, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS));
     result.pushKV("size", (int)::GetSerializeSize(block, PROTOCOL_VERSION));
@@ -969,7 +988,13 @@ static RPCHelpMan getblockheader()
     if (!fVerbose)
     {
         CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
-        ssBlock << pblockindex->GetBlockHeader();
+        if (pblockindex->trimmed()) {
+            CBlockHeader tmp;
+            ReadBlockHeaderFromDisk(tmp, pblockindex, Params().GetConsensus());
+            ssBlock << tmp;
+        } else {
+            ssBlock << pblockindex->GetBlockHeader();
+        }
         std::string strHex = HexStr(ssBlock);
         return strHex;
     }

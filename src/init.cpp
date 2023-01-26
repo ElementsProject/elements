@@ -425,6 +425,7 @@ void SetupServerArgs(ArgsManager& argsman)
     hidden_args.emplace_back("-sysperms");
 #endif
     argsman.AddArg("-txindex", strprintf("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)", DEFAULT_TXINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    argsman.AddArg("-trim_headers", strprintf("Trim old headers in memory (by default older than 2 epochs), removing blocksigning and dynafed-related fields. Saves memory, but blocks us from serving blocks or headers to peers, and removes trimmed fields from some JSON RPC outputs. (default: false)"), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     argsman.AddArg("-blockfilterindex=<type>",
                  strprintf("Maintain an index of compact filters by block (default: %s, values: %s).", DEFAULT_BLOCKFILTERINDEX, ListBlockFilterTypes()) +
                  " If <type> is not supplied or if <type> = 1, indexes for all known types are enabled.",
@@ -978,6 +979,26 @@ bool AppInitParameterInteraction(const ArgsManager& args)
         LogPrintf("Prune configured to target %u MiB on disk for block and undo files.\n", nPruneTarget / 1024 / 1024);
         fPruneMode = true;
     }
+
+    uint32_t epoch_length = chainparams.GetConsensus().dynamic_epoch_length;
+    if (epoch_length == std::numeric_limits<uint32_t>::max()) {
+        // That's the default value, for non-dynafed chains and some tests. Pick a more sensible default here.
+        epoch_length = 20160;
+    }
+
+    if (args.IsArgSet("-trim_headers")) {
+        LogPrintf("Configured for header-trimming mode. This will reduce memory usage substantially, but we will be unable to serve as a full P2P peer, and certain header fields may be missing from JSON RPC output.\n");
+        fTrimHeaders = true;
+        // This calculation is driven by GetValidFedpegScripts in pegins.cpp, which walks the chain
+        //   back to current epoch start, and then an additional total_valid_epochs on top of that.
+        //   We add one epoch here for the current partial epoch, and then another one for good luck.
+
+        nMustKeepFullHeaders = (chainparams.GetConsensus().total_valid_epochs + 2) * epoch_length;
+        // This is the number of headers we can have in flight downloading at a time, beyond the
+        //   set of blocks we've already validated. Capping this is necessary to keep memory usage
+        //   bounded during IBD.
+    }
+    nHeaderDownloadBuffer = epoch_length * 2;
 
     nConnectTimeout = args.GetArg("-timeout", DEFAULT_CONNECT_TIMEOUT);
     if (nConnectTimeout <= 0) {
@@ -1690,7 +1711,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
 
     // if pruning, unset the service bit and perform the initial blockstore prune
     // after any wallet rescanning has taken place.
-    if (fPruneMode) {
+    if (fPruneMode || fTrimHeaders) {
         LogPrintf("Unsetting NODE_NETWORK on prune mode\n");
         nLocalServices = ServiceFlags(nLocalServices & ~NODE_NETWORK);
         if (!fReindex) {
@@ -1700,6 +1721,11 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
                 chainstate->PruneAndFlush();
             }
         }
+    }
+
+    if (fTrimHeaders) {
+        LogPrintf("Unsetting NODE_NETWORK_LIMITED on header trim mode\n");
+        nLocalServices = ServiceFlags(nLocalServices & ~NODE_NETWORK_LIMITED);
     }
 
     if (DeploymentEnabled(chainparams.GetConsensus(), Consensus::DEPLOYMENT_SEGWIT)) {

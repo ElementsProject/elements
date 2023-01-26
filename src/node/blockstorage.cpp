@@ -25,6 +25,9 @@ std::atomic_bool fReindex(false);
 bool fHavePruned = false;
 bool fPruneMode = false;
 uint64_t nPruneTarget = 0;
+bool fTrimHeaders = false;
+uint64_t nMustKeepFullHeaders = std::numeric_limits<uint64_t>::max();
+uint64_t nHeaderDownloadBuffer = std::numeric_limits<uint64_t>::max();
 
 // TODO make namespace {
 RecursiveMutex cs_LastBlockFile;
@@ -406,6 +409,17 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus
     if (block.GetHash() != pindex->GetBlockHash())
         return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() doesn't match index for %s at %s",
                 pindex->ToString(), pindex->GetBlockPos().ToString());
+    return true;
+}
+
+bool ReadBlockHeaderFromDisk(CBlockHeader& header, const CBlockIndex* pindex, const Consensus::Params& consensusParams)
+{
+    // Not very efficient: read a block and throw away all but the header.
+    CBlock tmp;
+    if (!ReadBlockFromDisk(tmp, pindex, consensusParams)) {
+        return false;
+    }
+    header = tmp.GetBlockHeader();
     return true;
 }
 

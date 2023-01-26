@@ -13,7 +13,7 @@
 bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
 {
     if (g_signed_blocks) {
-        return block.proof.challenge == indexLast.proof.challenge;
+        return block.proof.challenge == indexLast.get_proof().challenge;
     } else {
         return block.nBits == GetNextWorkRequired(&indexLast, &block, params);
     }
