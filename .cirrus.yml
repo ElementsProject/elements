@@ -202,6 +202,8 @@ task:
 
 task:
   name: 'macOS 11 native [gui] [no depends]'
+  # Intel macos is not supported anymore by cirrus, and elements doesn't build for arm64 yet
+  only_if: false
   brew_install_script:
     - brew install boost libevent berkeley-db4 qt@5 miniupnpc libnatpmp ccache zeromq qrencode sqlite libtool automake pkg-config gnu-getopt
   << : *GLOBAL_TASK_TEMPLATE
