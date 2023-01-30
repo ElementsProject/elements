@@ -2884,7 +2884,7 @@ static RPCHelpMan getsidechaininfo()
                     RPCResult::Type::OBJ, "", "",
                     {
                         {RPCResult::Type::STR_HEX, "fedpegscript", "The fedpegscript from genesis block"},
-                        {RPCResult::Type::ARR, "current_fedpegscripts", "The currently-enforced fedpegscripts in hex. Peg-ins for any entries on this list are honored by consensus and policy. Oldest first. Two total entries are possible",
+                        {RPCResult::Type::ARR, "current_fedpegscripts", "The currently-enforced fedpegscripts in hex. Peg-ins for any entries on this list are honored by consensus and policy. Newest first. Two total entries are possible",
                             {{RPCResult::Type::STR_HEX, "", "active fedpegscript"}}},
                         {RPCResult::Type::ARR, "current_fedpeg_programs", "The currently-enforced fedpegscript scriptPubKeys in hex. Prior to a transition this may be P2SH scriptpubkey, otherwise it will be a native segwit script. Results are paired in-order with current_fedpegscripts",
                             {{RPCResult::Type::STR_HEX, "", "active fedpegscript scriptPubKeys"}}},
