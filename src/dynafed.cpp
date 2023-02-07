@@ -73,11 +73,15 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
         uint256 fedpegscript_redeemscript;
         CSHA256().Write(consensus.fedpegScript.data(), consensus.fedpegScript.size()).Finalize(fedpegscript_redeemscript.begin());
         CScript fedpeg_p2sw = CScript() << OP_0 << ToByteVector(fedpegscript_redeemscript);
-        uint160 fedpeg_p2sh(Hash160(fedpeg_p2sw));
-        CScript sh_wsh_fedpeg_program = CScript() << OP_HASH160 << ToByteVector(fedpeg_p2sh) << OP_EQUAL;
+        if (consensus.start_p2wsh_script) {
+            winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size, fedpeg_p2sw, consensus.fedpegScript, consensus.first_extension_space);
+        } else {
+            uint160 fedpeg_p2sh(Hash160(fedpeg_p2sw));
+            CScript sh_wsh_fedpeg_program = CScript() << OP_HASH160 << ToByteVector(fedpeg_p2sh) << OP_EQUAL;
 
-        // Put them in winning proposal
-        winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size, sh_wsh_fedpeg_program, consensus.fedpegScript, consensus.first_extension_space);
+            // Put them in winning proposal
+            winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size, sh_wsh_fedpeg_program, consensus.fedpegScript, consensus.first_extension_space);
+        }
     } else {
         winning_proposal = p_epoch_start->dynafed_params().m_current;
     }
