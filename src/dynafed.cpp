@@ -52,6 +52,10 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
         epoch_start_height -= epoch_length;
     }
 
+    if (consensus.genesis_style == "elements" && epoch_start_height == 0 && next_height > 1 && consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime == Consensus::BIP9Deployment::ALWAYS_ACTIVE) {
+        // when starting in dynafed mode, the full parameters are stored in block 1 instead of 0
+        epoch_start_height = 1;
+    }
     // We need to put in place the previous epoch's current which
     // may be pre-dynafed params
     const CBlockIndex* p_epoch_start = pindexPrev->GetAncestor(epoch_start_height);
