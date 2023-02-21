@@ -27,7 +27,7 @@ bool fPruneMode = false;
 uint64_t nPruneTarget = 0;
 bool fTrimHeaders = false;
 uint64_t nMustKeepFullHeaders = std::numeric_limits<uint64_t>::max();
-uint64_t nHeaderDownloadBuffer = std::numeric_limits<uint64_t>::max();
+int64_t nHeaderDownloadBuffer = std::numeric_limits<int64_t>::max();
 
 // TODO make namespace {
 RecursiveMutex cs_LastBlockFile;

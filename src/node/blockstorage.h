@@ -50,7 +50,7 @@ extern bool fTrimHeaders;
 extern uint64_t nMustKeepFullHeaders;
 /** Target number of headers to download beyond the blocks we have. */
 // NOTE: this currently only operates when in header trim mode, but it's really independent of that.
-extern uint64_t nHeaderDownloadBuffer;
+extern int64_t nHeaderDownloadBuffer;
 
 //! Check whether the block associated with this index entry is pruned or not.
 bool IsBlockPruned(const CBlockIndex* pblockindex);
