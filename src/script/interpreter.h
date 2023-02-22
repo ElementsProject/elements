@@ -195,6 +195,7 @@ struct PrecomputedTransactionData
     bool m_spent_outputs_ready = false;
 
     //! ELEMENTS: parent genesis hash
+    const uint256 m_hash_genesis_block;
     CHashWriter m_tapsighash_hasher;
 
     explicit PrecomputedTransactionData(const uint256& hash_genesis_block);
