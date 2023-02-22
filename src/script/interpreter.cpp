@@ -2614,7 +2614,8 @@ template PrecomputedTransactionData::PrecomputedTransactionData(const CTransacti
 template PrecomputedTransactionData::PrecomputedTransactionData(const CMutableTransaction& txTo);
 
 PrecomputedTransactionData::PrecomputedTransactionData(const uint256& hash_genesis_block)
-        : m_tapsighash_hasher(CHashWriter(HASHER_TAPSIGHASH_ELEMENTS) << hash_genesis_block << hash_genesis_block) {}
+        : m_hash_genesis_block(hash_genesis_block)
+        , m_tapsighash_hasher(CHashWriter(HASHER_TAPSIGHASH_ELEMENTS) << hash_genesis_block << hash_genesis_block) {}
 
 static bool HandleMissingData(MissingDataBehavior mdb)
 {
