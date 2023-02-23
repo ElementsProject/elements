@@ -27,6 +27,7 @@ endif
 BITCOIN_INCLUDES=-I$(builddir) -I$(srcdir)/secp256k1/include $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
 
 BITCOIN_INCLUDES += $(UNIVALUE_CFLAGS)
+BITCOIN_INCLUDES += -I$(srcdir)/$(ELEMENTS_SIMPLICITY_INCLUDE_DIR_INT)
 
 LIBBITCOIN_SERVER=libbitcoin_server.a
 LIBBITCOIN_COMMON=libbitcoin_common.a
@@ -80,6 +81,7 @@ EXTRA_LIBRARIES += \
   $(LIBBITCOIN_ZMQ)
 
 lib_LTLIBRARIES = $(LIBBITCOINCONSENSUS)
+noinst_LTLIBRARIES =
 
 bin_PROGRAMS =
 noinst_PROGRAMS =
@@ -697,7 +699,8 @@ elements_bin_ldadd = \
   $(LIBLEVELDB) \
   $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV) \
-  $(LIBSECP256K1)
+  $(LIBSECP256K1) \
+  $(LIBELEMENTSSIMPLICITY)
 
 elements_bin_ldadd += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(NATPMP_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(SQLITE_LIBS)
 
@@ -748,7 +751,8 @@ elements_tx_LDADD = \
   $(LIBBITCOIN_UTIL) \
   $(LIBBITCOIN_CONSENSUS) \
   $(LIBBITCOIN_CRYPTO) \
-  $(LIBSECP256K1)
+  $(LIBSECP256K1) \
+  $(LIBELEMENTSSIMPLICITY)
 
 elements_tx_LDADD += $(BOOST_LIBS)
 #
@@ -781,7 +785,8 @@ elements_util_LDADD = \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_CONSENSUS) \
   $(LIBBITCOIN_CRYPTO) \
-  $(LIBSECP256K1)
+  $(LIBSECP256K1) \
+  $(LIBELEMENTSSIMPLICITY)
 
 elements_util_LDADD += $(BOOST_LIBS)
 #
@@ -796,8 +801,8 @@ if GLIBC_BACK_COMPAT
 endif
 
 libelementsconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined $(RELDFLAGS)
-libelementsconsensus_la_LIBADD = $(LIBSECP256K1)
-libelementsconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_BITCOIN_INTERNAL
+libelementsconsensus_la_LIBADD = $(LIBSECP256K1) $(LIBELEMENTSSIMPLICITY)
+libelementsconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -I$(srcdir)/$(ELEMENTS_SIMPLICITY_INCLUDE_DIR_INT) -DBUILD_BITCOIN_INTERNAL
 libelementsconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 endif
@@ -931,3 +936,5 @@ endif
 if ENABLE_QT_TESTS
 include Makefile.qttest.include
 endif
+
+include Makefile.elementssimplicity.include
