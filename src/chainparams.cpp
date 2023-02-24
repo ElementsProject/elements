@@ -862,6 +862,7 @@ protected:
 
         const CScript default_script(CScript() << OP_TRUE);
         consensus.fedpegScript = StrHexToScriptWithDefault(args.GetArg("-fedpegscript", ""), default_script);
+        consensus.start_p2wsh_script = args.GetArg("-con_start_p2wsh_script", consensus.start_p2wsh_script);
 
         // Calculate pegged Bitcoin asset
         std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
@@ -1460,6 +1461,7 @@ public:
         if (args.IsArgSet("-fedpegscript")) {
             consensus.fedpegScript = StrHexToScriptWithDefault(args.GetArg("-fedpegscript", ""), CScript());
         }
+        consensus.start_p2wsh_script = args.GetArg("-con_start_p2wsh_script", consensus.start_p2wsh_script);
 
         consensus.total_valid_epochs = args.GetArg("-total_valid_epochs", consensus.total_valid_epochs);
 

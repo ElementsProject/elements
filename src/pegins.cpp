@@ -487,8 +487,8 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
             break;
         }
 
-        if (!p_epoch_start->dynafed_params.IsNull()) {
-            fedpegscripts.push_back(std::make_pair(p_epoch_start->dynafed_params.m_current.m_fedpeg_program, p_epoch_start->dynafed_params.m_current.m_fedpegscript));
+        if (!p_epoch_start->dynafed_params().IsNull()) {
+            fedpegscripts.push_back(std::make_pair(p_epoch_start->dynafed_params().m_current.m_fedpeg_program, p_epoch_start->dynafed_params().m_current.m_fedpegscript));
         } else {
             fedpegscripts.push_back(std::make_pair(GetScriptForDestination(ScriptHash(GetScriptForDestination(WitnessV0ScriptHash(params.fedpegScript)))), params.fedpegScript));
         }

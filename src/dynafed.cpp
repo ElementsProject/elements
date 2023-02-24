@@ -15,7 +15,7 @@ bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consens
     for (int32_t height = next_height - 1; height >= (int32_t)(next_height - consensus.dynamic_epoch_length); --height) {
         const CBlockIndex* p_epoch_walk = pindexPrev->GetAncestor(height);
         assert(p_epoch_walk);
-        const DynaFedParamEntry& proposal = p_epoch_walk->dynafed_params.m_proposed;
+        const DynaFedParamEntry& proposal = p_epoch_walk->dynafed_params().m_proposed;
         const uint256 proposal_root = proposal.CalculateRoot();
         vote_tally[proposal_root]++;
         // Short-circuit once 4/5 threshold is reached
@@ -52,30 +52,38 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
         epoch_start_height -= epoch_length;
     }
 
+    if (consensus.genesis_style == "elements" && epoch_start_height == 0 && next_height > 1 && consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime == Consensus::BIP9Deployment::ALWAYS_ACTIVE) {
+        // when starting in dynafed mode, the full parameters are stored in block 1 instead of 0
+        epoch_start_height = 1;
+    }
     // We need to put in place the previous epoch's current which
     // may be pre-dynafed params
     const CBlockIndex* p_epoch_start = pindexPrev->GetAncestor(epoch_start_height);
     assert(p_epoch_start);
-    if (p_epoch_start->dynafed_params.IsNull()) {
+    if (p_epoch_start->dynafed_params().IsNull()) {
         // We need to construct the "full" current parameters of pre-dynafed
         // consensus
 
         // Convert signblockscript to P2WSH
         uint256 signblock_witness_program;
-        CSHA256().Write(p_epoch_start->proof.challenge.data(), p_epoch_start->proof.challenge.size()).Finalize(signblock_witness_program.begin());
+        CSHA256().Write(p_epoch_start->get_proof().challenge.data(), p_epoch_start->get_proof().challenge.size()).Finalize(signblock_witness_program.begin());
         CScript p2wsh_signblock_script = CScript() << OP_0 << ToByteVector(signblock_witness_program);
 
         // Make P2SH-P2WSH-ness of non-dynafed fedpegscript explicit
         uint256 fedpegscript_redeemscript;
         CSHA256().Write(consensus.fedpegScript.data(), consensus.fedpegScript.size()).Finalize(fedpegscript_redeemscript.begin());
         CScript fedpeg_p2sw = CScript() << OP_0 << ToByteVector(fedpegscript_redeemscript);
-        uint160 fedpeg_p2sh(Hash160(fedpeg_p2sw));
-        CScript sh_wsh_fedpeg_program = CScript() << OP_HASH160 << ToByteVector(fedpeg_p2sh) << OP_EQUAL;
+        if (consensus.start_p2wsh_script) {
+            winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size, fedpeg_p2sw, consensus.fedpegScript, consensus.first_extension_space);
+        } else {
+            uint160 fedpeg_p2sh(Hash160(fedpeg_p2sw));
+            CScript sh_wsh_fedpeg_program = CScript() << OP_HASH160 << ToByteVector(fedpeg_p2sh) << OP_EQUAL;
 
-        // Put them in winning proposal
-        winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size, sh_wsh_fedpeg_program, consensus.fedpegScript, consensus.first_extension_space);
+            // Put them in winning proposal
+            winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size, sh_wsh_fedpeg_program, consensus.fedpegScript, consensus.first_extension_space);
+        }
     } else {
-        winning_proposal = p_epoch_start->dynafed_params.m_current;
+        winning_proposal = p_epoch_start->dynafed_params().m_current;
     }
     return winning_proposal;
 }
@@ -93,7 +101,7 @@ DynaFedParamEntry ComputeNextBlockCurrentParameters(const CBlockIndex* pindexPre
 
     // Return appropriate format based on epoch age or if we *just* activated
     // dynafed via BIP9
-    if (epoch_age == 0 || pindexPrev->dynafed_params.IsNull()) {
+    if (epoch_age == 0 || pindexPrev->dynafed_params().IsNull()) {
         return entry;
     } else {
         return DynaFedParamEntry(entry.m_signblockscript, entry.m_signblock_witness_limit, entry.CalculateExtraRoot());
