@@ -138,14 +138,46 @@ double GetDifficulty(const CBlockIndex* blockindex)
 UniValue paramEntryToJSON(const DynaFedParamEntry& entry)
 {
     UniValue result(UniValue::VOBJ);
+
+    // set the type
+    if (entry.m_serialize_type == 0) {
+        result.pushKV("type", "null");
+    } else if (entry.m_serialize_type == 1) {
+        result.pushKV("type", "compact");
+    } else if (entry.m_serialize_type == 2) {
+        result.pushKV("type", "full");
+    }
+
+    // nothing more to do for null
+    if (entry.m_serialize_type == 0) {
+        return result;
+    }
+
+    // fields all params have
+    result.pushKV("root", HexStr(entry.CalculateRoot()));
     result.pushKV("signblockscript", HexStr(entry.m_signblockscript));
     result.pushKV("max_block_witness", (uint64_t)entry.m_signblock_witness_limit);
-    result.pushKV("fedpegscript", HexStr(entry.m_fedpegscript));
-    UniValue result_extension(UniValue::VARR);
-    for (auto& item : entry.m_extension_space) {
-        result_extension.push_back(HexStr(item));
+
+    // add the extra root which is stored for compact and calculated for full
+    if (entry.m_serialize_type == 1) {
+        // compact
+        result.pushKV("extra_root", HexStr(entry.m_elided_root));
+    } else if (entry.m_serialize_type == 2) {
+        // full
+        result.pushKV("extra_root", HexStr(entry.CalculateExtraRoot()));
     }
-    result.pushKV("extension_space", result_extension);
+
+    // some extra fields only present on full params
+    if (entry.m_serialize_type == 2) {
+        result.pushKV("fedpeg_program", HexStr(entry.m_fedpeg_program));
+        result.pushKV("fedpegscript", HexStr(entry.m_fedpegscript));
+        UniValue result_extension(UniValue::VARR);
+        for (auto& item : entry.m_extension_space) {
+            result_extension.push_back(HexStr(item));
+        }
+        result.pushKV("extension_space", result_extension);
+    }
+
     return result;
 }
 
