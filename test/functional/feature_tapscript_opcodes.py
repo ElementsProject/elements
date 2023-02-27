@@ -380,7 +380,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         # Test num_outputs
         self.tapscript_satisfy_test(CScript([OP_INSPECTNUMOUTPUTS, OP_EQUAL]), add_num_outputs= True)
 
-        # Test tx wieght
+        # Test tx weight
         self.tapscript_satisfy_test(CScript([OP_TXWEIGHT, OP_EQUAL]), add_weight= True)
 
         # short handle to convert int to 8 byte LE
