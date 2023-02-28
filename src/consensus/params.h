@@ -173,6 +173,7 @@ struct Params {
     // default 1 to not break legacy chains implicitly.
     size_t total_valid_epochs = 1;
     bool elements_mode = false;
+    bool start_p2wsh_script = false;
 };
 
 } // namespace Consensus
