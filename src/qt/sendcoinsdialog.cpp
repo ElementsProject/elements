@@ -281,11 +281,13 @@ bool SendCoinsDialog::PrepareSendText(QString& question_string, QString& informa
 
     // prepare transaction for getting txFee earlier
     m_current_transaction = std::make_unique<WalletModelTransaction>(recipients);
+    if (g_con_elementsmode)
+        m_current_blind_details = std::make_unique<BlindDetails>();
     WalletModel::SendCoinsReturn prepareStatus;
 
     updateCoinControlState();
 
-    prepareStatus = model->prepareTransaction(*m_current_transaction, *m_coin_control);
+    prepareStatus = model->prepareTransaction(*m_current_transaction, m_current_blind_details.get(), *m_coin_control);
 
     // process prepareStatus and on error generate message shown to user
     processSendCoinsReturn(prepareStatus,
@@ -403,6 +405,7 @@ void SendCoinsDialog::sendButtonClicked([[maybe_unused]] bool checked)
     QString question_string, informative_text, detailed_text;
     if (!PrepareSendText(question_string, informative_text, detailed_text)) return;
     assert(m_current_transaction);
+    assert(!g_con_elementsmode || m_current_blind_details);
 
     const QString confirmation = model->wallet().privateKeysDisabled() && !model->wallet().hasExternalSigner() ? tr("Confirm transaction proposal") : tr("Confirm send coins");
     const QString confirmButtonText = model->wallet().privateKeysDisabled() && !model->wallet().hasExternalSigner() ? tr("Create Unsigned") : tr("Sign and send");
@@ -461,7 +464,7 @@ void SendCoinsDialog::sendButtonClicked([[maybe_unused]] bool checked)
         if (complete) {
             const CTransactionRef tx = MakeTransactionRef(mtx);
             m_current_transaction->setWtx(tx);
-            WalletModel::SendCoinsReturn sendStatus = model->sendCoins(*m_current_transaction);
+            WalletModel::SendCoinsReturn sendStatus = model->sendCoins(*m_current_transaction, m_current_blind_details.get());
             // process sendStatus and on error generate message shown to user
             processSendCoinsReturn(sendStatus);
 
@@ -520,7 +523,7 @@ void SendCoinsDialog::sendButtonClicked([[maybe_unused]] bool checked)
         } // msgBox.exec()
     } else {
         // now send the prepared transaction
-        WalletModel::SendCoinsReturn sendStatus = model->sendCoins(*m_current_transaction);
+        WalletModel::SendCoinsReturn sendStatus = model->sendCoins(*m_current_transaction, m_current_blind_details.get());
         // process sendStatus and on error generate message shown to user
         processSendCoinsReturn(sendStatus);
 
@@ -537,11 +540,13 @@ void SendCoinsDialog::sendButtonClicked([[maybe_unused]] bool checked)
     }
     fNewRecipientAllowed = true;
     m_current_transaction.reset();
+    m_current_blind_details.reset();
 }
 
 void SendCoinsDialog::clear()
 {
     m_current_transaction.reset();
+    m_current_blind_details.reset();
 
     // Clear coin control settings
     m_coin_control->UnSelectAll();
