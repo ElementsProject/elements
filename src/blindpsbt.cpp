@@ -476,6 +476,9 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
                         }
                     }
                 }
+                else {
+                    input_asset_blinders.emplace_back();
+                }
             }
         }
     }
