@@ -1921,8 +1921,8 @@ BlindingStatus CWallet::WalletBlindPSBT(PartiallySignedTransaction& psbtx) const
             our_input_data[i] = std::make_tuple(amount, asset, asset_blinder, value_blinder);
         }
 
-        // Blind issuances on our inputs
-        if (input.m_issuance_value || input.m_issuance_inflation_keys_amount) {
+        // Blind issuances on our inputs if at least one commitment was provided.
+        if (input.m_issuance_value_commitment.IsCommitment() || input.m_issuance_inflation_keys_commitment.IsCommitment()) {
             CScript blinding_script(CScript() << OP_RETURN << std::vector<unsigned char>(input.prev_txid.begin(), input.prev_txid.end()) << *input.prev_out);
             our_issuances_to_blind[i] = std::make_pair(GetBlindingKey(&blinding_script), GetBlindingKey(&blinding_script));
         }

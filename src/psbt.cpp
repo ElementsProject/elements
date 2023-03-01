@@ -135,7 +135,7 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx(bool force_unblind
             txin.assetIssuance.nAmount.SetNull();
         }
         if (input.m_issuance_inflation_keys_amount != std::nullopt && (input.m_issuance_inflation_keys_commitment.IsNull() || force_unblinded)) {
-            txin.assetIssuance.nInflationKeys.SetToAmount(*input.m_issuance_value);
+            txin.assetIssuance.nInflationKeys.SetToAmount(*input.m_issuance_inflation_keys_amount);
         }
         else if(!input.m_issuance_inflation_keys_commitment.IsNull()) {
             txin.assetIssuance.nInflationKeys = input.m_issuance_inflation_keys_commitment;
