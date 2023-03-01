@@ -3173,7 +3173,7 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
             }
             execdata.m_tapleaf_hash_init = true;
             if ((control[0] & TAPROOT_LEAF_MASK) == TAPROOT_LEAF_TAPSCRIPT) {
-                // Tapscript (leaf version 0xc0)
+                // Tapscript (leaf version 0xc4)
                 execdata.m_validation_weight_left = ::GetSerializeSize(witness.stack, PROTOCOL_VERSION) + VALIDATION_WEIGHT_OFFSET;
                 execdata.m_validation_weight_left_init = true;
                 return ExecuteWitnessScript(stack, exec_script, flags, SigVersion::TAPSCRIPT, checker, execdata, serror);
