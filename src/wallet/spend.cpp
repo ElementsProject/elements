@@ -718,25 +718,29 @@ static uint32_t GetLocktimeForNewTransaction(interfaces::Chain& chain, const uin
 }
 
 // Reset all non-global blinding details.
-void resetBlindDetails(BlindDetails* det) {
+static void resetBlindDetails(BlindDetails* det, bool preserve_output_data = false) {
     det->i_amount_blinds.clear();
     det->i_asset_blinds.clear();
     det->i_assets.clear();
     det->i_amounts.clear();
 
     det->o_amounts.clear();
-    det->o_pubkeys.clear();
+    if (!preserve_output_data) {
+        det->o_pubkeys.clear();
+    }
     det->o_amount_blinds.clear();
     det->o_assets.clear();
     det->o_asset_blinds.clear();
 
-    det->num_to_blind = 0;
-    det->change_to_blind = 0;
-    det->only_recipient_blind_index = -1;
-    det->only_change_pos = -1;
+    if (!preserve_output_data) {
+        det->num_to_blind = 0;
+        det->change_to_blind = 0;
+        det->only_recipient_blind_index = -1;
+        det->only_change_pos = -1;
+    }
 }
 
-bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& txNew, std::vector<CInputCoin>& selected_coins, bilingual_str& error) {
+static bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& txNew, std::vector<CInputCoin>& selected_coins, bilingual_str& error) {
     int num_inputs_blinded = 0;
 
     // Fill in input blinding details
@@ -1032,9 +1036,13 @@ bool CWallet::CreateTransactionInternal(
     if (!coin_selection_params.m_subtract_fee_outputs) {
         coin_selection_params.tx_noinputs_size = 11; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 output count, 1 witness overhead (dummy, flag, stack size)
         if (g_con_elementsmode) {
-            coin_selection_params.tx_noinputs_size += 44; // change output: 9 bytes value, 1 byte scriptPubKey, 33 bytes asset, 1 byte nonce
+            coin_selection_params.tx_noinputs_size += 46; // fee output: 9 bytes value, 1 byte scriptPubKey, 33 bytes asset, 1 byte nonce, 1 byte each for null rangeproof/surjectionproof
         }
     }
+    // ELEMENTS: If we have blinded inputs but no blinded outputs (which, since the wallet
+    //  makes an effort to not produce change, is a common case) then we need to add a
+    //  dummy output.
+    bool may_need_blinded_dummy = !!blind_details;
     for (const auto& recipient : vecSend)
     {
         CTxOut txout(recipient.asset, recipient.nAmount, recipient.scriptPubKey);
@@ -1056,12 +1064,42 @@ bool CWallet::CreateTransactionInternal(
         if (blind_details) {
             blind_details->o_pubkeys.push_back(recipient.confidentiality_key);
             if (blind_details->o_pubkeys.back().IsFullyValid()) {
+                may_need_blinded_dummy = false;
                 blind_details->num_to_blind++;
                 blind_details->only_recipient_blind_index = txNew.vout.size()-1;
                 if (!coin_selection_params.m_subtract_fee_outputs) {
                     coin_selection_params.tx_noinputs_size += (MAX_RANGEPROOF_SIZE + DEFAULT_SURJECTIONPROOF_SIZE + WITNESS_SCALE_FACTOR - 1)/WITNESS_SCALE_FACTOR;
                 }
             }
+        }
+    }
+    if (may_need_blinded_dummy && !coin_selection_params.m_subtract_fee_outputs) {
+        // dummy output: 33 bytes value, 2 byte scriptPubKey, 33 bytes asset, 1 byte nonce, 66 bytes dummy rangeproof, 1 byte null surjectionproof
+        // FIXME actually, we currently just hand off to BlindTransaction which will put
+        //  a full rangeproof and surjectionproof. We should fix this when we overhaul
+        //  the blinding logic.
+        coin_selection_params.tx_noinputs_size += 70 + 66 +(MAX_RANGEPROOF_SIZE + DEFAULT_SURJECTIONPROOF_SIZE + WITNESS_SCALE_FACTOR - 1)/WITNESS_SCALE_FACTOR;
+    }
+    // If we are going to issue an asset, add the issuance data to the noinputs_size so that
+    // we allocate enough coins for them.
+    if (issuance_details) {
+        size_t issue_count = 0;
+        for (unsigned int i = 0; i < txNew.vout.size(); i++) {
+            if (txNew.vout[i].nAsset.IsExplicit() && txNew.vout[i].nAsset.GetAsset() == CAsset(uint256S("1"))) {
+                issue_count++;
+            } else if (txNew.vout[i].nAsset.IsExplicit() && txNew.vout[i].nAsset.GetAsset() == CAsset(uint256S("2"))) {
+                issue_count++;
+            }
+        }
+        if (issue_count > 0) {
+            // Allocate space for blinding nonce, entropy, and whichever of nAmount/nInflationKeys is null
+            coin_selection_params.tx_noinputs_size += 2 * 32 + 2 * (2 - issue_count);
+        }
+        // Allocate non-null nAmount/nInflationKeys and rangeproofs
+        if (issuance_details->blind_issuance) {
+            coin_selection_params.tx_noinputs_size += issue_count * (33 * WITNESS_SCALE_FACTOR + MAX_RANGEPROOF_SIZE + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR;
+        } else {
+            coin_selection_params.tx_noinputs_size += issue_count * 9;
         }
     }
 
@@ -1085,6 +1123,17 @@ bool CWallet::CreateTransactionInternal(
             error = _("Insufficient funds");
         }
         return false;
+    }
+
+    // If all of our inputs are explicit, we don't need a blinded dummy
+    if (may_need_blinded_dummy) {
+        may_need_blinded_dummy = false;
+        for (const auto& coin : setCoins) {
+            if (!coin.txout.nValue.IsExplicit()) {
+                may_need_blinded_dummy = true;
+                break;
+            }
+        }
     }
 
     // Always make a change output
@@ -1342,36 +1391,46 @@ bool CWallet::CreateTransactionInternal(
     CAmount change_amount = change_position->nValue.GetAmount();
     if (IsDust(*change_position, coin_selection_params.m_discard_feerate) || change_amount <= coin_selection_params.m_cost_of_change)
     {
-        txNew.vout.erase(change_position);
+        bool was_blinded = blind_details && blind_details->o_pubkeys[nChangePosInOut].IsValid();
 
-        change_pos[nChangePosInOut] = std::nullopt;
-        tx_blinded.vout.erase(tx_blinded.vout.begin() + nChangePosInOut);
-        if (tx_blinded.witness.vtxoutwit.size() > (unsigned) nChangePosInOut) {
-            tx_blinded.witness.vtxoutwit.erase(tx_blinded.witness.vtxoutwit.begin() + nChangePosInOut);
-        }
-        if (blind_details) {
-            bool was_blinded = blind_details->o_pubkeys[nChangePosInOut].IsValid();
+        // If the change was blinded, and was the only blinded output, we cannot drop it
+        // without causing the transaction to fail to balance. So keep it, and merely
+        // zero it out.
+        if (was_blinded && blind_details->num_to_blind == 1) {
+            assert (may_need_blinded_dummy);
+            change_position->scriptPubKey = CScript() << OP_RETURN;
+            change_position->nValue = 0;
+        } else {
+            txNew.vout.erase(change_position);
 
-            blind_details->o_amounts.erase(blind_details->o_amounts.begin() + nChangePosInOut);
-            blind_details->o_assets.erase(blind_details->o_assets.begin() + nChangePosInOut);
-            blind_details->o_pubkeys.erase(blind_details->o_pubkeys.begin() + nChangePosInOut);
-            // If change_amount == 0, we did not increment num_to_blind initially
-            // and therefore do not need to decrement it here.
-            if (was_blinded) {
-                blind_details->num_to_blind--;
-                blind_details->change_to_blind--;
+            change_pos[nChangePosInOut] = std::nullopt;
+            tx_blinded.vout.erase(tx_blinded.vout.begin() + nChangePosInOut);
+            if (tx_blinded.witness.vtxoutwit.size() > (unsigned) nChangePosInOut) {
+                tx_blinded.witness.vtxoutwit.erase(tx_blinded.witness.vtxoutwit.begin() + nChangePosInOut);
+            }
+            if (blind_details) {
 
-                // FIXME: I promise this makes sense and fixes an actual problem
-                // with the wallet that users could encounter. But no human could
-                // follow the logic as to what this does or why it is safe. After
-                // the 22.0 rebase we need to double-back and replace the blinding
-                // logic to eliminate a bunch of edge cases and make this logic
-                // incomprehensible. But in the interest of minimizing diff during
-                // the rebase I am going to do this for now.
-                if (blind_details->num_to_blind == 1) {
-                    resetBlindDetails(blind_details);
-                    if (!fillBlindDetails(blind_details, this, txNew, selected_coins, error)) {
-                        return false;
+                blind_details->o_amounts.erase(blind_details->o_amounts.begin() + nChangePosInOut);
+                blind_details->o_assets.erase(blind_details->o_assets.begin() + nChangePosInOut);
+                blind_details->o_pubkeys.erase(blind_details->o_pubkeys.begin() + nChangePosInOut);
+                // If change_amount == 0, we did not increment num_to_blind initially
+                // and therefore do not need to decrement it here.
+                if (was_blinded) {
+                    blind_details->num_to_blind--;
+                    blind_details->change_to_blind--;
+
+                    // FIXME: If we drop the change *and* this means we have only one
+                    //  blinded output *and* we have no blinded inputs, then this puts
+                    //  us in a situation where BlindTransaction will fail. This is
+                    //  prevented in fillBlindDetails, which adds an OP_RETURN output
+                    //  to handle this case. So do this ludicrous hack to accomplish
+                    //  this. This whole lump of un-followable-logic needs to be replaced
+                    //  by a complete rewriting of the wallet blinding logic.
+                    if (blind_details->num_to_blind < 2) {
+                        resetBlindDetails(blind_details, true /* don't wipe output data */);
+                        if (!fillBlindDetails(blind_details, this, txNew, selected_coins, error)) {
+                            return false;
+                        }
                     }
                 }
             }
@@ -1384,6 +1443,10 @@ bool CWallet::CreateTransactionInternal(
         nBytes = tx_sizes.vsize;
         fee_needed = coin_selection_params.m_effective_feerate.GetFee(nBytes);
     }
+
+    // The only time that fee_needed should be less than the amount available for fees (in change_and_fee - change_amount) is when
+    // we are subtracting the fee from the outputs. If this occurs at any other time, it is a bug.
+    assert(coin_selection_params.m_subtract_fee_outputs || fee_needed <= map_change_and_fee.at(policyAsset) - change_amount);
 
     // Update nFeeRet in case fee_needed changed due to dropping the change output
     if (fee_needed <= map_change_and_fee.at(policyAsset) - change_amount) {
@@ -1479,9 +1542,9 @@ bool CWallet::CreateTransactionInternal(
             summary += strprintf("#%d: %s%s [%s] (%s [%s])\n", i,
                 txNew.vout[i].IsFee() ? "[fee] " : "",
                 unblinded.nValue.GetAmount(),
-                txNew.vout[i].nValue.IsExplicit() ? "explicit" : "blinded",
+                blind_details->o_pubkeys[i].IsValid() ? "blinded" : "explicit",
                 unblinded.nAsset.GetAsset().GetHex(),
-                txNew.vout[i].nAsset.IsExplicit() ? "explicit" : "blinded"
+                blind_details->o_pubkeys[i].IsValid() ? "blinded" : "explicit"
             );
         }
         WalletLogPrintf(summary+"\n");
@@ -1498,6 +1561,7 @@ bool CWallet::CreateTransactionInternal(
             int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
             assert(ret != -1);
             if (ret != blind_details->num_to_blind) {
+                WalletLogPrintf("ERROR: tried to blind %d outputs but only blinded %d\n", (int) blind_details->num_to_blind, (int) ret);
                 error = _("Unable to blind the transaction properly. This should not happen.");
                 return false;
             }
