@@ -2,9 +2,12 @@
 
 set -eo pipefail
 
-BASE=merged-master
-BITCOIN_UPSTREAM=bitcoin/master
-ELEMENTS_UPSTREAM=upstream/master
+BASE_ORIG=merged-master
+BASE="${BASE_ORIG}"
+BITCOIN_UPSTREAM_REMOTE=bitcoin
+BITCOIN_UPSTREAM="${BITCOIN_UPSTREAM_REMOTE}/master"
+ELEMENTS_UPSTREAM_REMOTE=upstream
+ELEMENTS_UPSTREAM="${ELEMENTS_UPSTREAM_REMOTE}/master"
 
 # BEWARE: On some systems /tmp/ gets periodically cleaned, which may cause
 #   random files from this directory to disappear based on timestamp, and
@@ -13,30 +16,43 @@ WORKTREE="/tmp/elements-merge-worktree"
 
 # These should be tuned to your machine; below values are for an 8-core
 #   16-thread macbook pro
-PARALLEL_BUILD=16  # passed to make -j
-PARALLEL_TEST=8  # passed to test_runner.py --jobs
-PARALLEL_FUZZ=5  # passed to test_runner.py -j when fuzzing
+PARALLEL_BUILD=4  # passed to make -j
+PARALLEL_TEST=12  # passed to test_runner.py --jobs
+PARALLEL_FUZZ=8  # passed to test_runner.py -j when fuzzing
+
+SKIP_MERGE=0
+DO_BUILD=1
+KEEP_GOING=1
 
 if [[ "$1" == "continue" ]]; then
-    BASE="$BASE^1"
-    ECHO_CONTINUE=1
-    DO_BUILD=1
+    SKIP_MERGE=1
 elif [[ "$1" == "go" ]]; then
-    ECHO_CONTINUE=0
-    DO_BUILD=1
+    true  # this is the default, do nothing
 elif [[ "$1" == "list-only" ]]; then
-    ECHO_CONTINUE=0
     DO_BUILD=0
 elif [[ "$1" == "step" ]]; then
-    BASE="$BASE^1"
-    ECHO_CONTINUE=1
-    DO_BUILD=1
+    KEEP_GOING=0
+elif [[ "$1" == "step-continue" ]]; then
+    SKIP_MERGE=1
+    KEEP_GOING=0
 else
-    echo "Usage: $0 <go|continue|list-only|step>"
-    echo "    go will try to merge every PR, building/testing each"
-    echo "    continue assumes the first git-merge has already happened"
+    echo "Usage: $0 <list-only|go|continue|step|step-continue>"
     echo "    list-only will simply list all the PRs yet to be done"
+    echo "    go will try to merge every PR, building/testing each"
+    echo "    continue assumes the first git-merge has already happened, and starts with building"
     echo "    step will try to merge/build/test a single PR"
+    echo "    step-continue assumes the first git-merge has already happened, and will try to build/test a single PR"
+    echo
+    echo "Prior to use, please create a git worktree for the elements repo at:"
+    echo "    $WORKTREE"
+    echo "Make sure it has an elements remote named '$ELEMENTS_UPSTREAM_REMOTE' and a bitcoin remote named '$BITCOIN_UPSTREAM_REMOTE'."
+    echo "Make sure that your local branch '$BASE_ORIG' contains the integration"
+    echo "branch you want to start from, and remember to push it up somewhere"
+    echo "when you're done!"
+    echo
+    echo "You can also edit PARALLEL_{BUILD,TEST,FUZZ} in the script to tune for your machine."
+    echo "And you can edit VERBOSE in the script to watch the build process."
+    echo "(By default only the output of failing steps will be shown.)"
     exit 1
 fi
 
@@ -46,6 +62,11 @@ if [[ "$1" != "list-only" ]]; then
         echo "things then run 'git commit' before running this program."
         exit 1
     fi
+fi
+
+if [[ "$SKIP_MERGE" == "1" ]]; then
+    # Rewind so the first loop iteration is the last one that we already merged.
+    BASE="$BASE^1"
 fi
 
 ## Get full list of merges
@@ -59,8 +80,15 @@ BTC_COMMITS=$(git -C "$WORKTREE" log "$BITCOIN_UPSTREAM" --not $BASE --merges --
 
 cd "$WORKTREE"
 
-# temporarily disable chronic
-alias chronic=""
+VERBOSE=1
+
+quietly () {
+    if [[ "$VERBOSE" == "1" ]]; then
+        "$@"
+    else
+        chronic "$@"
+    fi
+}
 
 ## Sort by unix timestamp and iterate over them
 #echo "$ELT_COMMITS" "$BTC_COMMITS" | sort -n -k1 | while read line
@@ -70,11 +98,17 @@ do
     echo "=-=-=-=-=-=-=-=-=-=-="
     echo
 
+    echo -e $line
     ## Extract data and output what we're doing
     DATE=$(echo $line | cut -d ' ' -f 2)
     HASH=$(echo $line | cut -d ' ' -f 3)
     CHAIN=$(echo $line | cut -d ' ' -f 4)
     PR_ID=$(echo $line | cut -d ' ' -f 6 | tr -d :)
+    PR_ID_ALT=$(echo $line | cut -d ' ' -f 8 | tr -d :)
+
+    if [[ "$PR_ID" == "pull" ]]; then
+	PR_ID="${PR_ID_ALT}"
+    fi
     echo -e "$CHAIN PR \e[37m$PR_ID \e[33m$HASH\e[0m on \e[32m$DATE\e[0m "
 
     ## Do it
@@ -82,7 +116,7 @@ do
         continue
     fi
 
-    if [[ "$ECHO_CONTINUE" == "1" ]]; then
+    if [[ "$SKIP_MERGE" == "1" ]]; then
         echo -e "Continuing build of \e[37m$PR_ID\e[0m at $(date)"
     else
         echo -e "Start merge/build of \e[37m$PR_ID\e[0m at $(date)"
@@ -93,43 +127,43 @@ do
         # Clean up
         echo "Cleaning up"
         # NB: this will fail the first time because there's not yet a makefile
-        chronic make distclean || true
-        chronic git -C "$WORKTREE" clean -xf
+        quietly make distclean || true
+        quietly git -C "$WORKTREE" clean -xf
         echo "autogen & configure"
-        chronic ./autogen.sh
-        chronic ./configure --with-incompatible-bdb
+        quietly ./autogen.sh
+        quietly ./configure --with-incompatible-bdb
         # The following is an expansion of `make check` that skips the libsecp
         # tests and also the benchmarks (though it does build them!)
         echo "Building"
-        chronic make -j"$PARALLEL_BUILD" -k
-#        chronic make -j1 check
+        quietly make -j"$PARALLEL_BUILD" -k
+#        quietly make -j1 check
         echo "Linting"
-        chronic ./ci/lint/06_script.sh
+        quietly ./ci/lint/06_script.sh
         echo "Testing"
-        chronic ./src/qt/test/test_elements-qt
-        chronic ./src/test/test_bitcoin
-        chronic ./src/bench/bench_bitcoin
-        chronic ./test/util/bitcoin-util-test.py
-        chronic ./test/util/rpcauth-test.py
-        chronic make -C src/univalue/ check
+        quietly ./src/qt/test/test_elements-qt
+        quietly ./src/test/test_bitcoin
+        quietly ./src/bench/bench_bitcoin
+        quietly ./test/util/bitcoin-util-test.py
+        quietly ./test/util/rpcauth-test.py
+        quietly make -C src/univalue/ check
         echo "Functional testing"
-        chronic ./test/functional/test_runner.py --jobs="$PARALLEL_TEST"
+        quietly ./test/functional/test_runner.py --jobs="$PARALLEL_TEST"
         echo "Cleaning for fuzz"
-        chronic make distclean || true
-        chronic git -C "$WORKTREE" clean -xf
+        quietly make distclean || true
+        quietly git -C "$WORKTREE" clean -xf
         echo "Building for fuzz"
-        chronic ./autogen.sh
+        quietly ./autogen.sh
         # TODO turn on `,integer` after this rebase
-        chronic ./configure --with-incompatible-bdb --enable-fuzz --with-sanitizers=address,fuzzer,undefined CC=clang CXX=clang++
-        chronic make -j"$PARALLEL_BUILD" -k
+        quietly ./configure --with-incompatible-bdb --enable-fuzz --with-sanitizers=address,fuzzer,undefined CC=clang CXX=clang++
+        quietly make -j"$PARALLEL_BUILD" -k
         echo "Fuzzing"
-        chronic ./test/fuzz/test_runner.py -j"$PARALLEL_FUZZ" ~/code/bitcoin/qa-assets/fuzz_seed_corpus/
+        quietly ./test/fuzz/test_runner.py -j"$PARALLEL_FUZZ" ~/code/bitcoin/qa-assets/fuzz_seed_corpus/
     fi
 
-    if [[ "$1" == "step" ]]; then
+    if [[ "$KEEP_GOING" == "0" ]]; then
         exit 1
     fi
 
 #    bummer1.sh
-    ECHO_CONTINUE=0
+    SKIP_MERGE=0
 done
