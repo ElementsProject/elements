@@ -52,6 +52,10 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
         epoch_start_height -= epoch_length;
     }
 
+    if (consensus.genesis_style == "elements" && epoch_start_height == 0 && next_height > 1 && consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime == Consensus::BIP9Deployment::ALWAYS_ACTIVE) {
+        // when starting in dynafed mode, the full parameters are stored in block 1 instead of 0
+        epoch_start_height = 1;
+    }
     // We need to put in place the previous epoch's current which
     // may be pre-dynafed params
     const CBlockIndex* p_epoch_start = pindexPrev->GetAncestor(epoch_start_height);
@@ -69,11 +73,15 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
         uint256 fedpegscript_redeemscript;
         CSHA256().Write(consensus.fedpegScript.data(), consensus.fedpegScript.size()).Finalize(fedpegscript_redeemscript.begin());
         CScript fedpeg_p2sw = CScript() << OP_0 << ToByteVector(fedpegscript_redeemscript);
-        uint160 fedpeg_p2sh(Hash160(fedpeg_p2sw));
-        CScript sh_wsh_fedpeg_program = CScript() << OP_HASH160 << ToByteVector(fedpeg_p2sh) << OP_EQUAL;
+        if (consensus.start_p2wsh_script) {
+            winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size, fedpeg_p2sw, consensus.fedpegScript, consensus.first_extension_space);
+        } else {
+            uint160 fedpeg_p2sh(Hash160(fedpeg_p2sw));
+            CScript sh_wsh_fedpeg_program = CScript() << OP_HASH160 << ToByteVector(fedpeg_p2sh) << OP_EQUAL;
 
-        // Put them in winning proposal
-        winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size, sh_wsh_fedpeg_program, consensus.fedpegScript, consensus.first_extension_space);
+            // Put them in winning proposal
+            winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size, sh_wsh_fedpeg_program, consensus.fedpegScript, consensus.first_extension_space);
+        }
     } else {
         winning_proposal = p_epoch_start->dynafed_params().m_current;
     }
