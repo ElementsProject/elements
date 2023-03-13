@@ -19,7 +19,7 @@ BEGIN
     BEGIN
         BLOCK "040904E4" // U.S. English - multilingual (hex)
         BEGIN
-            VALUE "CompanyName",        "Bitcoin"
+            VALUE "CompanyName",        "Elements"
             VALUE "FileDescription",    PACKAGE_NAME
             VALUE "FileVersion",        VER_FILEVERSION_STR
             VALUE "InternalName",       "elements-qt"
