@@ -50,6 +50,8 @@ void CreateValueCommitment(CConfidentialValue& conf_value, secp256k1_pedersen_co
 BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, std::tuple<CAmount, CAsset, uint256, uint256>> our_input_data, std::map<uint32_t, std::pair<CKey, CKey>> our_issuances_to_blind);
 
 
+bool CreateBlindValueProof(std::vector<unsigned char>& rangeproof, const uint256& value_blinder, const CAmount amount, const CConfidentialValue& conf_value, const CConfidentialAsset& conf_asset);
+bool CreateBlindAssetProof(std::vector<unsigned char>& assetproof, const CAsset& asset, const CConfidentialAsset& asset_commit, const uint256& asset_blinder);
 bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset);
 bool VerifyBlindAssetProof(const uint256& asset, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset);
 BlindProofResult VerifyBlindProofs(const PSBTOutput& o);

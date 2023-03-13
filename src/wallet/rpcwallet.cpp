@@ -3337,6 +3337,7 @@ void FundTransaction(CWallet& wallet, CMutableTransaction& tx, CAmount& fee_out,
                 {"replaceable", UniValueType(UniValue::VBOOL)},
                 {"conf_target", UniValueType(UniValue::VNUM)},
                 {"estimate_mode", UniValueType(UniValue::VSTR)},
+                {"include_explicit", UniValueType(UniValue::VBOOL)},
             },
             true, true);
 
@@ -4909,6 +4910,7 @@ static RPCHelpMan walletcreatefundedpsbt()
                             {"conf_target", RPCArg::Type::NUM, RPCArg::DefaultHint{"wallet -txconfirmtarget"}, "Confirmation target in blocks"},
                             {"estimate_mode", RPCArg::Type::STR, RPCArg::Default{"unset"}, std::string() + "The fee estimate mode, must be one of (case insensitive):\n"
                             "         \"" + FeeModes("\"\n\"") + "\""},
+                            {"include_explicit", RPCArg::Type::BOOL, RPCArg::Default{false}, "Include explicit values and assets and their proofs for blinded inputs"},
                         },
                         "options"},
                     {"bip32derivs", RPCArg::Type::BOOL, RPCArg::Default{true}, "Include BIP 32 derivation paths for public keys if we know them"},
@@ -5089,10 +5091,13 @@ static RPCHelpMan walletcreatefundedpsbt()
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing output for reissuance tokens");
     }
 
+    // Determine whether to include explicit values
+    bool include_explicit = request.params[3].exists("include_explicit") && request.params[3]["include_explicit"].get_bool();
+
     // Fill transaction with out data but don't sign
     bool bip32derivs = request.params[4].isNull() ? true : request.params[4].get_bool();
     bool complete = true;
-    const TransactionError err{wallet.FillPSBT(psbtx, complete, 1, false, bip32derivs, true)};
+    const TransactionError err{wallet.FillPSBT(psbtx, complete, 1, false, bip32derivs, true, nullptr, include_explicit)};
     if (err != TransactionError::OK) {
         throw JSONRPCTransactionError(err);
     }
