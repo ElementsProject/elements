@@ -144,7 +144,7 @@ def get_merged_commits():
 
         fromgui = False
         fromsecp = False
-        
+
         if m is not None:
             [date, cid, merged_cid, chain, repo, prno, trailing] = m.groups()
             if chain == "Bitcoin":
@@ -326,7 +326,7 @@ def main() -> None:
         print("** COMMIT WE ARE REVIEWING:")
         os.system(f"git -C {WQ} log -1 --pretty=full {cid}")
         print()
-    
+
         def diff4():
             os.system(f"git -C {WQ} diff {GIT_DIFF_OPTS} HEAD {cid}")
 
