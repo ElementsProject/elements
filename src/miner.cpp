@@ -29,7 +29,7 @@
 
 void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
 {
-    block.proof.challenge = indexLast.proof.challenge;
+    block.proof.challenge = indexLast.get_proof().challenge;
 }
 
 void ResetProof(CBlockHeader& block)
