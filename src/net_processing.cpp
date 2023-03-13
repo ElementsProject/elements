@@ -2015,7 +2015,7 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, const Peer& peer,
     //   the received headers. We can still get ahead by up to a single maximum-sized
     //   headers message here, but never further, so that's fine.
     if (pindexBestHeader) {
-        uint64_t headers_ahead = pindexBestHeader->nHeight - m_chainman.ActiveHeight();
+        int64_t headers_ahead = pindexBestHeader->nHeight - m_chainman.ActiveHeight();
         bool too_far_ahead = fTrimHeaders && (headers_ahead >= nHeaderDownloadBuffer);
         if (too_far_ahead) {
             LOCK(cs_main);
@@ -4532,7 +4532,7 @@ bool PeerManagerImpl::SendMessages(CNode* pto)
         if (pindexBestHeader == nullptr)
             pindexBestHeader = m_chainman.ActiveChain().Tip();
         bool fFetch = state.fPreferredDownload || (nPreferredDownload == 0 && !pto->fClient && !pto->IsAddrFetchConn()); // Download if this is a nice peer, or we have no nice peers and this one might do.
-        uint64_t headers_ahead = pindexBestHeader->nHeight - m_chainman.ActiveHeight();
+        int64_t headers_ahead = pindexBestHeader->nHeight - m_chainman.ActiveHeight();
         // ELEMENTS: Only download if our headers aren't "too far ahead" of our blocks.
         bool got_enough_headers = fTrimHeaders && (headers_ahead >= nHeaderDownloadBuffer);
         if (!state.fSyncStarted && !pto->fClient && !fImporting && !fReindex && !got_enough_headers) {
