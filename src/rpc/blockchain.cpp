@@ -280,13 +280,7 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
 
 UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails)
 {
-    UniValue result;
-    if (blockindex->trimmed()) {
-        CBlockIndex tmp = CBlockIndex(block.GetBlockHeader());
-        result = blockheaderToJSON(tip, &tmp);
-    } else {
-        result = blockheaderToJSON(tip, blockindex);
-    }
+    UniValue result = blockheaderToJSON(tip, blockindex);
 
     result.pushKV("strippedsize", (int)::GetSerializeSize(block, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS));
     result.pushKV("size", (int)::GetSerializeSize(block, PROTOCOL_VERSION));
