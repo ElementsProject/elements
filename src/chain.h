@@ -200,6 +200,7 @@ protected:
     std::optional<CScriptWitness> m_signblock_witness{};
 
     bool m_trimmed{false};
+    bool m_trimmed_dynafed_block{false};
 
     friend class CBlockTreeDB;
 
@@ -210,6 +211,7 @@ public:
     void trim() {
         assert_untrimmed();
         m_trimmed = true;
+        m_trimmed_dynafed_block = !m_dynafed_params.value().IsNull();
         proof = std::nullopt;
         m_dynafed_params = std::nullopt;
         m_signblock_witness = std::nullopt;
@@ -226,6 +228,13 @@ public:
     const CProof& get_proof() const {
         assert_untrimmed();
         return proof.value();
+    }
+
+    const bool dynafed_block() const {
+        if (m_trimmed) {
+            return m_trimmed_dynafed_block;
+        }
+        return !m_dynafed_params.value().IsNull();
     }
 
     const DynaFedParams& dynafed_params() const {
