@@ -24,7 +24,20 @@ SKIP_MERGE=0
 DO_BUILD=1
 KEEP_GOING=1
 
-if [[ "$1" == "continue" ]]; then
+if [[ "$1" == "setup" ]]; then
+    echo "Setting up..."
+    echo
+    git config remote.upstream.url >/dev/null || remote add upstream "https://github.com/ElementsProject/elements.git"
+    git config remote.bitcoin.url >/dev/null || git remote add bitcoin "https://github.com/bitcoin/bitcoin.git"
+    git worktree list --porcelain | grep --silent "${WORKTREE}" || git worktree add "${WORKTREE}" --force --no-checkout --detach
+    echo
+    echo "Fetching all remotes..."
+    echo
+    git fetch --all
+    echo
+    echo "Done!"
+    exit 0
+elif [[ "$1" == "continue" ]]; then
     SKIP_MERGE=1
 elif [[ "$1" == "go" ]]; then
     true  # this is the default, do nothing
@@ -36,7 +49,8 @@ elif [[ "$1" == "step-continue" ]]; then
     SKIP_MERGE=1
     KEEP_GOING=0
 else
-    echo "Usage: $0 <list-only|go|continue|step|step-continue>"
+    echo "Usage: $0 <setup|list-only|go|continue|step|step-continue>"
+    echo "    setup will configure your repository for the first run of this script"
     echo "    list-only will simply list all the PRs yet to be done"
     echo "    go will try to merge every PR, building/testing each"
     echo "    continue assumes the first git-merge has already happened, and starts with building"
