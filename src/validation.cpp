@@ -1782,13 +1782,8 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
         pindex->phashBlock == nullptr || // this is a new candidate block, eg from TestBlockValidity()
         *pindex->phashBlock != consensusparams.BIP16Exception) // this block isn't the historical exception
     {
-        flags |= SCRIPT_VERIFY_P2SH;
-    }
-
-    // Enforce WITNESS rules whenever P2SH is in effect (and the segwit
-    // deployment is defined).
-    if (flags & SCRIPT_VERIFY_P2SH && DeploymentEnabled(consensusparams, Consensus::DEPLOYMENT_SEGWIT)) {
-        flags |= SCRIPT_VERIFY_WITNESS;
+        // Enforce WITNESS rules whenever P2SH is in effect
+        flags |= SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS;
     }
 
     // Enforce the DERSIG (BIP66) rule
@@ -3400,38 +3395,36 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
     std::vector<unsigned char> commitment;
     int commitpos = GetWitnessCommitmentIndex(block);
     std::vector<unsigned char> ret(32, 0x00);
-    if (DeploymentEnabled(consensusParams, Consensus::DEPLOYMENT_SEGWIT)) {
-        if (commitpos == NO_WITNESS_COMMITMENT) {
-            // ELEMENTS: Shim in blank coinbase output for witness output hash
-            // Previous iterations of CA could have allowed witness data
-            // in coinbase transactions, and this witness data must be committed
-            // to here.
-            //
-            // Is No-op in Bitcoin
-            CMutableTransaction tx0(*block.vtx[0]);
-            tx0.vout.push_back(CTxOut());
-            block.vtx[0] = MakeTransactionRef(std::move(tx0));
-            // END
-            uint256 witnessroot = BlockWitnessMerkleRoot(block, nullptr);
-            CHash256().Write(witnessroot).Write(ret).Finalize(witnessroot);
-            CTxOut out;
-            out.nValue = 0;
-            out.nAsset = policyAsset;
-            out.scriptPubKey.resize(MINIMUM_WITNESS_COMMITMENT);
-            out.scriptPubKey[0] = OP_RETURN;
-            out.scriptPubKey[1] = 0x24;
-            out.scriptPubKey[2] = 0xaa;
-            out.scriptPubKey[3] = 0x21;
-            out.scriptPubKey[4] = 0xa9;
-            out.scriptPubKey[5] = 0xed;
-            memcpy(&out.scriptPubKey[6], witnessroot.begin(), 32);
-            commitment = std::vector<unsigned char>(out.scriptPubKey.begin(), out.scriptPubKey.end());
-            CMutableTransaction tx(*block.vtx[0]);
-            // Elements: replace shimmed output with real coinbase rather than push
-            tx.vout.back() = out;
-            // END
-            block.vtx[0] = MakeTransactionRef(std::move(tx));
-        }
+    if (commitpos == NO_WITNESS_COMMITMENT) {
+        // ELEMENTS: Shim in blank coinbase output for witness output hash
+        // Previous iterations of CA could have allowed witness data
+        // in coinbase transactions, and this witness data must be committed
+        // to here.
+        //
+        // Is No-op in Bitcoin
+        CMutableTransaction tx0(*block.vtx[0]);
+        tx0.vout.push_back(CTxOut());
+        block.vtx[0] = MakeTransactionRef(std::move(tx0));
+        // END
+        uint256 witnessroot = BlockWitnessMerkleRoot(block, nullptr);
+        CHash256().Write(witnessroot).Write(ret).Finalize(witnessroot);
+        CTxOut out;
+        out.nValue = 0;
+        out.nAsset = policyAsset;
+        out.scriptPubKey.resize(MINIMUM_WITNESS_COMMITMENT);
+        out.scriptPubKey[0] = OP_RETURN;
+        out.scriptPubKey[1] = 0x24;
+        out.scriptPubKey[2] = 0xaa;
+        out.scriptPubKey[3] = 0x21;
+        out.scriptPubKey[4] = 0xa9;
+        out.scriptPubKey[5] = 0xed;
+        memcpy(&out.scriptPubKey[6], witnessroot.begin(), 32);
+        commitment = std::vector<unsigned char>(out.scriptPubKey.begin(), out.scriptPubKey.end());
+        CMutableTransaction tx(*block.vtx[0]);
+        // Elements: replace shimmed output with real coinbase rather than push
+        tx.vout.back() = out;
+        // END
+        block.vtx[0] = MakeTransactionRef(std::move(tx));
     }
     UpdateUncommittedBlockStructures(block, pindexPrev, consensusParams);
     return commitment;
