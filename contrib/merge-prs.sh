@@ -9,10 +9,16 @@ BITCOIN_UPSTREAM="${BITCOIN_UPSTREAM_REMOTE}/master"
 ELEMENTS_UPSTREAM_REMOTE=upstream
 ELEMENTS_UPSTREAM="${ELEMENTS_UPSTREAM_REMOTE}/master"
 
+# Replace this with the location where we should put the fuzz test corpus
+BITCOIN_QA_ASSETS="${HOME}/.tmp/bitcoin/qa-assets"
+FUZZ_CORPUS="${BITCOIN_QA_ASSETS}/fuzz_seed_corpus/"
+mkdir -p "$(dirname ${BITCOIN_QA_ASSETS})"
+
 # BEWARE: On some systems /tmp/ gets periodically cleaned, which may cause
 #   random files from this directory to disappear based on timestamp, and
 #   make git very confused
-WORKTREE="/tmp/elements-merge-worktree"
+WORKTREE="${HOME}/.tmp/elements-merge-worktree"
+mkdir -p "${HOME}/.tmp"
 
 # These should be tuned to your machine; below values are for an 8-core
 #   16-thread macbook pro
@@ -29,13 +35,23 @@ if [[ "$1" == "setup" ]]; then
     echo
     git config remote.upstream.url >/dev/null || remote add upstream "https://github.com/ElementsProject/elements.git"
     git config remote.bitcoin.url >/dev/null || git remote add bitcoin "https://github.com/bitcoin/bitcoin.git"
+    if git worktree list --porcelain | grep --silent prunable; then
+        echo "You have stale git worktrees, please either fix them or run 'git worktree prune'."
+        exit 1
+    fi
     git worktree list --porcelain | grep --silent "${WORKTREE}" || git worktree add "${WORKTREE}" --force --no-checkout --detach
     echo
     echo "Fetching all remotes..."
     echo
     git fetch --all
     echo
-    echo "Done!"
+    #echo "Cloning fuzz test corpus..."
+    #echo
+    #if [[ ! -d "${BITCOIN_QA_ASSETS}" ]]; then
+    #    cd "$(dirname ${BITCOIN_QA_ASSETS})" && git clone https://github.com/bitcoin-core/qa-assets.git
+    #fi
+    #echo
+    echo "Done! Remember to also check out merged-master, and push it back up when finished."
     exit 0
 elif [[ "$1" == "continue" ]]; then
     SKIP_MERGE=1
@@ -171,7 +187,7 @@ do
         quietly ./configure --with-incompatible-bdb --enable-fuzz --with-sanitizers=address,fuzzer,undefined CC=clang CXX=clang++
         quietly make -j"$PARALLEL_BUILD" -k
         echo "Fuzzing"
-        quietly ./test/fuzz/test_runner.py -j"$PARALLEL_FUZZ" ~/code/bitcoin/qa-assets/fuzz_seed_corpus/
+        quietly ./test/fuzz/test_runner.py -j"$PARALLEL_FUZZ" "${FUZZ_CORPUS}"
     fi
 
     if [[ "$KEEP_GOING" == "0" ]]; then
