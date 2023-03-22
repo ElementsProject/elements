@@ -113,10 +113,21 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChain100Setup)
 static void ValidateCheckInputsForAllFlags(const CTransaction &tx, uint32_t failing_flags, bool add_to_cache, CCoinsViewCache& active_coins_tip) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     PrecomputedTransactionData txdata;
-    // If we add many more flags, this loop can get too expensive, but we can
-    // rewrite in the future to randomly pick a set of flags to evaluate.
-    for (uint32_t test_flags=0; test_flags < (1U << 16); test_flags += 1) {
+
+    FastRandomContext insecure_rand(true);
+
+    for (int count = 0; count < 10000; ++count) {
         TxValidationState state;
+
+        // Randomly selects flag combinations
+        //
+        // ELEMENTS
+        // Upstream bitcoin uses SCRIPT_VERIFY_END_MARKER, but this will break the bitcoin tests, because
+        // of some extra elements flags that have been added.
+        // SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_PUBKEYTYPE is the highest non-elements flag.
+        // FIXME: Adjust this test to work with the extra elements flags.
+        uint32_t test_flags = (uint32_t) insecure_rand.randrange((SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_PUBKEYTYPE - 1) << 1);
+
         // Filter out incompatible flag choices
         if ((test_flags & SCRIPT_VERIFY_CLEANSTACK)) {
             // CLEANSTACK requires P2SH and WITNESS, see VerifyScript() in

@@ -145,14 +145,18 @@ enum : uint32_t {
     SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_PUBKEYTYPE = (1U << 20),
 
     // ELEMENTS:
-
     // Signature checking assumes no sighash byte after the DER signature
     //
     SCRIPT_NO_SIGHASH_BYTE = (1U << 21),
 
+    // ELEMENTS:
     // Support/allow SIGHASH_RANGEPROOF.
     //
     SCRIPT_SIGHASH_RANGEPROOF = (1U << 22),
+
+    // Constants to point to the highest flag in use. Add new flags above this line.
+    //
+    SCRIPT_VERIFY_END_MARKER
 };
 
 bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned int flags, ScriptError* serror);
