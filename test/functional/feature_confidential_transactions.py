@@ -20,7 +20,6 @@ from test_framework.messages import (
 )
 from test_framework.util import (
     assert_equal,
-    hex_str_to_bytes,
     BITCOIN_ASSET_OUT,
     assert_raises_rpc_error,
 )
@@ -613,12 +612,12 @@ class CTTest (BitcoinTestFramework):
         # it was blinded with 3 asset commitments, that means
         # the final transaction should have 3 inputs.
         btx = CTransaction()
-        btx.deserialize(io.BytesIO(hex_str_to_bytes(blindtx)))
+        btx.deserialize(io.BytesIO(bytes.fromhex(blindtx)))
 
         # Unblinded transaction, with 2 inputs and 2 outputs.
         # We will add them to the other transaction to make it complete.
         ubtx = CTransaction()
-        ubtx.deserialize(io.BytesIO(hex_str_to_bytes(rawtx2)))
+        ubtx.deserialize(io.BytesIO(bytes.fromhex(rawtx2)))
 
         # We will add outputs of unblinded transaction
         # on top of inputs and outputs of the blinded, but incomplete transaction.

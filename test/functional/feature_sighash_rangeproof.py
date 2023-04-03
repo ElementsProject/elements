@@ -34,7 +34,6 @@ from test_framework.messages import (
 from test_framework import util
 from test_framework.util import (
     assert_equal,
-    hex_str_to_bytes,
     assert_raises_rpc_error,
 )
 
@@ -77,7 +76,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
         self.sync_all()
         utxo = self.nodes[1].listunspent(1, 1, [addr])[0]
         utxo_tx = tx_from_hex(self.nodes[1].getrawtransaction(utxo["txid"]))
-        utxo_spk = CScript(hex_str_to_bytes(utxo["scriptPubKey"]))
+        utxo_spk = CScript(bytes.fromhex(utxo["scriptPubKey"]))
         utxo_value = utxo_tx.vout[utxo["vout"]].nValue
 
         assert len(utxo["amountblinder"]) > 0

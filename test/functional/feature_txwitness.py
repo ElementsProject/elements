@@ -16,7 +16,7 @@
 
 from test_framework.messages import CTransaction, CBlock, ser_uint256, from_hex, uint256_from_str, CTxOut, CTxIn, COutPoint, OUTPOINT_ISSUANCE_FLAG, ser_string
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, hex_str_to_bytes, assert_raises_rpc_error, assert_greater_than
+from test_framework.util import assert_equal, assert_raises_rpc_error, assert_greater_than
 from test_framework import util
 from test_framework.blocktools import get_witness_script
 
@@ -44,7 +44,7 @@ class TxWitnessTest(BitcoinTestFramework):
 
         # Cross-check python serialization
         tx = CTransaction()
-        tx.deserialize(BytesIO(hex_str_to_bytes(raw)))
+        tx.deserialize(BytesIO(bytes.fromhex(raw)))
         assert_equal(tx.vin[0].prevout.hash, int("0x"+utxo["txid"], 0))
         assert_equal(len(tx.vin), len(unsigned_decoded["vin"]))
         assert_equal(len(tx.vout), len(unsigned_decoded["vout"]))
@@ -60,7 +60,7 @@ class TxWitnessTest(BitcoinTestFramework):
 
         # Cross-check python serialization
         tx = CTransaction()
-        tx.deserialize(BytesIO(hex_str_to_bytes(signed_raw)))
+        tx.deserialize(BytesIO(bytes.fromhex(signed_raw)))
         assert_equal(tx.vin[0].prevout.hash, int("0x"+utxo["txid"], 0))
         assert_equal(tx.vin[0].scriptSig.hex(), signed_decoded["vin"][0]["scriptSig"]["hex"])
         # test witness
@@ -113,7 +113,7 @@ class TxWitnessTest(BitcoinTestFramework):
         hexblock = self.nodes[0].getblock(blockhash, 0)
         block_details = self.nodes[0].getblock(blockhash, 2)
         block = CBlock()
-        block.deserialize(BytesIO(hex_str_to_bytes(hexblock)))
+        block.deserialize(BytesIO(bytes.fromhex(hexblock)))
         assert len(block.vtx) == len(submitted_txids) + 1
         assert_equal(len(block_details["tx"]), len(block.vtx))
         for tx1, tx2 in zip(block.vtx[1:], block_details["tx"][1:]):
@@ -171,7 +171,7 @@ class TxWitnessTest(BitcoinTestFramework):
         block_witness_stuffed.vtx[0].wit.vtxoutwit[0].vchSurjectionproof = b'\x00'*100000
         assert_raises_rpc_error(-25, "bad-witness-merkle-match", self.nodes[0].testproposedblock, block_witness_stuffed.serialize(with_witness=True).hex())
         witness_root_hex = block_witness_stuffed.calc_witness_merkle_root()
-        witness_root = uint256_from_str(hex_str_to_bytes(witness_root_hex)[::-1])
+        witness_root = uint256_from_str(bytes.fromhex(witness_root_hex)[::-1])
         block_witness_stuffed.vtx[0].vout[-1] = CTxOut(0, get_witness_script(witness_root, 0))
         block_witness_stuffed.vtx[0].rehash()
         block_witness_stuffed.hashMerkleRoot = block_witness_stuffed.calc_merkle_root()

@@ -11,7 +11,6 @@ from test_framework.util import (
     p2p_port,
     assert_raises_rpc_error,
     assert_equal,
-    hex_str_to_bytes,
     find_vout_for_address,
     assert_greater_than
 )
@@ -675,7 +674,7 @@ class FedPegTest(BitcoinTestFramework):
         raw_pegin = sidechain.createrawpegin(raw, proof)['hex']
         pegin = tx_from_hex(raw_pegin)
         # add new blinding pubkey for the pegin output
-        pegin.vout[0].nNonce = CTxOutNonce(hex_str_to_bytes(sidechain.getaddressinfo(sidechain.getnewaddress("", "blech32"))["confidential_key"]))
+        pegin.vout[0].nNonce = CTxOutNonce(bytes.fromhex(sidechain.getaddressinfo(sidechain.getnewaddress("", "blech32"))["confidential_key"]))
         # now add an extra input and output from listunspent; we need a blinded output for this
         blind_addr = sidechain.getnewaddress("", "blech32")
         sidechain.sendtoaddress(blind_addr, 15)
@@ -689,8 +688,8 @@ class FedPegTest(BitcoinTestFramework):
         pegin.vin.append(CTxIn(COutPoint(int(unspent["txid"], 16), unspent["vout"])))
         # insert corresponding output before fee output
         new_destination = sidechain.getaddressinfo(sidechain.getnewaddress("", "blech32"))
-        new_dest_script_pk = hex_str_to_bytes(new_destination["scriptPubKey"])
-        new_dest_nonce = CTxOutNonce(hex_str_to_bytes(new_destination["confidential_key"]))
+        new_dest_script_pk = bytes.fromhex(new_destination["scriptPubKey"])
+        new_dest_nonce = CTxOutNonce(bytes.fromhex(new_destination["confidential_key"]))
         new_dest_asset = pegin.vout[0].nAsset
         pegin.vout.insert(1, CTxOut(int(unspent["amount"]*COIN) - 10000, new_dest_script_pk, new_dest_asset, new_dest_nonce))
         # add the 10 ksat fee

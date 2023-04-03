@@ -19,7 +19,7 @@ from test_framework.messages import (
 )
 from test_framework.script import CScript, OP_DROP
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, hex_str_to_bytes, satoshi_round
+from test_framework.util import assert_equal, assert_raises_rpc_error, satoshi_round
 from test_framework.script_util import DUMMY_P2WPKH_SCRIPT, DUMMY_2_P2WPKH_SCRIPT
 from test_framework.wallet import MiniWallet
 
@@ -50,7 +50,7 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=DUMMY_P2WPKH_SCRIPT):
     tx2 = CTransaction()
     tx2.vin = [CTxIn(COutPoint(txid, i))]
     tx1raw = CTransaction()
-    tx1raw.deserialize(BytesIO(hex_str_to_bytes(node.getrawtransaction(txidstr))))
+    tx1raw.deserialize(BytesIO(bytes.fromhex(node.getrawtransaction(txidstr))))
     feeout = CTxOut(CTxOutValue(tx1raw.vout[i].nValue.getAmount() - amount))
     tx2.vout = [CTxOut(amount, scriptPubKey), feeout]
     tx2.rehash()
