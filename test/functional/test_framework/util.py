@@ -351,17 +351,17 @@ def rpc_url(datadir, i, chain, rpchost):
 def get_datadir_path(dirname, n):
     return os.path.join(dirname, "node" + str(n))
 
-def initialize_datadir(dirname, n, chain):
+def initialize_datadir(dirname, n, chain, disable_autoconnect=True):
     datadir = get_datadir_path(dirname, n)
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
-    write_config(os.path.join(datadir, "elements.conf"), n=n, chain=chain)
+    write_config(os.path.join(datadir, "elements.conf"), n=n, chain=chain, disable_autoconnect=disable_autoconnect)
     os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
     os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir
 
 
-def write_config(config_path, *, n, chain, extra_config=""):
+def write_config(config_path, *, n, chain, extra_config="", disable_autoconnect=True):
     # Translate chain subdirectory name to config name
     if chain == 'testnet3':
         chain_name_conf_arg = 'testnet'
@@ -405,6 +405,8 @@ def write_config(config_path, *, n, chain, extra_config=""):
         #f.write("pubkeyprefix=111\n")
         #f.write("scriptprefix=196\n")
         #f.write("bech32_hrp=bcrt\n")
+        if disable_autoconnect:
+            f.write("connect=0\n")
         f.write(extra_config)
 
 

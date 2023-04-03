@@ -7,6 +7,9 @@
 Test the following RPCs:
     - getblockchaininfo
     - getchaintxstats
+    - gettxoutsetinfo
+    - getblockheader
+    - getdifficulty
     - getnetworkhashps
     - gettxoutsetinfo
     - getblockheader
