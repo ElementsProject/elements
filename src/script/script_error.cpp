@@ -129,6 +129,10 @@ std::string ScriptErrorString(const ScriptError serror)
             return "Arithmetic opcode error";
         case SCRIPT_ERR_ECMULTVERIFYFAIL:
             return "EC scalar mult verify fail";
+        case SCRIPT_ERR_SIMPLICITY_WRONG_LENGTH:
+            return "Simplicity witness has incorrect length";
+        case SCRIPT_ERR_SIMPLICITY_FAILED:
+            return "Simplicity program failed";
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;

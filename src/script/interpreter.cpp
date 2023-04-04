@@ -12,6 +12,9 @@
 #include <pubkey.h>
 #include <script/script.h>
 #include <uint256.h>
+extern "C" {
+#include <simplicity/elements/exec.h>
+}
 
 typedef std::vector<unsigned char> valtype;
 
@@ -2596,6 +2599,75 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
         m_spent_scripts_single_hash = GetSpentScriptsSHA256(m_spent_outputs);
         m_spent_output_spk_single_hashes = GetSpentScriptPubKeysSHA256(m_spent_outputs);
         m_output_spk_single_hashes = GetOutputScriptPubKeysSHA256(txTo);
+
+        std::vector<rawBuffer> simplicityRawAnnex(txTo.witness.vtxinwit.size());
+        std::vector<rawInput> simplicityRawInput(txTo.vin.size());
+        for (size_t i = 0; i < txTo.vin.size(); ++i) {
+            simplicityRawInput[i].prevTxid = txTo.vin[i].prevout.hash.begin();
+            simplicityRawInput[i].prevIx = txTo.vin[i].prevout.n;
+            simplicityRawInput[i].sequence = txTo.vin[i].nSequence;
+            simplicityRawInput[i].txo.asset = m_spent_outputs[i].nAsset.vchCommitment.empty() ? NULL : m_spent_outputs[i].nAsset.vchCommitment.data();
+            simplicityRawInput[i].txo.value = m_spent_outputs[i].nValue.vchCommitment.empty() ? NULL : m_spent_outputs[i].nValue.vchCommitment.data();
+            simplicityRawInput[i].txo.scriptPubKey.buf = m_spent_outputs[i].scriptPubKey.data();
+            simplicityRawInput[i].txo.scriptPubKey.len = m_spent_outputs[i].scriptPubKey.size();
+            simplicityRawInput[i].issuance.blindingNonce = txTo.vin[i].assetIssuance.assetBlindingNonce.begin();
+            simplicityRawInput[i].issuance.assetEntropy = txTo.vin[i].assetIssuance.assetEntropy.begin();
+            simplicityRawInput[i].issuance.amount = txTo.vin[i].assetIssuance.nAmount.vchCommitment.empty() ? NULL : txTo.vin[i].assetIssuance.nAmount.vchCommitment.data();
+            simplicityRawInput[i].issuance.inflationKeys = txTo.vin[i].assetIssuance.nInflationKeys.vchCommitment.empty() ? NULL : txTo.vin[i].assetIssuance.nInflationKeys.vchCommitment.data();
+            simplicityRawInput[i].annex = NULL;
+            if (i < txTo.witness.vtxinwit.size()) {
+                Span<const valtype> stack{txTo.witness.vtxinwit[i].scriptWitness.stack};
+                if (stack.size() >= 2 && !stack.back().empty() && stack.back()[0] == ANNEX_TAG) {
+                    simplicityRawAnnex[i].buf = stack.back().data()+1;
+                    simplicityRawAnnex[i].len = stack.back().size()-1;
+                    simplicityRawInput[i].annex = &simplicityRawAnnex[i];
+                }
+                simplicityRawInput[i].issuance.amountRangePrf.buf = txTo.witness.vtxinwit[i].vchIssuanceAmountRangeproof.data();
+                simplicityRawInput[i].issuance.amountRangePrf.len = txTo.witness.vtxinwit[i].vchIssuanceAmountRangeproof.size();
+                simplicityRawInput[i].issuance.inflationKeysRangePrf.buf = txTo.witness.vtxinwit[i].vchInflationKeysRangeproof.data();
+                simplicityRawInput[i].issuance.inflationKeysRangePrf.len = txTo.witness.vtxinwit[i].vchInflationKeysRangeproof.size();
+                assert(!txTo.vin[i].m_is_pegin || ( txTo.witness.vtxinwit[i].m_pegin_witness.stack.size() >= 4 && txTo.witness.vtxinwit[i].m_pegin_witness.stack[2].size() == 32));
+                simplicityRawInput[i].pegin = txTo.vin[i].m_is_pegin ? txTo.witness.vtxinwit[i].m_pegin_witness.stack[2].data() : 0;
+            } else {
+                simplicityRawInput[i].issuance.amountRangePrf.buf = NULL;
+                simplicityRawInput[i].issuance.amountRangePrf.len = 0;
+                simplicityRawInput[i].issuance.inflationKeysRangePrf.buf = NULL;
+                simplicityRawInput[i].issuance.inflationKeysRangePrf.len = 0;
+                assert(!txTo.vin[i].m_is_pegin);
+                simplicityRawInput[i].pegin = 0;
+            }
+        }
+
+        std::vector<rawOutput> simplicityRawOutput(txTo.vout.size());
+        for (size_t i = 0; i < txTo.vout.size(); ++i) {
+            simplicityRawOutput[i].asset = txTo.vout[i].nAsset.vchCommitment.empty() ? NULL : txTo.vout[i].nAsset.vchCommitment.data();
+            simplicityRawOutput[i].value = txTo.vout[i].nValue.vchCommitment.empty() ? NULL : txTo.vout[i].nValue.vchCommitment.data();
+            simplicityRawOutput[i].nonce = txTo.vout[i].nNonce.vchCommitment.empty() ? NULL : txTo.vout[i].nNonce.vchCommitment.data();
+            simplicityRawOutput[i].scriptPubKey.buf = txTo.vout[i].scriptPubKey.data();
+            simplicityRawOutput[i].scriptPubKey.len = txTo.vout[i].scriptPubKey.size();
+            if (i < txTo.witness.vtxoutwit.size()) {
+                simplicityRawOutput[i].surjectionProof.buf = txTo.witness.vtxoutwit[i].vchSurjectionproof.data();
+                simplicityRawOutput[i].surjectionProof.len = txTo.witness.vtxoutwit[i].vchSurjectionproof.size();
+                simplicityRawOutput[i].rangeProof.buf = txTo.witness.vtxoutwit[i].vchRangeproof.data();
+                simplicityRawOutput[i].rangeProof.len = txTo.witness.vtxoutwit[i].vchRangeproof.size();
+            } else {
+                simplicityRawOutput[i].surjectionProof.buf = NULL;
+                simplicityRawOutput[i].surjectionProof.len = 0;
+                simplicityRawOutput[i].rangeProof.buf = NULL;
+                simplicityRawOutput[i].rangeProof.len = 0;
+            }
+        }
+
+        rawTransaction simplicityRawTx;
+        simplicityRawTx.input = simplicityRawInput.data();
+        simplicityRawTx.numInputs = simplicityRawInput.size();
+        simplicityRawTx.output = simplicityRawOutput.data();
+        simplicityRawTx.numOutputs = simplicityRawOutput.size();
+        simplicityRawTx.version = txTo.nVersion;
+        simplicityRawTx.lockTime = txTo.nLockTime;
+
+        m_simplicity_tx_data = elements_simplicity_mallocTransaction(&simplicityRawTx);
+
         m_bip341_taproot_ready = true;
     }
 }
@@ -3031,6 +3103,21 @@ uint32_t GenericTransactionSignatureChecker<T>::GetnIn() const
     return nIn;
 }
 
+template <class T>
+bool GenericTransactionSignatureChecker<T>::CheckSimplicity(const valtype& witness, const std::vector<unsigned char>& program, const rawTapEnv& simplicityRawTap, int64_t budget, ScriptError* serror) const
+{
+    bool success;
+    tapEnv* simplicityTapEnv = elements_simplicity_mallocTapEnv(&simplicityRawTap);
+
+    assert(txdata->m_simplicity_tx_data);
+    assert(simplicityTapEnv);
+    if (elements_simplicity_execSimplicity(&success, 0, txdata->m_simplicity_tx_data, nIn, simplicityTapEnv, txdata->m_hash_genesis_block.data(), budget, 0, witness.data(), witness.size())) {
+        free(simplicityTapEnv);
+        return success ? set_success(serror) : set_error(serror, SCRIPT_ERR_SIMPLICITY_FAILED);
+    }
+    assert(!"elements_simplicity_execSimplicity internal error");
+}
+
 // explicit instantiation
 template class GenericTransactionSignatureChecker<CTransaction>;
 template class GenericTransactionSignatureChecker<CMutableTransaction>;
@@ -3178,6 +3265,16 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
                 execdata.m_validation_weight_left = ::GetSerializeSize(witness.stack, PROTOCOL_VERSION) + VALIDATION_WEIGHT_OFFSET;
                 execdata.m_validation_weight_left_init = true;
                 return ExecuteWitnessScript(stack, exec_script, flags, SigVersion::TAPSCRIPT, checker, execdata, serror);
+            }
+            if ((flags & SCRIPT_VERIFY_SIMPLICITY) && (control[0] & TAPROOT_LEAF_MASK) == TAPROOT_LEAF_TAPSIMPLICITY) {
+                if (stack.size() != 1 || script_bytes.size() != 32) return set_error(serror, SCRIPT_ERR_SIMPLICITY_WRONG_LENGTH);
+                // Tapsimplicity (leaf version 0xbe)
+                const int64_t budget = ::GetSerializeSize(witness.stack, PROTOCOL_VERSION) + VALIDATION_WEIGHT_OFFSET;
+                rawTapEnv simplicityRawTap;
+                simplicityRawTap.controlBlock = control.data();
+                simplicityRawTap.branchLen = (control.size() - TAPROOT_CONTROL_BASE_SIZE) / TAPROOT_CONTROL_NODE_SIZE;
+                simplicityRawTap.scriptCMR = script_bytes.data();
+                return checker.CheckSimplicity(stack.front(), script_bytes, simplicityRawTap, budget, serror);
             }
             if (flags & SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_TAPROOT_VERSION) {
                 return set_error(serror, SCRIPT_ERR_DISCOURAGE_UPGRADABLE_TAPROOT_VERSION);
