@@ -632,7 +632,8 @@ public:
         assert(genesis.hashMerkleRoot == uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
-        vSeeds.clear();      //!< Regtest mode doesn't have any DNS seeds.
+        vSeeds.clear();
+        vSeeds.emplace_back("dummySeed.invalid.");
 
         fDefaultConsistencyChecks = true;
         fRequireStandard = true;
@@ -802,6 +803,7 @@ protected:
         std::copy(begin(magic_byte), end(magic_byte), pchMessageStart);
 
         vSeeds.clear();
+        vSeeds.emplace_back("dummySeed.invalid.");
         if (args.IsArgSet("-seednode")) {
             const auto seednodes = args.GetArgs("-seednode");
             if (seednodes.size() != 1 || seednodes[0] != "0") {
