@@ -4,10 +4,12 @@
  * file COPYING or https://www.opensource.org/licenses/mit-license.php.*
  ***********************************************************************/
 
-#ifndef SECP256K1_MODULE_ECDH_BENCH_H
-#define SECP256K1_MODULE_ECDH_BENCH_H
+#include <string.h>
 
+#include "../include/secp256k1.h"
 #include "../include/secp256k1_ecdh.h"
+#include "util.h"
+#include "bench.h"
 
 typedef struct {
     secp256k1_context *ctx;
@@ -42,16 +44,16 @@ static void bench_ecdh(void* arg, int iters) {
     }
 }
 
-void run_ecdh_bench(int iters, int argc, char** argv) {
+int main(void) {
     bench_ecdh_data data;
-    int d = argc == 1;
+
+    int iters = get_iters(20000);
 
     /* create a context with no capabilities */
     data.ctx = secp256k1_context_create(SECP256K1_FLAGS_TYPE_CONTEXT);
 
-    if (d || have_flag(argc, argv, "ecdh")) run_benchmark("ecdh", bench_ecdh, bench_ecdh_setup, NULL, &data, 10, iters);
+    run_benchmark("ecdh", bench_ecdh, bench_ecdh_setup, NULL, &data, 10, iters);
 
     secp256k1_context_destroy(data.ctx);
+    return 0;
 }
-
-#endif /* SECP256K1_MODULE_ECDH_BENCH_H */

@@ -15,14 +15,9 @@ valgrind --version || true
 ./configure \
     --enable-experimental="$EXPERIMENTAL" \
     --with-test-override-wide-multiply="$WIDEMUL" --with-asm="$ASM" \
-    --with-ecmult-window="$ECMULTWINDOW" \
-    --with-ecmult-gen-precision="$ECMULTGENPRECISION" \
+    --enable-ecmult-static-precomputation="$STATICPRECOMPUTATION" --with-ecmult-gen-precision="$ECMULTGENPRECISION" \
     --enable-module-ecdh="$ECDH" --enable-module-recovery="$RECOVERY" \
-    --enable-module-ecdsa-s2c="$ECDSA_S2C" \
-    --enable-module-rangeproof="$RANGEPROOF" --enable-module-whitelist="$WHITELIST" --enable-module-generator="$GENERATOR" \
-    --enable-module-schnorrsig="$SCHNORRSIG"  --enable-module-musig="$MUSIG" --enable-module-ecdsa-adaptor="$ECDSAADAPTOR" \
     --enable-module-schnorrsig="$SCHNORRSIG" \
-    --enable-examples="$EXAMPLES" \
     --with-valgrind="$WITH_VALGRIND" \
     --host="$HOST" $EXTRAFLAGS
 
@@ -31,11 +26,15 @@ make
 
 # Print information about binaries so that we can see that the architecture is correct
 file *tests* || true
-file bench* || true
+file bench_* || true
 file .libs/* || true
 
 # This tells `make check` to wrap test invocations.
 export LOG_COMPILER="$WRAPPER_CMD"
+
+# This limits the iterations in the tests and benchmarks.
+export SECP256K1_TEST_ITERS="$TEST_ITERS"
+export SECP256K1_BENCH_ITERS="$BENCH_ITERS"
 
 make "$BUILD"
 
@@ -50,22 +49,23 @@ then
     {
         $EXEC ./bench_ecmult
         $EXEC ./bench_internal
-        $EXEC ./bench
+        $EXEC ./bench_sign
+        $EXEC ./bench_verify
     } >> bench.log 2>&1
+    if [ "$RECOVERY" = "yes" ]
+    then
+        $EXEC ./bench_recover >> bench.log 2>&1
+    fi
+    if [ "$ECDH" = "yes" ]
+    then
+        $EXEC ./bench_ecdh >> bench.log 2>&1
+    fi
+    if [ "$SCHNORRSIG" = "yes" ]
+    then
+        $EXEC ./bench_schnorrsig >> bench.log 2>&1
+    fi
 fi
-
 if [ "$CTIMETEST" = "yes" ]
 then
     ./libtool --mode=execute valgrind --error-exitcode=42 ./valgrind_ctime_test > valgrind_ctime_test.log 2>&1
 fi
-
-# Rebuild precomputed files (if not cross-compiling).
-if [ -z "$HOST" ]
-then
-    make clean-precomp
-    make precomp
-fi
-
-# Check that no repo files have been modified by the build.
-# (This fails for example if the precomp files need to be updated in the repo.)
-git diff --exit-code

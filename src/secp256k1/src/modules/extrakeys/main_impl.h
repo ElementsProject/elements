@@ -9,7 +9,6 @@
 
 #include "../../../include/secp256k1.h"
 #include "../../../include/secp256k1_extrakeys.h"
-#include "hsort_impl.h"
 
 static SECP256K1_INLINE int secp256k1_xonly_pubkey_load(const secp256k1_context* ctx, secp256k1_ge *ge, const secp256k1_xonly_pubkey *pubkey) {
     return secp256k1_pubkey_load(ctx, ge, (const secp256k1_pubkey *) pubkey);
@@ -121,11 +120,12 @@ int secp256k1_xonly_pubkey_tweak_add(const secp256k1_context* ctx, secp256k1_pub
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(output_pubkey != NULL);
     memset(output_pubkey, 0, sizeof(*output_pubkey));
+    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(internal_pubkey != NULL);
     ARG_CHECK(tweak32 != NULL);
 
     if (!secp256k1_xonly_pubkey_load(ctx, &pk, internal_pubkey)
-        || !secp256k1_ec_pubkey_tweak_add_helper(&pk, tweak32)) {
+        || !secp256k1_ec_pubkey_tweak_add_helper(&ctx->ecmult_ctx, &pk, tweak32)) {
         return 0;
     }
     secp256k1_pubkey_save(output_pubkey, &pk);
@@ -137,12 +137,13 @@ int secp256k1_xonly_pubkey_tweak_add_check(const secp256k1_context* ctx, const u
     unsigned char pk_expected32[32];
 
     VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(internal_pubkey != NULL);
     ARG_CHECK(tweaked_pubkey32 != NULL);
     ARG_CHECK(tweak32 != NULL);
 
     if (!secp256k1_xonly_pubkey_load(ctx, &pk, internal_pubkey)
-        || !secp256k1_ec_pubkey_tweak_add_helper(&pk, tweak32)) {
+        || !secp256k1_ec_pubkey_tweak_add_helper(&ctx->ecmult_ctx, &pk, tweak32)) {
         return 0;
     }
     secp256k1_fe_normalize_var(&pk.x);
@@ -151,28 +152,6 @@ int secp256k1_xonly_pubkey_tweak_add_check(const secp256k1_context* ctx, const u
 
     return secp256k1_memcmp_var(&pk_expected32, tweaked_pubkey32, 32) == 0
             && secp256k1_fe_is_odd(&pk.y) == tweaked_pk_parity;
-}
-
-/* This struct wraps a const context pointer to satisfy the secp256k1_hsort api
- * which expects a non-const cmp_data pointer. */
-typedef struct {
-    const secp256k1_context *ctx;
-} secp256k1_xonly_sort_cmp_data;
-
-static int secp256k1_xonly_sort_cmp(const void* pk1, const void* pk2, void *cmp_data) {
-    return secp256k1_xonly_pubkey_cmp(((secp256k1_xonly_sort_cmp_data*)cmp_data)->ctx,
-                                      *(secp256k1_xonly_pubkey **)pk1,
-                                      *(secp256k1_xonly_pubkey **)pk2);
-}
-
-int secp256k1_xonly_sort(const secp256k1_context* ctx, const secp256k1_xonly_pubkey **pubkeys, size_t n_pubkeys) {
-    secp256k1_xonly_sort_cmp_data cmp_data;
-    VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(pubkeys != NULL);
-
-    cmp_data.ctx = ctx;
-    secp256k1_hsort(pubkeys, n_pubkeys, sizeof(*pubkeys), secp256k1_xonly_sort_cmp, &cmp_data);
-    return 1;
 }
 
 static void secp256k1_keypair_save(secp256k1_keypair *keypair, const secp256k1_scalar *sk, secp256k1_ge *pk) {
@@ -281,6 +260,7 @@ int secp256k1_keypair_xonly_tweak_add(const secp256k1_context* ctx, secp256k1_ke
     int ret;
 
     VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(keypair != NULL);
     ARG_CHECK(tweak32 != NULL);
 
@@ -293,7 +273,7 @@ int secp256k1_keypair_xonly_tweak_add(const secp256k1_context* ctx, secp256k1_ke
     }
 
     ret &= secp256k1_ec_seckey_tweak_add_helper(&sk, tweak32);
-    ret &= secp256k1_ec_pubkey_tweak_add_helper(&pk, tweak32);
+    ret &= secp256k1_ec_pubkey_tweak_add_helper(&ctx->ecmult_ctx, &pk, tweak32);
 
     secp256k1_declassify(ctx, &ret, sizeof(ret));
     if (ret) {
