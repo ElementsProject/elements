@@ -68,7 +68,7 @@ case $1 in
         shift
         setup
         COMMITS=$*
-        REPRODUCE_COMMAND="$0 $@"
+        REPRODUCE_COMMAND="$0 select $@"
         ;;
     help)
         help
@@ -88,7 +88,7 @@ done
 # Remove trailing ","
 TITLE=${TITLE%?}
 
-BODY=$(printf "%s\n\n%s" "$BODY" "This PR can be recreated  with \`$REPRODUCE_COMMAND\`.")
+BODY=$(printf "%s\n\n%s" "$BODY" "This PR can be recreated with \`$REPRODUCE_COMMAND\`.")
 
 echo "-----------------------------------"
 echo "$TITLE"

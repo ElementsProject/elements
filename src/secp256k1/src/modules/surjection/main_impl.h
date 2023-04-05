@@ -13,11 +13,11 @@
 #include "libsecp256k1-config.h"
 #endif
 
-#include "include/secp256k1_rangeproof.h"
-#include "include/secp256k1_surjectionproof.h"
-#include "modules/rangeproof/borromean.h"
-#include "modules/surjection/surjection_impl.h"
-#include "hash.h"
+#include "../../../include/secp256k1_rangeproof.h"
+#include "../../../include/secp256k1_surjectionproof.h"
+#include "../rangeproof/borromean.h"
+#include "surjection_impl.h"
+#include "../../hash.h"
 
 #ifdef USE_REDUCED_SURJECTION_PROOF_SIZE
 #undef SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS
@@ -243,7 +243,7 @@ int secp256k1_surjectionproof_initialize(const secp256k1_context* ctx, secp256k1
             while (1) {
                 size_t next_input_index;
                 next_input_index = secp256k1_surjectionproof_csprng_next(&csprng, n_input_tags);
-                if (memcmp(&fixed_input_tags[next_input_index], fixed_output_tag, sizeof(*fixed_output_tag)) == 0) {
+                if (secp256k1_memcmp_var(&fixed_input_tags[next_input_index], fixed_output_tag, sizeof(*fixed_output_tag)) == 0) {
                     *input_index = next_input_index;
                     has_output_tag = 1;
                 }
@@ -298,6 +298,10 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     CHECK(proof->initialized == 1);
 #endif
 
+    n_used_pubkeys = secp256k1_surjectionproof_n_used_inputs(ctx, proof);
+    /* This must be true if the proof was created with surjectionproof_initialize */
+    ARG_CHECK(n_used_pubkeys > 0);
+
     /* Compute secret key */
     secp256k1_scalar_set_b32(&tmps, input_blinding_key, &overflow);
     if (overflow) {
@@ -307,17 +311,21 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     if (overflow) {
         return 0;
     }
-    /* The only time the input may equal the output is if neither one was blinded in the first place,
-     * i.e. both blinding keys are zero. Otherwise this is a privacy leak. */
-    if (secp256k1_scalar_eq(&tmps, &blinding_key) && !secp256k1_scalar_is_zero(&blinding_key)) {
-        return 0;
+    /* If any input tag is equal to an output tag, verification will fail, because our ring
+     * signature logic would receive a zero-key, which is illegal. This is unfortunate but
+     * it is deployed on Liquid and cannot be fixed without a hardfork. We should review
+     * this at the same time that we relax the max-256-inputs rule. */
+    for (i = 0; i < n_ephemeral_input_tags; i++) {
+        if (secp256k1_memcmp_var(ephemeral_input_tags[i].data, ephemeral_output_tag->data, sizeof(ephemeral_output_tag->data)) == 0) {
+            return 0;
+        }
     }
     secp256k1_scalar_negate(&tmps, &tmps);
     secp256k1_scalar_add(&blinding_key, &blinding_key, &tmps);
 
     /* Compute public keys */
     n_total_pubkeys = secp256k1_surjectionproof_n_total_inputs(ctx, proof);
-    n_used_pubkeys = secp256k1_surjectionproof_n_used_inputs(ctx, proof);
+
     if (n_used_pubkeys > n_total_pubkeys || n_total_pubkeys != n_ephemeral_input_tags) {
         return 0;
     }

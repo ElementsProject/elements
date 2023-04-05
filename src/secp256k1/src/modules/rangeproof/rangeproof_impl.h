@@ -7,16 +7,15 @@
 #ifndef _SECP256K1_RANGEPROOF_IMPL_H_
 #define _SECP256K1_RANGEPROOF_IMPL_H_
 
-#include "eckey.h"
-#include "scalar.h"
-#include "group.h"
-#include "rangeproof.h"
-#include "hash_impl.h"
-#include "pedersen_impl.h"
-#include "util.h"
+#include "../../eckey.h"
+#include "../../scalar.h"
+#include "../../group.h"
+#include "../../hash_impl.h"
+#include "../../util.h"
 
-#include "modules/rangeproof/pedersen.h"
+#include "modules/generator/pedersen.h"
 #include "modules/rangeproof/borromean.h"
+#include "modules/rangeproof/rangeproof.h"
 
 SECP256K1_INLINE static void secp256k1_rangeproof_pub_expand(secp256k1_gej *pubs,
  int exp, size_t *rsizes, size_t rings, const secp256k1_ge* genp) {
@@ -402,7 +401,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(secp256k1_scalar *
         idx = npub + rsizes[rings - 1] - 1 - j;
         secp256k1_scalar_get_b32(tmp, &s[idx]);
         secp256k1_rangeproof_ch32xor(tmp, &prep[idx * 32]);
-        if ((tmp[0] & 128) && (memcmp(&tmp[16], &tmp[24], 8) == 0) && (memcmp(&tmp[8], &tmp[16], 8) == 0)) {
+        if ((tmp[0] & 128) && (secp256k1_memcmp_var(&tmp[16], &tmp[24], 8) == 0) && (secp256k1_memcmp_var(&tmp[8], &tmp[16], 8) == 0)) {
             value = 0;
             for (i = 0; i < 8; i++) {
                 value = (value << 8) + tmp[24 + i];

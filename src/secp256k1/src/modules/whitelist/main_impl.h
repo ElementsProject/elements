@@ -7,8 +7,8 @@
 #ifndef SECP256K1_MODULE_WHITELIST_MAIN
 #define SECP256K1_MODULE_WHITELIST_MAIN
 
-#include "include/secp256k1_whitelist.h"
-#include "modules/whitelist/whitelist_impl.h"
+#include "../../../include/secp256k1_whitelist.h"
+#include "whitelist_impl.h"
 
 #define MAX_KEYS SECP256K1_WHITELIST_MAX_N_KEYS  /* shorter alias */
 

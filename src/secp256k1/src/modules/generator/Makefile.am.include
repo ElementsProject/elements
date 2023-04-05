@@ -1,4 +1,6 @@
 include_HEADERS += include/secp256k1_generator.h
+noinst_HEADERS += src/modules/generator/pedersen.h
+noinst_HEADERS += src/modules/generator/pedersen_impl.h
 noinst_HEADERS += src/modules/generator/main_impl.h
 noinst_HEADERS += src/modules/generator/tests_impl.h
 if USE_BENCHMARK

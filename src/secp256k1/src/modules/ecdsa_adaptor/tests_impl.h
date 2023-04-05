@@ -1,7 +1,7 @@
 #ifndef SECP256K1_MODULE_ECDSA_ADAPTOR_TESTS_H
 #define SECP256K1_MODULE_ECDSA_ADAPTOR_TESTS_H
 
-#include "include/secp256k1_ecdsa_adaptor.h"
+#include "../../../include/secp256k1_ecdsa_adaptor.h"
 
 void rand_scalar(secp256k1_scalar *scalar) {
     unsigned char buf32[32];

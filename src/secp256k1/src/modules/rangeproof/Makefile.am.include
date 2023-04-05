@@ -1,7 +1,5 @@
 include_HEADERS += include/secp256k1_rangeproof.h
 noinst_HEADERS += src/modules/rangeproof/main_impl.h
-noinst_HEADERS += src/modules/rangeproof/pedersen.h
-noinst_HEADERS += src/modules/rangeproof/pedersen_impl.h
 noinst_HEADERS += src/modules/rangeproof/borromean.h
 noinst_HEADERS += src/modules/rangeproof/borromean_impl.h
 noinst_HEADERS += src/modules/rangeproof/rangeproof.h

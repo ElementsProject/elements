@@ -7,7 +7,7 @@
 #ifndef SECP256K1_MODULE_ECDSA_S2C_TESTS_H
 #define SECP256K1_MODULE_ECDSA_S2C_TESTS_H
 
-#include "include/secp256k1_ecdsa_s2c.h"
+#include "../../../include/secp256k1_ecdsa_s2c.h"
 
 static void test_ecdsa_s2c_tagged_hash(void) {
     unsigned char tag_data[14] = "s2c/ecdsa/data";
@@ -78,7 +78,7 @@ void run_s2c_opening_test(void) {
          * points' x-coordinates are uniformly random */
         if (secp256k1_ecdsa_s2c_opening_parse(none, &opening, input) == 1) {
             CHECK(secp256k1_ecdsa_s2c_opening_serialize(none, output, &opening) == 1);
-            CHECK(memcmp(output, input, sizeof(output)) == 0);
+            CHECK(secp256k1_memcmp_var(output, input, sizeof(output)) == 0);
         }
         secp256k1_testrand256(&input[1]);
         /* Set pubkey oddness tag to first bit of input[1] */
@@ -255,7 +255,7 @@ static void test_ecdsa_s2c_fixed_vectors(void) {
         secp256k1_ecdsa_signature signature;
         CHECK(secp256k1_ecdsa_s2c_sign(ctx, &signature, &s2c_opening, message, privkey, test->s2c_data) == 1);
         CHECK(secp256k1_ecdsa_s2c_opening_serialize(ctx, opening_ser, &s2c_opening) == 1);
-        CHECK(memcmp(test->expected_s2c_opening, opening_ser, sizeof(opening_ser)) == 0);
+        CHECK(secp256k1_memcmp_var(test->expected_s2c_opening, opening_ser, sizeof(opening_ser)) == 0);
         CHECK(secp256k1_ecdsa_s2c_verify_commit(ctx, &signature, test->s2c_data, &s2c_opening) == 1);
     }
 }
@@ -331,7 +331,7 @@ static void test_ecdsa_anti_exfil_signer_commit(void) {
         const ecdsa_s2c_test *test = &ecdsa_s2c_tests[i];
         CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(ctx, &s2c_opening, message, privkey, test->s2c_data) == 1);
         CHECK(secp256k1_ecdsa_s2c_opening_serialize(ctx, buf, &s2c_opening) == 1);
-        CHECK(memcmp(test->expected_s2c_exfil_opening, buf, sizeof(buf)) == 0);
+        CHECK(secp256k1_memcmp_var(test->expected_s2c_exfil_opening, buf, sizeof(buf)) == 0);
     }
 }
 
@@ -397,7 +397,7 @@ static void test_ecdsa_anti_exfil(void) {
         CHECK(secp256k1_ecdsa_verify(ctx, &signature, host_msg, &signer_pubkey) == 1);
         CHECK(secp256k1_anti_exfil_host_verify(ctx, &signature, host_msg, &signer_pubkey, host_nonce_contribution, &s2c_opening) == 0);
         CHECK(secp256k1_anti_exfil_host_verify(ctx, &signature, host_msg, &signer_pubkey, bad_nonce_contribution, &s2c_opening) == 1);
-        CHECK(memcmp(&s2c_opening, &orig_opening, sizeof(s2c_opening)) != 0);
+        CHECK(secp256k1_memcmp_var(&s2c_opening, &orig_opening, sizeof(s2c_opening)) != 0);
     }
 }
 

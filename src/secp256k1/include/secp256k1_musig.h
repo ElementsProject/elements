@@ -9,11 +9,9 @@ extern "C" {
 
 #include <stddef.h>
 
-/** This module implements a Schnorr-based multi-signature scheme called MuSig2
- * (https://eprint.iacr.org/2020/1261, see Appendix B for the exact variant).
- * Signatures are compatible with BIP-340 ("Schnorr").
- * There's an example C source file in the module's directory
- * (examples/musig.c) that demonstrates how it can be used.
+/** This module implements BIP MuSig2 v1.0.0-rc.3, a multi-signature scheme
+ * compatible with BIP-340 ("Schnorr"). You can find an example demonstrating
+ * the musig module in examples/musig.c.
  *
  * The module also supports BIP-341 ("Taproot") public key tweaking and adaptor
  * signatures as described in
@@ -22,12 +20,8 @@ extern "C" {
  * It is recommended to read the documentation in this include file carefully.
  * Further notes on API usage can be found in src/modules/musig/musig.md
  *
- * You may know that the MuSig2 scheme uses two "nonces" instead of one. This
- * is not wrong, but only a technical detail we don't want to bother the user
- * with. Therefore, the API only uses the singular term "nonce".
- *
- * Since the first version of MuSig is essentially replaced by MuSig2, when
- * writing MuSig or musig here we mean MuSig2.
+ * Since the first version of MuSig is essentially replaced by MuSig2, we use
+ * MuSig, musig and MuSig2 synonymously unless noted otherwise.
  */
 
 /** Opaque data structures
@@ -40,16 +34,16 @@ extern "C" {
 
 /** Opaque data structure that caches information about public key aggregation.
  *
- *  Guaranteed to be 165 bytes in size. It can be safely copied/moved. No
+ *  Guaranteed to be 197 bytes in size. It can be safely copied/moved. No
  *  serialization and parsing functions (yet).
  */
 typedef struct {
-    unsigned char data[165];
+    unsigned char data[197];
 } secp256k1_musig_keyagg_cache;
 
 /** Opaque data structure that holds a signer's _secret_ nonce.
  *
- *  Guaranteed to be 68 bytes in size.
+ *  Guaranteed to be 132 bytes in size.
  *
  *  WARNING: This structure MUST NOT be copied or read or written to directly. A
  *  signer who is online throughout the whole process and can keep this
@@ -63,7 +57,7 @@ typedef struct {
  *  leak the secret signing key.
  */
 typedef struct {
-    unsigned char data[68];
+    unsigned char data[132];
 } secp256k1_musig_secnonce;
 
 /** Opaque data structure that holds a signer's public nonce.
@@ -190,8 +184,8 @@ SECP256K1_API int secp256k1_musig_partial_sig_parse(
  *
  *  Different orders of `pubkeys` result in different `agg_pk`s.
  *
- *  The pubkeys can be sorted before combining with `secp256k1_xonly_sort` which
- *  ensures the same `agg_pk` result for the same multiset of pubkeys.
+ *  Before aggregating, the pubkeys can be sorted with `secp256k1_pubkey_sort`
+ *  which ensures the same `agg_pk` result for the same multiset of pubkeys.
  *  This is useful to do before `pubkey_agg`, such that the order of pubkeys
  *  does not affect the aggregate public key.
  *
@@ -219,14 +213,14 @@ SECP256K1_API int secp256k1_musig_pubkey_agg(
     secp256k1_scratch_space *scratch,
     secp256k1_xonly_pubkey *agg_pk,
     secp256k1_musig_keyagg_cache *keyagg_cache,
-    const secp256k1_xonly_pubkey * const* pubkeys,
+    const secp256k1_pubkey * const* pubkeys,
     size_t n_pubkeys
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(5);
 
 /** Obtain the aggregate public key from a keyagg_cache.
  *
  *  This is only useful if you need the non-xonly public key, in particular for
- *  ordinary (non-xonly) tweaking or batch-verifying multiple key aggregations
+ *  plain (non-xonly) tweaking or batch-verifying multiple key aggregations
  *  (not implemented).
  *
  *  Returns: 0 if the arguments are invalid, 1 otherwise
@@ -241,7 +235,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_pubkey_get(
     secp256k1_musig_keyagg_cache *keyagg_cache
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
-/** Apply ordinary "EC" tweaking to a public key in a given keyagg_cache by
+/** Apply plain "EC" tweaking to a public key in a given keyagg_cache by
  *  adding the generator multiplied with `tweak32` to it. This is useful for
  *  deriving child keys from an aggregate public key via BIP32.
  *
@@ -357,6 +351,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_pubkey_xonly_twea
  *                     unless you really know what you are doing.
  *             seckey: the 32-byte secret key that will later be used for signing, if
  *                     already known (can be NULL)
+ *             pubkey: public key of the signer creating the nonce. The secnonce
+ *                     output of this function cannot be used to sign for any
+ *                     other public key.
  *              msg32: the 32-byte message that will later be signed, if already known
  *                     (can be NULL)
  *       keyagg_cache: pointer to the keyagg_cache that was used to create the aggregate
@@ -371,10 +368,11 @@ SECP256K1_API int secp256k1_musig_nonce_gen(
     secp256k1_musig_pubnonce *pubnonce,
     const unsigned char *session_id32,
     const unsigned char *seckey,
+    const secp256k1_pubkey *pubkey,
     const unsigned char *msg32,
     const secp256k1_musig_keyagg_cache *keyagg_cache,
     const unsigned char *extra_input32
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(6);
 
 /** Aggregates the nonces of all signers into a single nonce
  *
@@ -436,13 +434,20 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_nonce_process(
  *  reuse. However, this is of course easily defeated if the secnonce has been
  *  copied (or serialized). Remember that nonce reuse will leak the secret key!
  *
+ *  For signing to succeed, the secnonce provided to this function must have
+ *  been generated for the provided keypair. This means that when signing for a
+ *  keypair consisting of a seckey and pubkey, the secnonce must have been
+ *  created by calling musig_nonce_gen with that pubkey. Otherwise, the
+ *  illegal_callback is called.
+ *
  *  Returns: 0 if the arguments are invalid or the provided secnonce has already
  *           been used for signing, 1 otherwise
  *  Args:         ctx: pointer to a context object
  *  Out:  partial_sig: pointer to struct to store the partial signature
  *  In/Out:  secnonce: pointer to the secnonce struct created in
  *                     musig_nonce_gen that has been never used in a
- *                     partial_sign call before
+ *                     partial_sign call before and has been created for the
+ *                     keypair
  *  In:       keypair: pointer to keypair to sign the message with
  *       keyagg_cache: pointer to the keyagg_cache that was output when the
  *                     aggregate public key for this session
@@ -494,7 +499,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_partial_sig_verif
     const secp256k1_context* ctx,
     const secp256k1_musig_partial_sig *partial_sig,
     const secp256k1_musig_pubnonce *pubnonce,
-    const secp256k1_xonly_pubkey *pubkey,
+    const secp256k1_pubkey *pubkey,
     const secp256k1_musig_keyagg_cache *keyagg_cache,
     const secp256k1_musig_session *session
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);

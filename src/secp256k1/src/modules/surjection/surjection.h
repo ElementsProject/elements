@@ -7,8 +7,8 @@
 #ifndef _SECP256K1_SURJECTION_H_
 #define _SECP256K1_SURJECTION_H_
 
-#include "group.h"
-#include "scalar.h"
+#include "../../group.h"
+#include "../../scalar.h"
 
 SECP256K1_INLINE static int secp256k1_surjection_genmessage(unsigned char *msg32, secp256k1_ge *ephemeral_input_tags, size_t n_input_tags, secp256k1_ge *ephemeral_output_tag);
 

@@ -1,0 +1,13 @@
+include_HEADERS += include/secp256k1_bppp.h
+noinst_HEADERS += src/modules/bppp/bppp_util.h
+noinst_HEADERS += src/modules/bppp/main_impl.h
+noinst_HEADERS += src/modules/bppp/bppp_transcript_impl.h
+noinst_HEADERS += src/modules/bppp/bppp_norm_product_impl.h
+noinst_HEADERS += src/modules/bppp/tests_impl.h
+
+if USE_BENCHMARK
+noinst_PROGRAMS += bench_bppp
+bench_bppp_SOURCES = src/bench_bppp.c
+bench_bppp_LDADD = libsecp256k1.la $(SECP_LIBS)
+bench_bppp_LDFLAGS = -static
+endif

@@ -7,11 +7,11 @@
 #ifndef SECP256K1_MODULE_SURJECTIONPROOF_TESTS
 #define SECP256K1_MODULE_SURJECTIONPROOF_TESTS
 
-#include "testrand.h"
-#include "group.h"
-#include "include/secp256k1_generator.h"
-#include "include/secp256k1_rangeproof.h"
-#include "include/secp256k1_surjectionproof.h"
+#include "../../testrand.h"
+#include "../../group.h"
+#include "../../../include/secp256k1_generator.h"
+#include "../../../include/secp256k1_rangeproof.h"
+#include "../../../include/secp256k1_surjectionproof.h"
 
 static void test_surjectionproof_api(void) {
     unsigned char seed[32];
@@ -173,31 +173,45 @@ static void test_surjectionproof_api(void) {
     CHECK(secp256k1_surjectionproof_verify(vrfy, &proof, ephemeral_input_tags, n_inputs, NULL) == 0);
     CHECK(ecount == 16);
 
+    /* Test how surjectionproof_generate fails when the proof was not created
+     * with surjectionproof_initialize */
+    ecount = 0;
+    CHECK(secp256k1_surjectionproof_generate(sign, &proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) == 1);
+    {
+        secp256k1_surjectionproof tmp_proof = proof;
+        tmp_proof.n_inputs = 0;
+        CHECK(secp256k1_surjectionproof_generate(sign, &tmp_proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) == 0);
+    }
+    CHECK(ecount == 1);
+
+    CHECK(secp256k1_surjectionproof_generate(sign, &proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) == 1);
+
     /* Check serialize */
+    ecount = 0;
     serialized_len = sizeof(serialized_proof);
     CHECK(secp256k1_surjectionproof_serialize(none, serialized_proof, &serialized_len, &proof) != 0);
-    CHECK(ecount == 16);
+    CHECK(ecount == 0);
     serialized_len = sizeof(serialized_proof);
     CHECK(secp256k1_surjectionproof_serialize(none, NULL, &serialized_len, &proof) == 0);
-    CHECK(ecount == 17);
+    CHECK(ecount == 1);
     serialized_len = sizeof(serialized_proof);
     CHECK(secp256k1_surjectionproof_serialize(none, serialized_proof, NULL, &proof) == 0);
-    CHECK(ecount == 18);
+    CHECK(ecount == 2);
     serialized_len = sizeof(serialized_proof);
     CHECK(secp256k1_surjectionproof_serialize(none, serialized_proof, &serialized_len, NULL) == 0);
-    CHECK(ecount == 19);
+    CHECK(ecount == 3);
 
     serialized_len = sizeof(serialized_proof);
     CHECK(secp256k1_surjectionproof_serialize(none, serialized_proof, &serialized_len, &proof) != 0);
     /* Check parse */
     CHECK(secp256k1_surjectionproof_parse(none, &proof, serialized_proof, serialized_len) != 0);
-    CHECK(ecount == 19);
+    CHECK(ecount == 3);
     CHECK(secp256k1_surjectionproof_parse(none, NULL, serialized_proof, serialized_len) == 0);
-    CHECK(ecount == 20);
+    CHECK(ecount == 4);
     CHECK(secp256k1_surjectionproof_parse(none, &proof, NULL, serialized_len) == 0);
-    CHECK(ecount == 21);
+    CHECK(ecount == 5);
     CHECK(secp256k1_surjectionproof_parse(none, &proof, serialized_proof, 0) == 0);
-    CHECK(ecount == 21);
+    CHECK(ecount == 5);
 
     secp256k1_context_destroy(none);
     secp256k1_context_destroy(sign);
@@ -524,6 +538,31 @@ void test_bad_parse(void) {
     CHECK(secp256k1_surjectionproof_parse(ctx, &proof, serialized_proof2, sizeof(serialized_proof2)) == 0);
 }
 
+void test_input_eq_output(void) {
+    secp256k1_surjectionproof proof;
+    secp256k1_fixed_asset_tag fixed_tag;
+    secp256k1_generator ephemeral_tag;
+    unsigned char blinding_key[32];
+    unsigned char entropy[32];
+    size_t input_index;
+
+    secp256k1_testrand256(fixed_tag.data);
+    secp256k1_testrand256(blinding_key);
+    secp256k1_testrand256(entropy);
+
+    CHECK(secp256k1_surjectionproof_initialize(ctx, &proof, &input_index, &fixed_tag, 1, 1, &fixed_tag, 100, entropy) == 1);
+    CHECK(input_index == 0);
+
+    /* Generation should fail */
+    CHECK(secp256k1_generator_generate_blinded(ctx, &ephemeral_tag, fixed_tag.data, blinding_key));
+    CHECK(!secp256k1_surjectionproof_generate(ctx, &proof, &ephemeral_tag, 1, &ephemeral_tag, input_index, blinding_key, blinding_key));
+
+    /* ...even when the blinding key is zero */
+    memset(blinding_key, 0, 32);
+    CHECK(secp256k1_generator_generate_blinded(ctx, &ephemeral_tag, fixed_tag.data, blinding_key));
+    CHECK(!secp256k1_surjectionproof_generate(ctx, &proof, &ephemeral_tag, 1, &ephemeral_tag, input_index, blinding_key, blinding_key));
+}
+
 void test_fixed_vectors(void) {
     const unsigned char tag0_ser[] = {
         0x0a,
@@ -672,6 +711,7 @@ void test_fixed_vectors(void) {
 
 void run_surjection_tests(void) {
     test_surjectionproof_api();
+    test_input_eq_output();
     test_fixed_vectors();
 
     test_input_selection(0);

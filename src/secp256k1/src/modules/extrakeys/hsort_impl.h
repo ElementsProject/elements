@@ -23,7 +23,7 @@ static SECP256K1_INLINE size_t child2(size_t i) {
     return child1(i)+1;
 }
 
-static SECP256K1_INLINE void swap64(unsigned char *a, size_t i, size_t j, size_t stride) {
+static SECP256K1_INLINE void heap_swap64(unsigned char *a, size_t i, size_t j, size_t stride) {
     unsigned char tmp[64];
     VERIFY_CHECK(stride <= 64);
     memcpy(tmp, a + i*stride, stride);
@@ -31,12 +31,12 @@ static SECP256K1_INLINE void swap64(unsigned char *a, size_t i, size_t j, size_t
     memcpy(a + j*stride, tmp, stride);
 }
 
-static SECP256K1_INLINE void swap(unsigned char *a, size_t i, size_t j, size_t stride) {
+static SECP256K1_INLINE void heap_swap(unsigned char *a, size_t i, size_t j, size_t stride) {
     while (64 < stride) {
-        swap64(a + (stride - 64), i, j, 64);
+        heap_swap64(a + (stride - 64), i, j, 64);
         stride -= 64;
     }
-    swap64(a, i, j, stride);
+    heap_swap64(a, i, j, stride);
 }
 
 static SECP256K1_INLINE void heap_down(unsigned char *a, size_t i, size_t heap_size, size_t stride,
@@ -71,7 +71,7 @@ static SECP256K1_INLINE void heap_down(unsigned char *a, size_t i, size_t heap_s
         if (child2(i) < heap_size
                 && 0 <= cmp(a + child2(i)*stride, a + child1(i)*stride, cmp_data)) {
             if (0 < cmp(a + child2(i)*stride, a +         i*stride, cmp_data)) {
-                swap(a, i, child2(i), stride);
+                heap_swap(a, i, child2(i), stride);
                 i = child2(i);
             } else {
                 /* At this point we have [child2(i)] >= [child1(i)] and we have
@@ -80,7 +80,7 @@ static SECP256K1_INLINE void heap_down(unsigned char *a, size_t i, size_t heap_s
                 return;
             }
         } else if (0 < cmp(a + child1(i)*stride, a +         i*stride, cmp_data)) {
-            swap(a, i, child1(i), stride);
+            heap_swap(a, i, child1(i), stride);
             i = child1(i);
         } else {
             return;
@@ -106,7 +106,7 @@ static void secp256k1_hsort(void *ptr, size_t count, size_t size,
     }
     for(i = count; 1 < i; --i) {
         /* Extract the largest value from the heap */
-        swap(ptr, 0, i-1, size);
+        heap_swap(ptr, 0, i-1, size);
 
         /* Repair the heap condition */
         heap_down(ptr, 0, i-1, size, cmp, cmp_data);

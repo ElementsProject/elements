@@ -38,8 +38,6 @@
 
 #ifdef ENABLE_MODULE_RANGEPROOF
 # include "include/secp256k1_rangeproof.h"
-# include "modules/rangeproof/pedersen.h"
-# include "modules/rangeproof/rangeproof.h"
 #endif
 
 #ifdef ENABLE_MODULE_ECDSA_S2C
@@ -801,6 +799,10 @@ int secp256k1_tagged_sha256(const secp256k1_context* ctx, unsigned char *hash32,
     secp256k1_sha256_finalize(&sha, hash32);
     return 1;
 }
+
+#ifdef ENABLE_MODULE_BPPP
+# include "modules/bppp/main_impl.h"
+#endif
 
 #ifdef ENABLE_MODULE_ECDH
 # include "modules/ecdh/main_impl.h"

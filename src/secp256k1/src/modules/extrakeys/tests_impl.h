@@ -619,14 +619,53 @@ void test_hsort(void) {
 }
 #undef NUM
 
-void test_xonly_sort_helper(secp256k1_xonly_pubkey *pk, size_t *pk_order, size_t n_pk) {
+void test_pubkey_comparison(void) {
+    unsigned char pk1_ser[33] = {
+        0x02,
+        0x58, 0x84, 0xb3, 0xa2, 0x4b, 0x97, 0x37, 0x88, 0x92, 0x38, 0xa6, 0x26, 0x62, 0x52, 0x35, 0x11,
+        0xd0, 0x9a, 0xa1, 0x1b, 0x80, 0x0b, 0x5e, 0x93, 0x80, 0x26, 0x11, 0xef, 0x67, 0x4b, 0xd9, 0x23
+    };
+    const unsigned char pk2_ser[33] = {
+        0x03,
+        0xde, 0x36, 0x0e, 0x87, 0x59, 0x8f, 0x3c, 0x01, 0x36, 0x2a, 0x2a, 0xb8, 0xc6, 0xf4, 0x5e, 0x4d,
+        0xb2, 0xc2, 0xd5, 0x03, 0xa7, 0xf9, 0xf1, 0x4f, 0xa8, 0xfa, 0x95, 0xa8, 0xe9, 0x69, 0x76, 0x1c
+    };
+    secp256k1_pubkey pk1;
+    secp256k1_pubkey pk2;
+    int ecount = 0;
+    secp256k1_context *none = api_test_context(SECP256K1_CONTEXT_NONE, &ecount);
+
+    CHECK(secp256k1_ec_pubkey_parse(none, &pk1, pk1_ser, sizeof(pk1_ser)) == 1);
+    CHECK(secp256k1_ec_pubkey_parse(none, &pk2, pk2_ser, sizeof(pk2_ser)) == 1);
+
+    CHECK(secp256k1_pubkey_cmp(none, NULL, &pk2) < 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_pubkey_cmp(none, &pk1, NULL) > 0);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_pubkey_cmp(none, &pk1, &pk2) < 0);
+    CHECK(secp256k1_pubkey_cmp(none, &pk2, &pk1) > 0);
+    CHECK(secp256k1_pubkey_cmp(none, &pk1, &pk1) == 0);
+    CHECK(secp256k1_pubkey_cmp(none, &pk2, &pk2) == 0);
+    CHECK(ecount == 2);
+    memset(&pk1, 0, sizeof(pk1)); /* illegal pubkey */
+    CHECK(secp256k1_pubkey_cmp(none, &pk1, &pk2) < 0);
+    CHECK(ecount == 3);
+    CHECK(secp256k1_pubkey_cmp(none, &pk1, &pk1) == 0);
+    CHECK(ecount == 5);
+    CHECK(secp256k1_pubkey_cmp(none, &pk2, &pk1) > 0);
+    CHECK(ecount == 6);
+
+    secp256k1_context_destroy(none);
+}
+
+void test_sort_helper(secp256k1_pubkey *pk, size_t *pk_order, size_t n_pk) {
     size_t i;
-    const secp256k1_xonly_pubkey *pk_test[5];
+    const secp256k1_pubkey *pk_test[5];
 
     for (i = 0; i < n_pk; i++) {
         pk_test[i] = &pk[pk_order[i]];
     }
-    secp256k1_xonly_sort(ctx, pk_test, n_pk);
+    secp256k1_pubkey_sort(ctx, pk_test, n_pk);
     for (i = 0; i < n_pk; i++) {
         CHECK(secp256k1_memcmp_var(pk_test[i], &pk[i], sizeof(*pk_test[i])) == 0);
     }
@@ -643,85 +682,128 @@ void permute(size_t *arr, size_t n) {
     }
 }
 
-void rand_xonly_pk(secp256k1_xonly_pubkey *pk) {
+void rand_pk(secp256k1_pubkey *pk) {
     unsigned char seckey[32];
     secp256k1_keypair keypair;
     secp256k1_testrand256(seckey);
     CHECK(secp256k1_keypair_create(ctx, &keypair, seckey) == 1);
-    CHECK(secp256k1_keypair_xonly_pub(ctx, pk, NULL, &keypair) == 1);
+    CHECK(secp256k1_keypair_pub(ctx, pk, &keypair) == 1);
 }
 
-void test_xonly_sort_api(void) {
+void test_sort_api(void) {
     int ecount = 0;
-    secp256k1_xonly_pubkey pks[2];
-    const secp256k1_xonly_pubkey *pks_ptr[2];
+    secp256k1_pubkey pks[2];
+    const secp256k1_pubkey *pks_ptr[2];
     secp256k1_context *none = api_test_context(SECP256K1_CONTEXT_NONE, &ecount);
 
     pks_ptr[0] = &pks[0];
     pks_ptr[1] = &pks[1];
 
-    rand_xonly_pk(&pks[0]);
-    rand_xonly_pk(&pks[1]);
+    rand_pk(&pks[0]);
+    rand_pk(&pks[1]);
 
-    CHECK(secp256k1_xonly_sort(none, pks_ptr, 2) == 1);
-    CHECK(secp256k1_xonly_sort(none, NULL, 2) == 0);
+    CHECK(secp256k1_pubkey_sort(none, pks_ptr, 2) == 1);
+    CHECK(secp256k1_pubkey_sort(none, NULL, 2) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_xonly_sort(none, pks_ptr, 0) == 1);
+    CHECK(secp256k1_pubkey_sort(none, pks_ptr, 0) == 1);
     /* Test illegal public keys */
     memset(&pks[0], 0, sizeof(pks[0]));
-    CHECK(secp256k1_xonly_sort(none, pks_ptr, 2) == 1);
+    CHECK(secp256k1_pubkey_sort(none, pks_ptr, 2) == 1);
     CHECK(ecount == 2);
     memset(&pks[1], 0, sizeof(pks[1]));
-    CHECK(secp256k1_xonly_sort(none, pks_ptr, 2) == 1);
+    CHECK(secp256k1_pubkey_sort(none, pks_ptr, 2) == 1);
     CHECK(ecount > 2);
 
     secp256k1_context_destroy(none);
 }
 
-void test_xonly_sort(void) {
-    secp256k1_xonly_pubkey pk[5];
-    unsigned char pk_ser[5][32];
+void test_sort(void) {
+    secp256k1_pubkey pk[5];
+    unsigned char pk_ser[5][33] = {
+        { 0x02, 0x08 },
+        { 0x02, 0x0b },
+        { 0x02, 0x0c },
+        { 0x03, 0x05 },
+        { 0x03, 0x0a },
+    };
     int i;
     size_t pk_order[5] = { 0, 1, 2, 3, 4 };
 
     for (i = 0; i < 5; i++) {
-        memset(pk_ser[i], 0, sizeof(pk_ser[i]));
-    }
-    pk_ser[0][0] = 5;
-    pk_ser[1][0] = 8;
-    pk_ser[2][0] = 0x0a;
-    pk_ser[3][0] = 0x0b;
-    pk_ser[4][0] = 0x0c;
-    for (i = 0; i < 5; i++) {
-        CHECK(secp256k1_xonly_pubkey_parse(ctx, &pk[i], pk_ser[i]));
+        CHECK(secp256k1_ec_pubkey_parse(ctx, &pk[i], pk_ser[i], sizeof(pk_ser[i])));
     }
 
     permute(pk_order, 1);
-    test_xonly_sort_helper(pk, pk_order, 1);
+    test_sort_helper(pk, pk_order, 1);
     permute(pk_order, 2);
-    test_xonly_sort_helper(pk, pk_order, 2);
+    test_sort_helper(pk, pk_order, 2);
     permute(pk_order, 3);
-    test_xonly_sort_helper(pk, pk_order, 3);
+    test_sort_helper(pk, pk_order, 3);
     for (i = 0; i < count; i++) {
         permute(pk_order, 4);
-        test_xonly_sort_helper(pk, pk_order, 4);
+        test_sort_helper(pk, pk_order, 4);
     }
     for (i = 0; i < count; i++) {
         permute(pk_order, 5);
-        test_xonly_sort_helper(pk, pk_order, 5);
+        test_sort_helper(pk, pk_order, 5);
     }
     /* Check that sorting also works for random pubkeys */
     for (i = 0; i < count; i++) {
         int j;
-        const secp256k1_xonly_pubkey *pk_ptr[5];
+        const secp256k1_pubkey *pk_ptr[5];
         for (j = 0; j < 5; j++) {
-            rand_xonly_pk(&pk[j]);
+            rand_pk(&pk[j]);
             pk_ptr[j] = &pk[j];
         }
-        secp256k1_xonly_sort(ctx, pk_ptr, 5);
+        secp256k1_pubkey_sort(ctx, pk_ptr, 5);
         for (j = 1; j < 5; j++) {
-            CHECK(secp256k1_xonly_sort_cmp(&pk_ptr[j - 1], &pk_ptr[j], ctx) <= 0);
+            CHECK(secp256k1_pubkey_sort_cmp(&pk_ptr[j - 1], &pk_ptr[j], ctx) <= 0);
         }
+    }
+}
+
+/* Test vectors from BIP-MuSig2 */
+void test_sort_vectors(void) {
+    enum { N_PUBKEYS = 6 };
+    unsigned char pk_ser[N_PUBKEYS][33] = {
+        { 0x02, 0xDD, 0x30, 0x8A, 0xFE, 0xC5, 0x77, 0x7E, 0x13, 0x12, 0x1F,
+          0xA7, 0x2B, 0x9C, 0xC1, 0xB7, 0xCC, 0x01, 0x39, 0x71, 0x53, 0x09,
+          0xB0, 0x86, 0xC9, 0x60, 0xE1, 0x8F, 0xD9, 0x69, 0x77, 0x4E, 0xB8 },
+        { 0x02, 0xF9, 0x30, 0x8A, 0x01, 0x92, 0x58, 0xC3, 0x10, 0x49, 0x34,
+          0x4F, 0x85, 0xF8, 0x9D, 0x52, 0x29, 0xB5, 0x31, 0xC8, 0x45, 0x83,
+          0x6F, 0x99, 0xB0, 0x86, 0x01, 0xF1, 0x13, 0xBC, 0xE0, 0x36, 0xF9 },
+        { 0x03, 0xDF, 0xF1, 0xD7, 0x7F, 0x2A, 0x67, 0x1C, 0x5F, 0x36, 0x18,
+          0x37, 0x26, 0xDB, 0x23, 0x41, 0xBE, 0x58, 0xFE, 0xAE, 0x1D, 0xA2,
+          0xDE, 0xCE, 0xD8, 0x43, 0x24, 0x0F, 0x7B, 0x50, 0x2B, 0xA6, 0x59 },
+        { 0x02, 0x35, 0x90, 0xA9, 0x4E, 0x76, 0x8F, 0x8E, 0x18, 0x15, 0xC2,
+          0xF2, 0x4B, 0x4D, 0x80, 0xA8, 0xE3, 0x14, 0x93, 0x16, 0xC3, 0x51,
+          0x8C, 0xE7, 0xB7, 0xAD, 0x33, 0x83, 0x68, 0xD0, 0x38, 0xCA, 0x66 },
+        { 0x02, 0xDD, 0x30, 0x8A, 0xFE, 0xC5, 0x77, 0x7E, 0x13, 0x12, 0x1F,
+          0xA7, 0x2B, 0x9C, 0xC1, 0xB7, 0xCC, 0x01, 0x39, 0x71, 0x53, 0x09,
+          0xB0, 0x86, 0xC9, 0x60, 0xE1, 0x8F, 0xD9, 0x69, 0x77, 0x4E, 0xFF },
+        { 0x02, 0xDD, 0x30, 0x8A, 0xFE, 0xC5, 0x77, 0x7E, 0x13, 0x12, 0x1F,
+          0xA7, 0x2B, 0x9C, 0xC1, 0xB7, 0xCC, 0x01, 0x39, 0x71, 0x53, 0x09,
+          0xB0, 0x86, 0xC9, 0x60, 0xE1, 0x8F, 0xD9, 0x69, 0x77, 0x4E, 0xB8 }
+    };
+    secp256k1_pubkey pubkeys[N_PUBKEYS];
+    secp256k1_pubkey *sorted[N_PUBKEYS];
+    const secp256k1_pubkey *pks_ptr[N_PUBKEYS];
+    int i;
+
+    sorted[0] = &pubkeys[3];
+    sorted[1] = &pubkeys[0];
+    sorted[2] = &pubkeys[0];
+    sorted[3] = &pubkeys[4];
+    sorted[4] = &pubkeys[1];
+    sorted[5] = &pubkeys[2];
+
+    for (i = 0; i < N_PUBKEYS; i++) {
+        CHECK(secp256k1_ec_pubkey_parse(ctx, &pubkeys[i], pk_ser[i], sizeof(pk_ser[i])));
+        pks_ptr[i] = &pubkeys[i];
+    }
+    CHECK(secp256k1_pubkey_sort(ctx, pks_ptr, N_PUBKEYS) == 1);
+    for (i = 0; i < N_PUBKEYS; i++) {
+        CHECK(secp256k1_memcmp_var(pks_ptr[i], sorted[i], sizeof(secp256k1_pubkey)) == 0);
     }
 }
 
@@ -738,8 +820,10 @@ void run_extrakeys_tests(void) {
     test_keypair_add();
 
     test_hsort();
-    test_xonly_sort_api();
-    test_xonly_sort();
+    test_pubkey_comparison();
+    test_sort_api();
+    test_sort();
+    test_sort_vectors();
 }
 
 #endif

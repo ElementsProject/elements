@@ -8,13 +8,13 @@
 #ifndef _SECP256K1_BORROMEAN_IMPL_H_
 #define _SECP256K1_BORROMEAN_IMPL_H_
 
-#include "scalar.h"
-#include "field.h"
-#include "group.h"
-#include "hash.h"
-#include "eckey.h"
-#include "ecmult.h"
-#include "ecmult_gen.h"
+#include "../../scalar.h"
+#include "../../field.h"
+#include "../../group.h"
+#include "../../hash.h"
+#include "../../eckey.h"
+#include "../../ecmult.h"
+#include "../../ecmult_gen.h"
 #include "borromean.h"
 
 #include <limits.h>
@@ -105,7 +105,7 @@ int secp256k1_borromean_verify(secp256k1_scalar *evalues, const unsigned char *e
     }
     secp256k1_sha256_write(&sha256_e0, m, mlen);
     secp256k1_sha256_finalize(&sha256_e0, tmp);
-    return memcmp(e0, tmp, 32) == 0;
+    return secp256k1_memcmp_var(e0, tmp, 32) == 0;
 }
 
 int secp256k1_borromean_sign(const secp256k1_ecmult_gen_context *ecmult_gen_ctx,

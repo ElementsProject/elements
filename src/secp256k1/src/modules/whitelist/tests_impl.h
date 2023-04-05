@@ -7,7 +7,7 @@
 #ifndef SECP256K1_MODULE_WHITELIST_TESTS
 #define SECP256K1_MODULE_WHITELIST_TESTS
 
-#include "include/secp256k1_whitelist.h"
+#include "../../../include/secp256k1_whitelist.h"
 
 void test_whitelist_end_to_end_internal(const unsigned char *summed_seckey, const unsigned char *online_seckey, const secp256k1_pubkey *online_pubkeys, const secp256k1_pubkey *offline_pubkeys, const secp256k1_pubkey *sub_pubkey, const size_t signer_i, const size_t n_keys) {
         unsigned char serialized[32 + 4 + 32 * SECP256K1_WHITELIST_MAX_N_KEYS] = {0};
