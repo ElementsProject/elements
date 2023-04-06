@@ -102,6 +102,9 @@ class CTTest (BitcoinTestFramework):
         assert_equal(rec.getaddressinfo(blind_info["unconfidential"])["confidential"], blind_addr)
         self.nodes[0].unloadwallet("recover")
 
+        # clean up blind_details
+        os.remove(file_path)
+
     def test_null_rangeproof_enforcement(self):
         self.nodes[0].generate(1)
 
