@@ -249,6 +249,7 @@ BASE_SCRIPTS = [
     'rpc_createmultisig.py --legacy-wallet',
     'rpc_createmultisig.py --descriptors',
     'rpc_packages.py',
+    'mempool_package_limits.py',
     # ELEMENTS: no versionbits in use
     #'feature_versionbits_warning.py',
     'rpc_preciousblock.py',
