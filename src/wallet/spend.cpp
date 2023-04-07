@@ -887,7 +887,7 @@ bool CWallet::CreateTransactionInternal(
     std::map<CAsset, std::pair<int, CScript>> mapScriptChange;
     // For manually set change, we need to use the blinding pubkey associated
     // with the manually-set address rather than generating one from the wallet
-    std::map<CAsset, std::optional<CPubKey> > mapBlindingKeyChange;
+    std::map<CAsset, std::optional<CPubKey>> mapBlindingKeyChange;
 
     // coin control: send change to custom address
     if (coin_control.destChange.size() > 0) {
@@ -914,12 +914,12 @@ bool CWallet::CreateTransactionInternal(
             // Reserve a new key pair from key pool. If it fails, provide a dummy
             // destination in case we don't need change.
             CTxDestination dest;
-            std::string dest_err;
+            bilingual_str dest_err;
             if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(dest, true, dest_err)) {
                 if (dest_err.empty()) {
-                    dest_err = "Please call keypoolrefill first";
+                    dest_err = _("Please call keypoolrefill first");
                 }
-                error = strprintf(_("Transaction needs a change address, but we can't generate it. %s"), dest_err);
+                error = _("Transaction needs a change address, but we can't generate it.") + Untranslated(" ") + dest_err;
                 // ELEMENTS: We need to put a dummy destination here. Core uses an empty script
                 //  but we can't because empty scripts indicate fees (which trigger assertion
                 //  failures in `BlindTransaction`). We also set the index to -1, indicating
@@ -954,12 +954,12 @@ bool CWallet::CreateTransactionInternal(
             }
 
             CTxDestination dest;
-            std::string dest_err;
+            bilingual_str dest_err;
             if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(dest, true, dest_err)) {
                 if (dest_err.empty()) {
-                    dest_err = "Keypool ran out, please call keypoolrefill first";
+                    dest_err = _("Keypool ran out, please call keypoolrefill first");
                 }
-                error = strprintf(_("Transaction needs a change address, but we can't generate it. %s"), dest_err);
+                error = _("Transaction needs a change address, but we can't generate it.") + Untranslated(" ") + dest_err;
                 return false;
             }
 

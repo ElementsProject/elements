@@ -310,10 +310,10 @@ static RPCHelpMan getnewaddress()
     }
 
     CTxDestination dest;
-    std::string error;
+    bilingual_str error;
     bool add_blinding_key = force_blind || gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode);
     if (!pwallet->GetNewDestination(output_type, label, dest, error, add_blinding_key)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
     }
 
     return EncodeDestination(dest);
@@ -364,10 +364,10 @@ static RPCHelpMan getrawchangeaddress()
     }
 
     CTxDestination dest;
-    std::string error;
+    bilingual_str error;
     bool add_blinding_key = force_blind || gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode);
     if (!pwallet->GetNewChangeDestination(output_type, dest, error, add_blinding_key)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
     }
     return EncodeDestination(dest);
 },
@@ -3728,7 +3728,7 @@ RPCHelpMan signrawtransactionwithwallet()
     int nHashType = ParseSighashString(request.params[2]);
 
     // Script verification errors
-    std::map<int, std::string> input_errors;
+    std::map<int, bilingual_str> input_errors;
 
     bool immature_pegin = ValidateTransactionPeginInputs(mtx, pwallet->chain().getTip(), input_errors);
     bool complete = pwallet->SignTransaction(mtx, coins, nHashType, input_errors);
@@ -5369,9 +5369,9 @@ static RPCHelpMan getpeginaddress()
 
     // Use native witness destination
     CTxDestination dest;
-    std::string error;
+    bilingual_str error;
     if (!pwallet->GetNewDestination(OutputType::BECH32, "", dest, error)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
     }
 
     CScript dest_script = GetScriptForDestination(dest);
@@ -6013,9 +6013,9 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
 
     // Generate a new key that is added to wallet
     CTxDestination wpkhash;
-    std::string error;
+    bilingual_str error;
     if (!pwallet->GetNewDestination(OutputType::BECH32, "", wpkhash, error)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
     }
 
     // Get value for output
@@ -6624,7 +6624,7 @@ static RPCHelpMan issueasset()
         pwallet->TopUpKeyPool();
 
     // Generate a new key that is added to wallet
-    std::string error;
+    bilingual_str error;
     CPubKey newKey;
     CTxDestination asset_dest;
     CTxDestination token_dest;
@@ -6633,13 +6633,13 @@ static RPCHelpMan issueasset()
 
     if (nAmount > 0) {
         if (!pwallet->GetNewDestination(OutputType::BECH32, "", asset_dest, error)) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
         }
         asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
     }
     if (nTokens > 0) {
         if (!pwallet->GetNewDestination(OutputType::BECH32, "", token_dest, error)) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
         }
         token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
     }
@@ -6731,17 +6731,17 @@ static RPCHelpMan reissueasset()
     }
 
     // Add destination for the to-be-created asset
-    std::string error;
+    bilingual_str error;
     CTxDestination asset_dest;
     if (!pwallet->GetNewDestination(OutputType::BECH32, "", asset_dest, error)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
     }
     CPubKey asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
 
     // Add destination for tokens we are moving
     CTxDestination token_dest;
     if (!pwallet->GetNewDestination(OutputType::BECH32, "", token_dest, error)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
     }
     CPubKey token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
 

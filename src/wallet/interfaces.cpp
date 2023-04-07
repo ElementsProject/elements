@@ -16,6 +16,7 @@
 #include <uint256.h>
 #include <util/check.h>
 #include <util/system.h>
+#include <util/translation.h>
 #include <util/ui_change_type.h>
 #include <wallet/context.h>
 #include <wallet/feebumper.h>
@@ -142,7 +143,7 @@ public:
     bool getNewDestination(const OutputType type, const std::string label, CTxDestination& dest, bool add_blinding_key = false) override
     {
         LOCK(m_wallet->cs_wallet);
-        std::string error;
+        bilingual_str error;
         return m_wallet->GetNewDestination(type, label, dest, error, add_blinding_key);
     }
     bool getPubKey(const CScript& script, const CKeyID& address, CPubKey& pub_key) override

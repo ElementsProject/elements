@@ -22,6 +22,7 @@
 #include <univalue.h>
 #include <util/rbf.h>
 #include <util/strencodings.h>
+#include <util/translation.h>
 #include <validation.h>
 
 template<typename T_tx>
@@ -531,7 +532,7 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
 }
 
 // ELEMENTS: check whether pegin inputs make sense against the current fedpegscript
-bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, const CBlockIndex* active_chain_tip, std::map<int, std::string>& input_errors)
+bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, const CBlockIndex* active_chain_tip, std::map<int, bilingual_str>& input_errors)
 {
     const auto& fedpegscripts = GetValidFedpegScripts(active_chain_tip, Params().GetConsensus(), true /* nextblock_validation */);
     // Track an immature peg-in that's otherwise valid, give warning
@@ -541,7 +542,7 @@ bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, const CBlock
         const CTxIn& txin = mtx.vin[i];
         std::string err;
         if (txin.m_is_pegin && (mtx.witness.vtxinwit.size() <= i || !IsValidPeginWitness(mtx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, false))) {
-            input_errors[i] = "Peg-in input has invalid proof.";
+            input_errors[i] = _("Peg-in input has invalid proof.");
             continue;
         }
         // Report warning about immature peg-in though
@@ -559,23 +560,23 @@ void SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, 
     int nHashType = ParseSighashString(hashType);
 
     // Script verification errors
-    std::map<int, std::string> input_errors;
+    std::map<int, bilingual_str> input_errors;
 
     bool immature_pegin = ValidateTransactionPeginInputs(mtx, active_chain_tip, input_errors);
     bool complete = SignTransaction(mtx, keystore, coins, nHashType, Params().HashGenesisBlock(), input_errors);
     SignTransactionResultToJSON(mtx, complete, coins, input_errors, immature_pegin, result);
 }
 
-void SignTransactionResultToJSON(CMutableTransaction& mtx, bool complete, const std::map<COutPoint, Coin>& coins, const std::map<int, std::string>& input_errors, bool immature_pegin, UniValue& result)
+void SignTransactionResultToJSON(CMutableTransaction& mtx, bool complete, const std::map<COutPoint, Coin>& coins, const std::map<int, bilingual_str>& input_errors, bool immature_pegin, UniValue& result)
 {
     // Make errors UniValue
     UniValue vErrors(UniValue::VARR);
     for (const auto& err_pair : input_errors) {
-        if (err_pair.second == "Missing amount") {
+        if (err_pair.second.original == "Missing amount") {
             // This particular error needs to be an exception for some reason
             throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing amount for %s", coins.at(mtx.vin.at(err_pair.first).prevout).out.ToString()));
         }
-        TxInErrorToJSON(mtx.vin.at(err_pair.first), mtx.witness.vtxinwit.at(err_pair.first), vErrors, err_pair.second);
+        TxInErrorToJSON(mtx.vin.at(err_pair.first), mtx.witness.vtxinwit.at(err_pair.first), vErrors, err_pair.second.original);
     }
 
     result.pushKV("hex", EncodeHexTx(CTransaction(mtx)));
@@ -590,4 +591,3 @@ void SignTransactionResultToJSON(CMutableTransaction& mtx, bool complete, const 
         result.pushKV("warning", "Possibly immature peg-in input(s) detected, signed anyways.");
     }
 }
-
