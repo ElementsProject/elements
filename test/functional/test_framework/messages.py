@@ -19,7 +19,6 @@ Classes use __slots__ to ensure extraneous attributes aren't accidentally added
 by tests, compromising their intended effect.
 """
 from base64 import b32decode, b32encode
-from codecs import encode
 import copy
 import hashlib
 from io import BytesIO
@@ -707,10 +706,10 @@ class CTxInWitness:
 
     def calc_witness_hash(self):
         leaves = [
-            encode(hash256(ser_string(self.vchIssuanceAmountRangeproof))[::-1], 'hex_codec').decode('ascii'),
-            encode(hash256(ser_string(self.vchInflationKeysRangeproof))[::-1], 'hex_codec').decode('ascii'),
-            encode(hash256(ser_string_vector(self.scriptWitness.stack))[::-1], 'hex_codec').decode('ascii'),
-            encode(hash256(ser_string_vector(self.peginWitness.stack))[::-1], 'hex_codec').decode('ascii')
+            hash256(ser_string(self.vchIssuanceAmountRangeproof))[::-1].hex(),
+            hash256(ser_string(self.vchInflationKeysRangeproof))[::-1].hex(),
+            hash256(ser_string_vector(self.scriptWitness.stack))[::-1].hex(),
+            hash256(ser_string_vector(self.peginWitness.stack))[::-1].hex()
         ]
         return calcfastmerkleroot(leaves)
 
@@ -744,8 +743,8 @@ class CTxOutWitness:
 
     def calc_witness_hash(self):
         leaves = [
-            encode(hash256(ser_string(self.vchSurjectionproof))[::-1], 'hex_codec').decode('ascii'),
-            encode(hash256(ser_string(self.vchRangeproof))[::-1], 'hex_codec').decode('ascii')
+            hash256(ser_string(self.vchSurjectionproof))[::-1].hex(),
+            hash256(ser_string(self.vchRangeproof))[::-1].hex()
         ]
         return calcfastmerkleroot(leaves)
 
@@ -1163,7 +1162,7 @@ class CBlockHeader:
             else:
                 r += self.proof.serialize_for_hash()
             self.sha256 = uint256_from_str(hash256(r))
-            self.hash = encode(hash256(r)[::-1], 'hex_codec').decode('ascii')
+            self.hash = hash256(r)[::-1].hex()
 
     def rehash(self):
         self.sha256 = None
