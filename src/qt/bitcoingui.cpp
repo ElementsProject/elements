@@ -329,7 +329,7 @@ void BitcoinGUI::createActions()
     verifyMessageAction->setStatusTip(tr("Verify messages to ensure they were signed with specified %1 addresses").arg("Liquid"));
     m_load_psbt_action = new QAction(tr("&Load PSET from file…"), this);
     m_load_psbt_action->setStatusTip(tr("Load Partially Signed Elements Transaction"));
-    m_load_psbt_clipboard_action = new QAction(tr("Load PSET from clipboard…"), this);
+    m_load_psbt_clipboard_action = new QAction(tr("Load PSET from &clipboard…"), this);
     m_load_psbt_clipboard_action->setStatusTip(tr("Load Partially Signed Elements Transaction from clipboard"));
 
     openRPCConsoleAction = new QAction(tr("Node window"), this);
@@ -481,7 +481,7 @@ void BitcoinGUI::createMenuBar()
 
     QMenu* window_menu = appMenuBar->addMenu(tr("&Window"));
 
-    QAction* minimize_action = window_menu->addAction(tr("Minimize"));
+    QAction* minimize_action = window_menu->addAction(tr("&Minimize"));
     minimize_action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_M));
     connect(minimize_action, &QAction::triggered, [] {
         QApplication::activeWindow()->showMinimized();
