@@ -418,7 +418,12 @@ bool CWallet::AttemptSelection(const CAmountMap& mapTargetValue, const CoinEligi
 {
     setCoinsRet.clear();
     mapValueRet.clear();
+    // Vector of results for use with waste calculation
+    // In order: calculated waste, selected inputs, map of selected input value (sum of input values) for each asset type
+    // TODO: Use a struct representing the selection result
+    std::vector<std::tuple<CAmount, std::set<CInputCoin>, CAmountMap>> results;
 
+    // ELEMENTS: BnB only for policy asset?
     if (mapTargetValue.size() == 1) {
         // Note that unlike KnapsackSolver, we do not include the fee for creating a change output as BnB will not create a change output.
         std::vector<OutputGroup> positive_groups = GroupOutputs(coins, coin_selection_params, eligibility_filter, true /* positive_only */);
@@ -443,12 +448,15 @@ bool CWallet::AttemptSelection(const CAmountMap& mapTargetValue, const CoinEligi
         }
         // END ELEMENTS
 
-        CAmount nValueRet;
-        if (SelectCoinsBnB(asset_groups, nTargetValue, coin_selection_params.m_cost_of_change, setCoinsRet, nValueRet)) {
-            mapValueRet[asset] = nValueRet;
-            return true;
+        std::set<CInputCoin> bnb_coins;
+        CAmount bnb_value;
+        if (SelectCoinsBnB(asset_groups, nTargetValue, coin_selection_params.m_cost_of_change, bnb_coins, bnb_value)) {
+            const auto waste = GetSelectionWaste(bnb_coins, /* cost of change */ CAmount(0), nTargetValue, !coin_selection_params.m_subtract_fee_outputs);
+            const CAmountMap bnb_value_map {{asset, bnb_value}};
+            results.emplace_back(std::make_tuple(waste, std::move(bnb_coins), bnb_value_map));
         }
     }
+
     // The knapsack solver has some legacy behavior where it will spend dust outputs. We retain this behavior, so don't filter for positive only here.
     std::vector<OutputGroup> all_groups = GroupOutputs(coins, coin_selection_params, eligibility_filter, false /* positive_only */);
     // While mapTargetValue includes the transaction fees for non-input things, it does not include the fee for creating a change output.
@@ -457,7 +465,26 @@ bool CWallet::AttemptSelection(const CAmountMap& mapTargetValue, const CoinEligi
     if (!coin_selection_params.m_subtract_fee_outputs) {
         mapTargetValue_copy[::policyAsset] += coin_selection_params.m_change_fee;
     }
-    return KnapsackSolver(mapTargetValue_copy, all_groups, setCoinsRet, mapValueRet);
+    std::set<CInputCoin> knapsack_coins;
+    CAmountMap knapsack_value_map;
+    if (KnapsackSolver(mapTargetValue_copy, all_groups, knapsack_coins, knapsack_value_map)) {
+        const auto waste = GetSelectionWaste(knapsack_coins, coin_selection_params.m_cost_of_change, knapsack_value_map, !coin_selection_params.m_subtract_fee_outputs);
+        results.emplace_back(std::make_tuple(waste, std::move(knapsack_coins), knapsack_value_map));
+    }
+
+    if (results.size() == 0) {
+        // No solution found
+        return false;
+    }
+
+    // Choose the result with the least waste
+    // If the waste is the same, choose the one which spends more inputs.
+    const auto& best_result = std::min_element(results.begin(), results.end(), [](const auto& a, const auto& b) {
+        return std::get<0>(a) < std::get<0>(b) || (std::get<0>(a) == std::get<0>(b) && std::get<1>(a).size() > std::get<1>(b).size());
+    });
+    setCoinsRet = std::get<1>(*best_result);
+    mapValueRet = std::get<2>(*best_result);
+    return true;
 }
 
 bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmountMap& mapTargetValue, std::set<CInputCoin>& setCoinsRet, CAmountMap& mapValueRet, const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bilingual_str& error) const
@@ -853,6 +880,8 @@ bool CWallet::CreateTransactionInternal(
     // Always assume that we are at least sending policyAsset.
     map_recipients_sum[::policyAsset] = 0;
     std::vector<std::unique_ptr<ReserveDestination>> reservedest;
+    // Set the long term feerate estimate to the wallet's consolidate feerate
+    coin_selection_params.m_long_term_feerate = m_consolidate_feerate;
     const OutputType change_type = TransactionChangeType(coin_control.m_change_type ? *coin_control.m_change_type : m_default_change_type, vecSend);
     reservedest.emplace_back(new ReserveDestination(this, change_type)); // policy asset
 
@@ -1018,11 +1047,6 @@ bool CWallet::CreateTransactionInternal(
         error = _("Fee estimation failed. Fallbackfee is disabled. Wait a few blocks or enable -fallbackfee.");
         return false;
     }
-
-    // Get long term estimate
-    CCoinControl cc_temp;
-    cc_temp.m_confirm_target = chain().estimateMaxBlocks();
-    coin_selection_params.m_long_term_feerate = GetMinimumFeeRate(*this, cc_temp, nullptr);
 
     // Calculate the cost of change
     // Cost of change is the cost of creating the change output + cost of spending the change output in the future.

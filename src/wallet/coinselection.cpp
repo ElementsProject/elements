@@ -477,3 +477,81 @@ CAmount OutputGroup::GetSelectionAmount() const
     }
     return m_subtract_fee_outputs ? m_value : effective_value;
 }
+
+CAmount GetSelectionWaste(const std::set<CInputCoin>& inputs, CAmount change_cost, CAmount target, bool use_effective_value)
+{
+    // This function should not be called with empty inputs as that would mean the selection failed
+    assert(!inputs.empty());
+
+    // Always consider the cost of spending an input now vs in the future.
+    CAmount waste = 0;
+    CAmount selected_effective_value = 0;
+    for (const CInputCoin& coin : inputs) {
+        waste += coin.m_fee - coin.m_long_term_fee;
+        selected_effective_value += use_effective_value ? coin.effective_value : coin.value;
+    }
+
+    if (change_cost) {
+        // Consider the cost of making change and spending it in the future
+        // If we aren't making change, the caller should've set change_cost to 0
+        assert(change_cost > 0);
+        waste += change_cost;
+    } else {
+        // When we are not making change (change_cost == 0), consider the excess we are throwing away to fees
+        assert(selected_effective_value >= target);
+        waste += selected_effective_value - target;
+    }
+
+    return waste;
+}
+
+// ELEMENTS:
+CAmount GetSelectionWaste(const std::set<CInputCoin>& inputs, CAmount change_cost, CAmountMap& target_map, bool use_effective_value)
+{
+    // This function should not be called with empty inputs as that would mean the selection failed
+    assert(!inputs.empty());
+
+    // create a map of asset -> coins from the inputs set
+    std::map<CAsset, std::set<CInputCoin>> coinset_map;
+    for(auto it = inputs.begin(); it != inputs.end(); ++it) {
+        auto asset = it->asset;
+        auto search = coinset_map.find(asset);
+        if (search != coinset_map.end()) {
+            search->second.insert(*it);
+        } else {
+            std::set<CInputCoin> coinset;
+            coinset.insert(*it);
+            coinset_map.insert({asset, coinset});
+        }
+    }
+
+    // Calculate and sum the waste for each asset in the map
+
+    // Always consider the cost of spending an input now vs in the future.
+    CAmount waste = 0;
+
+    for(auto it = coinset_map.begin(); it != coinset_map.end(); ++it) {
+        CAmount selected_effective_value = 0;
+        auto asset = it->first;
+        auto coinset = it->second;
+        auto target = target_map.at(asset);
+
+        for (const CInputCoin& coin : coinset) {
+            waste += coin.m_fee - coin.m_long_term_fee;
+            selected_effective_value += use_effective_value ? coin.effective_value : coin.value;
+        }
+
+        if (change_cost) {
+            // Consider the cost of making change and spending it in the future
+            // If we aren't making change, the caller should've set change_cost to 0
+            assert(change_cost > 0);
+            waste += change_cost;
+        } else {
+            // When we are not making change (change_cost == 0), consider the excess we are throwing away to fees
+            assert(selected_effective_value >= target);
+            waste += selected_effective_value - target;
+        }
+    }
+
+    return waste;
+}
