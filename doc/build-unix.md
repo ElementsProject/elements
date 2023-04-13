@@ -124,6 +124,10 @@ To build with Qt 5 you need the following:
 
 The last two dependencies are required to generate Elements images that don't exist in Bitcoin Core.
 
+Additionally, to support Wayland protocol for modern desktop environments:
+
+    sudo apt install qtwayland5
+
 libqrencode (optional) can be installed with:
 
     sudo apt-get install libqrencode-dev
@@ -182,6 +186,10 @@ To build without GUI pass `--without-gui`.
 To build with Qt 5 you need the following:
 
     sudo dnf install qt5-qttools-devel qt5-qtbase-devel
+
+Additionally, to support Wayland protocol for modern desktop environments:
+
+    sudo dnf install qt5-qtwayland
 
 libqrencode (optional) can be installed with:
 
