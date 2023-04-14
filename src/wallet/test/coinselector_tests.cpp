@@ -10,6 +10,7 @@
 #include <util/translation.h>
 #include <wallet/coincontrol.h>
 #include <wallet/coinselection.h>
+#include <wallet/spend.h>
 #include <wallet/test/wallet_test_fixture.h>
 #include <wallet/wallet.h>
 
@@ -102,7 +103,7 @@ static void add_coin(CWallet& wallet, const CAmount& nValue, int nAge = 6*24, bo
         wtx->m_amounts[CWalletTx::DEBIT].Set(ISMINE_SPENDABLE, map);
         wtx->m_is_cache_empty = false;
     }
-    COutput output(wtx, nInput, nAge, true /* spendable */, true /* solvable */, true /* safe */);
+    COutput output(wallet, *wtx, nInput, nAge, true /* spendable */, true /* solvable */, true /* safe */);
     vCoins.push_back(output);
 }
 static void add_coin(const CAmount& nValue, int nAge = 6*24, bool fIsFromMe = false, int nInput=0, bool spendable = false)
@@ -159,7 +160,7 @@ inline std::vector<OutputGroup>& GroupCoins(const std::vector<COutput>& coins)
 inline std::vector<OutputGroup>& KnapsackGroupOutputs(const CoinEligibilityFilter& filter)
 {
     static std::vector<OutputGroup> static_groups;
-    static_groups = testWallet.GroupOutputs(vCoins, coin_selection_params, filter, /* positive_only */false);
+    static_groups = GroupOutputs(testWallet, vCoins, coin_selection_params, filter, /* positive_only */false);
     return static_groups;
 }
 
@@ -335,7 +336,7 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
         mapTargetValue[CAsset()] = 10 * CENT;
         CAmountMap mapValueRet;
         bilingual_str error;
-        BOOST_CHECK(wallet->SelectCoins(vCoins, mapTargetValue, setCoinsRet, mapValueRet, coin_control, coin_selection_params_bnb, error));
+        BOOST_CHECK(SelectCoins(*wallet, vCoins, mapTargetValue, setCoinsRet, mapValueRet, coin_control, coin_selection_params_bnb, error));
     }
 }
 
@@ -678,7 +679,7 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
         CAmountMap out_value;
         CCoinControl cc;
         bilingual_str error;
-        BOOST_CHECK(testWallet.SelectCoins(vCoins, target, out_set, out_value, cc, cs_params, error));
+        BOOST_CHECK(SelectCoins(testWallet, vCoins, target, out_set, out_value, cc, cs_params, error));
         BOOST_CHECK(out_value >= target);
     }
 }

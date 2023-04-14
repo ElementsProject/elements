@@ -8,6 +8,7 @@
 #include <wallet/coinselection.h>
 #include <asset.h>
 #include <policy/policy.h>
+#include <wallet/spend.h>
 #include <wallet/wallet.h>
 
 #include <set>
@@ -19,7 +20,7 @@ static void addCoin(const CAmount& nValue, const CWallet& wallet, std::vector<st
     tx.nLockTime = nextLockTime++; // so all transactions get different hashes
     tx.vout.resize(1);
     tx.vout[0].nValue = nValue;
-    wtxs.push_back(std::make_unique<CWalletTx>(&wallet, MakeTransactionRef(std::move(tx))));
+    wtxs.push_back(std::make_unique<CWalletTx>(MakeTransactionRef(std::move(tx))));
 }
 
 // Simple benchmark for wallet coin selection. Note that it maybe be necessary
@@ -47,7 +48,7 @@ static void CoinSelection(benchmark::Bench& bench)
     // Create coins
     std::vector<COutput> coins;
     for (const auto& wtx : wtxs) {
-        coins.emplace_back(wtx.get(), 0 /* iIn */, 6 * 24 /* nDepthIn */, true /* spendable */, true /* solvable */, true /* safe */);
+        coins.emplace_back(wallet, *wtx, 0 /* iIn */, 6 * 24 /* nDepthIn */, true /* spendable */, true /* solvable */, true /* safe */);
     }
 
     const CoinEligibilityFilter filter_standard(1, 6, 0);
@@ -60,7 +61,7 @@ static void CoinSelection(benchmark::Bench& bench)
         CAmountMap mapValueRet;
         CAmountMap mapValue;
         mapValue[::policyAsset] = 1003 * COIN;
-        bool success = wallet.AttemptSelection(mapValue, filter_standard, coins, setCoinsRet, mapValueRet, coin_selection_params);
+        bool success = AttemptSelection(wallet, mapValue, filter_standard, coins, setCoinsRet, mapValueRet, coin_selection_params);
         assert(success);
         assert(mapValueRet[::policyAsset] == 1003 * COIN);
         assert(setCoinsRet.size() == 2);
@@ -88,9 +89,9 @@ static void add_coin(const CAmount& nValue, int nInput, std::vector<OutputGroup>
     CMutableTransaction tx;
     tx.vout.resize(nInput + 1);
     tx.vout[nInput].nValue = nValue;
-    std::unique_ptr<CWalletTx> wtx = std::make_unique<CWalletTx>(&testWallet, MakeTransactionRef(std::move(tx)));
+    std::unique_ptr<CWalletTx> wtx = std::make_unique<CWalletTx>(MakeTransactionRef(std::move(tx)));
     set.emplace_back();
-    set.back().Insert(COutput(wtx.get(), nInput, 0, true, true, true).GetInputCoin(), 0, true, 0, 0, false);
+    set.back().Insert(COutput(testWallet, *wtx, nInput, 0, true, true, true).GetInputCoin(), 0, true, 0, 0, false);
     wtxn.emplace_back(std::move(wtx));
 }
 // Copied from src/wallet/test/coinselector_tests.cpp

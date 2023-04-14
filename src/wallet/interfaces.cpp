@@ -23,7 +23,9 @@
 #include <wallet/fees.h>
 #include <wallet/ismine.h>
 #include <wallet/load.h>
+#include <wallet/receive.h>
 #include <wallet/rpcwallet.h>
+#include <wallet/spend.h>
 #include <wallet/wallet.h>
 
 #include <memory>
@@ -58,7 +60,7 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
     result.txin_issuance_token.resize(wtx.tx->vin.size());
     for (unsigned int i = 0; i < wtx.tx->vin.size(); ++i) {
         const auto& txin = wtx.tx->vin[i];
-        result.txin_is_mine.emplace_back(wallet.IsMine(txin));
+        result.txin_is_mine.emplace_back(InputIsMine(wallet, txin));
         wtx.GetIssuanceAssets(i, &result.txin_issuance_asset[i], &result.txin_issuance_token[i]);
         result.txin_issuance_asset_amount.emplace_back(wtx.GetIssuanceAmount(i, false));
         result.txin_issuance_token_amount.emplace_back(wtx.GetIssuanceAmount(i, true));
@@ -79,9 +81,9 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
         result.txout_amounts.emplace_back(wtx.GetOutputValueOut(i));
         result.txout_assets.emplace_back(wtx.GetOutputAsset(i));
     }
-    result.credit = wtx.GetCredit(ISMINE_ALL);
-    result.debit = wtx.GetDebit(ISMINE_ALL);
-    result.change = wtx.GetChange();
+    result.credit = CachedTxGetCredit(wallet, wtx, ISMINE_ALL);
+    result.debit = CachedTxGetDebit(wallet, wtx, ISMINE_ALL);
+    result.change = CachedTxGetChange(wallet, wtx);
     result.time = wtx.GetTxTime();
     result.value_map = wtx.mapValue;
     result.is_coinbase = wtx.IsCoinBase();
@@ -93,15 +95,15 @@ WalletTxStatus MakeWalletTxStatus(const CWallet& wallet, const CWalletTx& wtx)
 {
     WalletTxStatus result;
     result.block_height = wtx.m_confirm.block_height > 0 ? wtx.m_confirm.block_height : std::numeric_limits<int>::max();
-    result.blocks_to_maturity = wtx.GetBlocksToMaturity();
-    result.depth_in_main_chain = wtx.GetDepthInMainChain();
+    result.blocks_to_maturity = wallet.GetTxBlocksToMaturity(wtx);
+    result.depth_in_main_chain = wallet.GetTxDepthInMainChain(wtx);
     result.time_received = wtx.nTimeReceived;
     result.lock_time = wtx.tx->nLockTime;
     result.is_final = wallet.chain().checkFinalTx(*wtx.tx);
-    result.is_trusted = wtx.IsTrusted();
+    result.is_trusted = CachedTxIsTrusted(wallet, wtx);
     result.is_abandoned = wtx.isAbandoned();
     result.is_coinbase = wtx.IsCoinBase();
-    result.is_in_main_chain = wtx.IsInMainChain();
+    result.is_in_main_chain = wallet.IsTxInMainChain(wtx);
     return result;
 }
 
@@ -255,7 +257,7 @@ public:
         LOCK(m_wallet->cs_wallet);
         CTransactionRef tx;
         FeeCalculation fee_calc_out;
-        if (!m_wallet->CreateTransaction(recipients, tx, fee, change_pos,
+        if (!CreateTransaction(*m_wallet, recipients, tx, fee, change_pos,
                 fail_reason, coin_control, fee_calc_out, sign, blind_details)) {
             return {};
         }
@@ -372,7 +374,7 @@ public:
     }
     WalletBalances getBalances() override
     {
-        const auto bal = m_wallet->GetBalance();
+        const auto bal = GetBalance(*m_wallet);
         WalletBalances result;
         result.balance = bal.m_mine_trusted;
         result.unconfirmed_balance = bal.m_mine_untrusted_pending;
@@ -395,15 +397,15 @@ public:
         balances = getBalances();
         return true;
     }
-    CAmountMap getBalance() override { return m_wallet->GetBalance().m_mine_trusted; }
+    CAmountMap getBalance() override { return GetBalance(*m_wallet).m_mine_trusted; }
     CAmountMap getAvailableBalance(const CCoinControl& coin_control) override
     {
-        return m_wallet->GetAvailableBalance(&coin_control);
+        return GetAvailableBalance(*m_wallet, &coin_control);
     }
     isminetype txinIsMine(const CTxIn& txin) override
     {
         LOCK(m_wallet->cs_wallet);
-        return m_wallet->IsMine(txin);
+        return InputIsMine(*m_wallet, txin);
     }
     isminetype txoutIsMine(const CTxOut& txout) override
     {
@@ -418,13 +420,13 @@ public:
     CAmountMap getCredit(const CTransaction& tx, const size_t out_index, isminefilter filter) override
     {
         LOCK(m_wallet->cs_wallet);
-        return m_wallet->GetCredit(tx, out_index, filter);
+        return OutputGetCredit(*m_wallet, tx, out_index, filter);
     }
     CoinsList listCoins() override
     {
         LOCK(m_wallet->cs_wallet);
         CoinsList result;
-        for (const auto& entry : m_wallet->ListCoins()) {
+        for (const auto& entry : ListCoins(*m_wallet)) {
             auto& group = result[entry.first];
             for (const auto& coin : entry.second) {
                 group.emplace_back(COutPoint(coin.tx->GetHash(), coin.i),
@@ -442,7 +444,7 @@ public:
             result.emplace_back();
             auto it = m_wallet->mapWallet.find(output.hash);
             if (it != m_wallet->mapWallet.end()) {
-                int depth = it->second.GetDepthInMainChain();
+                int depth = m_wallet->GetTxDepthInMainChain(it->second);
                 if (depth >= 0) {
                     result.back() = MakeWalletTxOut(*m_wallet, it->second, output.n, depth);
                 }
