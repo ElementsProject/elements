@@ -62,8 +62,8 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
         const auto& txin = wtx.tx->vin[i];
         result.txin_is_mine.emplace_back(InputIsMine(wallet, txin));
         wtx.GetIssuanceAssets(i, &result.txin_issuance_asset[i], &result.txin_issuance_token[i]);
-        result.txin_issuance_asset_amount.emplace_back(wtx.GetIssuanceAmount(i, false));
-        result.txin_issuance_token_amount.emplace_back(wtx.GetIssuanceAmount(i, true));
+        result.txin_issuance_asset_amount.emplace_back(wtx.GetIssuanceAmount(wallet, i, false));
+        result.txin_issuance_token_amount.emplace_back(wtx.GetIssuanceAmount(wallet, i, true));
     }
     result.txout_is_mine.reserve(wtx.tx->vout.size());
     result.txout_address.reserve(wtx.tx->vout.size());
@@ -74,12 +74,12 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
         result.txout_address_is_mine.emplace_back(ExtractDestination(txout.scriptPubKey, result.txout_address.back()) ?
                                                       wallet.IsMine(result.txout_address.back()) :
                                                       ISMINE_NO);
-        result.txout_is_change.push_back(wallet.IsChange(txout));
+        result.txout_is_change.push_back(OutputIsChange(wallet, txout));
     }
     // ELEMENTS: Retrieve unblinded information about outputs
     for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i) {
-        result.txout_amounts.emplace_back(wtx.GetOutputValueOut(i));
-        result.txout_assets.emplace_back(wtx.GetOutputAsset(i));
+        result.txout_amounts.emplace_back(wtx.GetOutputValueOut(wallet, i));
+        result.txout_assets.emplace_back(wtx.GetOutputAsset(wallet, i));
     }
     result.credit = CachedTxGetCredit(wallet, wtx, ISMINE_ALL);
     result.debit = CachedTxGetDebit(wallet, wtx, ISMINE_ALL);

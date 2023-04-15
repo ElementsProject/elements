@@ -5,9 +5,12 @@
 #ifndef BITCOIN_WALLET_SPEND_H
 #define BITCOIN_WALLET_SPEND_H
 
+#include <wallet/coincontrol.h>
 #include <wallet/coinselection.h>
 #include <wallet/transaction.h>
 #include <wallet/wallet.h>
+
+class CRecipient;
 
 /** Get the marginal bytes if spending the specified output from this transaction */
 int GetTxSpendSize(const CWallet& wallet, const CWalletTx& wtx, unsigned int out, bool use_max_sig = false);
@@ -56,11 +59,11 @@ public:
         }
     }
 
-    std::string ToString() const;
+    std::string ToString(const CWallet& wallet) const;
 
-    inline CInputCoin GetInputCoin() const
+    inline CInputCoin GetInputCoin(const CWallet& wallet) const
     {
-        return CInputCoin(tx, i, nInputBytes);
+        return CInputCoin(wallet, tx, i, nInputBytes);
     }
 };
 
@@ -152,7 +155,7 @@ std::vector<OutputGroup> GroupOutputs(const CWallet& wallet, const std::vector<C
  * param@[out]  setCoinsRet     Populated with the coins selected if successful.
  * param@[out]  nValueRet       Used to return the total value of selected coins.
  */
-bool AttemptSelection(const CWallet& wallet, const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<COutput> coins,
+bool AttemptSelection(const CWallet& wallet, const CAmountMap& mapTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<COutput> coins,
                         std::set<CInputCoin>& setCoinsRet,  CAmountMap& mapValueRet, const CoinSelectionParams& coin_selection_params);
 
 /**

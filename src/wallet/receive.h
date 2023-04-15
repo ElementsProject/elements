@@ -24,13 +24,17 @@ bool OutputIsChange(const CWallet& wallet, const CTxOut& txout) EXCLUSIVE_LOCKS_
 CAmountMap OutputGetChange(const CWallet& wallet, const CTxOut& txout) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 CAmountMap TxGetChange(const CWallet& wallet, const CTransaction& tx);
 // ELEMENTS:
-CAmountMap GetCredit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter) const EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
-CAmountMap GetChange(const CWallet& wallet, const CWalletTx& wtx) const EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
+CAmountMap GetCredit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
+CAmountMap GetChange(const CWallet& wallet, const CWalletTx& wtx) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 
 CAmountMap CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter);
 //! filter decides which addresses will count towards the debit
 CAmountMap CachedTxGetDebit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter);
-CAmountMap CachedTxGetChange(const CWallet& wallet, const CWalletTx& wtx) const NO_THREAD_SAFETY_ANALYSIS;
+// TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
+// annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The
+// annotation "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid
+// having to resolve the issue of member access into incomplete type CWallet.
+CAmountMap CachedTxGetChange(const CWallet& wallet, const CWalletTx& wtx) NO_THREAD_SAFETY_ANALYSIS;
 CAmountMap CachedTxGetImmatureCredit(const CWallet& wallet, const CWalletTx& wtx, bool fUseCache = true);
 CAmountMap CachedTxGetImmatureWatchOnlyCredit(const CWallet& wallet, const CWalletTx& wtx, const bool fUseCache = true);
 // TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct

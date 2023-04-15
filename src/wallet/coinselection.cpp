@@ -12,7 +12,7 @@
 
 #include <optional>
 
-CInputCoin::CInputCoin(const CWalletTx* wtx, unsigned int i) {
+CInputCoin::CInputCoin(const CWallet& wallet, const CWalletTx* wtx, unsigned int i) {
     if (!wtx || !wtx->tx)
         throw std::invalid_argument("tx should not be null");
     if (i >= wtx->tx->vout.size())
@@ -20,11 +20,11 @@ CInputCoin::CInputCoin(const CWalletTx* wtx, unsigned int i) {
 
     outpoint = COutPoint(wtx->tx->GetHash(), i);
     txout = wtx->tx->vout[i];
-    effective_value = std::max<CAmount>(0, wtx->GetOutputValueOut(i));
-    value = wtx->GetOutputValueOut(i);
-    asset = wtx->GetOutputAsset(i);
-    bf_value = wtx->GetOutputAmountBlindingFactor(i);
-    bf_asset = wtx->GetOutputAssetBlindingFactor(i);
+    effective_value = std::max<CAmount>(0, wtx->GetOutputValueOut(wallet, i));
+    value = wtx->GetOutputValueOut(wallet, i);
+    asset = wtx->GetOutputAsset(wallet, i);
+    bf_value = wtx->GetOutputAmountBlindingFactor(wallet, i);
+    bf_asset = wtx->GetOutputAssetBlindingFactor(wallet, i);
 }
 
 // Descending order comparator

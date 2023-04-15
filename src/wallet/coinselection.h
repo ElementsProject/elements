@@ -17,15 +17,16 @@ static constexpr CAmount MIN_CHANGE{COIN / 100};
 //! final minimum change amount after paying for fees
 static const CAmount MIN_FINAL_CHANGE = MIN_CHANGE/2;
 
+class CWallet;
 class CWalletTx;
 class uint256;
 
 /** A UTXO under consideration for use in funding a new transaction. */
 class CInputCoin {
 public:
-    CInputCoin(const CWalletTx* wtx, unsigned int i);
+    CInputCoin(const CWallet& wallet, const CWalletTx* wtx, unsigned int i);
 
-    CInputCoin(const CWalletTx* wtx, unsigned int i, int input_bytes) : CInputCoin(wtx, i)
+    CInputCoin(const CWallet& wallet, const CWalletTx* wtx, unsigned int i, int input_bytes) : CInputCoin(wallet, wtx, i)
     {
         m_input_bytes = input_bytes;
     }

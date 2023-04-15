@@ -247,7 +247,7 @@ public:
     }
 
     //! make sure balances are recalculated
-    void MarkDirty()
+    void MarkDirty(const CWallet& wallet)
     {
         m_amounts[DEBIT].Reset();
         m_amounts[CREDIT].Reset();
@@ -255,7 +255,7 @@ public:
         m_amounts[AVAILABLE_CREDIT].Reset();
         fChangeCached = false;
         m_is_cache_empty = true;
-        WipeUnknownBlindingData();
+        WipeUnknownBlindingData(wallet);
     }
 
     /** True if only scriptSigs are different */
@@ -265,123 +265,6 @@ public:
 
     int64_t GetTxTime() const;
 
-<<<<<<< HEAD
-    /** Pass this transaction to node for mempool insertion and relay to peers if flag set to true */
-    bool SubmitMemoryPoolAndRelay(std::string& err_string, bool relay);
-
-    // ELEMENTS:
-
-private:
-    /* Computes, stores and returns the unblinded info, or retrieves if already computed previously.
-    * @param[in]    map_index - Where to store the blinding data. Issuance data is stored after the output data, with additional index offset calculated via GetPseudoInputOffset
-    * @param[in]    vchRangeproof - The rangeproof to unwind
-    * @param[in]    conf_value - The value to unblind
-    * @param[in]    conf_asset - The asset to unblind
-    * @param[in]    nonce - The nonce used to ECDH with the blinding key. This is null for issuance as blinding key is directly used as nonce
-    * @param[in]    scriptPubKey - The script being committed to by the rangeproof
-    * @param[out]   blinding_pubkey_out - Pointer to the recovered pubkey of the destination
-    * @param[out]   value_out - Pointer to the CAmount where the unblinded amount will be stored
-    * @param[out]   value_factor_out - Pointer to the recovered value blinding factor of the output
-    * @param[out]   asset_out - Pointer to the recovered underlying asset type
-    * @param[out]   asset_factor_out - Pointer to the recovered asset blinding factor of the output
-    */
-    void GetBlindingData(const unsigned int map_index, const std::vector<unsigned char>& vchRangeproof, const CConfidentialValue& conf_value, const CConfidentialAsset& conf_asset, const CConfidentialNonce nonce, const CScript& scriptPubKey, CPubKey* blinding_pubkey_out, CAmount* value_out, uint256* value_factor_out, CAsset* asset_out, uint256* asset_factor_out) const;
-    void WipeUnknownBlindingData();
-
-public:
-    // For use in wallet transaction creation to remember 3rd party values
-    // Unneeded for issuance.
-    void SetBlindingData(const unsigned int output_index, const CPubKey& blinding_pubkey, const CAmount value, const uint256& value_factor, const CAsset& asset, const uint256& asset_factor);
-
-    // Convenience method to retrieve all blinding data at once, for an ordinary non-issuance tx
-    void GetNonIssuanceBlindingData(const unsigned int output_index, CPubKey* blinding_pubkey_out, CAmount* value_out, uint256* value_factor_out, CAsset* asset_out, uint256* asset_factor_out) const;
-
-    //! Returns either the value out (if it is known) or -1
-    CAmount GetOutputValueOut(unsigned int ouput_index) const;
-
-    //! Returns either the blinding factor (if it is to us) or 0
-    uint256 GetOutputAmountBlindingFactor(unsigned int output_index) const;
-    uint256 GetOutputAssetBlindingFactor(unsigned int output_index) const;
-    //! Returns the underlying asset type, or 0 if unknown
-    CAsset GetOutputAsset(unsigned int output_index) const;
-    //! Get the issuance CAssets for both the asset itself and the issuing tokens
-    void GetIssuanceAssets(unsigned int vinIndex, CAsset* out_asset, CAsset* out_reissuance_token) const;
-    // ! Return map of issued assets at input_index
-    CAmountMap GetIssuanceAssets(unsigned int input_index) const;
-    // ! Returns receiver's blinding pubkey
-    CPubKey GetOutputBlindingPubKey(unsigned int output_index) const;
-    //! Get the issuance blinder for either the asset itself or the issuing tokens
-    uint256 GetIssuanceBlindingFactor(unsigned int input_index, bool reissuance_token) const;
-    //! Get the issuance amount for either the asset itself or the issuing tokens
-    CAmount GetIssuanceAmount(unsigned int input_index, bool reissuance_token) const;
-
-    //! Get the mapValue offset for a specific vin index and type of issuance pseudo-input
-    unsigned int GetPseudoInputOffset(unsigned int input_index, bool reissuance_token) const;
-
-    // TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
-    // annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The annotation
-    // "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid having to
-    // resolve the issue of member access into incomplete type CWallet. Note
-    // that we still have the runtime check "AssertLockHeld(pwallet->cs_wallet)"
-    // in place.
-    std::set<uint256> GetConflicts() const NO_THREAD_SAFETY_ANALYSIS;
-
-    /**
-     * Return depth of transaction in blockchain:
-     * <0  : conflicts with a transaction this deep in the blockchain
-     *  0  : in memory pool, waiting to be included in a block
-     * >=1 : this many blocks deep in the main chain
-     */
-    // TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
-    // annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The annotation
-    // "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid having to
-    // resolve the issue of member access into incomplete type CWallet. Note
-    // that we still have the runtime check "AssertLockHeld(pwallet->cs_wallet)"
-    // in place.
-    int GetDepthInMainChain() const NO_THREAD_SAFETY_ANALYSIS;
-    bool IsInMainChain() const { return GetDepthInMainChain() > 0; }
-
-    /**
-     * @return number of blocks to maturity for this transaction:
-     *  0 : is not a coinbase transaction, or is a mature coinbase transaction
-     * >0 : is a coinbase transaction which matures in this many blocks
-     */
-    int GetBlocksToMaturity() const;
-||||||| dd097c42df
-    /** Pass this transaction to node for mempool insertion and relay to peers if flag set to true */
-    bool SubmitMemoryPoolAndRelay(std::string& err_string, bool relay);
-
-    // TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
-    // annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The annotation
-    // "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid having to
-    // resolve the issue of member access into incomplete type CWallet. Note
-    // that we still have the runtime check "AssertLockHeld(pwallet->cs_wallet)"
-    // in place.
-    std::set<uint256> GetConflicts() const NO_THREAD_SAFETY_ANALYSIS;
-
-    /**
-     * Return depth of transaction in blockchain:
-     * <0  : conflicts with a transaction this deep in the blockchain
-     *  0  : in memory pool, waiting to be included in a block
-     * >=1 : this many blocks deep in the main chain
-     */
-    // TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
-    // annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The annotation
-    // "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid having to
-    // resolve the issue of member access into incomplete type CWallet. Note
-    // that we still have the runtime check "AssertLockHeld(pwallet->cs_wallet)"
-    // in place.
-    int GetDepthInMainChain() const NO_THREAD_SAFETY_ANALYSIS;
-    bool IsInMainChain() const { return GetDepthInMainChain() > 0; }
-
-    /**
-     * @return number of blocks to maturity for this transaction:
-     *  0 : is not a coinbase transaction, or is a mature coinbase transaction
-     * >0 : is a coinbase transaction which matures in this many blocks
-     */
-    int GetBlocksToMaturity() const;
-=======
->>>>>>> 629c4ab2e3
     bool isAbandoned() const { return m_confirm.status == CWalletTx::ABANDONED; }
     void setAbandoned()
     {
@@ -398,6 +281,57 @@ public:
     void setConfirmed() { m_confirm.status = CWalletTx::CONFIRMED; }
     const uint256& GetHash() const { return tx->GetHash(); }
     bool IsCoinBase() const { return tx->IsCoinBase(); }
+
+    // ELEMENTS
+private:
+    /* Computes, stores and returns the unblinded info, or retrieves if already computed previously.
+    * @param[in]    map_index - Where to store the blinding data. Issuance data is stored after the output data, with additional index offset calculated via GetPseudoInputOffset
+    * @param[in]    vchRangeproof - The rangeproof to unwind
+    * @param[in]    conf_value - The value to unblind
+    * @param[in]    conf_asset - The asset to unblind
+    * @param[in]    nonce - The nonce used to ECDH with the blinding key. This is null for issuance as blinding key is directly used as nonce
+    * @param[in]    scriptPubKey - The script being committed to by the rangeproof
+    * @param[out]   blinding_pubkey_out - Pointer to the recovered pubkey of the destination
+    * @param[out]   value_out - Pointer to the CAmount where the unblinded amount will be stored
+    * @param[out]   value_factor_out - Pointer to the recovered value blinding factor of the output
+    * @param[out]   asset_out - Pointer to the recovered underlying asset type
+    * @param[out]   asset_factor_out - Pointer to the recovered asset blinding factor of the output
+    */
+    void GetBlindingData(const CWallet& wallet, const unsigned int map_index, const std::vector<unsigned char>& vchRangeproof, const CConfidentialValue& conf_value, const CConfidentialAsset& conf_asset, const CConfidentialNonce nonce, const CScript& scriptPubKey, CPubKey* blinding_pubkey_out, CAmount* value_out, uint256* value_factor_out, CAsset* asset_out, uint256* asset_factor_out) const;
+    void WipeUnknownBlindingData(const CWallet& wallet);
+
+public:
+    // For use in wallet transaction creation to remember 3rd party values
+    // Unneeded for issuance.
+    void SetBlindingData(const unsigned int output_index, const CPubKey& blinding_pubkey, const CAmount value, const uint256& value_factor, const CAsset& asset, const uint256& asset_factor);
+
+    // Convenience method to retrieve all blinding data at once, for an ordinary non-issuance tx
+    void GetNonIssuanceBlindingData(const CWallet& wallet, const unsigned int output_index, CPubKey* blinding_pubkey_out, CAmount* value_out, uint256* value_factor_out, CAsset* asset_out, uint256* asset_factor_out) const;
+
+    //! Returns either the blinding factor (if it is to us) or 0
+    uint256 GetOutputAmountBlindingFactor(const CWallet& wallet, unsigned int output_index) const;
+    uint256 GetOutputAssetBlindingFactor(const CWallet& wallet, unsigned int output_index) const;
+    //! Get the issuance CAssets for both the asset itself and the issuing tokens
+    void GetIssuanceAssets(unsigned int vinIndex, CAsset* out_asset, CAsset* out_reissuance_token) const;
+    // ! Return map of issued assets at input_index
+    CAmountMap GetIssuanceAssets(const CWallet& wallet, unsigned int input_index) const;
+    // ! Returns receiver's blinding pubkey
+    CPubKey GetOutputBlindingPubKey(const CWallet& wallet, unsigned int output_index) const;
+    //! Get the issuance blinder for either the asset itself or the issuing tokens
+    uint256 GetIssuanceBlindingFactor(const CWallet& wallet, unsigned int input_index, bool reissuance_token) const;
+    //! Get the issuance amount for either the asset itself or the issuing tokens
+    CAmount GetIssuanceAmount(const CWallet& wallet, unsigned int input_index, bool reissuance_token) const;
+
+    //! Get the mapValue offset for a specific vin index and type of issuance pseudo-input
+    unsigned int GetPseudoInputOffset(unsigned int input_index, bool reissuance_token) const;
+    // END ELEMENTS
+
+    //! Returns either the value out (if it is known) or -1
+    CAmount GetOutputValueOut(const CWallet& wallet, unsigned int ouput_index) const;
+    //! Returns the underlying asset type, or 0 if unknown
+    CAsset GetOutputAsset(const CWallet& wallet, unsigned int output_index) const;
+
+    // END ELEMENTS
 
     // Disable copying of CWalletTx objects to prevent bugs where instances get
     // copied in and out of the mapWallet map, and fields are updated in the

@@ -24,11 +24,6 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "wallet/fees -> wallet/wallet -> wallet/fees"
     "wallet/wallet -> wallet/walletdb -> wallet/wallet"
     "node/coinstats -> validation -> node/coinstats"
-<<<<<<< HEAD
-    # Temporary circular dependencies that allow wallet.h/wallet.cpp to be
-    # split up in a MOVEONLY commit. These are removed in #21206.
-    "wallet/receive -> wallet/wallet -> wallet/receive"
-    "wallet/spend -> wallet/wallet -> wallet/spend"
     # ELEMENTS: will be fixed by blinding cleanup
     "blindpsbt -> psbt -> blindpsbt"
     # ELEMENTS: not so easy to fix, caused by us doing asset ID lookups in the
@@ -36,13 +31,6 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     # multi-asset transaction or not. Probably this check should be done in
     # CreateTransaction instead.
     "wallet/coinselection -> wallet/wallet -> wallet/coinselection"
-||||||| dd097c42df
-    # Temporary circular dependencies that allow wallet.h/wallet.cpp to be
-    # split up in a MOVEONLY commit. These are removed in #21206.
-    "wallet/receive -> wallet/wallet -> wallet/receive"
-    "wallet/spend -> wallet/wallet -> wallet/spend"
-=======
->>>>>>> 629c4ab2e3
 )
 
 EXIT_CODE=0

@@ -48,7 +48,7 @@ static bool SimpleAttemptSelection(const CWallet& wallet, const CAmount& nTarget
     CAmountMap mapTargetValue;
     mapTargetValue[CAsset()] = nTargetValue;
     CAmountMap mapValueRet;
-    bool ret = wallet.AttemptSelection(mapTargetValue, eligibility_filter, coins, setCoinsRet, mapValueRet, coin_selection_params);
+    bool ret = AttemptSelection(wallet, mapTargetValue, eligibility_filter, coins, setCoinsRet, mapValueRet, coin_selection_params);
     nValueRet = mapValueRet[CAsset()];
     return ret;
 }
@@ -58,8 +58,8 @@ static void add_coin(const CAmount& nValue, int nInput, std::vector<CInputCoin>&
     CMutableTransaction tx;
     tx.vout.resize(nInput + 1);
     tx.vout[nInput].nValue = nValue;
-    CWalletTx wtx(&testWallet, MakeTransactionRef(tx));
-    set.emplace_back(&wtx, nInput);
+    CWalletTx wtx(MakeTransactionRef(tx));
+    set.emplace_back(testWallet, &wtx, nInput);
 }
 
 static void add_coin(const CAmount& nValue, int nInput, CoinSet& set, CAmount fee = 0, CAmount long_term_fee = 0)
@@ -67,8 +67,8 @@ static void add_coin(const CAmount& nValue, int nInput, CoinSet& set, CAmount fe
     CMutableTransaction tx;
     tx.vout.resize(nInput + 1);
     tx.vout[nInput].nValue = nValue;
-    CWalletTx wtx(&testWallet, MakeTransactionRef(tx));
-    CInputCoin coin(&wtx, nInput);
+    CWalletTx wtx(MakeTransactionRef(tx));
+    CInputCoin coin(testWallet, &wtx, nInput);
     coin.effective_value = nValue - fee;
     coin.m_fee = fee;
     coin.m_long_term_fee = long_term_fee;
@@ -152,7 +152,7 @@ inline std::vector<OutputGroup>& GroupCoins(const std::vector<COutput>& coins)
     static_groups.clear();
     for (auto& coin : coins) {
         static_groups.emplace_back();
-        static_groups.back().Insert(coin.GetInputCoin(), coin.nDepth, coin.tx->m_amounts[CWalletTx::DEBIT].m_cached[ISMINE_SPENDABLE] && coin.tx->m_amounts[CWalletTx::DEBIT].m_value[ISMINE_SPENDABLE][CAsset()] == 1 /* HACK: we can't figure out the is_me flag so we use the conditions defined above; perhaps set safe to false for !fIsFromMe in add_coin() */, 0, 0, false);
+        static_groups.back().Insert(coin.GetInputCoin(testWallet), coin.nDepth, coin.tx->m_amounts[CWalletTx::DEBIT].m_cached[ISMINE_SPENDABLE] && coin.tx->m_amounts[CWalletTx::DEBIT].m_value[ISMINE_SPENDABLE][CAsset()] == 1 /* HACK: we can't figure out the is_me flag so we use the conditions defined above; perhaps set safe to false for !fIsFromMe in add_coin() */, 0, 0, false);
     }
     return static_groups;
 }
