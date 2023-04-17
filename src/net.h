@@ -302,6 +302,8 @@ public:
  */
 class TransportDeserializer {
 public:
+    // returns true if the current deserialization is empty
+    virtual bool IsEmpty() const = 0;
     // returns true if the current deserialization is complete
     virtual bool Complete() const = 0;
     // set the serialization context version
@@ -352,6 +354,10 @@ public:
         Reset();
     }
 
+    bool IsEmpty() const override
+    {
+        return (nHdrPos == 0);
+    }
     bool Complete() const override
     {
         if (!in_data)
