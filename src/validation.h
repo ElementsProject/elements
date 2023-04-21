@@ -11,7 +11,9 @@
 #endif
 
 #include <amount.h>
+#include <arith_uint256.h>
 #include <attributes.h>
+#include <chain.h>
 #include <coins.h>
 #include <confidential_validation.h>
 #include <consensus/validation.h>
@@ -22,10 +24,11 @@
 #include <policy/packages.h>
 #include <protocol.h> // For CMessageHeader::MessageStartChars
 #include <script/script_error.h>
-#include <sync.h>
-#include <txmempool.h> // For CTxMemPool::cs
-#include <txdb.h>
 #include <serialize.h>
+#include <sync.h>
+#include <txdb.h>
+#include <txmempool.h> // For CTxMemPool::cs
+#include <uint256.h>
 #include <util/check.h>
 #include <util/hasher.h>
 #include <util/translation.h>
@@ -45,7 +48,6 @@
 
 class CChainState;
 class BlockValidationState;
-class CBlockIndex;
 class CBlockTreeDB;
 class CBlockUndo;
 class CChainParams;
