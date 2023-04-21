@@ -128,7 +128,6 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
     InitRangeproofCache();
     InitSurjectionproofCache();
     m_node.chain = interfaces::MakeChain(m_node);
-    g_wallet_init_interface.Construct(m_node);
     fCheckBlockIndex = true;
 
     // ELEMENTS:
