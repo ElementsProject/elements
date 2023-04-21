@@ -40,7 +40,7 @@ CoinEligibilityFilter filter_standard_extra(6, 6, 0);
 CoinSelectionParams coin_selection_params(/* change_output_size= */ 0,
                                           /* change_spend_size= */ 0, /* effective_feerate= */ CFeeRate(0),
                                           /* long_term_feerate= */ CFeeRate(0), /* discard_feerate= */ CFeeRate(0),
-                                          /* tx_no_inputs_size= */ 0, /* avoid_partial= */ false);
+                                          /* tx_noinputs_size= */ 0, /* avoid_partial= */ false);
 
 // ELEMENTS: helper function wrapping a single-asset call to AttemptSelection
 static bool SimpleAttemptSelection(const CWallet& wallet, const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<COutput> coins,
@@ -302,7 +302,7 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
     CoinSelectionParams coin_selection_params_bnb(/* change_output_size= */ 0,
                                                   /* change_spend_size= */ 0, /* effective_feerate= */ CFeeRate(3000),
                                                   /* long_term_feerate= */ CFeeRate(1000), /* discard_feerate= */ CFeeRate(1000),
-                                                  /* tx_no_inputs_size= */ 0, /* avoid_partial= */ false);
+                                                  /* tx_noinputs_size= */ 0, /* avoid_partial= */ false);
     CoinSet setCoinsRet;
     CAmount nValueRet;
     empty_wallet();
@@ -674,7 +674,7 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
         CoinSelectionParams cs_params(/* change_output_size= */ 34,
                                       /* change_spend_size= */ 148, /* effective_feerate= */ CFeeRate(0),
                                       /* long_term_feerate= */ CFeeRate(0), /* discard_feerate= */ CFeeRate(0),
-                                      /* tx_no_inputs_size= */ 0, /* avoid_partial= */ false);
+                                      /* tx_noinputs_size= */ 0, /* avoid_partial= */ false);
         CoinSet out_set;
         CAmountMap out_value;
         CCoinControl cc;
