@@ -165,7 +165,7 @@ class CoinStatsIndexTest(BitcoinTestFramework):
         tx2 = CTransaction()
         tx2.vin.append(CTxIn(COutPoint(int(tx1_txid, 16), n), b''))
         tx2.vout.append(CTxOut(int(21 * COIN - 0.01 * COIN), CScript([OP_RETURN] + [OP_FALSE]*30)))
-        tx2.vout.append(CTxOut(int(0.01 * COIN), CScript())) # ELEMENTS: fee
+        tx2.vout.append(CTxOut(int(Decimal(0.01) * COIN), CScript())) # ELEMENTS: fee
         tx2_hex = self.nodes[0].signrawtransactionwithwallet(tx2.serialize().hex())['hex']
         self.nodes[0].sendrawtransaction(tx2_hex)
 
