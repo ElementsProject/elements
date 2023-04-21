@@ -201,7 +201,7 @@ void SendCoinsDialog::setModel(WalletModel *_model)
         ui->optInRBF->setCheckState(Qt::Checked);
 
         if (model->wallet().hasExternalSigner()) {
-            //: "device" usually means a hardware wallet
+            //: "device" usually means a hardware wallet.
             ui->sendButton->setText(tr("Sign on device"));
             if (gArgs.GetArg("-signer", "") != "") {
                 ui->sendButton->setEnabled(true);
