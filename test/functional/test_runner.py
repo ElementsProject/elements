@@ -315,6 +315,7 @@ BASE_SCRIPTS = [
     'p2p_blockfilters.py',
     'p2p_message_capture.py',
     'feature_includeconf.py',
+    'feature_addrman.py',
     'feature_asmap.py',
     'mempool_unbroadcast.py',
     # ELEMENTS: need to point past versions at our own release server
