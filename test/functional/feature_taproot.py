@@ -1494,7 +1494,7 @@ class TaprootTest(BitcoinTestFramework):
 
         # Post-taproot activation tests go first (pre-taproot tests' blocks are invalid post-taproot).
         self.log.info("Post-activation tests...")
-        self.nodes[1].generate(COINBASE_MATURITY + 1)
+        self.generate(self.nodes[1], COINBASE_MATURITY + 1)
         global g_genesis_hash
         g_genesis_hash = uint256_from_str(bytes.fromhex(self.nodes[1].getblockhash(0))[::-1])
         self.test_spenders(self.nodes[1], spenders_taproot_active(), input_counts=[1, 2, 2, 2, 2, 3])

@@ -159,7 +159,7 @@ class KeyPoolTest(BitcoinTestFramework):
         #  so we need to start with a bigger utxo to trigger change creation.
         #  all the below numbers are increased by 15000.
         res = w1.sendtoaddress(address=address, amount=0.00025000)
-        nodes[0].generate(1)
+        self.generate(nodes[0], 1)
         destination = addr.pop()
 
         # Using a fee rate (10 sat / byte) well above the minimum relay rate

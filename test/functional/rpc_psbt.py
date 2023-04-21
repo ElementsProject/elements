@@ -72,7 +72,7 @@ class PSBTTest(BitcoinTestFramework):
         online_addr = w2.getnewaddress(address_type="p2sh-segwit")
         wonline.importaddress(offline_addr, "", False)
         mining_node.sendtoaddress(address=offline_addr, amount=1.0)
-        mining_node.generate(nblocks=1)
+        self.generate(mining_node, nblocks=1)
         self.sync_blocks([mining_node, online_node])
 
         # Construct an unsigned PSBT on the online node (who doesn't know the output is Segwit, so will include a non-witness UTXO)
@@ -87,7 +87,7 @@ class PSBTTest(BitcoinTestFramework):
 
         # Make sure we can mine the resulting transaction
         txid = mining_node.sendrawtransaction(mining_node.finalizepsbt(signed_psbt)["hex"])
-        mining_node.generate(1)
+        self.generate(mining_node, 1)
         self.sync_blocks([mining_node, online_node])
         assert_equal(online_node.gettxout(txid,0)["confirmations"], 1)
 
@@ -207,7 +207,7 @@ class PSBTTest(BitcoinTestFramework):
         signed_tx = self.nodes[0].signrawtransactionwithwallet(rawtx)['hex']
         txid = self.nodes[0].sendrawtransaction(signed_tx)
 
-        self.nodes[0].generate(6)
+        self.generate(self.nodes[0], 6)
         self.sync_all()
 
         # Find the output pos
@@ -437,7 +437,7 @@ class PSBTTest(BitcoinTestFramework):
         txid2 = self.nodes[0].sendrawtransaction(rt2['hex'])
         rt2 = self.nodes[0].decoderawtransaction(rt2['hex'])
 
-        self.nodes[0].generate(6)
+        self.generate(self.nodes[0], 6)
         self.sync_all()
 
         for out in rt1['vout']:
@@ -485,7 +485,7 @@ class PSBTTest(BitcoinTestFramework):
             finalized = self.nodes[0].finalizepsbt(combined)['hex']
             self.nodes[0].sendrawtransaction(finalized)
 
-            self.nodes[0].generate(6)
+            self.generate(self.nodes[0], 6)
             self.sync_all()
 
         # Test additional args in walletcreatepsbt
@@ -641,7 +641,7 @@ class PSBTTest(BitcoinTestFramework):
         rawtx = self.nodes[0].blindrawtransaction(rawtx['hex'])
         signed_tx = self.nodes[0].signrawtransactionwithwallet(rawtx)['hex']
         txid_nonconf = self.nodes[0].sendrawtransaction(signed_tx)
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
 
         # Now use PSBT to send some coins nonconf->nonconf
@@ -650,7 +650,7 @@ class PSBTTest(BitcoinTestFramework):
         psbt = self.nodes[0].walletprocesspsbt(psbt)["psbt"]
         tx_hex = self.nodes[0].finalizepsbt(psbt)['hex']
         self.nodes[0].sendrawtransaction(tx_hex)
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
 
         # Now send nonconf->conf (with two outputs, blinding succeeds)
@@ -661,7 +661,7 @@ class PSBTTest(BitcoinTestFramework):
         hex_tx = self.nodes[0].finalizepsbt(psbt)['hex']
         assert_equal(self.num_blinded_outputs(hex_tx), 2)
         txid_conf_2 = self.nodes[0].sendrawtransaction(hex_tx)
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
 
         # Try to send conf->nonconf: This will fail because we can't balance the blinders
@@ -676,7 +676,7 @@ class PSBTTest(BitcoinTestFramework):
         hex_tx = self.nodes[2].finalizepsbt(psbt)['hex']
         assert_equal(self.num_blinded_outputs(hex_tx), 1)
         self.nodes[2].sendrawtransaction(hex_tx)
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
 
         # Check include_explicit option
@@ -697,7 +697,7 @@ class PSBTTest(BitcoinTestFramework):
         hex_tx = self.nodes[2].finalizepsbt(psbt)['hex']
         assert_equal(self.num_blinded_outputs(hex_tx), 1)
         self.nodes[2].sendrawtransaction(hex_tx)
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
 
         # Try to send nonconf->(nonconf + conf + conf) -- two conf to make blinders balance
@@ -709,7 +709,7 @@ class PSBTTest(BitcoinTestFramework):
         hex_tx = self.nodes[0].finalizepsbt(psbt)['hex']
         assert_equal(self.num_blinded_outputs(hex_tx), 2)
         self.nodes[0].sendrawtransaction(hex_tx)
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
 
         # Try a multiparty blinded tx
@@ -730,7 +730,7 @@ class PSBTTest(BitcoinTestFramework):
         vout1 = find_vout_for_address(self.nodes[2], txid1, w1_addr)
         vout2 = find_vout_for_address(self.nodes[2], txid2, w2_addr)
         vout3 = find_vout_for_address(self.nodes[2], txid3, w3_addr)
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
         # Check that a walletprocesspsbt fails if the wallet has a blind input but no blind outputs
         created_psbt = self.nodes[0].createpsbt(
@@ -787,7 +787,7 @@ class PSBTTest(BitcoinTestFramework):
         # Finalize and send
         tx = self.nodes[0].finalizepsbt(comb_psbt2)["hex"]
         self.nodes[0].sendrawtransaction(tx)
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
 
         # Regression for #1049
@@ -1027,7 +1027,7 @@ class PSBTTest(BitcoinTestFramework):
         addr4 = self.nodes[1].getnewaddress("", "p2sh-segwit")
         txid4 = self.nodes[0].sendtoaddress(addr4, 5)
         vout4 = find_output(self.nodes[0], txid4, 5)
-        self.nodes[0].generate(6)
+        self.generate(self.nodes[0], 6)
         self.sync_all()
         psbt2 = self.nodes[1].createpsbt(inputs=[{"txid":txid4, "vout":vout4}], outputs=[{self.nodes[0].getnewaddress():Decimal('4.999')}], psbt_version=0)
         psbt2 = self.nodes[1].walletprocesspsbt(psbt2)['psbt']
@@ -1055,7 +1055,7 @@ class PSBTTest(BitcoinTestFramework):
         addr = self.nodes[1].getnewaddress("", "p2sh-segwit")
         txid = self.nodes[0].sendtoaddress(addr, 7)
         addrinfo = self.nodes[1].getaddressinfo(addr)
-        blockhash = self.nodes[0].generate(6)[0]
+        blockhash = self.generate(self.nodes[0], 6)[0]
         self.sync_all()
         vout = find_output(self.nodes[0], txid, 7, blockhash=blockhash)
         psbt = self.nodes[1].createpsbt([{"txid":txid, "vout":vout}], [{self.nodes[0].getnewaddress("", "p2sh-segwit"):Decimal('6.999')}, {"fee": 0.001}])

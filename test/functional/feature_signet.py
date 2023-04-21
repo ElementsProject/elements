@@ -54,7 +54,7 @@ class SignetBasicTest(BitcoinTestFramework):
         # ELEMENTS: override our own fixed generation keys with a fixed random
         #  testnet/signet address, since we need the prefix to be correct
         self.nodes[0].set_deterministic_priv_key('tb1qet2shcx0pzm4qxymku73vcv266nyfk7kvf2t65', '')
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
 
         self.log.info("pregenerated signet blocks check")
 

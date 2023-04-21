@@ -27,7 +27,7 @@ class ScantxoutsetTest(BitcoinTestFramework):
         self.log.info("Mining blocks...")
         self.nodes[0].set_deterministic_priv_key('2Mysp7FKKe52eoC2JmU46irt1dt58TpCvhQ', 'cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ')
         self.nodes[0].importprivkey("cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ")
-        self.nodes[0].generate(110)
+        self.generate(self.nodes[0], 110)
 
         addr_P2SH_SEGWIT = self.nodes[0].getnewaddress("", "p2sh-segwit")
         pubk1 = self.nodes[0].getaddressinfo(addr_P2SH_SEGWIT)['pubkey']
@@ -54,14 +54,14 @@ class ScantxoutsetTest(BitcoinTestFramework):
         self.nodes[0].sendtoaddress("mpQ8rokAhp1TAtJQR6F6TaUmjAWkAWYYBq", 16.384) # (m/1/1/1500)
 
 
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
 
         self.log.info("Stop node, remove wallet, mine again some blocks...")
         self.stop_node(0)
         shutil.rmtree(os.path.join(self.nodes[0].datadir, self.chain, 'wallets'))
         self.start_node(0, self.extra_args[0] + ['-nowallet'])
         self.import_deterministic_coinbase_privkeys()
-        self.nodes[0].generate(110)
+        self.generate(self.nodes[0], 110)
 
         scan = self.nodes[0].scantxoutset("start", [])
         info = self.nodes[0].gettxoutsetinfo()
