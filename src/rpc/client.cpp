@@ -195,6 +195,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "unloadwallet", 1, "load_on_startup"},
     { "getnodeaddresses", 0, "count"},
     { "addpeeraddress", 1, "port"},
+    { "addpeeraddress", 2, "tried"},
     { "stop", 0, "wait" },
     //
     // ELEMENTS:
