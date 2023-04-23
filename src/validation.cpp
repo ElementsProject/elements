@@ -26,6 +26,7 @@
 #include <node/coinstats.h>
 #include <node/ui_interface.h>
 #include <pegins.h>
+#include <node/utxo_snapshot.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <policy/settings.h>
