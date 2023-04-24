@@ -47,7 +47,40 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.connect_nodes(0, 2)
         self.connect_nodes(0, 3)
 
+    def lock_outputs_type(self, wallet, outputtype):
+        """
+        Only allow UTXOs of the given type
+        """
+        if outputtype in ["legacy", "p2pkh", "pkh"]:
+            prefixes = ["pkh(", "sh(multi("]
+        elif outputtype in ["p2sh-segwit", "sh_wpkh"]:
+            prefixes = ["sh(wpkh(", "sh(wsh("]
+        elif outputtype in ["bech32", "wpkh"]:
+            prefixes = ["wpkh(", "wsh("]
+        else:
+            assert False, f"Unknown output type {outputtype}"
+
+        to_lock = []
+        for utxo in wallet.listunspent():
+            if "desc" in utxo:
+                for prefix in prefixes:
+                    if utxo["desc"].startswith(prefix):
+                        to_lock.append({"txid": utxo["txid"], "vout": utxo["vout"]})
+        wallet.lockunspent(False, to_lock)
+
+    def unlock_utxos(self, wallet):
+        """
+        Unlock all UTXOs except the watchonly one
+        """
+        to_keep = []
+        if self.watchonly_txid is not None and self.watchonly_vout is not None:
+            to_keep.append({"txid": self.watchonly_txid, "vout": self.watchonly_vout})
+        wallet.lockunspent(True)
+        wallet.lockunspent(False, to_keep)
+
     def run_test(self):
+        self.watchonly_txid = None
+        self.watchonly_vout = None
         self.log.info("Connect nodes, set fees, generate blocks, and sync")
         self.min_relay_tx_fee = self.nodes[0].getnetworkinfo()['relayfee']
         # This test is not meant to test fee estimation and we'd like
@@ -400,6 +433,7 @@ class RawTransactionsTest(BitcoinTestFramework):
     def test_fee_p2pkh(self):
         """Compare fee of a standard pubkeyhash transaction."""
         self.log.info("Test fundrawtxn p2pkh fee")
+        self.lock_outputs_type(self.nodes[0], "p2pkh")
         inputs = []
         outputs = [{self.nodes[1].getnewaddress():1.1}]
         rawtx = self.nodes[0].createrawtransaction(inputs, outputs)
@@ -413,9 +447,12 @@ class RawTransactionsTest(BitcoinTestFramework):
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
         assert feeDelta <= self.fee_tolerance
 
+        self.unlock_utxos(self.nodes[0])
+
     def test_fee_p2pkh_multi_out(self):
         """Compare fee of a standard pubkeyhash transaction with multiple outputs."""
         self.log.info("Test fundrawtxn p2pkh fee with multiple outputs")
+        self.lock_outputs_type(self.nodes[0], "p2pkh")
         inputs = []
         outputs = [
             {self.nodes[1].getnewaddress():1.1},
@@ -440,8 +477,11 @@ class RawTransactionsTest(BitcoinTestFramework):
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
         assert feeDelta <= self.fee_tolerance
 
+        self.unlock_utxos(self.nodes[0])
+
     def test_fee_p2sh(self):
         """Compare fee of a 2-of-2 multisig p2sh transaction."""
+        self.lock_outputs_type(self.nodes[0], "p2pkh")
         # Create 2-of-2 addr.
         addr1 = self.nodes[1].getnewaddress()
         addr2 = self.nodes[1].getnewaddress()
@@ -464,9 +504,12 @@ class RawTransactionsTest(BitcoinTestFramework):
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
         assert feeDelta <= self.fee_tolerance
 
+        self.unlock_utxos(self.nodes[0])
+
     def test_fee_4of5(self):
         """Compare fee of a standard pubkeyhash transaction."""
         self.log.info("Test fundrawtxn fee with 4-of-5 addresses")
+        self.lock_outputs_type(self.nodes[0], "p2pkh")
 
         # Create 4-of-5 addr.
         addr1 = self.nodes[1].getnewaddress()
@@ -504,6 +547,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         # Compare fee.
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
         assert feeDelta <= self.fee_tolerance
+
+        self.unlock_utxos(self.nodes[0])
 
     def test_spend_2of2(self):
         """Spend a 2-of-2 multisig transaction over fundraw."""
@@ -574,9 +619,12 @@ class RawTransactionsTest(BitcoinTestFramework):
         # Drain the keypool.
         self.nodes[1].getnewaddress()
         self.nodes[1].getrawchangeaddress()
+
         inputs = []
-        outputs = [{self.nodes[0].getnewaddress():1.09997500}]
+        value = 1.09997500
+        outputs = [{self.nodes[0].getnewaddress():value}]
         rawtx = self.nodes[1].createrawtransaction(inputs, outputs)
+        print(self.nodes[1].decoderawtransaction(rawtx))
         # fund a transaction that does not require a new key for the change output
         self.nodes[1].fundrawtransaction(rawtx)
 
@@ -1015,33 +1063,33 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # We receive unconfirmed funds from external keys (unsafe outputs).
         addr = wallet.getnewaddress()
-        txid1 = self.nodes[2].sendtoaddress(addr, 6)
-        txid2 = self.nodes[2].sendtoaddress(addr, 4)
-        self.sync_all()
-        vout1 = find_vout_for_address(wallet, txid1, addr)
-        vout2 = find_vout_for_address(wallet, txid2, addr)
+        inputs = []
+        for i in range(0, 2):
+            txid = self.nodes[2].sendtoaddress(addr, 5)
+            self.sync_mempools()
+            vout = find_vout_for_address(wallet, txid, addr)
+            inputs.append((txid, vout))
 
         # Unsafe inputs are ignored by default.
-        rawtx = wallet.createrawtransaction([], [{self.nodes[2].getnewaddress(): 5}])
+        rawtx = wallet.createrawtransaction([], [{self.nodes[2].getnewaddress(): 7.5}])
         assert_raises_rpc_error(-4, "Insufficient funds", wallet.fundrawtransaction, rawtx)
 
         # But we can opt-in to use them for funding.
         fundedtx = wallet.fundrawtransaction(rawtx, {"include_unsafe": True})
         tx_dec = wallet.decoderawtransaction(fundedtx['hex'])
-        assert any([txin['txid'] == txid1 and txin['vout'] == vout1 for txin in tx_dec['vin']])
+        assert all((txin["txid"], txin["vout"]) in inputs for txin in tx_dec["vin"])
         blindedtx = wallet.blindrawtransaction(fundedtx['hex'])
         signedtx = wallet.signrawtransactionwithwallet(blindedtx)
-        wallet.sendrawtransaction(signedtx['hex'])
+        assert wallet.testmempoolaccept([signedtx['hex']])[0]["allowed"]
 
         # And we can also use them once they're confirmed.
         self.generate(self.nodes[0], 1)
-        rawtx = wallet.createrawtransaction([], [{self.nodes[2].getnewaddress(): 3}])
-        fundedtx = wallet.fundrawtransaction(rawtx, {"include_unsafe": True})
+        fundedtx = wallet.fundrawtransaction(rawtx, {"include_unsafe": False})
         tx_dec = wallet.decoderawtransaction(fundedtx['hex'])
-        assert any([txin['txid'] == txid2 and txin['vout'] == vout2 for txin in tx_dec['vin']])
+        assert all((txin["txid"], txin["vout"]) in inputs for txin in tx_dec["vin"])
         blindedtx = wallet.blindrawtransaction(fundedtx['hex'])
         signedtx = wallet.signrawtransactionwithwallet(blindedtx)
-        wallet.sendrawtransaction(signedtx['hex'])
+        assert wallet.testmempoolaccept([signedtx['hex']])[0]["allowed"]
 
     def test_22670(self):
         # In issue #22670, it was observed that ApproximateBestSubset may

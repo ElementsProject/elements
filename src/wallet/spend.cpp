@@ -460,6 +460,17 @@ bool AttemptSelection(const CWallet& wallet, const CAmountMap& mapTargetValue, c
             const CAmountMap bnb_value_map {{asset, bnb_value}};
             results.emplace_back(std::make_tuple(waste, std::move(bnb_coins), bnb_value_map));
         }
+
+        // We include the minimum final change for SRD as we do want to avoid making really small change.
+        // KnapsackSolver does not need this because it includes MIN_CHANGE internally.
+        const CAmount srd_target = nTargetValue + coin_selection_params.m_change_fee + MIN_FINAL_CHANGE;
+        auto srd_result = SelectCoinsSRD(positive_groups, srd_target);
+        if (srd_result != std::nullopt) {
+            const auto waste = GetSelectionWaste(srd_result->first, coin_selection_params.m_cost_of_change, srd_target, !coin_selection_params.m_subtract_fee_outputs);
+            std::set<CInputCoin> srd_coins = srd_result->first;
+            const CAmountMap srd_value_map {{asset, srd_result->second}};
+            results.emplace_back(std::make_tuple(waste, std::move(srd_coins), srd_value_map));
+        }
     }
 
     // The knapsack solver has some legacy behavior where it will spend dust outputs. We retain this behavior, so don't filter for positive only here.

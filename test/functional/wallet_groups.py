@@ -61,6 +61,11 @@ class WalletGroupTest(BitcoinTestFramework):
         # one output should be 0.2, the other should be ~0.3
         v = [vout["value"] for vout in tx1["vout"] if vout["scriptPubKey"]["type"] != "fee"]
         v.sort()
+        # JAMES/BYRON DELETE ME
+        #print(self.nodes[1].listunspent())
+        print("vin amount = {}".format(self.nodes[0].gettxout(tx1["vin"][0]["txid"], tx1["vin"][0]["vout"], True)["value"]))
+        print("vout amounts = {}".format(v))
+        # END JAMES?BYRON
         assert_approx(v[0], vexp=0.2, vspan=0.0001)
         assert_approx(v[1], vexp=0.3, vspan=0.0001)
 
