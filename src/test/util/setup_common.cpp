@@ -231,7 +231,7 @@ TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedp
 }
 
 TestChain100Setup::TestChain100Setup(const std::vector<const char*>& extra_args)
-    : TestingSetup{CBaseChainParams::REGTEST, extra_args}
+    : TestingSetup{CBaseChainParams::REGTEST, "", extra_args} // ELEMENTS: added empty fedpegscript here
 {
     SetMockTime(1598887952);
     constexpr std::array<unsigned char, 32> vchKey = {

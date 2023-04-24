@@ -51,6 +51,7 @@ class BIP66Test(BitcoinTestFramework):
             f'-testactivationheight=dersig@{DERSIG_HEIGHT}',
             '-whitelist=noban@127.0.0.1',
             '-par=1',  # Use only one script thread to get the exact log msg for testing
+            f'-con_bip66height={DERSIG_HEIGHT}', # ELEMENTS
         ]]
         self.setup_clean_chain = True
         self.rpc_timeout = 240

@@ -769,7 +769,7 @@ protected:
         consensus.BIP34Hash = uint256S(args.GetArg("-con_bip34hash", "0x0"));
         consensus.BIP65Height = args.GetArg("-con_bip65height", 0);
         consensus.BIP66Height = args.GetArg("-con_bip66height", 0);
-        consensus.CSVHeight = args.GetArg("-con_csv_deploy_start", 432);
+        consensus.CSVHeight = args.GetArg("-con_csv_deploy_start", 1);
         consensus.powLimit = uint256S(args.GetArg("-con_powlimit", "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
         consensus.nPowTargetTimespan = args.GetArg("-con_npowtargettimespan", consensus.nPowTargetTimespan);
         consensus.nPowTargetSpacing = args.GetArg("-con_npowtargetspacing", consensus.nPowTargetSpacing);

@@ -85,6 +85,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.extra_args = [[
             '-acceptnonstdtxn=1',  # This is a consensus block test, we don't care about tx policy
             '-testactivationheight=bip34@2',
+            "-con_bip34height=2", # ELEMENTS
         ]]
 
     def run_test(self):

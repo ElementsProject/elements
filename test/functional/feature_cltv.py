@@ -86,6 +86,7 @@ class BIP65Test(BitcoinTestFramework):
             '-whitelist=noban@127.0.0.1',
             '-par=1',  # Use only one script thread to get the exact reject reason for testing
             '-acceptnonstdtxn=1',  # cltv_invalidate is nonstandard
+            f'-con_bip65height={CLTV_HEIGHT}', # ELEMENTS
         ]]
         self.setup_clean_chain = True
         self.rpc_timeout = 480

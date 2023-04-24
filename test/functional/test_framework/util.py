@@ -396,9 +396,9 @@ def write_config(config_path, *, n, chain, extra_config="", disable_autoconnect=
         f.write("con_connect_genesis_outputs=0\n")
         f.write("anyonecanspendaremine=0\n")
         f.write("walletrbf=0\n") # Default is 1 in Elements
-        f.write("con_bip34height=2\n")
-        f.write("con_bip65height=111\n")
-        f.write("con_bip66height=102\n")
+        f.write("con_bip34height=1\n")
+        f.write("con_bip65height=1\n")
+        f.write("con_bip66height=1\n")
         f.write("blindedaddresses=0\n") # Set to minimize broken tests in favor of custom
         f.write("evbparams=dynafed:"+str(2**31)+":::\n") # Never starts unless overridden
         f.write("minrelaytxfee=0.00001\n")
