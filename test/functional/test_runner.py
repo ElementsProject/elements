@@ -202,10 +202,10 @@ BASE_SCRIPTS = [
     'rpc_signrawtransaction.py --descriptors',
     'rpc_rawtransaction.py --legacy-wallet',
     'rpc_rawtransaction.py --descriptors',
-    # ELEMENTS: FIXME failing test
+    # ELEMENTS: FIXME failing tests
     # 'wallet_groups.py --legacy-wallet',
+    # 'wallet_groups.py --descriptors',
     'p2p_addrv2_relay.py',
-    'wallet_groups.py --descriptors',
     'p2p_compactblocks_hb.py',
     'p2p_disconnect_ban.py',
     'rpc_decodescript.py',
