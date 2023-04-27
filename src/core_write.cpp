@@ -178,40 +178,24 @@ UniValue EncodeHexScriptWitness(const CScriptWitness& witness)
     return witness_hex;
 }
 
-void ScriptToUniv(const CScript& script, UniValue& out, bool include_address)
+void ScriptToUniv(const CScript& script, UniValue& out)
 {
-    out.pushKV("asm", ScriptToAsmStr(script));
-    out.pushKV("hex", HexStr(script));
-
-    std::vector<std::vector<unsigned char>> solns;
-    TxoutType type = Solver(script, solns);
-    out.pushKV("type", GetTxnOutputType(type));
-
-    CTxDestination address;
-    if (include_address && ExtractDestination(script, address) && type != TxoutType::PUBKEY) {
-        out.pushKV("address", EncodeDestination(address));
-    }
+    ScriptPubKeyToUniv(script, out, /* include_hex */ true, /* include_address */ false);
 }
 
 // ELEMENTS:
-static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex, bool include_addresses, bool is_parent_chain)
+static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool include_hex, bool include_addresses, bool is_parent_chain)
 {
     const std::string prefix = is_parent_chain ? "pegout_" : "";
-    TxoutType type;
     CTxDestination address;
-    std::vector<CTxDestination> addresses;
-    int nRequired;
 
     out.pushKV(prefix + "asm", ScriptToAsmStr(scriptPubKey));
-    if (fIncludeHex)
-        out.pushKV(prefix + "hex", HexStr(scriptPubKey));
+    if (include_hex) out.pushKV(prefix + "hex", HexStr(scriptPubKey));
 
-    if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired) || type == TxoutType::PUBKEY) {
-        out.pushKV(prefix + "type", GetTxnOutputType(type));
-        return;
-    }
+    std::vector<std::vector<unsigned char>> solns;
+    const TxoutType type{Solver(scriptPubKey, solns)};
 
-    if (ExtractDestination(scriptPubKey, address)) {
+    if (include_addresses && ExtractDestination(scriptPubKey, address) && type != TxoutType::PUBKEY) {
         if (is_parent_chain) {
             out.pushKV(prefix + "address", EncodeParentDestination(address));
         } else {
@@ -219,21 +203,6 @@ static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& o
         }
     }
     out.pushKV(prefix + "type", GetTxnOutputType(type));
-
-    if (include_addresses) {
-        UniValue a(UniValue::VARR);
-        if (is_parent_chain) {
-            for (const CTxDestination& addr : addresses) {
-                a.push_back(EncodeParentDestination(addr));
-            }
-        } else {
-            for (const CTxDestination& addr : addresses) {
-                a.push_back(EncodeDestination(addr));
-            }
-        }
-        out.pushKV(prefix + "addresses", a);
-        out.pushKV(prefix + "reqSigs", nRequired);
-    }
 }
 
 // TODO: from v23 ("addresses" and "reqSigs" deprecated) this method should be refactored to remove the `include_addresses` option
@@ -251,7 +220,7 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
     }
 }
 
-void TxToUniv(const CTransaction& tx, const uint256& hashBlock, bool include_addresses, UniValue& entry, bool include_hex, int serialize_flags, const CTxUndo* txundo)
+void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags, const CTxUndo* txundo)
 {
     entry.pushKV("txid", tx.GetHash().GetHex());
     entry.pushKV("hash", tx.GetWitnessHash().GetHex());
@@ -395,7 +364,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, bool include_add
         out.pushKV("n", (int64_t)i);
 
         UniValue o(UniValue::VOBJ);
-        ScriptPubKeyToUniv(txout.scriptPubKey, o, true, include_addresses);
+        ScriptPubKeyToUniv(txout.scriptPubKey, o, true);
         out.pushKV("scriptPubKey", o);
         vout.push_back(out);
     }
