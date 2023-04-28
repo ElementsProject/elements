@@ -38,6 +38,7 @@
 #include <QClipboard>
 #include <QDateTime>
 #include <QDesktopServices>
+#include <QDialog>
 #include <QDoubleValidator>
 #include <QFileDialog>
 #include <QFont>
@@ -1036,6 +1037,13 @@ void PrintSlotException(
     description += "->";
     description += receiver->metaObject()->className();
     PrintExceptionContinue(exception, description.c_str());
+}
+
+void ShowModalDialogAndDeleteOnClose(QDialog* dialog)
+{
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setWindowModality(Qt::ApplicationModal);
+    dialog->show();
 }
 
 } // namespace GUIUtil
