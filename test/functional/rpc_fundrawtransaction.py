@@ -8,6 +8,7 @@ from decimal import Decimal
 from itertools import product
 
 from test_framework.descriptors import descsum_create
+from test_framework.key import ECKey
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_approx,
@@ -19,6 +20,7 @@ from test_framework.util import (
     count_bytes,
     find_vout_for_address,
 )
+from test_framework.wallet_util import bytes_to_wif
 
 
 def get_unspent(listunspent, amount):
@@ -134,6 +136,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.test_transaction_too_large()
         self.test_include_unsafe()
         self.test_surjectionproof_many_inputs()
+        self.test_external_inputs()
         self.test_22670()
 
     def test_change_position(self):
@@ -1054,6 +1057,64 @@ class RawTransactionsTest(BitcoinTestFramework):
 #        wallet.sendmany("", outputs)
 #        self.generate(self.nodes[0], 10)
 #        assert_raises_rpc_error(-4, "Transaction too large", recipient.fundrawtransaction, rawtx)
+#        self.nodes[0].unloadwallet("large")
+
+    def test_external_inputs(self):
+        self.log.info("Test funding with external inputs")
+
+        eckey = ECKey()
+        eckey.generate()
+        privkey = bytes_to_wif(eckey.get_bytes())
+
+        self.nodes[0].createwallet("extsend")
+        ext_wallet = self.nodes[0].get_wallet_rpc("extsend")
+        self.nodes[2].createwallet("extfund")
+        ext_fund = self.nodes[2].get_wallet_rpc("extfund")
+
+        self.generatetoaddress(self.nodes[0], 120, ext_wallet.getnewaddress())
+
+        # Make a weird but signable script. sh(pkh()) descriptor accomplishes this
+        desc = descsum_create("sh(pkh({}))".format(privkey))
+        if self.options.descriptors:
+            res = ext_wallet.importdescriptors([{"desc": desc, "timestamp": "now"}])
+        else:
+            res = ext_wallet.importmulti([{"desc": desc, "timestamp": "now"}])
+        assert res[0]["success"]
+        addr = ext_wallet.deriveaddresses(desc)[0]
+        addr_info = ext_wallet.getaddressinfo(addr)
+
+        ext_wallet.sendtoaddress(addr, 10)
+        ext_wallet.sendtoaddress(ext_fund.getnewaddress(), 10)
+        self.nodes[0].generate(100)
+        ext_utxo = ext_wallet.listunspent(addresses=[addr])[0]
+
+        # An external input without solving data should result in an error
+        raw_tx = ext_wallet.createrawtransaction([ext_utxo], [{ext_fund.getnewaddress(): 15}])
+        # ELEMENTS
+        # Tis bitcoin assert is not longer valid because we had to generate a bunch of blocks
+        # above to fund ext_wallet
+        #assert_raises_rpc_error(-4, "Insufficient funds", ext_fund.fundrawtransaction, raw_tx)
+
+        # Error conditions
+        assert_raises_rpc_error(-5, "'not a pubkey' is not hex", ext_fund.fundrawtransaction, raw_tx, {"solving_data": {"pubkeys":["not a pubkey"]}})
+        assert_raises_rpc_error(-5, "'01234567890a0b0c0d0e0f' is not a valid public key", ext_fund.fundrawtransaction, raw_tx, {"solving_data": {"pubkeys":["01234567890a0b0c0d0e0f"]}})
+        assert_raises_rpc_error(-5, "'not a script' is not hex", ext_fund.fundrawtransaction, raw_tx, {"solving_data": {"scripts":["not a script"]}})
+        assert_raises_rpc_error(-8, "Unable to parse descriptor 'not a descriptor'", ext_fund.fundrawtransaction, raw_tx, {"solving_data": {"descriptors":["not a descriptor"]}})
+
+        # But funding should work when the solving data is provided
+        funded_tx = ext_fund.fundrawtransaction(raw_tx, {"solving_data": {"pubkeys": [addr_info['pubkey']], "scripts": [addr_info["embedded"]["scriptPubKey"]]}})
+        signed_tx = ext_fund.signrawtransactionwithwallet(funded_tx['hex'])
+        assert not signed_tx['complete']
+        signed_tx = ext_wallet.signrawtransactionwithwallet(signed_tx['hex'])
+        assert signed_tx['complete']
+
+        funded_tx = ext_fund.fundrawtransaction(raw_tx, {"solving_data": {"descriptors": [desc]}})
+        signed_tx = ext_fund.signrawtransactionwithwallet(funded_tx['hex'])
+        assert not signed_tx['complete']
+        signed_tx = ext_wallet.signrawtransactionwithwallet(signed_tx['hex'])
+        assert signed_tx['complete']
+        self.nodes[2].unloadwallet("extfund")
+        self.nodes[0].unloadwallet("extsend")
 
     def test_include_unsafe(self):
         self.log.info("Test fundrawtxn with unsafe inputs")
@@ -1090,6 +1151,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         blindedtx = wallet.blindrawtransaction(fundedtx['hex'])
         signedtx = wallet.signrawtransactionwithwallet(blindedtx)
         assert wallet.testmempoolaccept([signedtx['hex']])[0]["allowed"]
+        self.nodes[0].unloadwallet("unsafe")
 
     def test_22670(self):
         # In issue #22670, it was observed that ApproximateBestSubset may

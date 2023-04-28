@@ -12,9 +12,14 @@
 #include <policy/fees.h>
 #include <primitives/bitcoin/transaction.h>
 #include <primitives/transaction.h>
+#include <script/keyorigin.h>
+#include <script/signingprovider.h>
 #include <script/standard.h>
 
 #include <optional>
+#include <algorithm>
+#include <map>
+#include <set>
 
 const int DEFAULT_MIN_DEPTH = 0;
 const int DEFAULT_MAX_DEPTH = 9999999;
@@ -94,16 +99,6 @@ public:
     void SelectExternal(const COutPoint& outpoint, const CTxOut& txout)
     {
         setSelected.insert(outpoint);
-        m_external_txouts.emplace(outpoint, txout);
-    }
-
-    void Select(const COutPoint& outpoint, const Sidechain::Bitcoin::CTxOut& txout_in)
-    {
-        setSelected.insert(outpoint);
-        CTxOut txout;
-        txout.scriptPubKey = txout_in.scriptPubKey;
-        txout.nValue.SetToAmount(txout_in.nValue);
-        txout.nAsset.SetToAsset(Params().GetConsensus().pegged_asset);
         m_external_txouts.emplace(outpoint, txout);
     }
 

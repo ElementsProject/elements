@@ -8,6 +8,7 @@
 #include <issuance.h> // ELEMENTS: for GenerateAssetEntropy and others
 #include <policy/policy.h>
 #include <rpc/util.h>  // for GetDestinationBlindingKey and IsBlindDestination
+#include <script/signingprovider.h>
 #include <util/check.h>
 #include <util/fees.h>
 #include <util/moneystr.h>
@@ -81,7 +82,7 @@ int CalculateMaximumSignedInputSize(const CTxOut& txout, const SigningProvider* 
 
 int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* wallet, bool use_max_sig)
 {
-    std::unique_ptr<SigningProvider> provider = wallet->GetSolvingProvider(txout.scriptPubKey);
+    const std::unique_ptr<SigningProvider> provider = wallet->GetSolvingProvider(txout.scriptPubKey);
     return CalculateMaximumSignedInputSize(txout, provider.get(), use_max_sig);
 }
 
@@ -533,12 +534,10 @@ bool SelectCoins(const CWallet& wallet, const std::vector<COutput>& vAvailableCo
 
     std::vector<COutPoint> vPresetInputs;
     coin_control.ListSelected(vPresetInputs);
-    for (const COutPoint& outpoint : vPresetInputs)
-    {
-        std::map<uint256, CWalletTx>::const_iterator it = wallet.mapWallet.find(outpoint.hash);
-        // ELEMENTS: this code pulled from unmerged Core PR #17211
+    for (const COutPoint& outpoint : vPresetInputs) {
         int input_bytes = -1;
         CTxOut txout;
+        std::map<uint256, CWalletTx>::const_iterator it = wallet.mapWallet.find(outpoint.hash);
         CInputCoin coin(outpoint, txout, 0); // dummy initialization
         if (it != wallet.mapWallet.end()) {
             const CWalletTx& wtx = it->second;
@@ -1413,7 +1412,7 @@ static bool CreateTransactionInternal(
     // Calculate the transaction fee
     int nBytes = tx_sizes.vsize;
     if (nBytes < 0) {
-        error = _("Signing transaction failed");
+        error = _("Missing solving data for estimating transaction size");
         return false;
     }
     nFeeRet = coin_selection_params.m_effective_feerate.GetFee(nBytes);

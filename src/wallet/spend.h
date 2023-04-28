@@ -112,6 +112,7 @@ class WalletRescanReserver; //forward declarations for ScanForWalletTransactions
 
 //Get the marginal bytes of spending the specified output
 int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* pwallet, bool use_max_sig = false);
+int CalculateMaximumSignedInputSize(const CTxOut& txout, const SigningProvider* pwallet, bool use_max_sig = false);
 
 struct TxSize {
     int64_t vsize{-1};
