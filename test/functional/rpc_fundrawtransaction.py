@@ -1085,13 +1085,14 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         ext_wallet.sendtoaddress(addr, 10)
         ext_wallet.sendtoaddress(ext_fund.getnewaddress(), 10)
-        self.nodes[0].generate(100)
+        self.generate(self.nodes[0], 6)
+        self.sync_all()
         ext_utxo = ext_wallet.listunspent(addresses=[addr])[0]
 
         # An external input without solving data should result in an error
         raw_tx = ext_wallet.createrawtransaction([ext_utxo], [{ext_fund.getnewaddress(): 15}])
         # ELEMENTS
-        # Tis bitcoin assert is not longer valid because we had to generate a bunch of blocks
+        # This bitcoin assert is no longer valid because we had to generate a bunch of blocks
         # above to fund ext_wallet
         #assert_raises_rpc_error(-4, "Insufficient funds", ext_fund.fundrawtransaction, raw_tx)
 
