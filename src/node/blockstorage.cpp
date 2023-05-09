@@ -17,6 +17,7 @@
 #include <signet.h>
 #include <streams.h>
 #include <undo.h>
+#include <util/syscall_sandbox.h>
 #include <util/system.h>
 #include <validation.h>
 
@@ -510,6 +511,7 @@ struct CImportingNow {
 
 void ThreadImport(ChainstateManager& chainman, std::vector<fs::path> vImportFiles, const ArgsManager& args)
 {
+    SetSyscallSandboxPolicy(SyscallSandboxPolicy::INITIALIZATION_LOAD_BLOCKS);
     ScheduleBatchPriority();
 
     {
