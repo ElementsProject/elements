@@ -119,6 +119,7 @@ BITCOIN_CORE_H = \
   addrman.h \
   asset.h \
   assetsdir.h \
+  addrman_impl.h \
   attributes.h \
   banman.h \
   base58.h \
