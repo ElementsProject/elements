@@ -5,8 +5,8 @@
 #ifndef BITCOIN_WALLET_COINSELECTION_H
 #define BITCOIN_WALLET_COINSELECTION_H
 
-#include <amount.h>
 #include <chainparams.h>
+#include <consensus/amount.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
 #include <primitives/bitcoin/transaction.h>

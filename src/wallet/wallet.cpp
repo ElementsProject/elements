@@ -7,6 +7,7 @@
 
 #include <blindpsbt.h>
 #include <chain.h>
+#include <consensus/amount.h>
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <external_signer.h>

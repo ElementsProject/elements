@@ -4,7 +4,7 @@
 
 #include <uint256.h>
 
-#include <amount.h>
+#include <consensus/amount.h>
 #include <serialize.h>
 
 /**

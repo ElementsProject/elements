@@ -3,12 +3,12 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <amount.h>
 #include <asset.h>
 #include <assetsdir.h>
 #include <blindpsbt.h>
 #include <block_proof.h>
 #include <consensus/validation.h>
+#include <consensus/amount.h>
 #include <core_io.h>
 #include <deploymentstatus.h>
 #include <interfaces/chain.h>

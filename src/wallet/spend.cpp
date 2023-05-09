@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <blind.h> // ELEMENTS: for MAX_RANGEPROOF_SIZE
+#include <consensus/amount.h>
 #include <consensus/validation.h>
 #include <interfaces/chain.h>
 #include <issuance.h> // ELEMENTS: for GenerateAssetEntropy and others

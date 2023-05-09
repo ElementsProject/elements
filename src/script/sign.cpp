@@ -5,6 +5,7 @@
 
 #include <script/sign.h>
 
+#include <consensus/amount.h>
 #include <key.h>
 #include <pegins.h>
 #include <policy/policy.h>

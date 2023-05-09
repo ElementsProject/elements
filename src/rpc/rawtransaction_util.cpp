@@ -7,6 +7,7 @@
 
 #include <block_proof.h>
 #include <coins.h>
+#include <consensus/amount.h>
 #include <core_io.h>
 #include <key_io.h>
 #include <pegins.h>

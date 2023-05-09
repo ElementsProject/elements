@@ -4,6 +4,7 @@
 
 #include <iostream>
 
+#include <consensus/amount.h>
 #include <key_io.h>
 #include <outputtype.h>
 #include <rpc/util.h>
@@ -1243,4 +1244,3 @@ UniValue AmountMapToUniv(const CAmountMap& balanceOrig, std::string strasset)
 
 // END ELEMENTS
 //
-

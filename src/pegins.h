@@ -5,7 +5,7 @@
 #ifndef BITCOIN_PEGINS_H
 #define BITCOIN_PEGINS_H
 
-#include <amount.h>
+#include <consensus/amount.h>
 #include <consensus/params.h>
 #include <merkleblock.h>
 #include <primitives/bitcoin/transaction.h>

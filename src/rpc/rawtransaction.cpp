@@ -8,6 +8,7 @@
 #include <block_proof.h>
 #include <chain.h>
 #include <coins.h>
+#include <consensus/amount.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <index/txindex.h>

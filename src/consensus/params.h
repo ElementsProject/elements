@@ -12,7 +12,7 @@
 #include <limits>
 
 #include <script/script.h> // mandatory_coinbase_destination
-#include <amount.h> // genesis_subsidy
+#include <consensus/amount.h> // genesis_subsidy
 
 namespace Consensus {
 
