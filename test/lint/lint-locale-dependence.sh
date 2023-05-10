@@ -43,8 +43,6 @@ export LC_ALL=C
 KNOWN_VIOLATIONS=(
     "src/bitcoin-tx.cpp.*stoul"
     "src/chain.h.*trim"
-    "src/dbwrapper.cpp.*stoul"
-    "src/dbwrapper.cpp:.*vsnprintf"
     "src/init.cpp.*trim"
     "src/rest.cpp:.*strtol"
     "src/test/dbwrapper_tests.cpp:.*snprintf"
