@@ -1412,7 +1412,7 @@ static bool CreateTransactionInternal(
 
     // Calculate the transaction fee
     int nBytes = tx_sizes.vsize;
-    if (nBytes < 0) {
+    if (nBytes == -1) {
         error = _("Missing solving data for estimating transaction size");
         return false;
     }
