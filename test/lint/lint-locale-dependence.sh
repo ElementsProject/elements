@@ -44,7 +44,7 @@ KNOWN_VIOLATIONS=(
     "src/bitcoin-tx.cpp.*stoul"
     "src/chain.h.*trim"
     "src/init.cpp.*trim"
-    "src/rest.cpp:.*strtol"
+    "src/dbwrapper.cpp:.*vsnprintf"
     "src/test/dbwrapper_tests.cpp:.*snprintf"
     "src/test/fuzz/locale.cpp"
     "src/test/fuzz/string.cpp"
