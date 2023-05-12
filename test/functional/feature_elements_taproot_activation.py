@@ -35,7 +35,7 @@ class TaprootActivationTest(BitcoinTestFramework):
 
         assert_equal(rpc.getblockcount(), 0)
 
-        blocks = rpc.generatetoaddress(activation_height - 2, rpc.getnewaddress())
+        blocks = self.generatetoaddress(rpc, activation_height - 2, rpc.getnewaddress())
         assert_equal(rpc.getblockcount(), activation_height - 2)
 
         for n, block in enumerate(blocks):
@@ -51,11 +51,11 @@ class TaprootActivationTest(BitcoinTestFramework):
         assert_equal(rpc.getblockchaininfo()["softforks"]["taproot"]["bip9"]["status"], "defined")
         # The 1023rd block does not signal, but changes the signalling state
         # to "started" from "defined"
-        blocks = rpc.generatetoaddress(1, rpc.getnewaddress())
+        blocks = self.generatetoaddress(rpc, 1, rpc.getnewaddress())
         assert_equal(rpc.getblockchaininfo()["softforks"]["taproot"]["bip9"]["status"], "started")
         assert_equal(rpc.getblockheader(blocks[0])["versionHex"], "20000000")
 
-        blocks = rpc.generatetoaddress(127, rpc.getnewaddress())
+        blocks = self.generatetoaddress(rpc, 127, rpc.getnewaddress())
         for n, block in enumerate(blocks):
             decode = rpc.getblockheader(block)
             assert_equal (decode["versionHex"], "20000004")
@@ -71,18 +71,18 @@ class TaprootActivationTest(BitcoinTestFramework):
         assert_equal(rpc.getblockchaininfo()["softforks"]["taproot"]["bip9"]["status"], "started")
 
         # Run through another 128 blocks, without failing to signal
-        blocks = rpc.generatetoaddress(127, rpc.getnewaddress())
+        blocks = self.generatetoaddress(rpc, 127, rpc.getnewaddress())
         for n, block in enumerate(blocks):
             decode = rpc.getblockheader(block)
             assert_equal (decode["versionHex"], "20000004")
         assert_equal(rpc.getblockchaininfo()["softforks"]["taproot"]["bip9"]["status"], "started")
         # The 128th block then switches from "started" to "locked_in"
-        blocks = rpc.generatetoaddress(1, rpc.getnewaddress())
+        blocks = self.generatetoaddress(rpc, 1, rpc.getnewaddress())
         assert_equal(rpc.getblockchaininfo()["softforks"]["taproot"]["bip9"]["status"], "locked_in")
         assert_equal(rpc.getblockheader(blocks[0])["versionHex"], "20000004")
 
         # Run through another 128 blocks, which will go from "locked in" to "active" regardless of signalling
-        blocks = rpc.generatetoaddress(127, rpc.getnewaddress())
+        blocks = self.generatetoaddress(rpc, 127, rpc.getnewaddress())
         for n, block in enumerate(blocks):
             decode = rpc.getblockheader(block)
             assert_equal (decode["versionHex"], "20000004")
@@ -93,14 +93,14 @@ class TaprootActivationTest(BitcoinTestFramework):
         assert_equal(rpc.getblockchaininfo()["softforks"]["taproot"]["bip9"]["status"], "active")
 
         # After the state is "active", signallng stops by default.
-        blocks = rpc.generatetoaddress(1, self.nodes[0].getnewaddress())
+        blocks = self.generatetoaddress(rpc, 1, self.nodes[0].getnewaddress())
         assert_equal(rpc.getblockchaininfo()["softforks"]["taproot"]["bip9"]["status"], "active")
         assert_equal(rpc.getblockheader(blocks[0])["versionHex"], "20000000")
 
     def run_test(self):
         # Test that regtest nodes never signal taproot by default
         self.log.info("Testing node not configured to activate taproot")
-        blocks = self.nodes[0].generatetoaddress(2500, self.nodes[0].getnewaddress())
+        blocks = self.generatetoaddress(self.nodes[0], 2500, self.nodes[0].getnewaddress())
         assert_equal(self.nodes[0].getblockcount(), 2500)
         for n, block in enumerate(blocks):
             decode = self.nodes[0].getblockheader(block)

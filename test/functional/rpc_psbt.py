@@ -635,7 +635,7 @@ class PSBTTest(BitcoinTestFramework):
 
         # Extractor test
         for extractor in extractors:
-            extracted = self.nodes[2].finalizepsbt(extractor['extract'], True)['hex']
+            extracted = self.n  des[2].finalizepsbt(extractor['extract'], True)['hex']
             assert_equal(extracted, extractor['result'])
 
         # Unload extra wallets
@@ -950,7 +950,7 @@ class PSBTTest(BitcoinTestFramework):
             assert_raises_rpc_error(-8, "PSBTs not compatible (different transactions)", self.nodes[0].combinepsbt, [BLINDED, bad_pset])
 
     def run_test(self):
-        self.nodes[0].generate(200)
+        self.generate(self.nodes[0], 200)
         self.sync_all()
 
         # Run all the pre-Elements, tests first with non-confidential addresses, then again with confidential addresses

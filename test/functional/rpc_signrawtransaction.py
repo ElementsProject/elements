@@ -365,7 +365,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         utxo_script_pk = utxo_address_info['scriptPubKey']
         utxo_amount = 0.1
         utxo_txid = self.nodes[2].sendtoaddress(utxo_address, utxo_amount)
-        self.nodes[2].generate(1)
+        self.generate(self.nodes[2], 1)
 
         tx = self.nodes[2].getrawtransaction(utxo_txid, True)
         vout = [v['n'] for v in tx['vout'] if 'scriptPubKey' in v and uc_addr == v['scriptPubKey'].get('address',[])]
@@ -408,7 +408,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
 
         # 5) The signed transaction can broadcast.
         txid = self.nodes[2].sendrawtransaction(signed_tx['hex'])
-        self.nodes[2].generate(1)
+        self.generate(self.nodes[2], 1)
 
         tx = self.nodes[2].getrawtransaction(txid, True)
         vout = [v['n'] for v in tx['vout'] if 'scriptPubKey' in v and uc_addr == v['scriptPubKey'].get('address',[])]

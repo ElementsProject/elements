@@ -29,7 +29,7 @@ class AssetdirTests(BitcoinTestFramework):
         self.setup_nodes()
 
     def run_test(self):
-        self.nodes[0].generate(101)
+        self.generate(self.nodes[0], 101)
         self.nodes[0].syncwithvalidationinterfacequeue()
 
         #Issue two assets that we will later label using the assetdir parameter
@@ -68,4 +68,3 @@ class AssetdirTests(BitcoinTestFramework):
 
 if __name__ == '__main__':
     AssetdirTests().main()
-

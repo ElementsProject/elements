@@ -297,7 +297,7 @@ class WalletTest(BitcoinTestFramework):
             assert_equal(walletinfo["unconfirmed_balance"].get(asset, 0), Decimal('0'))
 
             # Balances with confirmed issuance.
-            self.nodes[0].generatetoaddress(1, ADDRESS_WATCHONLY)
+            self.generatetoaddress(self.nodes[0], 1, ADDRESS_WATCHONLY)
             walletinfo = self.nodes[0].getwalletinfo()
             assert_equal(walletinfo["balance"].get(asset, 0), Decimal('100'))
             assert_equal(walletinfo["unconfirmed_balance"].get(asset, 0), Decimal('0'))
@@ -312,7 +312,7 @@ class WalletTest(BitcoinTestFramework):
             assert_equal(walletinfo["unconfirmed_balance"].get(asset, 0), Decimal('50'))
 
             # Balances with confirmed receive
-            self.nodes[1].generatetoaddress(1, ADDRESS_WATCHONLY)
+            self.generatetoaddress(self.nodes[1], 1, ADDRESS_WATCHONLY)
             walletinfo = self.nodes[1].getwalletinfo()
             assert_equal(walletinfo["balance"].get(asset, 0), Decimal('50'))
             assert_equal(walletinfo["unconfirmed_balance"].get(asset, 0), Decimal('0'))

@@ -1007,7 +1007,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         txid = self.nodes[2].sendtoaddress(addr_info['unconfidential'], 10)
         self.sync_all()
         vout = find_vout_for_address(self.nodes[0], txid, n0_blind_addr)
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
 
         # An external input without solving data should result in an error
@@ -1224,7 +1224,7 @@ class RawTransactionsTest(BitcoinTestFramework):
             for i in range(0, 50):
                 outputs[recipient.getnewaddress()] = 0.1
             wallet.sendmany("", outputs)
-        self.nodes[0].generate(10)
+        self.generate(self.nodes[0], 10)
 
         # ...and try to send them all in one transaction
         # This should fail but we should not see an assertion failure.

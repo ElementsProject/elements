@@ -32,7 +32,7 @@ class InitialReissuanceTokenTest(BitcoinTestFramework):
         self.sync_all()
 
     def run_test(self):
-        self.nodes[0].generate(101)
+        self.generate(self.nodes[0], 101)
         self.sync_all()
 
         walletinfo = self.nodes[0].getwalletinfo()
@@ -48,7 +48,7 @@ class InitialReissuanceTokenTest(BitcoinTestFramework):
         # Claim all anyone-can-spend reissuance tokens, which also blinds the token output
         # which is required for re-issuance: https://github.com/ElementsProject/elements/issues/259
         self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 2, "", "", False, False, 6, "UNSET", False, token)
-        self.nodes[0].generate(101)
+        self.generate(self.nodes[0], 101)
         self.sync_all()
 
         #Check balances
@@ -58,7 +58,7 @@ class InitialReissuanceTokenTest(BitcoinTestFramework):
 
         #Reissue some of the default asset
         self.nodes[0].reissueasset("bitcoin", 1234)
-        self.nodes[0].generate(101)
+        self.generate(self.nodes[0], 101)
         self.sync_all()
 
         #Check the reissuance worked
@@ -70,12 +70,12 @@ class InitialReissuanceTokenTest(BitcoinTestFramework):
 
         #Send a reissuance token to node 2 so they can reissue the default asset
         self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1, "", "", False, False, 6, "UNSET", False, token)
-        self.nodes[0].generate(101)
+        self.generate(self.nodes[0], 101)
         self.sync_all()
 
         #Reissue some of the default asset
         self.nodes[1].reissueasset("bitcoin", 1000)
-        self.nodes[1].generate(101)
+        self.generate(self.nodes[1], 101)
         self.sync_all()
 
         #Check balance is the 1 'bitcoin' sent from node 1 plus the 1000 'bitcoin' reissued by node 2

@@ -47,7 +47,7 @@ class WalletCtTest(BitcoinTestFramework):
             address = self.nodes[to_idx].getaddressinfo(address)['unconfidential']
         txid = self.nodes[from_idx].sendtoaddress(address, amt)
         self.log.info(f"Sent {amt} LBTC to node {to_idx} in {txid}")
-        self.nodes[from_idx].generate(2)
+        self.generate(self.nodes[from_idx], 2)
         self.sync_all()
 
         for i in range(self.num_nodes):
@@ -57,7 +57,7 @@ class WalletCtTest(BitcoinTestFramework):
 
     def run_test(self):
         # Mine 101 blocks to get the initial coins out of IBD
-        self.nodes[0].generate(COINBASE_MATURITY + 1)
+        self.generate(self.nodes[0], COINBASE_MATURITY + 1)
         self.nodes[0].syncwithvalidationinterfacequeue()
         self.sync_all()
 
@@ -67,7 +67,7 @@ class WalletCtTest(BitcoinTestFramework):
         # Send 1 coin to a new wallet
         txid = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1)
         self.log.info(f"Sent one coin to node 1 in {txid}")
-        self.nodes[0].generate(2)
+        self.generate(self.nodes[0], 2)
         self.sync_all()
 
         # Try to send those coins to yet another wallet, sending a large enough amount
@@ -95,7 +95,7 @@ class WalletCtTest(BitcoinTestFramework):
             + [ self.nodes[2].getnewaddress() for i in range(15) ]
         txid = self.nodes[2].sendmany(amounts={address: satoshi_round(Decimal(0.00025)) for address in addresses})
         self.log.info(f"Sent many small UTXOs to nodes 1 and 2 in {txid}")
-        self.nodes[2].generate(2)
+        self.generate(self.nodes[2], 2)
         self.sync_all()
 
         self.log.info(f"Issuing some assets from node 1")
@@ -111,7 +111,7 @@ class WalletCtTest(BitcoinTestFramework):
             output_assets={addresses[i]: assets[i] for i in range(len(assets))},
         )
         self.log.info(f"Sent them to node 2 in {txid}")
-        self.nodes[1].generate(2)
+        self.generate(self.nodes[1], 2)
         self.sync_all()
         # Send them back
         addresses = [ self.nodes[1].getnewaddress() for i in range(len(assets)) ]

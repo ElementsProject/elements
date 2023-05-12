@@ -11,7 +11,7 @@ from decimal import Decimal
 " Tests issued assets functionality including (re)issuance, and de-issuance "
 
 # Creates a raw issuance transaction based on the passed in list, checking important details after
-def process_raw_issuance(node, issuance_list):
+def process_raw_issuance(test, node, issuance_list):
     if len(issuance_list) > 5:
         raise Exception('Issuance list too long')
     # Make enough outputs for any subsequent spend
@@ -30,7 +30,7 @@ def process_raw_issuance(node, issuance_list):
     blind_tx = node.blindrawtransaction(issued_tx, False, [], issuance_list[0]["blind"])
     signed_tx = node.signrawtransactionwithwallet(blind_tx)
     tx_id = node.sendrawtransaction(signed_tx['hex'])
-    node.generate(1)
+    test.generate(node, 1)
     assert_equal(node.gettransaction(tx_id)["confirmations"], 1)
     num_issuance = 0
     decoded_tx = node.decoderawtransaction(signed_tx['hex'])
@@ -104,8 +104,11 @@ class IssuanceTest(BitcoinTestFramework):
         self.connect_nodes(1, 2)
         self.sync_all()
 
+    def raw_issuance(self, node, issuance_list):
+        process_raw_issuance(self, node, issuance_list)
+
     def run_test(self):
-        self.nodes[0].generate(105)
+        self.generate(self.nodes[0], 105)
         # Make sure test starts with no initial issuance.
         assert_equal(len(self.nodes[0].listissuances()), 0)
 
@@ -118,7 +121,7 @@ class IssuanceTest(BitcoinTestFramework):
         # Quick unblinded reissuance check, making 2*COIN total
         self.nodes[0].reissueasset(issued["asset"], 1)
 
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
 
         contract_hash = "deadbeee"*8
@@ -132,17 +135,17 @@ class IssuanceTest(BitcoinTestFramework):
         # Send bitcoin to node 1 and then from 1 to 2 to force node 1 to
         # spend confidential money.
         self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 4)
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
         self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), 3, "", "", False, False, 1, "UNSET", False, "", False)
         self.sync_all()
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
 
         # Destroy assets
         pre_destroy_btc_balance = self.nodes[2].getwalletinfo()['balance']['bitcoin']
         self.nodes[2].destroyamount('bitcoin', 2) # Destroy 2 BTC
-        self.nodes[2].generate(1)
+        self.generate(self.nodes[2], 1)
         self.sync_all()
         assert_greater_than_or_equal(pre_destroy_btc_balance - Decimal('2'), self.nodes[2].getbalance()['bitcoin'])
 
@@ -150,14 +153,14 @@ class IssuanceTest(BitcoinTestFramework):
         assert_equal(issuedamount, Decimal('1.0'))
         self.nodes[0].destroyamount(issued["token"], issuedamount) # Destroy all reissuance tokens of one type
 
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
         assert issued["token"] not in self.nodes[0].getwalletinfo()['balance']
 
         # Test various issuance and auditing paths
 
         issuancedata = self.nodes[0].issueasset(Decimal('0.00000002'), Decimal('0.00000001')) #2 of asset, 1 reissuance token
-        self.nodes[1].generate(1)
+        self.generate(self.nodes[1], 1)
         self.sync_all()
         assert_equal(self.nodes[0].getwalletinfo()["balance"][issuancedata["asset"]], Decimal('0.00000002'))
         assert_equal(self.nodes[0].getwalletinfo()["balance"][issuancedata["token"]], Decimal('0.00000001'))
@@ -187,7 +190,7 @@ class IssuanceTest(BitcoinTestFramework):
         # node 1 needs to know about a (re)issuance to reissue itself
         self.nodes[1].importaddress(self.nodes[2].gettransaction(issuancedata["txid"])["details"][0]["address"])
         # also send some bitcoin
-        self.nodes[2].generate(1)
+        self.generate(self.nodes[2], 1)
         self.sync_all()
 
         assert_equal(self.nodes[2].getwalletinfo()["balance"][issuancedata["token"]], Decimal('0.00000005'))
@@ -197,7 +200,7 @@ class IssuanceTest(BitcoinTestFramework):
 
         self.sync_all()
         # Watch-only issuances won't show up in wallet until confirmed
-        self.nodes[1].generate(1)
+        self.generate(self.nodes[1], 1)
         self.sync_all()
 
         # Now have node 0 audit these issuances
@@ -263,7 +266,7 @@ class IssuanceTest(BitcoinTestFramework):
         # See: https://github.com/ElementsProject/elements/issues/473
         total_amount = self.nodes[0].getbalance()['bitcoin']
         self.nodes[0].sendtoaddress(nonblind_addr, total_amount, "", "", True)
-        self.nodes[1].generate(1)
+        self.generate(self.nodes[1], 1)
         raw_tx = self.nodes[0].createrawtransaction([], [{nonblind_addr: 1}])
         funded_tx = self.nodes[0].fundrawtransaction(raw_tx)['hex']
         issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "blind":False}])[0]["hex"]
@@ -274,24 +277,24 @@ class IssuanceTest(BitcoinTestFramework):
         # Make single blinded output to ensure we work around above issue
         total_amount = self.nodes[0].getbalance()['bitcoin']
         self.nodes[0].sendtoaddress(blind_addr, total_amount, "", "", True)
-        self.nodes[1].generate(1)
+        self.generate(self.nodes[1], 1)
 
         # Start with single issuance input, unblinded (makes 5 outputs for later larger issuances)
-        process_raw_issuance(self.nodes[0], [{"asset_amount": 2, "asset_address": nonblind_addr, "blind": False}])
-        process_raw_issuance(self.nodes[0], [{"asset_amount": 2, "asset_address": nonblind_addr, "blind": True}])
-        process_raw_issuance(self.nodes[0], [{"token_amount": 5, "token_address": nonblind_addr, "blind": False}])
-        process_raw_issuance(self.nodes[0], [{"asset_amount": 7, "asset_address": nonblind_addr, "token_amount":2, "token_address":nonblind_addr, "blind":False}])
-        process_raw_issuance(self.nodes[0], [{"asset_amount": 7, "asset_address": nonblind_addr, "token_amount":2, "token_address":blind_addr, "blind":False}])
-        process_raw_issuance(self.nodes[0], [{"asset_amount": 7, "asset_address": blind_addr, "token_amount":2, "token_address":nonblind_addr, "blind":False}])
-        process_raw_issuance(self.nodes[0], [{"asset_amount": 7, "asset_address": blind_addr, "token_amount":2, "token_address":blind_addr, "blind":False}])
+        self.raw_issuance(self.nodes[0], [{"asset_amount": 2, "asset_address": nonblind_addr, "blind": False}])
+        self.raw_issuance(self.nodes[0], [{"asset_amount": 2, "asset_address": nonblind_addr, "blind": True}])
+        self.raw_issuance(self.nodes[0], [{"token_amount": 5, "token_address": nonblind_addr, "blind": False}])
+        self.raw_issuance(self.nodes[0], [{"asset_amount": 7, "asset_address": nonblind_addr, "token_amount":2, "token_address":nonblind_addr, "blind":False}])
+        self.raw_issuance(self.nodes[0], [{"asset_amount": 7, "asset_address": nonblind_addr, "token_amount":2, "token_address":blind_addr, "blind":False}])
+        self.raw_issuance(self.nodes[0], [{"asset_amount": 7, "asset_address": blind_addr, "token_amount":2, "token_address":nonblind_addr, "blind":False}])
+        self.raw_issuance(self.nodes[0], [{"asset_amount": 7, "asset_address": blind_addr, "token_amount":2, "token_address":blind_addr, "blind":False}])
         # Now do multiple with some issuance outputs blind, some unblinded
-        process_raw_issuance(self.nodes[0], [{"asset_amount": 7, "asset_address": nonblind_addr, "token_amount":2, "token_address":nonblind_addr, "blind":False}, {"asset_amount":2, "asset_address":nonblind_addr, "blind":False}])
-        process_raw_issuance(self.nodes[0], [{"asset_amount": 7, "asset_address": blind_addr, "token_amount":2, "token_address":nonblind_addr, "blind":False}, {"asset_amount":2, "asset_address":nonblind_addr, "blind":False}])
+        self.raw_issuance(self.nodes[0], [{"asset_amount": 7, "asset_address": nonblind_addr, "token_amount":2, "token_address":nonblind_addr, "blind":False}, {"asset_amount":2, "asset_address":nonblind_addr, "blind":False}])
+        self.raw_issuance(self.nodes[0], [{"asset_amount": 7, "asset_address": blind_addr, "token_amount":2, "token_address":nonblind_addr, "blind":False}, {"asset_amount":2, "asset_address":nonblind_addr, "blind":False}])
         # Up to 5 issuances since we're making 5 outputs each time
-        process_raw_issuance(self.nodes[0], [{"asset_amount": 7, "asset_address": nonblind_addr, "token_amount":2, "token_address":blind_addr, "blind":False}, {"asset_amount":2, "asset_address":nonblind_addr, "blind":False}])
-        process_raw_issuance(self.nodes[0], [{"asset_amount": 1, "asset_address": nonblind_addr, "token_amount":2, "token_address":blind_addr, "blind":False}, {"asset_amount":3, "asset_address":nonblind_addr, "blind":False}, {"asset_amount":4, "asset_address":nonblind_addr, "token_amount":5, "token_address":blind_addr, "blind":False}, {"asset_amount":6, "asset_address":nonblind_addr, "token_amount":7, "token_address":blind_addr, "blind":False}, {"asset_amount":8, "asset_address":nonblind_addr, "token_amount":9, "token_address":blind_addr, "blind":False}])
+        self.raw_issuance(self.nodes[0], [{"asset_amount": 7, "asset_address": nonblind_addr, "token_amount":2, "token_address":blind_addr, "blind":False}, {"asset_amount":2, "asset_address":nonblind_addr, "blind":False}])
+        self.raw_issuance(self.nodes[0], [{"asset_amount": 1, "asset_address": nonblind_addr, "token_amount":2, "token_address":blind_addr, "blind":False}, {"asset_amount":3, "asset_address":nonblind_addr, "blind":False}, {"asset_amount":4, "asset_address":nonblind_addr, "token_amount":5, "token_address":blind_addr, "blind":False}, {"asset_amount":6, "asset_address":nonblind_addr, "token_amount":7, "token_address":blind_addr, "blind":False}, {"asset_amount":8, "asset_address":nonblind_addr, "token_amount":9, "token_address":blind_addr, "blind":False}])
         # Default "blind" value is true, omitting explicit argument for last
-        process_raw_issuance(self.nodes[0], [{"asset_amount": 1, "asset_address": nonblind_addr, "token_amount":2, "token_address":blind_addr, "blind":True}, {"asset_amount":3, "asset_address":nonblind_addr, "blind":True}, {"asset_amount":4, "asset_address":nonblind_addr, "token_amount":5, "token_address":blind_addr, "blind":True}, {"asset_amount":6, "asset_address":nonblind_addr, "token_amount":7, "token_address":blind_addr, "blind":True}, {"asset_amount":8, "asset_address":nonblind_addr, "token_amount":9, "token_address":blind_addr}])
+        self.raw_issuance(self.nodes[0], [{"asset_amount": 1, "asset_address": nonblind_addr, "token_amount":2, "token_address":blind_addr, "blind":True}, {"asset_amount":3, "asset_address":nonblind_addr, "blind":True}, {"asset_amount":4, "asset_address":nonblind_addr, "token_amount":5, "token_address":blind_addr, "blind":True}, {"asset_amount":6, "asset_address":nonblind_addr, "token_amount":7, "token_address":blind_addr, "blind":True}, {"asset_amount":8, "asset_address":nonblind_addr, "token_amount":9, "token_address":blind_addr}])
 
 
         # Make sure that fee is checked
@@ -372,7 +375,7 @@ class IssuanceTest(BitcoinTestFramework):
 
         print("Raw reissuance tests")
         issued_asset = self.nodes[0].issueasset(0, 1)
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         utxo_info = None
         # Find info about the token output using wallet
         for utxo in self.nodes[0].listunspent():
@@ -396,7 +399,7 @@ class IssuanceTest(BitcoinTestFramework):
         blind_tx = self.nodes[0].blindrawtransaction(reissued_tx["hex"])
         signed_tx = self.nodes[0].signrawtransactionwithwallet(blind_tx)
         tx_id = self.nodes[0].sendrawtransaction(signed_tx["hex"])
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         assert_equal(self.nodes[0].gettransaction(tx_id)["confirmations"], 1)
 
         # Now send reissuance token to blinded multisig, then reissue
@@ -414,7 +417,7 @@ class IssuanceTest(BitcoinTestFramework):
         self.nodes[0].importblindingkey(blinded_multisig, blinding_privkey)
         # Sending to this address must achieve blinding to reissue from this address
         self.nodes[0].sendtoaddress(blinded_multisig, self.nodes[0].getbalance()[issued_asset["token"]], "", "", False, False, 1, "UNSET", False, issued_asset["token"], False)
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
 
         # Get that multisig output
         utxo_info = None
@@ -442,7 +445,7 @@ class IssuanceTest(BitcoinTestFramework):
         blind_tx = self.nodes[0].blindrawtransaction(reissued_tx["hex"])
         signed_tx = self.nodes[0].signrawtransactionwithwallet(blind_tx)
         tx_id = self.nodes[0].sendrawtransaction(signed_tx["hex"])
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         assert_equal(self.nodes[0].gettransaction(tx_id)["confirmations"], 1)
 
         # Now make transaction spending a token that had non-null contract_hash
@@ -453,7 +456,7 @@ class IssuanceTest(BitcoinTestFramework):
         blinded_tx = self.nodes[0].blindrawtransaction(issued_tx["hex"])
         signed_tx = self.nodes[0].signrawtransactionwithwallet(blinded_tx)
         tx_id = self.nodes[0].sendrawtransaction(signed_tx["hex"])
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         assert_equal(self.nodes[0].gettransaction(tx_id)["confirmations"], 1)
 
         utxo_info = None
@@ -479,7 +482,7 @@ class IssuanceTest(BitcoinTestFramework):
         blind_tx = self.nodes[0].blindrawtransaction(reissued_tx["hex"], False)
         signed_tx = self.nodes[0].signrawtransactionwithwallet(blind_tx)
         tx_id = self.nodes[0].sendrawtransaction(signed_tx["hex"])
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         assert_equal(self.nodes[0].gettransaction(tx_id)["confirmations"], 1)
 
         # Regression for one form of https://github.com/bitcoin/bitcoin/issues/20347
@@ -489,7 +492,7 @@ class IssuanceTest(BitcoinTestFramework):
         nonblind_addr = self.nodes[1].validateaddress(blind_addr)['unconfidential']
         self.nodes[0].sendtoaddress(nonblind_addr, 0.0005)
         self.sync_all()
-        self.nodes[0].generate(2)
+        self.generate(self.nodes[0], 2)
         self.sync_all()
 
         # 2. Try to do an unblinded issuance with only tokens -- the result will

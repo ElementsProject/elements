@@ -32,11 +32,6 @@ new_extension = [initial_offline+initial_online]
 ERR_MP_INVALID_PEGOUT = "invalid-pegout-proof"
 ERR_MP_INVALID_PEGIN = "pegin-no-witness"
 
-def go_to_epoch_end(node):
-    epoch_info = node.getblockchaininfo()
-    blocks_to_mine = epoch_info["epoch_length"] - epoch_info["epoch_age"] - 1
-    node.generatetoaddress(blocks_to_mine, node.getnewaddress())
-
 def validate_no_vote_op_true(node, block, first_dynafed_active_block):
     block_info = node.getblock(block)
     dynamic_parameters = block_info["dynamic_parameters"]
@@ -64,6 +59,11 @@ def validate_no_vote_op_true(node, block, first_dynafed_active_block):
     assert not "extension_space" in dynamic_parameters["proposed"]
 
 class DynaFedTest(BitcoinTestFramework):
+    def go_to_epoch_end(self, node):
+        epoch_info = node.getblockchaininfo()
+        blocks_to_mine = epoch_info["epoch_length"] - epoch_info["epoch_age"] - 1
+        self.generatetoaddress(node, blocks_to_mine, node.getnewaddress())
+
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
@@ -122,15 +122,15 @@ class DynaFedTest(BitcoinTestFramework):
         # Signaling window is in height, not time, so first block that will signal is
         # at height 1008 which is evenly disible by 144(regtest bip9 window size)
         # Giving funds to node 1 to avoid a transaction size blowup when sweeping later
-        blocks = self.nodes[0].generatetoaddress(1006, self.nodes[1].getnewaddress())
+        blocks = self.generatetoaddress(self.nodes[0], 1006, self.nodes[1].getnewaddress())
         assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "defined")
-        blocks += self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())
+        blocks += self.generatetoaddress(self.nodes[0], 1, self.nodes[0].getnewaddress())
         assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "started")
-        blocks += self.nodes[0].generatetoaddress(144, self.nodes[0].getnewaddress())
+        blocks += self.generatetoaddress(self.nodes[0], 144, self.nodes[0].getnewaddress())
         assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "locked_in")
 
         # Move chain forward to activation, any new blocks will be enforced
-        blocks += self.nodes[0].generatetoaddress(144, self.nodes[0].getnewaddress())
+        blocks += self.generatetoaddress(self.nodes[0], 144, self.nodes[0].getnewaddress())
         self.sync_blocks(timeout=240)
         assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "active")
 
@@ -139,7 +139,7 @@ class DynaFedTest(BitcoinTestFramework):
             assert "dynamic_parameters" not in self.nodes[0].getblock(block)
 
         # Next block is first dynamic federation block
-        block = self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())[0]
+        block = self.generatetoaddress(self.nodes[0], 1, self.nodes[0].getnewaddress())[0]
         self.sync_all()
         # We publish full block on BIP9 transition
         for i in range(self.num_nodes):
@@ -164,10 +164,10 @@ class DynaFedTest(BitcoinTestFramework):
 
     def test_no_vote(self):
         self.log.info("Testing no-vote epoch...")
-        go_to_epoch_end(self.nodes[0])
+        self.go_to_epoch_end(self.nodes[0])
 
         # Mine epoch_length blocks with no proposals
-        blocks = self.nodes[0].generatetoaddress(10, self.nodes[0].getnewaddress())
+        blocks = self.generatetoaddress(self.nodes[0], 10, self.nodes[0].getnewaddress())
         self.sync_all()
 
         for i in range(self.num_nodes):
@@ -175,7 +175,7 @@ class DynaFedTest(BitcoinTestFramework):
                 validate_no_vote_op_true(self.nodes[i], block, False)
 
         # Now transition using vanilla getnewblockhex, nothing changed
-        block = self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())[0]
+        block = self.generatetoaddress(self.nodes[0], 1, self.nodes[0].getnewaddress())[0]
         self.sync_all()
 
         for i in range(self.num_nodes):
@@ -183,7 +183,7 @@ class DynaFedTest(BitcoinTestFramework):
 
     def test_under_vote(self):
         self.log.info("Testing failed voting epoch...")
-        go_to_epoch_end(self.nodes[0])
+        self.go_to_epoch_end(self.nodes[0])
 
         # Mine 7 blocks with agreeing proposals for single-sig, falls short of 4/5 of 10
         new_signblock = self.nodes[0].getaddressinfo(self.nodes[0].getnewaddress("", "bech32"))["scriptPubKey"]
@@ -194,9 +194,9 @@ class DynaFedTest(BitcoinTestFramework):
         self.sync_all()
         assert_equal(self.nodes[0].getblockcount(), cur_height+7)
         # Now mine 3 blank blocks
-        self.nodes[0].generatetoaddress(3, self.nodes[0].getnewaddress())
+        self.generatetoaddress(self.nodes[0], 3, self.nodes[0].getnewaddress())
         # No transition will take place, generatetoaddress still works for new epoch
-        block = self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())[0]
+        block = self.generatetoaddress(self.nodes[0], 1, self.nodes[0].getnewaddress())[0]
         self.sync_all()
 
         for i in range(self.num_nodes):
@@ -204,7 +204,7 @@ class DynaFedTest(BitcoinTestFramework):
 
     def test_four_fifth_vote(self):
         self.log.info("Testing just-successful transition epoch...")
-        go_to_epoch_end(self.nodes[0])
+        self.go_to_epoch_end(self.nodes[0])
 
         # Mine 8 blocks with agreeing proposals for single-sig, triggering transition
         new_signblock = self.nodes[0].getaddressinfo(self.nodes[0].getnewaddress("", "bech32"))["scriptPubKey"]
@@ -226,7 +226,7 @@ class DynaFedTest(BitcoinTestFramework):
         assert_equal(self.nodes[0].getblockcount(), cur_height+8)
 
         # Now mine 1 blank block
-        self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())
+        self.generatetoaddress(self.nodes[0], 1, self.nodes[0].getnewaddress())
         self.sync_all()
 
         # Old parameters still enforced for next block...
@@ -239,7 +239,7 @@ class DynaFedTest(BitcoinTestFramework):
             assert_equal(fedpeg_info["current_fedpegscripts"], ["51", "51"])
 
         # Last blank block
-        self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())
+        self.generatetoaddress(self.nodes[0], 1, self.nodes[0].getnewaddress())
         self.sync_all()
 
         # We have now transitioned, next block must have signature
@@ -338,7 +338,7 @@ class DynaFedTest(BitcoinTestFramework):
         peg_tx = self.nodes[0].gettransaction(peg_id)["hex"]
         self.nodes[0].testmempoolaccept([peg_tx])
         # only one confirm needed in this setup, we do 10 to sync with epoch_length
-        self.nodes[0].generatetoaddress(10, self.nodes[0].getnewaddress())
+        self.generatetoaddress(self.nodes[0], 10, self.nodes[0].getnewaddress())
         proof = self.nodes[0].gettxoutproof([peg_id])
         raw_tx = self.nodes[0].gettransaction(peg_id)["hex"]
 
@@ -363,7 +363,7 @@ class DynaFedTest(BitcoinTestFramework):
         assert_equal(self.nodes[1].getrawmempool(), [])
         # Now generate an epoch of blocks on node 1 to show that non-transitions don't dump
         # PAK or peg-in transactions from mempool
-        self.nodes[1].generatetoaddress(10, self.nodes[1].getnewaddress())
+        self.generatetoaddress(self.nodes[1], 10, self.nodes[1].getnewaddress())
         self.sync_blocks()
         assert_equal(self.nodes[0].getblockchaininfo()["epoch_age"], 9)
 
@@ -457,7 +457,7 @@ class DynaFedTest(BitcoinTestFramework):
     def test_valid_epochs(self):
         self.log.info("Testing pegins and pegouts stay valid for some epochs")
         # previous test leaves us at age 9
-        self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())
+        self.generatetoaddress(self.nodes[0], 1, self.nodes[0].getnewaddress())
         self.sync_all()
         assert_equal(self.nodes[1].getblockchaininfo()["epoch_age"], 0)
 
@@ -494,7 +494,7 @@ class DynaFedTest(BitcoinTestFramework):
         peg_tx = self.nodes[0].gettransaction(peg_id)["hex"]
         # we need the confirmation of the peg tx, so we can't easily assert
         # that the pegin tx would be accepted at this very point
-        self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())
+        self.generatetoaddress(self.nodes[0], 1, self.nodes[0].getnewaddress())
         proof = self.nodes[0].gettxoutproof([peg_id])
         pegin_tx = self.nodes[0].createrawpegin(peg_tx, proof, fund_info["claim_script"])["hex"]
         pegin_tx = self.nodes[0].signrawtransactionwithwallet(pegin_tx)["hex"]
@@ -505,7 +505,7 @@ class DynaFedTest(BitcoinTestFramework):
 
         # let's generate 20 blocks to pass through 2 new epochs without there being a transition
         for _ in range(20):
-            self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())
+            self.generatetoaddress(self.nodes[0], 1, self.nodes[0].getnewaddress())
             self.assert_accepted(pegin_tx)
             self.assert_accepted(pegout_tx)
         assert_equal(self.nodes[0].getsidechaininfo()["current_fedpegscripts"], ["51", "51"])
@@ -546,7 +546,7 @@ class DynaFedTest(BitcoinTestFramework):
         for _ in range(9):
             self.assert_accepted(pegin_tx)
             assert_equal(self.nodes[0].testmempoolaccept([pegout_tx])[0]["reject-reason"], ERR_MP_INVALID_PEGOUT)
-            self.nodes[1].generatetoaddress(1, self.nodes[1].getnewaddress())
+            self.generatetoaddress(self.nodes[1], 1, self.nodes[1].getnewaddress())
             self.sync_blocks()
 
         # so on the last block both should not be allowed
@@ -558,12 +558,12 @@ class DynaFedTest(BitcoinTestFramework):
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
         # first use the pegin tx created earlier
         pegin_txid = self.nodes[0].sendrawtransaction(pegin_tx)
-        self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())
+        self.generatetoaddress(self.nodes[0], 1, self.nodes[0].getnewaddress())
         assert_equal(self.nodes[0].gettransaction(pegin_txid)["confirmations"], 1)
         # make sure that using claimpegin directly also works
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
         pegin_txid = self.nodes[0].claimpegin(peg_tx, proof, fund_info["claim_script"])
-        self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())
+        self.generatetoaddress(self.nodes[0], 1, self.nodes[0].getnewaddress())
         assert_equal(self.nodes[0].gettransaction(pegin_txid)["confirmations"], 1)
 
     def run_test(self):

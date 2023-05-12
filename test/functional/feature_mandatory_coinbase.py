@@ -44,10 +44,10 @@ class MandatoryCoinbaseTest(BitcoinTestFramework):
 
         self.log.info("generatetoaddress: Making blocks of various kinds, checking for rejection")
         # Create valid blocks to get out of IBD and get some funds (subsidy goes to permitted addr)
-        node0.generatetoaddress(101, mandatory_address)
+        self.generatetoaddress(node0, 101, mandatory_address)
 
         # Generating for another address will not work
-        assert_raises_rpc_error(-1, "CreateNewBlock: TestBlockValidity failed: bad-coinbase-txos", node0.generatetoaddress, 1, node0.getnewaddress())
+        assert_raises_rpc_error(-1, "CreateNewBlock: TestBlockValidity failed: bad-coinbase-txos", self.generatetoaddress, node0, 1, node0.getnewaddress())
 
         # Have non-mandatory node make a template
         self.sync_all()

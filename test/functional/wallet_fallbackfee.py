@@ -46,7 +46,7 @@ class WalletRBFTest(BitcoinTestFramework):
             addrs = self.nodes[1].getpeginaddress()
             txid = self.nodes[0].sendtoaddress(addrs["mainchain_address"], 5)
             raw = self.nodes[0].getrawtransaction(txid)
-            self.nodes[0].generate(12)
+            self.generate(self.nodes[0], 12)
             proof = self.nodes[0].gettxoutproof([txid])
             assert_raises_rpc_error(-6, "Fee estimation failed", lambda: self.nodes[1].claimpegin(raw, proof))
 

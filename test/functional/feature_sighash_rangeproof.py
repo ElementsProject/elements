@@ -72,7 +72,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
         addr = self.nodes[1].getnewaddress("", address_type)
         assert len(self.nodes[1].getaddressinfo(addr)["confidential_key"]) > 0
         self.nodes[0].sendtoaddress(addr, 1.0)
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
         utxo = self.nodes[1].listunspent(1, 1, [addr])[0]
         utxo_tx = tx_from_hex(self.nodes[1].getrawtransaction(utxo["txid"]))
@@ -225,7 +225,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
         # - after activation, using the flag is standard (and thus also legal)
 
         # Mine come coins for node 0.
-        self.nodes[0].generate(200)
+        self.generate(self.nodes[0], 200)
         self.sync_all()
 
         # Ensure that if we use the SIGHASH_RANGEPROOF flag before it's activated,
@@ -244,9 +244,9 @@ class SighashRangeproofTest(BitcoinTestFramework):
 
         # Activate dynafed (nb of blocks taken from dynafed activation test)
         # Generate acress several calls to `generatetoaddress` to ensure no individual call times out
-        self.nodes[0].generate(503)
-        self.nodes[0].generate(503)
-        self.nodes[0].generate(1 + 144 + 144)
+        self.generate(self.nodes[0], 503)
+        self.generate(self.nodes[0], 503)
+        self.generate(self.nodes[0], 1 + 144 + 144)
         assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "active")
 
         self.sync_all()

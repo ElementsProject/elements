@@ -86,7 +86,7 @@ class TweakFedpegTest(BitcoinTestFramework):
         # Advance to dynamic federations activation, which has pubkeys
         # after OP_ELSE get tweaked except the exact liquidv1 template to
         # maintain compatibility
-        self.nodes[2].generate(433)
+        self.generate(self.nodes[2], 433)
         assert_equal(self.nodes[2].getblockchaininfo()['softforks']['dynafed']['bip9']['status'], 'active')
         assert_equal(self.nodes[2].tweakfedpegscript(claim_script)["script"], liquid_tweaked)
 

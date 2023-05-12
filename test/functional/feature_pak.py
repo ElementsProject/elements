@@ -111,7 +111,7 @@ class PAKTest (BitcoinTestFramework):
         print(pegout_info)
         raw_node1_pegout = self.nodes[1].gettransaction(pegout_info["txid"])["hex"]
         self.sync_all() # mempool sync
-        self.nodes[1].generatetoaddress(1, self.nodes[0].getnewaddress())
+        self.generatetoaddress(self.nodes[1], 1, self.nodes[0].getnewaddress())
         self.sync_all() # block sync
         assert_greater_than(self.nodes[1].gettransaction(pegout_info["txid"])["confirmations"], 0)
 
@@ -184,7 +184,7 @@ class PAKTest (BitcoinTestFramework):
         self.sync_blocks()
 
         # Get some block subsidy and send off
-        self.nodes[1].generatetoaddress(101, self.nodes[1].getnewaddress())
+        self.generatetoaddress(self.nodes[1], 101, self.nodes[1].getnewaddress())
         wpkh_stmc = self.nodes[1].sendtomainchain("", 1)
         wpkh_txid = wpkh_stmc['txid']
 
@@ -215,7 +215,7 @@ class PAKTest (BitcoinTestFramework):
             self.nodes[1].submitblock(block)
         self.sync_blocks()
 
-        self.nodes[1].generatetoaddress(1, self.nodes[1].getnewaddress())
+        self.generatetoaddress(self.nodes[1], 1, self.nodes[1].getnewaddress())
         sh_wpkh_txid = self.nodes[1].sendtomainchain("", 1)['txid']
 
         # Make sure peg-outs look correct
@@ -244,7 +244,7 @@ class PAKTest (BitcoinTestFramework):
         assert peg_out_found
 
         # Make sure they all confirm
-        self.nodes[1].generatetoaddress(1, self.nodes[0].getnewaddress())
+        self.generatetoaddress(self.nodes[1], 1, self.nodes[0].getnewaddress())
         for tx_id in [wpkh_txid, sh_wpkh_txid]:
             assert_greater_than(self.nodes[1].gettransaction(tx_id)["confirmations"], 0)
 
@@ -270,7 +270,7 @@ class PAKTest (BitcoinTestFramework):
         assert_raises_rpc_error(-25, "bad-pak-tx", self.nodes[2].testproposedblock, bad_prop, True)
 
         # Test that subtracting fee from output works
-        self.nodes[1].generatetoaddress(101, self.nodes[1].getnewaddress())
+        self.generatetoaddress(self.nodes[1], 101, self.nodes[1].getnewaddress())
         self.nodes[1].sendtomainchain("", self.nodes[1].getbalance()["bitcoin"], True)
         assert_equal(self.nodes[1].getbalance()["bitcoin"], 0)
 

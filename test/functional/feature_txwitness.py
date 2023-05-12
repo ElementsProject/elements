@@ -91,10 +91,10 @@ class TxWitnessTest(BitcoinTestFramework):
         self.unknown_addr = self.nodes[1].getnewaddress()
 
         # directly seed types of utxos required
-        self.nodes[0].generatetoaddress(1, legacy_addr)
-        self.nodes[0].generatetoaddress(1, p2sh_addr)
-        self.nodes[0].generatetoaddress(1, bech32_addr)
-        self.nodes[0].generatetoaddress(101, self.unknown_addr)
+        self.generatetoaddress(self.nodes[0], 1, legacy_addr)
+        self.generatetoaddress(self.nodes[0], 1, p2sh_addr)
+        self.generatetoaddress(self.nodes[0], 1, bech32_addr)
+        self.generatetoaddress(self.nodes[0], 101, self.unknown_addr)
 
         # grab utxos filtering by age
         legacy_utxo = self.nodes[0].listunspent(104, 104)[0]
@@ -109,7 +109,7 @@ class TxWitnessTest(BitcoinTestFramework):
         self.log.info("Testing bech32 UTXO")
         submitted_txids.append(self.assert_tx_format_also_signed(bech32_utxo, segwit=True))
 
-        blockhash = self.nodes[0].generate(1)[0]
+        blockhash = self.generate(self.nodes[0], 1)[0]
         hexblock = self.nodes[0].getblock(blockhash, 0)
         block_details = self.nodes[0].getblock(blockhash, 2)
         block = CBlock()
