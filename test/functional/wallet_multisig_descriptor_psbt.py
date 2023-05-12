@@ -35,13 +35,15 @@ class WalletMultisigDescriptorPSBTTest(BitcoinTestFramework):
     @staticmethod
     def _check_psbt(psbt, to, value, multisig):
         """Helper function for any of the N participants to check the psbt with decodepsbt and verify it is OK before signing."""
-        tx = multisig.decodepsbt(psbt)["tx"]
+        # ELEMENTS: decodepsbt has different output from upstream
+        outputs = multisig.decodepsbt(psbt)['outputs']
         amount = 0
-        for vout in tx["vout"]:
-            address = vout["scriptPubKey"]["address"]
-            assert_equal(multisig.getaddressinfo(address)["ischange"], address != to)
-            if address == to:
-                amount += vout["value"]
+        for vout in outputs:
+            if 'script' in vout and 'address' in vout['script']:
+                address = vout['script']['address']
+                assert_equal(multisig.getaddressinfo(address)["ischange"], address != to)
+                if address == to:
+                    amount += vout["amount"]
         assert_approx(amount, float(value), vspan=0.001)
 
     def participants_create_multisigs(self, xpubs):
@@ -104,22 +106,22 @@ class WalletMultisigDescriptorPSBTTest(BitcoinTestFramework):
 
         self.log.info("Get a mature utxo to send to the multisig...")
         coordinator_wallet = participants["signers"][0]
-        coordinator_wallet.generatetoaddress(101, coordinator_wallet.getnewaddress())
+        self.generatetoaddress(self.nodes[0], 101, coordinator_wallet.getnewaddress())
 
         deposit_amount = 6.15
         multisig_receiving_address = participants["multisigs"][0].getnewaddress()
         self.log.info("Send funds to the resulting multisig receiving address...")
         coordinator_wallet.sendtoaddress(multisig_receiving_address, deposit_amount)
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
         for participant in participants["multisigs"]:
-            assert_approx(participant.getbalance(), deposit_amount, vspan=0.001)
+            assert_approx(participant.getbalance()['bitcoin'], deposit_amount, vspan=0.001)
 
         self.log.info("Send a transaction from the multisig!")
         to = participants["signers"][self.N - 1].getnewaddress()
         value = 1
         self.log.info("First, make a sending transaction, created using `walletcreatefundedpsbt` (anyone can initiate this)...")
-        psbt = participants["multisigs"][0].walletcreatefundedpsbt(inputs=[], outputs={to: value}, options={"feeRate": 0.00010})
+        psbt = participants["multisigs"][0].walletcreatefundedpsbt(inputs=[], outputs=[{to: value}], options={"feeRate": 0.00010})
 
         psbts = []
         self.log.info("Now at least M users check the psbt with decodepsbt and (if OK) signs it with walletprocesspsbt...")
@@ -136,13 +138,13 @@ class WalletMultisigDescriptorPSBTTest(BitcoinTestFramework):
         coordinator_wallet.sendrawtransaction(finalized["hex"])
 
         self.log.info("Check that balances are correct after the transaction has been included in a block.")
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
-        assert_approx(participants["multisigs"][0].getbalance(), deposit_amount - value, vspan=0.001)
-        assert_equal(participants["signers"][self.N - 1].getbalance(), value)
+        assert_approx(participants["multisigs"][0].getbalance()['bitcoin'], deposit_amount - value, vspan=0.001)
+        assert_equal(participants["signers"][self.N - 1].getbalance()['bitcoin'], value)
 
         self.log.info("Send another transaction from the multisig, this time with a daisy chained signing flow (one after another in series)!")
-        psbt = participants["multisigs"][0].walletcreatefundedpsbt(inputs=[], outputs={to: value}, options={"feeRate": 0.00010})
+        psbt = participants["multisigs"][0].walletcreatefundedpsbt(inputs=[], outputs=[{to: value}], options={"feeRate": 0.00010})
         for m in range(self.M):
             signers_multisig = participants["multisigs"][m]
             self._check_psbt(psbt["psbt"], to, value, signers_multisig)
@@ -153,10 +155,10 @@ class WalletMultisigDescriptorPSBTTest(BitcoinTestFramework):
         coordinator_wallet.sendrawtransaction(finalized["hex"])
 
         self.log.info("Check that balances are correct after the transaction has been included in a block.")
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         self.sync_all()
-        assert_approx(participants["multisigs"][0].getbalance(), deposit_amount - (value * 2), vspan=0.001)
-        assert_equal(participants["signers"][self.N - 1].getbalance(), value * 2)
+        assert_approx(participants["multisigs"][0].getbalance()['bitcoin'], deposit_amount - (value * 2), vspan=0.001)
+        assert_equal(participants["signers"][self.N - 1].getbalance()['bitcoin'], value * 2)
 
 
 if __name__ == "__main__":
