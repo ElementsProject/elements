@@ -221,7 +221,7 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
     }
 }
 
-void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags, const CTxUndo* txundo)
+void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags, const CTxUndo* txundo, TxVerbosity verbosity)
 {
     entry.pushKV("txid", tx.GetHash().GetHex());
     entry.pushKV("hash", tx.GetWitnessHash().GetHex());
@@ -239,6 +239,8 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
 
     UniValue vin{UniValue::VARR};
 
+    const bool have_undo = txundo != nullptr;
+
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         const CTxIn& txin = tx.vin[i];
         UniValue in(UniValue::VOBJ);
@@ -252,6 +254,32 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             o.pushKV("hex", HexStr(txin.scriptSig));
             in.pushKV("scriptSig", o);
             in.pushKV("is_pegin", txin.m_is_pegin);
+        }
+        if (have_undo) {
+            const Coin& prev_coin = txundo->vprevout[i];
+            const CTxOut& prev_txout = prev_coin.out;
+
+            switch (verbosity) {
+                case TxVerbosity::SHOW_TXID:
+                case TxVerbosity::SHOW_DETAILS:
+                    break;
+
+                case TxVerbosity::SHOW_DETAILS_AND_PREVOUT:
+                    UniValue o_script_pub_key(UniValue::VOBJ);
+                    ScriptPubKeyToUniv(prev_txout.scriptPubKey, o_script_pub_key, /* includeHex */ true);
+
+                    UniValue p(UniValue::VOBJ);
+                    p.pushKV("generated", bool(prev_coin.fCoinBase));
+                    p.pushKV("height", uint64_t(prev_coin.nHeight));
+                    if (prev_txout.nValue.IsExplicit()) {
+                        p.pushKV("value", ValueFromAmount(prev_txout.nValue.GetAmount()));
+                    } else {
+                        p.pushKV("value", "<confidential>");
+                    }
+                    p.pushKV("scriptPubKey", o_script_pub_key);
+                    in.pushKV("prevout", p);
+                    break;
+            }
         }
         in.pushKV("sequence", (int64_t)txin.nSequence);
 
