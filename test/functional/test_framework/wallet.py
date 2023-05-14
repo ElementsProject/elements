@@ -199,7 +199,6 @@ class MiniWallet:
         tx_hex = tx.serialize().hex()
 
         tx_info = from_node.testmempoolaccept([tx_hex])[0]
-        print(tx_info)
         assert_equal(mempool_valid, tx_info['allowed'])
         if mempool_valid:
             assert_equal(tx_info['vsize'], vsize)
