@@ -120,7 +120,6 @@ BITCOIN_CORE_H = \
   blockencodings.h \
   blockfilter.h \
   block_proof.h \
-  bloom.h \
   chain.h \
   chainparams.h \
   chainparamsbase.h \
@@ -128,6 +127,7 @@ BITCOIN_CORE_H = \
   checkqueue.h \
   clientversion.h \
   coins.h \
+  common/bloom.h \
   compat.h \
   compat/assumptions.h \
   compat/byteswap.h \
@@ -569,9 +569,9 @@ libbitcoin_common_a_SOURCES = \
   blind.cpp \
   blindpsbt.cpp \
   block_proof.cpp \
-  bloom.cpp \
   chainparams.cpp \
   coins.cpp \
+  common/bloom.cpp \
   compressor.cpp \
   core_read.cpp \
   core_write.cpp \
