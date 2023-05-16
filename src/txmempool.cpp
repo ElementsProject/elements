@@ -5,7 +5,9 @@
 
 #include <txmempool.h>
 
+
 #include <chainparams.h> // removeForBlock paklist transition
+#include <coins.h>
 #include <consensus/consensus.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
@@ -728,25 +730,7 @@ void CTxMemPool::clear()
     _clear();
 }
 
-static void CheckInputsAndUpdateCoins(CChainState& active_chainstate, const CTxMemPoolEntry& entry, CCoinsViewCache& mempoolDuplicate, const int64_t spendheight, std::set<std::pair<uint256, COutPoint>>& setGlobalPeginsSpent)
-{
-    CTransaction tx = entry.GetTx();
-    TxValidationState dummy_state; // Not used. CheckTxInputs() should always pass
-    CAmountMap fee_map;
-    std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
-    const auto& fedpegscripts = GetValidFedpegScripts(active_chainstate.m_chain.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
-    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, dummy_state, mempoolDuplicate, spendheight, fee_map, setPeginsSpent, NULL, false, true, fedpegscripts);
-    assert(fCheckResult);
-    UpdateCoins(tx, mempoolDuplicate, std::numeric_limits<int>::max());
-
-    // ELEMENTS:
-    assert(setPeginsSpent == entry.setPeginsSpent);
-    size_t prevPeginsCount = setGlobalPeginsSpent.size();
-    setGlobalPeginsSpent.insert(setPeginsSpent.begin(), setPeginsSpent.end());
-    assert(setGlobalPeginsSpent.size() == prevPeginsCount + setPeginsSpent.size());
-}
-
-void CTxMemPool::check(CChainState& active_chainstate) const
+void CTxMemPool::check(const CBlockIndex* active_chain_tip, const CCoinsViewCache& active_coins_tip, int64_t spendheight) const
 {
     if (m_check_ratio == 0) return;
 
@@ -759,23 +743,19 @@ void CTxMemPool::check(CChainState& active_chainstate) const
     uint64_t checkTotal = 0;
     CAmount check_total_fee{0};
     uint64_t innerUsage = 0;
+    uint64_t prev_ancestor_count{0};
 
-    CCoinsViewCache& active_coins_tip = active_chainstate.CoinsTip();
     CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(&active_coins_tip));
-    const int64_t spendheight = active_chainstate.m_chain.Height() + 1;
 
-    std::list<const CTxMemPoolEntry*> waitingOnDependants;
     // ELEMENTS:
-    std::set<std::pair<uint256, COutPoint> > setGlobalPeginsSpent;
+    std::set<std::pair<uint256, COutPoint>> setGlobalPeginsSpent;
 
-    for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
-        unsigned int i = 0;
+    for (const auto& it : GetSortedDepthAndScore()) {
         checkTotal += it->GetTxSize();
         check_total_fee += it->GetFee();
         innerUsage += it->DynamicMemoryUsage();
         const CTransaction& tx = it->GetTx();
         innerUsage += memusage::DynamicUsage(it->GetMemPoolParentsConst()) + memusage::DynamicUsage(it->GetMemPoolChildrenConst());
-        bool fDependsWait = false;
         CTxMemPoolEntry::Parents setParentCheck;
         for (const CTxIn &txin : tx.vin) {
             // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.
@@ -783,18 +763,20 @@ void CTxMemPool::check(CChainState& active_chainstate) const
             if (it2 != mapTx.end()) {
                 const CTransaction& tx2 = it2->GetTx();
                 assert(tx2.vout.size() > txin.prevout.n && !tx2.vout[txin.prevout.n].IsNull());
-                fDependsWait = true;
                 setParentCheck.insert(*it2);
             } else {
                 // peg-in inputs are not sanity-checked to be valid
-                assert(txin.m_is_pegin || active_coins_tip.HaveCoin(txin.prevout));
+                // assert(txin.m_is_pegin); FIXME
             }
+            // We are iterating through the mempool entries sorted in order by ancestor count.
+            // All parents must have been checked before their children and their coins added to
+            // the mempoolDuplicate coins cache.
+            assert(mempoolDuplicate.HaveCoin(txin.prevout));
             // Check whether its inputs are marked in mapNextTx.
             auto it3 = mapNextTx.find(txin.prevout);
             assert(it3 != mapNextTx.end());
             assert(it3->first == &txin.prevout);
             assert(it3->second == &tx);
-            i++;
         }
         auto comp = [](const CTxMemPoolEntry& a, const CTxMemPoolEntry& b) -> bool {
             return a.GetTx().GetHash() == b.GetTx().GetHash();
@@ -821,6 +803,9 @@ void CTxMemPool::check(CChainState& active_chainstate) const
         assert(it->GetSizeWithAncestors() == nSizeCheck);
         assert(it->GetSigOpCostWithAncestors() == nSigOpCheck);
         assert(it->GetModFeesWithAncestors() == nFeesCheck);
+        // Sanity check: we are walking in ascending ancestor count order.
+        assert(prev_ancestor_count <= it->GetCountWithAncestors());
+        prev_ancestor_count = it->GetCountWithAncestors();
 
         // Check children against mapNextTx
         CTxMemPoolEntry::Children setChildrenCheck;
@@ -839,24 +824,20 @@ void CTxMemPool::check(CChainState& active_chainstate) const
         // just a sanity check, not definitive that this calc is correct...
         assert(it->GetSizeWithDescendants() >= child_sizes + it->GetTxSize());
 
-        if (fDependsWait)
-            waitingOnDependants.push_back(&(*it));
-        else {
-            CheckInputsAndUpdateCoins(active_chainstate, *it, mempoolDuplicate, spendheight, setGlobalPeginsSpent);
-        }
-    }
-    unsigned int stepsSinceLastRemove = 0;
-    while (!waitingOnDependants.empty()) {
-        const CTxMemPoolEntry* entry = waitingOnDependants.front();
-        waitingOnDependants.pop_front();
-        if (!mempoolDuplicate.HaveInputs(entry->GetTx())) {
-            waitingOnDependants.push_back(entry);
-            stepsSinceLastRemove++;
-            assert(stepsSinceLastRemove < waitingOnDependants.size());
-        } else {
-            CheckInputsAndUpdateCoins(active_chainstate, *entry, mempoolDuplicate, spendheight, setGlobalPeginsSpent);
-            stepsSinceLastRemove = 0;
-        }
+        TxValidationState dummy_state; // Not used. CheckTxInputs() should always pass
+        CAmount txfee = 0;
+        assert(!tx.IsCoinBase());
+
+        // ELEMENTS
+        CAmountMap fee_map;
+        std::set<std::pair<uint256, COutPoint>> setPeginsSpent;
+        const auto& fedpegscripts = GetValidFedpegScripts(active_chain_tip, Params().GetConsensus(), true /* nextblock_validation */);
+        std::vector<CCheck*> pvChecks; // FIXME
+        bool cacheStore = true;
+        bool fScriptChecks = true;
+        assert(Consensus::CheckTxInputs(tx, dummy_state, mempoolDuplicate, spendheight, fee_map, setPeginsSpent, &pvChecks, cacheStore, fScriptChecks, fedpegscripts));
+        for (const auto& input: tx.vin) mempoolDuplicate.SpendCoin(input.prevout);
+        AddCoins(mempoolDuplicate, tx, std::numeric_limits<int>::max());
     }
     for (auto it = mapNextTx.cbegin(); it != mapNextTx.cend(); it++) {
         uint256 hash = it->second->GetHash();
