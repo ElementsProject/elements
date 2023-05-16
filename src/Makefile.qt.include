@@ -336,15 +336,15 @@ elements_qt_libtoolflags = $(AM_LIBTOOLFLAGS) --tag CXX
 
 qt_elements_qt_CPPFLAGS = $(elements_qt_cppflags)
 qt_elements_qt_CXXFLAGS = $(elements_qt_cxxflags)
-qt_elements_qt_SOURCES = $(elements_qt_sources) init/bitcoind.cpp
+qt_elements_qt_SOURCES = $(elements_qt_sources) init/bitcoin-qt.cpp
 qt_elements_qt_LDADD = $(elements_qt_ldadd)
 qt_elements_qt_LDFLAGS = $(elements_qt_ldflags)
 qt_elements_qt_LIBTOOLFLAGS = $(elements_qt_libtoolflags)
 
 elements_gui_CPPFLAGS = $(elements_qt_cppflags)
 elements_gui_CXXFLAGS = $(elements_qt_cxxflags)
-elements_gui_SOURCES = $(elements_qt_sources) init/bitcoind.cpp
-elements_gui_LDADD = $(elements_qt_ldadd)
+elements_gui_SOURCES = $(elements_qt_sources) init/bitcoin-gui.cpp
+elements_gui_LDADD = $(elements_qt_ldadd) $(LIBBITCOIN_IPC) $(LIBBITCOIN_UTIL) $(LIBMULTIPROCESS_LIBS)
 elements_gui_LDFLAGS = $(elements_qt_ldflags)
 elements_gui_LIBTOOLFLAGS = $(elements_qt_libtoolflags)
 

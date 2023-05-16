@@ -745,6 +745,7 @@ elements_tx_LDADD += $(BOOST_LIBS)
 
 # bitcoin-wallet binary #
 elements_wallet_SOURCES = bitcoin-wallet.cpp
+elements_wallet_SOURCES += init/bitcoin-wallet.cpp
 elements_wallet_CPPFLAGS = $(elements_bin_cppflags)
 elements_wallet_CXXFLAGS = $(elements_bin_cxxflags)
 elements_wallet_LDFLAGS = $(elements_bin_ldflags)
