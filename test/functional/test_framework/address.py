@@ -5,12 +5,21 @@
 """Encode and decode Bitcoin addresses.
 
 - base58 P2PKH and P2SH addresses.
-- bech32 segwit v0 P2WPKH and P2WSH addresses."""
+- bech32 segwit v0 P2WPKH and P2WSH addresses.
+- bech32m segwit v1 P2TR addresses."""
 
 import enum
 import unittest
 
-from .script import hash256, hash160, sha256, CScript, OP_0
+from .script import (
+    CScript,
+    OP_0,
+    OP_TRUE,
+    hash160,
+    hash256,
+    sha256,
+    taproot_construct,
+)
 from .segwit_addr import encode_segwit_address
 from .util import assert_equal
 
@@ -27,6 +36,21 @@ class AddressType(enum.Enum):
 
 
 chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
+
+def create_deterministic_address_bcrt1_p2tr_op_true():
+    """
+    Generates a deterministic bech32m address (segwit v1 output) that
+    can be spent with a witness stack of OP_TRUE and the control block
+    with internal public key (script-path spending).
+
+    Returns a tuple with the generated address and the internal key.
+    """
+    internal_key = (2).to_bytes(32, 'big') # ELEMENTS: the given internal key from upstream failed to verify
+    scriptPubKey = taproot_construct(internal_key, [(None, CScript([OP_TRUE]))]).scriptPubKey
+    address = encode_segwit_address("ert", 1, scriptPubKey[2:])
+    assert_equal(address, 'ert1pxaxh5xm2p349fg5wqstrreat4atm00ktumm6q4vfu960ls09265sf37hcj')
+    return (address, internal_key)
 
 
 def byte_to_base58(b, version):
