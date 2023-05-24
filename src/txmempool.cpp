@@ -816,14 +816,12 @@ void CTxMemPool::check(const CBlockIndex* active_chain_tip, const CCoinsViewCach
                 const CTransaction& tx2 = it2->GetTx();
                 assert(tx2.vout.size() > txin.prevout.n && !tx2.vout[txin.prevout.n].IsNull());
                 setParentCheck.insert(*it2);
-            } else {
-                // peg-in inputs are not sanity-checked to be valid
-                // assert(txin.m_is_pegin); FIXME
             }
             // We are iterating through the mempool entries sorted in order by ancestor count.
             // All parents must have been checked before their children and their coins added to
             // the mempoolDuplicate coins cache.
-            assert(mempoolDuplicate.HaveCoin(txin.prevout));
+            // ELEMENTS: peg-in inputs are not sanity-checked to be valid
+            assert(mempoolDuplicate.HaveCoin(txin.prevout) || txin.m_is_pegin);
             // Check whether its inputs are marked in mapNextTx.
             auto it3 = mapNextTx.find(txin.prevout);
             assert(it3 != mapNextTx.end());
