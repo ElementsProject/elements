@@ -751,7 +751,22 @@ elements_wallet_SOURCES += init/bitcoin-wallet.cpp
 elements_wallet_CPPFLAGS = $(elements_bin_cppflags)
 elements_wallet_CXXFLAGS = $(elements_bin_cxxflags)
 elements_wallet_LDFLAGS = $(elements_bin_ldflags)
-elements_wallet_LDADD = $(LIBBITCOIN_WALLET_TOOL) $(elements_bin_ldadd)
+elements_wallet_LDADD = \
+  $(LIBBITCOIN_WALLET_TOOL) \
+  $(LIBBITCOIN_WALLET) \
+  $(LIBBITCOIN_COMMON) \
+  $(LIBBITCOIN_UTIL) \
+  $(LIBUNIVALUE) \
+  $(LIBBITCOIN_CONSENSUS) \
+  $(LIBBITCOIN_CRYPTO) \
+  $(LIBSECP256K1) \
+  $(BOOST_LIBS) \
+  $(BDB_LIBS) \
+  $(EVENT_LIBS) \
+  $(LIBLEVELDB) \
+  $(LIBLEVELDB_SSE42) \
+  $(LIBMEMENV) \
+  $(SQLITE_LIBS)
 
 if TARGET_WINDOWS
 elements_wallet_SOURCES += bitcoin-wallet-res.rc
