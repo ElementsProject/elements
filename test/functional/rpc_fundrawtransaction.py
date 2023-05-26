@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2014-2020 The Bitcoin Core developers
+# Copyright (c) 2014-2021 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the fundrawtransaction RPC."""
@@ -100,9 +100,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         # ELEMENTS NOTE: fee deltas will be negative due to blinding and no blinding in rawtransaction
 
         self.generate(self.nodes[2], 1)
-        self.sync_all()
         self.generate(self.nodes[0], 121)
-        self.sync_all()
 
         self.test_change_position()
         self.test_simple()
@@ -168,7 +166,6 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 5.0)
 
         self.generate(self.nodes[0], 1)
-        self.sync_all()
 
         wwatch.unloadwallet()
 
@@ -581,7 +578,6 @@ class RawTransactionsTest(BitcoinTestFramework):
         # Send 1.2 BTC to msig addr.
         self.nodes[0].sendtoaddress(mSigObj, 1.2)
         self.generate(self.nodes[0], 1)
-        self.sync_all()
 
         oldBalance = self.nodes[1].getbalance()['bitcoin']
         inputs = []
@@ -593,7 +589,6 @@ class RawTransactionsTest(BitcoinTestFramework):
         final_psbt = w2.finalizepsbt(processed_psbt['psbt'])
         self.nodes[2].sendrawtransaction(final_psbt['hex'])
         self.generate(self.nodes[2], 1)
-        self.sync_all()
 
         # make sure funds are received at node1.
         assert_equal(oldBalance+Decimal('1.10000000'), self.nodes[1].getbalance()['bitcoin'])
@@ -658,7 +653,6 @@ class RawTransactionsTest(BitcoinTestFramework):
         signedTx = self.nodes[1].signrawtransactionwithwallet(blindedTx)
         self.nodes[1].sendrawtransaction(signedTx['hex'])
         self.generate(self.nodes[1], 1)
-        self.sync_all()
 
         # make sure funds are received at node1.
         assert_equal(oldBalance+Decimal('51.10000000'), self.nodes[0].getbalance()['bitcoin'])
@@ -670,12 +664,10 @@ class RawTransactionsTest(BitcoinTestFramework):
         # Empty node1, send some small coins from node0 to node1.
         self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[1].getbalance()['bitcoin'], "", "", True)
         self.generate(self.nodes[1], 1)
-        self.sync_all()
 
         for _ in range(20):
             self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.01)
         self.generate(self.nodes[0], 1)
-        self.sync_all()
 
         # Fund a tx with ~20 small inputs.
         inputs = []
@@ -705,12 +697,10 @@ class RawTransactionsTest(BitcoinTestFramework):
         # Again, empty node1, send some small coins from node0 to node1.
         self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[1].getbalance()['bitcoin'], "", "", True)
         self.generate(self.nodes[1], 1)
-        self.sync_all()
 
         for _ in range(20):
             self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.01)
         self.generate(self.nodes[0], 1)
-        self.sync_all()
 
         # Fund a tx with ~20 small inputs.
         oldBalance = self.nodes[0].getbalance()['bitcoin']
@@ -723,7 +713,6 @@ class RawTransactionsTest(BitcoinTestFramework):
         fundedAndSignedTx = self.nodes[1].signrawtransactionwithwallet(blindedTx)
         self.nodes[1].sendrawtransaction(fundedAndSignedTx['hex'])
         self.generate(self.nodes[1], 1)
-        self.sync_all()
         assert_equal(oldBalance+Decimal('50.19000000'), self.nodes[0].getbalance()['bitcoin']) #0.19+block reward
 
     def test_op_return(self):
@@ -806,7 +795,6 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert signedtx["complete"]
         self.nodes[0].sendrawtransaction(signedtx["hex"])
         self.generate(self.nodes[0], 1)
-        self.sync_all()
 
         wwatch.unloadwallet()
 
@@ -1087,7 +1075,6 @@ class RawTransactionsTest(BitcoinTestFramework):
         ext_wallet.sendtoaddress(addr, 10)
         ext_wallet.sendtoaddress(ext_fund.getnewaddress(), 10)
         self.generate(self.nodes[0], 6)
-        self.sync_all()
         ext_utxo = ext_wallet.listunspent(addresses=[addr])[0]
 
         # An external input without solving data should result in an error
@@ -1224,7 +1211,6 @@ class RawTransactionsTest(BitcoinTestFramework):
         addr = w.getnewaddress(address_type="bech32")
         self.nodes[0].sendtoaddress(addr, 1)
         self.generate(self.nodes[0], 1)
-        self.sync_all()
 
         # A P2WPKH input costs 68 vbytes; With a single P2WPKH output, the rest of the tx is 42 vbytes for a total of 110 vbytes.
         # At a feerate of 1.85 sat/vb, the input will need a fee of 125.8 sats and the rest 77.7 sats

@@ -113,7 +113,6 @@ class WalletMultisigDescriptorPSBTTest(BitcoinTestFramework):
         self.log.info("Send funds to the resulting multisig receiving address...")
         coordinator_wallet.sendtoaddress(multisig_receiving_address, deposit_amount)
         self.generate(self.nodes[0], 1)
-        self.sync_all()
         for participant in participants["multisigs"]:
             assert_approx(participant.getbalance()['bitcoin'], deposit_amount, vspan=0.001)
 
@@ -139,7 +138,6 @@ class WalletMultisigDescriptorPSBTTest(BitcoinTestFramework):
 
         self.log.info("Check that balances are correct after the transaction has been included in a block.")
         self.generate(self.nodes[0], 1)
-        self.sync_all()
         assert_approx(participants["multisigs"][0].getbalance()['bitcoin'], deposit_amount - value, vspan=0.001)
         assert_equal(participants["signers"][self.N - 1].getbalance()['bitcoin'], value)
 
@@ -156,7 +154,6 @@ class WalletMultisigDescriptorPSBTTest(BitcoinTestFramework):
 
         self.log.info("Check that balances are correct after the transaction has been included in a block.")
         self.generate(self.nodes[0], 1)
-        self.sync_all()
         assert_approx(participants["multisigs"][0].getbalance()['bitcoin'], deposit_amount - (value * 2), vspan=0.001)
         assert_equal(participants["signers"][self.N - 1].getbalance()['bitcoin'], value * 2)
 
