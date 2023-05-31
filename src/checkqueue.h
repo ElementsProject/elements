@@ -167,13 +167,21 @@ public:
     //! Add a batch of checks to the queue
     void Add(const std::vector<T*> vChecks)
     {
-        LOCK(m_mutex);
-        queue.insert(queue.end(), vChecks.begin(), vChecks.end());
-        nTodo += vChecks.size();
-        if (vChecks.size() == 1)
+        if (vChecks.empty()) {
+            return;
+        }
+
+        {
+            LOCK(m_mutex);
+            queue.insert(queue.end(), vChecks.begin(), vChecks.end());
+            nTodo += vChecks.size();
+        }
+
+        if (vChecks.size() == 1) {
             m_worker_cv.notify_one();
-        else if (vChecks.size() > 1)
+        } else {
             m_worker_cv.notify_all();
+        }
     }
 
     //! Stop all of the worker threads.
