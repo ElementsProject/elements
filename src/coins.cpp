@@ -7,6 +7,7 @@
 #include <consensus/consensus.h>
 #include <logging.h>
 #include <random.h>
+#include <util/trace.h>
 #include <version.h>
 
 bool CCoinsView::GetCoin(const COutPoint &outpoint, Coin &coin) const { return false; }
@@ -108,6 +109,12 @@ void CCoinsViewCache::AddCoin(const COutPoint &outpoint, Coin&& coin, bool possi
     it->second.coin = std::move(coin);
     it->second.flags |= CCoinsCacheEntry::DIRTY | (fresh ? CCoinsCacheEntry::FRESH : 0);
     cachedCoinsUsage += it->second.coin.DynamicMemoryUsage();
+    TRACE5(utxocache, add,
+           outpoint.hash.data(),
+           (uint32_t)outpoint.n,
+           (uint32_t)coin.nHeight,
+           (int64_t)coin.out.nValue,
+           (bool)coin.IsCoinBase());
 }
 
 void CCoinsViewCache::EmplaceCoinInternalDANGER(COutPoint&& outpoint, Coin&& coin) {
@@ -133,6 +140,12 @@ bool CCoinsViewCache::SpendCoin(const COutPoint &outpoint, Coin* moveout) {
     CCoinsMap::iterator it = FetchCoin(outpoint);
     if (it == cacheCoins.end()) return false;
     cachedCoinsUsage -= it->second.coin.DynamicMemoryUsage();
+    TRACE5(utxocache, spent,
+           outpoint.hash.data(),
+           (uint32_t)outpoint.n,
+           (uint32_t)it->second.coin.nHeight,
+           (int64_t)it->second.coin.out.nValue,
+           (bool)it->second.coin.IsCoinBase());
     if (moveout) {
         *moveout = std::move(it->second.coin);
     }
@@ -319,6 +332,12 @@ void CCoinsViewCache::Uncache(const COutPoint& point)
     CCoinsMap::iterator it = cacheCoins.find(native_key(point));
     if (it != cacheCoins.end() && it->second.flags == 0) {
         cachedCoinsUsage -= it->second.coin.DynamicMemoryUsage();
+        TRACE5(utxocache, uncache,
+               hash.hash.data(),
+               (uint32_t)hash.n,
+               (uint32_t)it->second.coin.nHeight,
+               (int64_t)it->second.coin.out.nValue,
+               (bool)it->second.coin.IsCoinBase());
         cacheCoins.erase(it);
     }
 }
