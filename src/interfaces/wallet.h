@@ -14,12 +14,13 @@
 #include <util/message.h>
 #include <util/ui_change_type.h>
 
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
-#include <stdint.h>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -35,8 +36,8 @@ struct CRecipient;
 struct PartiallySignedTransaction;
 struct WalletContext;
 struct bilingual_str;
-typedef uint8_t isminefilter;
 struct BlindDetails;
+using isminefilter = std::underlying_type<isminetype>::type;
 
 namespace interfaces {
 
