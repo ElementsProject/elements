@@ -52,7 +52,7 @@ static void add_coin(const CAmount& nValue, int nInput, std::vector<CInputCoin>&
     CMutableTransaction tx;
     tx.vout.resize(nInput + 1);
     tx.vout[nInput].nValue = nValue;
-    CWalletTx wtx(MakeTransactionRef(tx));
+    CWalletTx wtx(MakeTransactionRef(tx), TxStateInactive{});
     set.emplace_back(testWallet, &wtx, nInput);
 }
 
@@ -61,7 +61,7 @@ static void add_coin(const CAmount& nValue, int nInput, CoinSet& set, CAmount fe
     CMutableTransaction tx;
     tx.vout.resize(nInput + 1);
     tx.vout[nInput].nValue = nValue;
-    CWalletTx wtx(MakeTransactionRef(tx));
+    CWalletTx wtx(MakeTransactionRef(tx), TxStateInactive{});
     CInputCoin coin(testWallet, &wtx, nInput);
     coin.effective_value = nValue - fee;
     coin.m_fee = fee;
@@ -91,7 +91,7 @@ static void add_coin(std::vector<COutput>& coins, CWallet& wallet, const CAmount
     uint256 txid = tx.GetHash();
 
     LOCK(wallet.cs_wallet);
-    auto ret = wallet.mapWallet.emplace(std::piecewise_construct, std::forward_as_tuple(txid), std::forward_as_tuple(MakeTransactionRef(std::move(tx))));
+    auto ret = wallet.mapWallet.emplace(std::piecewise_construct, std::forward_as_tuple(txid), std::forward_as_tuple(MakeTransactionRef(std::move(tx)), TxStateInactive{}));
     assert(ret.second);
     CWalletTx& wtx = (*ret.first).second;
     if (fIsFromMe)

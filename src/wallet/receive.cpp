@@ -53,7 +53,7 @@ bool AllInputsMine(const CWallet& wallet, const CTransaction& tx, const isminefi
 CAmountMap OutputGetCredit(const CWallet& wallet, const CTransaction& tx, const size_t out_index, const isminefilter& filter) {
     CAmountMap nCredit;
     if (wallet.IsMine(tx.vout[out_index]) & filter) {
-        CWalletTx wtx(MakeTransactionRef(std::move(tx)));
+        CWalletTx wtx(MakeTransactionRef(std::move(tx)), TxStateInactive{});
         CAmount credit = std::max<CAmount>(0, wtx.GetOutputValueOut(wallet, out_index));
         if (!MoneyRange(credit))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
