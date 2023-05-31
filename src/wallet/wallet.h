@@ -582,6 +582,8 @@ public:
      * @param[in]  sighash_type the sighash type to use when signing (if PSBT does not specify)
      * @param[in]  sign whether to sign or not
      * @param[in]  bip32derivs whether to fill in bip32 derivation information if available
+     * @param[out] n_signed the number of inputs signed by this wallet
+     * @param[in] finalize whether to create the final scriptSig or scriptWitness if possible
      * return error
      */
     TransactionError FillPSBT(PartiallySignedTransaction& psbtx,
@@ -591,11 +593,12 @@ public:
                   bool bip32derivs = true,
                   bool imbalance_ok = false,
                   size_t* n_signed = nullptr,
-                  bool include_explicit = false) const;
+                  bool include_explicit = false,
+                  bool finalize = true) const;
 
     // ELEMENTS
     TransactionError FillPSBTData(PartiallySignedTransaction& psbtx, bool bip32derivs = false, bool include_explicit = false) const;
-    TransactionError SignPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type = 1, bool sign = true, bool imbalance_ok = false, bool bip32derivs = false, size_t* n_signed = nullptr) const;
+    TransactionError SignPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type = 1, bool sign = true, bool imbalance_ok = false, bool bip32derivs = false, size_t* n_signed = nullptr, bool finalize = true) const;
     BlindingStatus WalletBlindPSBT(PartiallySignedTransaction& psbtx) const;
     // end ELEMENTS
 

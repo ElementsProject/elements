@@ -165,8 +165,10 @@ class PSBTTest(BitcoinTestFramework):
         # self.nodes[0].walletpassphrase(passphrase="password", timeout=1000000)
 
         # Sign the transaction and send
-        signed_psbt = self.nodes[0].walletprocesspsbt(psbtx)['psbt']
-        final_tx = self.nodes[0].finalizepsbt(signed_psbt)['hex']
+        signed_tx = self.nodes[0].walletprocesspsbt(psbt=psbtx, finalize=False)['psbt']
+        finalized_tx = self.nodes[0].walletprocesspsbt(psbt=psbtx, finalize=True)['psbt']
+        assert signed_tx != finalized_tx
+        final_tx = self.nodes[0].finalizepsbt(signed_tx)['hex']
         if confidential:
             # Can't use assert_equal because there may or may not be change
             assert(self.num_blinded_outputs(final_tx) > 0)
