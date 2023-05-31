@@ -8,7 +8,7 @@
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <validation.h>
-#include <miner.h>
+#include <node/miner.h>
 #include <pubkey.h>
 #include <script/standard.h>
 #include <txmempool.h>
@@ -143,4 +143,3 @@ BOOST_AUTO_TEST_CASE(PeginSpent_validity)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-

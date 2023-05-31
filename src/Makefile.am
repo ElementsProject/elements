@@ -176,7 +176,6 @@ BITCOIN_CORE_H = \
   mapport.h \
   memusage.h \
   merkleblock.h \
-  miner.h \
   net.h \
   net_permissions.h \
   net_processing.h \
@@ -188,6 +187,7 @@ BITCOIN_CORE_H = \
   node/coin.h \
   node/coinstats.h \
   node/context.h \
+  node/miner.h \
   node/minisketchwrapper.h \
   node/psbt.h \
   node/transaction.h \
@@ -353,7 +353,6 @@ libbitcoin_server_a_SOURCES = \
   init.cpp \
   mainchainrpc.cpp \
   mapport.cpp \
-  miner.cpp \
   net.cpp \
   net_processing.cpp \
   node/blockstorage.cpp \
@@ -361,6 +360,7 @@ libbitcoin_server_a_SOURCES = \
   node/coinstats.cpp \
   node/context.cpp \
   node/interfaces.cpp \
+  node/miner.cpp \
   node/minisketchwrapper.cpp \
   node/psbt.cpp \
   node/transaction.cpp \
