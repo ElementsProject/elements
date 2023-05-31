@@ -290,9 +290,6 @@ public:
     //! removed transactions and already added new transactions.
     virtual void requestMempoolTransactions(Notifications& notifications) = 0;
 
-    //! Check if Taproot has activated
-    virtual bool isTaprootActive() = 0;
-
 // ELEMENTS
     virtual CBlockIndex* getTip() = 0;
     virtual MempoolAcceptResult testPeginClaimAcceptance(const CTransactionRef tx) = 0;

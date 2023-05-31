@@ -725,12 +725,6 @@ public:
             notifications.transactionAddedToMempool(entry.GetSharedTx(), 0 /* mempool_sequence */);
         }
     }
-    bool isTaprootActive() override
-    {
-        LOCK(::cs_main);
-        const CBlockIndex* tip = Assert(m_node.chainman)->ActiveChain().Tip();
-        return DeploymentActiveAfter(tip, Params().GetConsensus(), Consensus::DEPLOYMENT_TAPROOT);
-    }
 // ELEMENTS
     MempoolAcceptResult testPeginClaimAcceptance(const CTransactionRef tx) override {
         LOCK(::cs_main);
