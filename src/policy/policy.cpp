@@ -280,7 +280,7 @@ bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
                 return false;
             }
             // Taproot spend (non-P2SH-wrapped, version 1, witness program size 32; see BIP 341)
-            auto stack = MakeSpan(tx.witness.vtxinwit[i].scriptWitness.stack);
+            Span stack{tx.witness.vtxinwit[i].scriptWitness.stack};
             if (stack.size() >= 2 && !stack.back().empty() && stack.back()[0] == ANNEX_TAG) {
                 // Annexes are nonstandard as long as no semantics are defined for them.
                 return false;

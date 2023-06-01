@@ -6883,5 +6883,5 @@ static const CRPCCommand commands[] =
     { "hidden",             &getpegoutkeys,                  },
 };
 // clang-format on
-    return MakeSpan(commands);
+    return commands;
 }
