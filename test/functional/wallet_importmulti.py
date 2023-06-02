@@ -65,7 +65,6 @@ class ImportMultiTest(BitcoinTestFramework):
         self.generate(self.nodes[0], 1, sync_fun=self.no_op)
         self.generate(self.nodes[1], 1, sync_fun=self.no_op)
         timestamp = self.nodes[1].getblock(self.nodes[1].getbestblockhash())['mediantime']
-        self.nodes[1].syncwithvalidationinterfacequeue()  # Sync the timestamp to the wallet, so that importmulti works
 
         node0_address1 = self.nodes[0].getaddressinfo(self.nodes[0].getnewaddress())
 
@@ -280,7 +279,6 @@ class ImportMultiTest(BitcoinTestFramework):
         self.nodes[1].sendtoaddress(multisig.p2sh_addr, 10.00)
         self.generate(self.nodes[1], 1, sync_fun=self.no_op)
         timestamp = self.nodes[1].getblock(self.nodes[1].getbestblockhash())['mediantime']
-        self.nodes[1].syncwithvalidationinterfacequeue()
 
         self.log.info("Should import a p2sh")
         self.test_importmulti({"scriptPubKey": {"address": multisig.p2sh_addr},
@@ -301,7 +299,6 @@ class ImportMultiTest(BitcoinTestFramework):
         self.nodes[1].sendtoaddress(multisig.p2sh_addr, 10.00)
         self.generate(self.nodes[1], 1, sync_fun=self.no_op)
         timestamp = self.nodes[1].getblock(self.nodes[1].getbestblockhash())['mediantime']
-        self.nodes[1].syncwithvalidationinterfacequeue()
 
         self.log.info("Should import a p2sh with respective redeem script")
         self.test_importmulti({"scriptPubKey": {"address": multisig.p2sh_addr},
@@ -322,7 +319,6 @@ class ImportMultiTest(BitcoinTestFramework):
         self.nodes[1].sendtoaddress(multisig.p2sh_addr, 10.00)
         self.generate(self.nodes[1], 1, sync_fun=self.no_op)
         timestamp = self.nodes[1].getblock(self.nodes[1].getbestblockhash())['mediantime']
-        self.nodes[1].syncwithvalidationinterfacequeue()
 
         self.log.info("Should import a p2sh with respective redeem script and private keys")
         self.test_importmulti({"scriptPubKey": {"address": multisig.p2sh_addr},
@@ -348,7 +344,6 @@ class ImportMultiTest(BitcoinTestFramework):
         self.nodes[1].sendtoaddress(multisig.p2sh_addr, 10.00)
         self.generate(self.nodes[1], 1, sync_fun=self.no_op)
         timestamp = self.nodes[1].getblock(self.nodes[1].getbestblockhash())['mediantime']
-        self.nodes[1].syncwithvalidationinterfacequeue()
 
         self.log.info("Should import a p2sh with respective redeem script and private keys")
         self.test_importmulti({"scriptPubKey": {"address": multisig.p2sh_addr},

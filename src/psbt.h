@@ -546,7 +546,7 @@ struct PSBTInput
             }
 
             // Type is compact size uint at beginning of key
-            SpanReader skey(s.GetType(), s.GetVersion(), key, 0);
+            SpanReader skey(s.GetType(), s.GetVersion(), key);
             uint64_t type = ReadCompactSize(skey);
 
             // Do stuff based on type
@@ -1199,7 +1199,7 @@ struct PSBTOutput
             }
 
             // Type is compact size uint at beginning of key
-            SpanReader skey(s.GetType(), s.GetVersion(), key, 0);
+            SpanReader skey(s.GetType(), s.GetVersion(), key);
             uint64_t type = ReadCompactSize(skey);
 
             // Do stuff based on type
@@ -1591,7 +1591,7 @@ struct PartiallySignedTransaction
             }
 
             // Type is compact size uint at beginning of key
-            SpanReader skey(s.GetType(), s.GetVersion(), key, 0);
+            SpanReader skey(s.GetType(), s.GetVersion(), key);
             uint64_t type = ReadCompactSize(skey);
 
             // Do stuff based on type
