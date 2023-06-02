@@ -4,8 +4,7 @@
         {
             "asm": "1 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
             "address": "ert1pamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhqnfmjkn",
-            "type": "witness_v1_taproot",
-            "p2sh": "XCBh3ecAZfG315BmWeRDm1xWg6WNQKWLj5"
+            "type": "witness_v1_taproot"
         }
     ],
     [
@@ -13,8 +12,7 @@
         {
             "asm": "1 -28398",
             "address": "ert1pamhq3gyqm0",
-            "type": "witness_unknown",
-            "p2sh": "XXEARhtr6Kpp9irr7mkM6xj2MPmgvn5qgb"
+            "type": "witness_unknown"
         }
     ],
     [
@@ -38,38 +36,21 @@
         "6a00",
         {
             "asm": "OP_RETURN 0",
-            "type": "nulldata",
-            "p2sh": "XaEDh8uZ6Gfjc2Co9Xqwfv2d3Qv7pSofGW"
+            "type": "nulldata"
         }
     ],
     [
         "6aee",
         {
             "asm": "OP_RETURN OP_UNKNOWN",
-            "type": "nonstandard",
-            "p2sh": "Xaa2Td8Kncjnec4GRnL5trrV4amZP3NMVQ",
-            "segwit": {
-                "asm": "0 44358a3abb4cc9f635f459edffb2a1210f849857aaf12106a1af645e034faa95",
-                "hex": "002044358a3abb4cc9f635f459edffb2a1210f849857aaf12106a1af645e034faa95",
-                "address": "ert1qgs6c5w4mfnylvd05t8kllv4pyy8cfxzh4tcjzp4p4aj9uq60422slknkjd",
-                "type": "witness_v0_scripthash",
-                "p2sh-segwit": "XU4GW8EL9ixATAcksMdQyCYNZTd2H8cU8C"
-            }
+            "type": "nonstandard"
         }
     ],
     [
         "6a02ee",
         {
             "asm": "OP_RETURN [error]",
-            "type": "nonstandard",
-            "p2sh": "XTQGLw2zwvPXYLypVawt99Sgg4YwKXYHiZ",
-            "segwit": {
-                "asm": "0 6f3d493995bda1f72a8f4de96663be22b583623a05f5ae98f38c45b8e03ca5da",
-                "hex": "00206f3d493995bda1f72a8f4de96663be22b583623a05f5ae98f38c45b8e03ca5da",
-                "address": "ert1qdu75jwv4hkslw250fh5kvca7y26cxc36qh66ax8n33zm3cpu5hdqucntp9",
-                "type": "witness_v0_scripthash",
-                "p2sh-segwit": "XMZrMzs3b257A7Df7STmhbQ9NmR3LHfwS1"
-            }
+            "type": "nonstandard"
         }
     ],
     [
@@ -91,30 +72,14 @@
         "ba",
         {
             "asm": "OP_CHECKSIGADD",
-            "type": "nonstandard",
-            "p2sh": "XHd1sm34CE3yesQyLbRxaWpXrtNRfmE815",
-            "segwit": {
-                "asm": "0 281c93990bac2c69cf372c9a3b66c406c86cca826d6407b68e644da22eef8186",
-                "hex": "0020281c93990bac2c69cf372c9a3b66c406c86cca826d6407b68e644da22eef8186",
-                "address": "ert1q9qwf8xgt4skxnneh9jdrkekyqmyxej5zd4jq0d5wv3x6yth0sxrqgexph8",
-                "type": "witness_v0_scripthash",
-                "p2sh-segwit": "XVufNMBVrjZDju7u7zXN4cMwSy6mameKxs"
-            }
+            "type": "nonstandard"
         }
     ],
     [
         "50",
         {
             "asm": "OP_RESERVED",
-            "type": "nonstandard",
-            "p2sh": "XYwod5iabnbSTjPYvL3WNV2uchRzhoedBF",
-            "segwit": {
-                "asm": "0 5c62e091b8c0565f1bafad0dad5934276143ae2ccef7a5381e8ada5b1a8d26d2",
-                "hex": "00205c62e091b8c0565f1bafad0dad5934276143ae2ccef7a5381e8ada5b1a8d26d2",
-                "address": "ert1qt33wpydccpt97xa045x66kf5yas58t3vemm62wq73td9kx5dymfq8qfp8n",
-                "type": "witness_v0_scripthash",
-                "p2sh-segwit": "XYzkJuh37VfYqdB7qB1xMkCpyKpp3Zw21J"
-            }
+            "type": "nonstandard"
         }
     ]
 ]
