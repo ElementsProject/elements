@@ -1621,6 +1621,7 @@ static bool TxOutDBEntryIsSame(const CTxOut& block_txout, const CTxOut& txdb_txo
  *  When FAILED is returned, view is left in an indeterminate state. */
 DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view)
 {
+    AssertLockHeld(::cs_main);
     bool fClean = true;
 
     CBlockUndo blockUndo;
