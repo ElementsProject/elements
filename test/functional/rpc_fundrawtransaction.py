@@ -444,7 +444,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # Create same transaction over sendtoaddress.
         txId = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1.1)
-        signedFee = self.nodes[0].getmempoolentry(txId)['fee']
+        signedFee = self.nodes[0].getmempoolentry(txId)['fees']['base']
 
         # Compare fee.
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
@@ -474,7 +474,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         for output in outputs:
             output_dict.update(output)
         txId = self.nodes[0].sendmany("", output_dict)
-        signedFee = self.nodes[0].getmempoolentry(txId)['fee']
+        signedFee = self.nodes[0].getmempoolentry(txId)['fees']['base']
 
         # Compare fee.
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
@@ -501,7 +501,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # Create same transaction over sendtoaddress.
         txId = self.nodes[0].sendtoaddress(mSigObj, 1.1)
-        signedFee = self.nodes[0].getmempoolentry(txId)['fee']
+        signedFee = self.nodes[0].getmempoolentry(txId)['fees']['base']
 
         # Compare fee.
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
@@ -545,7 +545,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # Create same transaction over sendtoaddress.
         txId = self.nodes[0].sendtoaddress(mSigObj, 1.1)
-        signedFee = self.nodes[0].getmempoolentry(txId)['fee']
+        signedFee = self.nodes[0].getmempoolentry(txId)['fees']['base']
 
         # Compare fee.
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
@@ -686,7 +686,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         for output in outputs:
             output_dict.update(output)
         txId = self.nodes[1].sendmany("", output_dict)
-        signedFee = self.nodes[1].getmempoolentry(txId)['fee']
+        signedFee = self.nodes[1].getmempoolentry(txId)['fees']['base']
 
         # Compare fee.
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
