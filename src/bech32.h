@@ -49,7 +49,7 @@ DecodeResult Decode(const std::string& str);
 uint32_t PolyMod(const std::vector<uint8_t>& v);
 
 /** Return the positions of errors in a Bech32 string. */
-std::string LocateErrors(const std::string& str, std::vector<int>& error_locations);
+std::pair<std::string, std::vector<int>> LocateErrors(const std::string& str);
 
 } // namespace bech32
 
