@@ -210,7 +210,8 @@ BASE_SCRIPTS = [
     # ELEMENTS: FIXME failing tests
     # 'wallet_groups.py --legacy-wallet',
     # 'wallet_groups.py --descriptors',
-    'wallet_transactiontime_rescan.py',
+    'wallet_transactiontime_rescan.py --descriptors',
+    'wallet_transactiontime_rescan.py --legacy-wallet',
     'p2p_addrv2_relay.py',
     'p2p_compactblocks_hb.py',
     'p2p_disconnect_ban.py',
