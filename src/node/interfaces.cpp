@@ -727,7 +727,7 @@ public:
 // ELEMENTS
     MempoolAcceptResult testPeginClaimAcceptance(const CTransactionRef tx) override {
         LOCK(::cs_main);
-        return ::AcceptToMemoryPool(*m_node.mempool, chainman().ActiveChainstate(), tx, GetTime(), false /* bypass_limits */, true /* test_accept */);
+        return ::AcceptToMemoryPool(chainman().ActiveChainstate(), tx, GetTime(), false /* bypass_limits */, true /* test_accept */);
     }
     CBlockIndex* getTip() override {
         LOCK(::cs_main);
