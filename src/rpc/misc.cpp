@@ -19,6 +19,7 @@
 #include <pegins.h>
 #include <rpc/blockchain.h>
 #include <rpc/server.h>
+#include <rpc/server_util.h>
 #include <rpc/util.h>
 #include <scheduler.h>
 #include <script/descriptor.h>

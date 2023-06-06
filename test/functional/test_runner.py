@@ -252,6 +252,7 @@ BASE_SCRIPTS = [
     # ELEMENTS: needs to be fixed
     #'feature_notifications.py',
     'rpc_getblockfilter.py',
+    'rpc_getblockfrompeer.py',
     'rpc_invalidateblock.py',
     'feature_utxo_set_hash.py',
     'feature_rbf.py --legacy-wallet',
