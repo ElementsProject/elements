@@ -56,14 +56,12 @@ static void CoinSelection(benchmark::Bench& bench)
                                                     /* long_term_feerate= */ CFeeRate(0), /* discard_feerate= */ CFeeRate(0),
                                                     /* tx_noinputs_size= */ 0, /* avoid_partial= */ false);
     bench.run([&] {
-        std::set<CInputCoin> setCoinsRet;
-        CAmountMap mapValueRet;
         CAmountMap mapValue;
         mapValue[::policyAsset] = 1003 * COIN;
-        bool success = AttemptSelection(wallet, mapValue, filter_standard, coins, setCoinsRet, mapValueRet, coin_selection_params);
-        assert(success);
-        assert(mapValueRet[::policyAsset] == 1003 * COIN);
-        assert(setCoinsRet.size() == 2);
+        auto result = AttemptSelection(wallet, mapValue, filter_standard, coins, coin_selection_params);
+        assert(result);
+        assert(result->GetSelectedValue() == mapValue);
+        assert(result->GetInputSet().size() == 2);
 
 /*        std::set<std::pair<const CWalletTx*, unsigned int> > setCoinsRet;
         CAmountMap nValueRet;
@@ -109,17 +107,14 @@ static void BnBExhaustion(benchmark::Bench& bench)
 {
     // Setup
     std::vector<OutputGroup> utxo_pool;
-    CoinSet selection;
-    CAmount value_ret = 0;
 
     bench.run([&] {
         // Benchmark
         CAmount target = make_hard_case(17, utxo_pool);
-        SelectCoinsBnB(utxo_pool, target, 0, selection, value_ret); // Should exhaust
+        SelectCoinsBnB(utxo_pool, target, 0); // Should exhaust
 
         // Cleanup
         utxo_pool.clear();
-        selection.clear();
     });
 }
 

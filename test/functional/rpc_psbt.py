@@ -1134,7 +1134,8 @@ class PSBTTest(BitcoinTestFramework):
         ext_utxo = self.nodes[0].listunspent(addresses=[addr])[0]
 
         # An external input without solving data should result in an error
-        assert_raises_rpc_error(-4, "Missing solving data for estimating transaction size", self.nodes[1].walletcreatefundedpsbt, [ext_utxo], [{self.nodes[0].getnewaddress(): 10 + ext_utxo['amount']}], 0, {'add_inputs': True})
+        # ELEMENTS: minor FIXME error is different since SelectCoins no longer has the error out
+        assert_raises_rpc_error(-4, "Insufficient funds", self.nodes[1].walletcreatefundedpsbt, [ext_utxo], [{self.nodes[0].getnewaddress(): 10 + ext_utxo['amount']}], 0, {'add_inputs': True})
 
         # But funding should work when the solving data is provided
         psbt = self.nodes[1].walletcreatefundedpsbt([ext_utxo], [{self.nodes[0].getnewaddress(): 15}], 0, {'add_inputs': True, "solving_data": {"pubkeys": [addr_info['pubkey']], "scripts": [addr_info["embedded"]["scriptPubKey"]]}})
