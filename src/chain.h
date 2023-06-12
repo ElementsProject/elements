@@ -417,12 +417,12 @@ public:
             nVersion = ~CBlockHeader::DYNAFED_HF_MASK & nVersion;
             return is_dyna;
         } else {
-            return !dynafed_params().IsNull();
+            return is_dynafed_block();
         }
     }
     bool RemoveDynaFedMaskOnSerialize(bool for_read) const {
         assert(!for_read);
-        return !dynafed_params().IsNull();
+        return is_dynafed_block();
     }
 
     SERIALIZE_METHODS(CDiskBlockIndex, obj)
@@ -445,7 +445,7 @@ public:
             READWRITE(obj.nVersion);
         } else {
             int32_t nVersion = obj.nVersion;
-            if (!obj.dynafed_params().IsNull()) {
+            if (obj.is_dynafed_block()) {
                 nVersion |= CBlockHeader::DYNAFED_HF_MASK;
             }
             READWRITE(nVersion);
