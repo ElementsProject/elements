@@ -450,7 +450,7 @@ public:
             }
             READWRITE(nVersion);
         }
-        bool is_dyna = obj.RemoveDynaFedMaskOnSerialize(ser_action.ForRead());;
+        bool is_dyna = obj.RemoveDynaFedMaskOnSerialize(ser_action.ForRead());
 
         READWRITE(obj.hashPrev);
         READWRITE(obj.hashMerkleRoot);
