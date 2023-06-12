@@ -230,7 +230,7 @@ public:
         return proof.value();
     }
 
-    const bool dynafed_block() const {
+    bool dynafed_block() const {
         if (m_trimmed) {
             return m_trimmed_dynafed_block;
         }
