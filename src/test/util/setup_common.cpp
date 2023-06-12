@@ -19,6 +19,8 @@
 #include <net_processing.h>
 #include <node/miner.h>
 #include <noui.h>
+#include <node/blockstorage.h>
+#include <node/chainstate.h>
 #include <policy/fees.h>
 #include <pow.h>
 #include <policy/policy.h>
@@ -29,6 +31,7 @@
 #include <rpc/register.h>
 #include <scheduler.h>
 #include <script/sigcache.h>
+#include <shutdown.h>
 #include <txdb.h>
 #include <util/strencodings.h>
 #include <util/string.h>
@@ -168,8 +171,10 @@ ChainTestingSetup::ChainTestingSetup(const std::string& chainName, const std::st
     m_node.fee_estimator = std::make_unique<CBlockPolicyEstimator>();
     m_node.mempool = std::make_unique<CTxMemPool>(m_node.fee_estimator.get(), 1);
 
+    m_cache_sizes = CalculateCacheSizes(m_args);
+
     m_node.chainman = std::make_unique<ChainstateManager>();
-    m_node.chainman->m_blockman.m_block_tree_db = std::make_unique<CBlockTreeDB>(1 << 20, true);
+    m_node.chainman->m_blockman.m_block_tree_db = std::make_unique<CBlockTreeDB>(m_cache_sizes.block_tree_db, true);
 
     // Start script-checking threads. Set g_parallel_script_checks to true so they are used.
     constexpr int script_check_threads = 2;
@@ -202,15 +207,18 @@ TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedp
     // instead of unit tests, but for now we need these here.
     RegisterAllCoreRPCCommands(tableRPC);
 
-    m_node.chainman->InitializeChainstate(m_node.mempool.get());
-    m_node.chainman->ActiveChainstate().InitCoinsDB(
-        /*cache_size_bytes=*/1 << 23, /*in_memory=*/true, /*should_wipe=*/false);
-    assert(!m_node.chainman->ActiveChainstate().CanFlushToDisk());
-    m_node.chainman->ActiveChainstate().InitCoinsCache(1 << 23);
-    assert(m_node.chainman->ActiveChainstate().CanFlushToDisk());
-    if (!m_node.chainman->ActiveChainstate().LoadGenesisBlock()) {
-        throw std::runtime_error("LoadGenesisBlock failed.");
-    }
+    auto rv = LoadChainstate(fReindex.load(),
+                             *Assert(m_node.chainman.get()),
+                             Assert(m_node.mempool.get()),
+                             fPruneMode,
+                             chainparams.GetConsensus(),
+                             m_args.GetBoolArg("-reindex-chainstate", false),
+                             m_cache_sizes.block_tree_db,
+                             m_cache_sizes.coins_db,
+                             m_cache_sizes.coins,
+                             true,
+                             true);
+    assert(!rv.has_value());
 
     BlockValidationState state;
     if (!m_node.chainman->ActiveChainstate().ActivateBestChain(state)) {
