@@ -237,7 +237,7 @@ struct PSBTInput
     std::optional<uint32_t> height_locktime{std::nullopt};
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
     std::set<PSBTProprietary> m_proprietary;
-    int sighash_type = 0;
+    std::optional<int> sighash_type;
 
     uint32_t m_psbt_version;
 
@@ -299,9 +299,9 @@ struct PSBTInput
             }
 
             // Write the sighash type
-            if (sighash_type > 0) {
+            if (sighash_type != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_SIGHASH));
-                SerializeToVector(s, sighash_type);
+                SerializeToVector(s, *sighash_type);
             }
 
             // Write the redeem script
@@ -600,7 +600,9 @@ struct PSBTInput
                     } else if (key.size() != 1) {
                         throw std::ios_base::failure("Sighash type key is more than one byte type");
                     }
-                    UnserializeFromVector(s, sighash_type);
+                    int sighash;
+                    UnserializeFromVector(s, sighash);
+                    sighash_type = sighash;
                     break;
                 case PSBT_IN_REDEEMSCRIPT:
                 {
