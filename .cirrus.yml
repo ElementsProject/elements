@@ -39,6 +39,7 @@ main_template: &MAIN_TEMPLATE
     # https://cirrus-ci.org/faq/#are-there-any-limits
     # Each project has 16 CPU in total, assign 2 to each container, so that 8 tasks run in parallel
     cpu: 2
+    greedy: true
     memory: 8G  # Set to 8GB to avoid OOM. https://cirrus-ci.org/guide/linux/#linux-containers
   ccache_cache:
     folder: "/tmp/ccache_dir"
@@ -213,7 +214,6 @@ task:
     memory: 24G
   env:
     << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-    MAKEJOBS: "-j6" # ELEMENTS: reduced from -j8
     FILE_ENV: "./ci/test/00_setup_env_native_tsan.sh"
 
 task:
@@ -224,6 +224,7 @@ task:
   env:
     << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
     FILE_ENV: "./ci/test/00_setup_env_native_msan.sh"
+    MAKEJOBS: "-j4"  # Avoid excessive memory use due to MSan
 
 task:
   name: '[ASan + LSan + UBSan + integer, no depends] [jammy]'
@@ -235,6 +236,7 @@ task:
   env:
     << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
     FILE_ENV: "./ci/test/00_setup_env_native_asan.sh"
+    MAKEJOBS: "-j4"  # Avoid excessive memory use
 
 task:
   name: '[fuzzer,address,undefined,integer, no depends] [focal]'
@@ -246,7 +248,6 @@ task:
     memory: 16G
   env:
     << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-    MAKEJOBS: "-j8"
     FILE_ENV: "./ci/test/00_setup_env_native_fuzz.sh"
 
 task:
@@ -260,7 +261,6 @@ task:
     memory: 16G  # The default memory is sometimes just a bit too small, so double everything
   env:
     << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-    MAKEJOBS: "-j8"
     FILE_ENV: "./ci/test/00_setup_env_i686_multiprocess.sh"
 
 task:
