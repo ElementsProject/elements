@@ -167,4 +167,3 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
 
     return result;
 }
-
