@@ -14,8 +14,11 @@
 #include <primitives/bitcoin/transaction.h>
 #include <primitives/bitcoin/merkleblock.h>
 #include <pubkey.h>
+#include <script/keyorigin.h>
 #include <script/sign.h>
 #include <script/signingprovider.h>
+#include <span.h>
+#include <streams.h>
 
 #include <bitset>
 #include <optional>

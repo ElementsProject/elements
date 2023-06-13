@@ -10,6 +10,7 @@
 #include <pegins.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
+#include <script/keyorigin.h>
 #include <script/pegins.h>  // for GetPeginOutputFromWitness()
 #include <script/signingprovider.h>
 #include <script/standard.h>

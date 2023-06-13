@@ -12,8 +12,6 @@
 #include <script/interpreter.h>
 #include <script/keyorigin.h>
 #include <script/standard.h>
-#include <span.h>
-#include <streams.h>
 
 class CKey;
 class CKeyID;

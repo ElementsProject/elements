@@ -130,6 +130,11 @@ public:
         return a.vch[0] < b.vch[0] ||
                (a.vch[0] == b.vch[0] && memcmp(a.vch, b.vch, a.size()) < 0);
     }
+    friend bool operator>(const CPubKey& a, const CPubKey& b)
+    {
+        return a.vch[0] > b.vch[0] ||
+               (a.vch[0] == b.vch[0] && memcmp(a.vch, b.vch, a.size()) > 0);
+    }
 
     //! Implement serialization, as if this was a byte vector.
     template <typename Stream>
@@ -316,6 +321,8 @@ struct CExtPubKey {
     {
         if (a.pubkey < b.pubkey) {
             return true;
+        } else if (a.pubkey > b.pubkey) {
+            return false;
         }
         return a.chaincode < b.chaincode;
     }
