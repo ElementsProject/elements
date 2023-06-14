@@ -4,6 +4,8 @@
 
 #include <consensus/tx_verify.h>
 
+#include <chain.h>
+#include <coins.h>
 #include <consensus/amount.h>
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
@@ -11,10 +13,6 @@
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <script/pegins.h>
-
-// TODO remove the following dependencies
-#include <chain.h>
-#include <coins.h>
 #include <util/moneystr.h>
 
 bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
@@ -277,4 +275,3 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, 
 
     return true;
 }
-
