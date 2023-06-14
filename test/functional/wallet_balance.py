@@ -249,7 +249,7 @@ class WalletTest(BitcoinTestFramework):
             struct.pack(">q", 99 * 10**8).hex(),
             struct.pack(">q", 98 * 10**8).hex(),
         )
-        fee = 6560 if self.options.descriptors else 6520
+        fee = 6520
         tx_replace = tx_replace.replace( ## is there something less fragile we can do here?
             struct.pack(">q", fee).hex(),
             struct.pack(">q", fee + 10**8).hex(),
