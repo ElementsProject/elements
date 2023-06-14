@@ -38,7 +38,7 @@ class AddressType(enum.Enum):
 chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
 
-def create_deterministic_address_bcrt1_p2tr_op_true():
+def create_deterministic_address_bcrt1_p2tr_op_true(hrp="ert"):
     """
     Generates a deterministic bech32m address (segwit v1 output) that
     can be spent with a witness stack of OP_TRUE and the control block
@@ -48,8 +48,11 @@ def create_deterministic_address_bcrt1_p2tr_op_true():
     """
     internal_key = (2).to_bytes(32, 'big') # ELEMENTS: the given internal key from upstream failed to verify
     scriptPubKey = taproot_construct(internal_key, [(None, CScript([OP_TRUE]))]).scriptPubKey
-    address = encode_segwit_address("ert", 1, scriptPubKey[2:])
-    assert_equal(address, 'ert1pxaxh5xm2p349fg5wqstrreat4atm00ktumm6q4vfu960ls09265sf37hcj')
+    address = encode_segwit_address(hrp, 1, scriptPubKey[2:])
+    if hrp == "ert":
+        assert_equal(address, 'ert1pxaxh5xm2p349fg5wqstrreat4atm00ktumm6q4vfu960ls09265sf37hcj')
+    if hrp == "bcrt":
+        assert_equal(address, 'bcrt1pxaxh5xm2p349fg5wqstrreat4atm00ktumm6q4vfu960ls09265sczkf3k')
     return (address, internal_key)
 
 
@@ -99,9 +102,8 @@ def base58_to_byte(s):
     return res[1:-4], int(res[0])
 
 
-def keyhash_to_p2pkh(hash, main=False):
+def keyhash_to_p2pkh(hash, main=False, version=235):
     assert len(hash) == 20
-    version = 235
     return byte_to_base58(hash, version)
 
 def scripthash_to_p2sh(hash, main=False, prefix=75):
@@ -109,34 +111,34 @@ def scripthash_to_p2sh(hash, main=False, prefix=75):
     version = prefix
     return byte_to_base58(hash, version)
 
-def key_to_p2pkh(key, main=False):
+def key_to_p2pkh(key, main=False, **kwargs):
     key = check_key(key)
-    return keyhash_to_p2pkh(hash160(key), main)
+    return keyhash_to_p2pkh(hash160(key), main, **kwargs)
 
 def script_to_p2sh(script, main=False, prefix=75):
     script = check_script(script)
     return scripthash_to_p2sh(hash160(script), main, prefix)
 
-def key_to_p2sh_p2wpkh(key, main=False):
+def key_to_p2sh_p2wpkh(key, main=False, **kwargs):
     key = check_key(key)
     p2shscript = CScript([OP_0, hash160(key)])
-    return script_to_p2sh(p2shscript, main)
+    return script_to_p2sh(p2shscript, main, **kwargs)
 
-def program_to_witness(version, program, main=False):
+def program_to_witness(version, program, main=False, hrp="ert"):
     if (type(program) is str):
         program = bytes.fromhex(program)
     assert 0 <= version <= 16
     assert 2 <= len(program) <= 40
     assert version > 0 or len(program) in [20, 32]
-    return encode_segwit_address("ert", version, program)
+    return encode_segwit_address(hrp, version, program)
 
 def script_to_p2wsh(script, main=False):
     script = check_script(script)
     return program_to_witness(0, sha256(script), main)
 
-def key_to_p2wpkh(key, main=False):
+def key_to_p2wpkh(key, main=False, **kwargs):
     key = check_key(key)
-    return program_to_witness(0, hash160(key), main)
+    return program_to_witness(0, hash160(key), main, **kwargs)
 
 def script_to_p2sh_p2wsh(script, main=False):
     script = check_script(script)
