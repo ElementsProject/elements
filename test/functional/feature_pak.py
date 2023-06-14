@@ -151,7 +151,7 @@ class PAKTest (BitcoinTestFramework):
 
         # Use wrong network's extended pubkey
         mainnetxpub = "xpub6AATBi58516uxLogbuaG3jkom7x1qyDoZzMN2AePBuQnMFKUV9xC2BW9vXsFJ9rELsvbeGQcFWhtbyM4qDeijM22u3AaSiSYEvuMZkJqtLn"
-        assert_raises_rpc_error(-8, "%s is not a valid descriptor function" % mainnetxpub, self.nodes[1].initpegoutwallet, mainnetxpub)
+        assert_raises_rpc_error(-8, "'%s' is not a valid descriptor function" % mainnetxpub, self.nodes[1].initpegoutwallet, mainnetxpub)
 
         # Test fixed online pubkey
         init_info = self.nodes[1].initpegoutwallet(xpub)
