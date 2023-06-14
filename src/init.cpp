@@ -986,7 +986,7 @@ bool AppInitParameterInteraction(const ArgsManager& args)
         epoch_length = 20160;
     }
 
-    if (args.IsArgSet("-trim_headers")) {
+    if (args.GetBoolArg("-trim_headers", false)) {
         LogPrintf("Configured for header-trimming mode. This will reduce memory usage substantially, but we will be unable to serve as a full P2P peer, and certain header fields may be missing from JSON RPC output.\n");
         fTrimHeaders = true;
         // This calculation is driven by GetValidFedpegScripts in pegins.cpp, which walks the chain
