@@ -621,7 +621,7 @@ QString WalletModel::getDisplayName() const
 
 bool WalletModel::isMultiwallet()
 {
-    return m_node.walletClient().getWallets().size() > 1;
+    return m_node.walletLoader().getWallets().size() > 1;
 }
 
 void WalletModel::refresh(bool pk_hash_only)
