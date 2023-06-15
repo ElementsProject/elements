@@ -1133,9 +1133,10 @@ static RPCHelpMan testmempoolaccept()
 
 static RPCHelpMan decodepsbt()
 {
-    return RPCHelpMan{"decodepsbt",
-                "\nReturn a JSON object representing the serialized, base64-encoded partially signed Bitcoin transaction.\n"
-                "\nNote that for Elements, PSBTs (or PSET) follow the Partially Signed Elements Transaction specification.\n",
+    return RPCHelpMan{
+        "decodepsbt",
+        "\nReturn a JSON object representing the serialized, base64-encoded partially signed Bitcoin transaction.\n"
+        "\nNote that for Elements, PSBTs (or PSET) follow the Partially Signed Elements Transaction specification.\n",
                 {
                     {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The PSBT base64 string"},
                 },
@@ -1287,7 +1288,7 @@ static RPCHelpMan decodepsbt()
                                 {
                                     {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
                                 }},
-                                {RPCResult::Type::OBJ, "proprietary", "The global proprietary map",
+                                {RPCResult::Type::OBJ, "proprietary", /*optional=*/true, "The global proprietary map",
                                 {
                                     {RPCResult::Type::OBJ, "", "",
                                     {
@@ -1342,7 +1343,7 @@ static RPCHelpMan decodepsbt()
                                 {
                                     {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
                                 }},
-                                {RPCResult::Type::OBJ, "proprietary", "The global proprietary map",
+                                {RPCResult::Type::OBJ, "proprietary", /*optional=*/true, "The global proprietary map",
                                 {
                                     {RPCResult::Type::OBJ, "", "",
                                     {
