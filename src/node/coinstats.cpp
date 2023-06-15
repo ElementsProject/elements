@@ -11,6 +11,7 @@
 #include <index/coinstatsindex.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <util/overflow.h>
 #include <util/system.h>
 #include <validation.h>
 
@@ -84,8 +85,8 @@ static void ApplyStats(CCoinsStats& stats, const uint256& hash, const std::map<u
     stats.nTransactions++;
     for (auto it = outputs.begin(); it != outputs.end(); ++it) {
         stats.nTransactionOutputs++;
-        if (it->second.out.nValue.IsExplicit()) {
-            stats.nTotalAmount += it->second.out.nValue.GetAmount();
+        if (stats.total_amount.has_value() && it->second.out.nValue.IsExplicit()) {
+            stats.total_amount = CheckedAdd(*stats.total_amount, it->second.out.nValue.GetAmount());
         }
         stats.nBogoSize += GetBogoSize(it->second.out.scriptPubKey);
     }
@@ -99,10 +100,8 @@ static bool GetUTXOStats(CCoinsView* view, BlockManager& blockman, CCoinsStats& 
     assert(pcursor);
 
     if (!pindex) {
-        {
-            LOCK(cs_main);
-            pindex = blockman.LookupBlockIndex(view->GetBestBlock());
-        }
+        LOCK(cs_main);
+        pindex = blockman.LookupBlockIndex(view->GetBestBlock());
     }
     stats.nHeight = Assert(pindex)->nHeight;
     stats.hashBlock = pindex->GetBlockHash();

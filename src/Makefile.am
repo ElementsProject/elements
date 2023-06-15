@@ -262,6 +262,7 @@ BITCOIN_CORE_H = \
   util/macros.h \
   util/message.h \
   util/moneystr.h \
+  util/overflow.h \
   util/overloaded.h \
   util/rbf.h \
   util/readwritefile.h \
