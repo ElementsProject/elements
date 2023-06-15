@@ -924,8 +924,6 @@ static bool CreateTransactionInternal(
     }
 
     // Create change script that will be used if we need change
-    // TODO: pass in scriptChange instead of reservedest so
-    // change transaction isn't always pay-to-bitcoin-address
     // ELEMENTS: A map that keeps track of the change script for each asset and also
     // the index of the reservedest used for that script (-1 if none).
     std::map<CAsset, std::pair<int, CScript>> mapScriptChange;
