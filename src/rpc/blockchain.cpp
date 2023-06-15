@@ -1723,9 +1723,9 @@ RPCHelpMan getblockchaininfo()
     obj.pushKV("verificationprogress",  GuessVerificationProgress(tip, Params().GetConsensus().nPowTargetSpacing));
     obj.pushKV("initialblockdownload",  active_chainstate.IsInitialBlockDownload());
     if (!g_signed_blocks) {
-        obj.pushKV("chainwork",             tip->nChainWork.GetHex());
+        obj.pushKV("chainwork", tip->nChainWork.GetHex());
     }
-    obj.pushKV("size_on_disk",          CalculateCurrentUsage());
+    obj.pushKV("size_on_disk", chainman.m_blockman.CalculateCurrentUsage());
     obj.pushKV("pruned",                fPruneMode);
     if (g_signed_blocks) {
         if (!DeploymentActiveAfter(tip, chainparams.GetConsensus(), Consensus::DEPLOYMENT_DYNA_FED)) {
