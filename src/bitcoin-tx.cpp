@@ -667,7 +667,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
                 }
                 Coin newcoin;
                 newcoin.out.scriptPubKey = scriptPubKey;
-                newcoin.out.nValue = 0;
+                newcoin.out.nValue = MAX_MONEY;
                 if (prevOut.exists("amount")) {
                     newcoin.out.nValue = CConfidentialValue(AmountFromValue(prevOut["amount"]));
                 }
@@ -705,6 +705,10 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mergedTx.vout.size()))
             ProduceSignature(keystore, MutableTransactionSignatureCreator(&mergedTx, i, amount, nHashType), prevPubKey, sigdata);
+
+        if (amount.IsExplicit() && amount.GetAmount() == MAX_MONEY && !sigdata.scriptWitness.IsNull()) {
+            throw std::runtime_error(strprintf("Missing amount for CTxOut with scriptPubKey=%s", HexStr(prevPubKey)));
+        }
 
         UpdateTransaction(mergedTx, i, sigdata);
     }
