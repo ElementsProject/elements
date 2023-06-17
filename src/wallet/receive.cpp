@@ -10,6 +10,7 @@
 #include <wallet/wallet.h>
 #include <iostream>
 
+namespace wallet {
 isminetype InputIsMine(const CWallet& wallet, const CTxIn &txin)
 {
     AssertLockHeld(wallet.cs_wallet);
@@ -543,3 +544,4 @@ CAmountMap CWalletTx::GetIssuanceAssets(const CWallet& wallet, unsigned int inpu
     return ret;
 }
 // end ELEMENTS
+} // namespace wallet

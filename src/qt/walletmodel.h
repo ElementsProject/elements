@@ -32,16 +32,18 @@ class SendCoinsRecipient;
 class TransactionTableModel;
 class WalletModelTransaction;
 
-class CCoinControl;
 class CKeyID;
 class COutPoint;
-class COutput;
 class CPubKey;
 class uint256;
 
 namespace interfaces {
 class Node;
 } // namespace interfaces
+namespace wallet {
+struct BlindDetails;
+class CCoinControl;
+} // namespace wallet
 
 QT_BEGIN_NAMESPACE
 class QTimer;
@@ -100,10 +102,10 @@ public:
     };
 
     // prepare transaction for getting txfee before sending coins
-    SendCoinsReturn prepareTransaction(WalletModelTransaction &transaction, BlindDetails *blind_details, const CCoinControl& coinControl);
+    SendCoinsReturn prepareTransaction(WalletModelTransaction &transaction, wallet::BlindDetails *blind_details, const wallet::CCoinControl& coinControl);
 
     // Send coins to a list of recipients
-    SendCoinsReturn sendCoins(WalletModelTransaction &transaction, BlindDetails *blind_details);
+    SendCoinsReturn sendCoins(WalletModelTransaction &transaction, wallet::BlindDetails *blind_details);
 
     // Wallet encryption
     bool setWalletEncrypted(const SecureString& passphrase);

@@ -58,6 +58,7 @@
 
 using interfaces::FoundBlock;
 
+namespace wallet {
 const std::map<uint64_t,std::string> WALLET_FLAG_CAVEATS{
     {WALLET_FLAG_AVOID_REUSE,
         "You need to rescan the blockchain in order to correctly mark used "
@@ -4108,3 +4109,4 @@ bool CWallet::SetMasterBlindingKey(const uint256& key)
 
 // END ELEMENTS
 //
+} // namespace wallet

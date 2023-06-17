@@ -36,6 +36,9 @@
 #include <QSettings>
 #include <QTextDocument>
 
+using wallet::CCoinControl;
+using wallet::DEFAULT_PAY_TX_FEE;
+
 static constexpr std::array confTargets{2, 4, 6, 12, 24, 48, 144, 504, 1008};
 int getConfTargetForIndex(int index) {
     if (index+1 > static_cast<int>(confTargets.size())) {
@@ -282,7 +285,7 @@ bool SendCoinsDialog::PrepareSendText(QString& question_string, QString& informa
     // prepare transaction for getting txFee earlier
     m_current_transaction = std::make_unique<WalletModelTransaction>(recipients);
     if (g_con_elementsmode)
-        m_current_blind_details = std::make_unique<BlindDetails>();
+        m_current_blind_details = std::make_unique<wallet::BlindDetails>();
     WalletModel::SendCoinsReturn prepareStatus;
 
     updateCoinControlState();

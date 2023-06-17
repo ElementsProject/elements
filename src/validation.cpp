@@ -68,6 +68,25 @@
 
 #include <boost/algorithm/string/replace.hpp>
 
+using node::BLOCKFILE_CHUNK_SIZE;
+using node::BlockManager;
+using node::BlockMap;
+using node::CBlockIndexWorkComparator;
+using node::CCoinsStats;
+using node::CoinStatsHashType;
+using node::GetUTXOStats;
+using node::OpenBlockFile;
+using node::ReadBlockFromDisk;
+using node::SnapshotMetadata;
+using node::UNDOFILE_CHUNK_SIZE;
+using node::UndoReadFromDisk;
+using node::UnlinkPrunedFiles;
+using node::fHavePruned;
+using node::fImporting;
+using node::fPruneMode;
+using node::fReindex;
+using node::nPruneTarget;
+
 #define MICRO 0.000001
 #define MILLI 0.001
 
@@ -2494,10 +2513,10 @@ bool CChainState::FlushStateToDisk(
                     return AbortNode(state, "Failed to write to block index database");
                 }
 
-                if (fTrimHeaders) {
+                if (node::fTrimHeaders) {
                     std::set<CBlockIndex*> setTrimmableBlockIndex(m_blockman.m_dirty_blockindex);
                     LogPrintf("Flushing block index, trimming headers, setTrimmableBlockIndex.size(): %d\n", setTrimmableBlockIndex.size());
-                    int trim_height = m_chain.Height() - nMustKeepFullHeaders;
+                    int trim_height = m_chain.Height() - node::nMustKeepFullHeaders;
                     int min_height = std::numeric_limits<int>::max();
                     CBlockIndex* min_index = nullptr;
                     for (std::set<CBlockIndex*>::iterator it = setTrimmableBlockIndex.begin(); it != setTrimmableBlockIndex.end(); it++) {

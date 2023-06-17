@@ -18,6 +18,7 @@
 #include <boost/test/unit_test.hpp>
 #include <random>
 
+namespace wallet {
 BOOST_FIXTURE_TEST_SUITE(coinselector_tests, WalletTestingSetup)
 
 // how many times to run all the tests to have a chance to catch errors that only show up with particular random shuffles
@@ -29,9 +30,9 @@ BOOST_FIXTURE_TEST_SUITE(coinselector_tests, WalletTestingSetup)
 
 typedef std::set<CInputCoin> CoinSet;
 // ELEMENTS
-static NodeContext testNode;
+static node::NodeContext testNode;
 static auto testChain = interfaces::MakeChain(testNode);
-static CWallet testWallet(testChain.get(), "", gArgs, CreateDummyWalletDatabase());
+static wallet::CWallet testWallet(testChain.get(), "", gArgs, CreateDummyWalletDatabase());
 
 static const CoinEligibilityFilter filter_standard(1, 6, 0);
 static const CoinEligibilityFilter filter_confirmed(1, 1, 0);
@@ -819,3 +820,4 @@ BOOST_AUTO_TEST_CASE(waste_test)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+} // namespace wallet

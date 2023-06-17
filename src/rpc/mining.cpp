@@ -48,6 +48,13 @@
 #include <memory>
 #include <stdint.h>
 
+using node::BlockAssembler;
+using node::CBlockTemplate;
+using node::IncrementExtraNonce;
+using node::NodeContext;
+using node::RegenerateCommitments;
+using node::UpdateTime;
+
 /**
  * Return average network hashes per second based on the last 'lookup' blocks,
  * or from the last difficulty change if 'lookup' is nonpositive.
@@ -1743,7 +1750,7 @@ static RPCHelpMan testproposedblock()
     LOCK(cs_main);
 
     uint256 hash = block.GetHash();
-    BlockMap::iterator mi = chainman.BlockIndex().find(hash);
+    node::BlockMap::iterator mi = chainman.BlockIndex().find(hash);
     if (mi != chainman.BlockIndex().end())
         throw JSONRPCError(RPC_VERIFY_ALREADY_IN_CHAIN, "already have block");
 

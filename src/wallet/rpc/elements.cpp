@@ -20,9 +20,23 @@
 #include <wallet/receive.h>
 #include <wallet/wallet.h>
 
+using wallet::BlindDetails;
+using wallet::CAddressBookData;
+using wallet::CCoinControl;
+using wallet::CRecipient;
+using wallet::CWallet;
+using wallet::CWalletTx;
+using wallet::GetMinimumFee;
+using wallet::GetWalletForJSONRPCRequest;
+using wallet::IssuanceDetails;
+using wallet::mapValue_t;
+using wallet::LegacyScriptPubKeyMan;
+
 // forward declarations
+namespace wallet {
 UniValue SendMoney(CWallet& wallet, const CCoinControl &coin_control, std::vector<CRecipient> &recipients, mapValue_t map_value, bool verbose, bool ignore_blind_fail);
 RPCHelpMan signrawtransactionwithwallet();
+}
 
 // ELEMENTS commands
 
@@ -41,6 +55,7 @@ public:
 static CSecp256k1Init instance_of_csecp256k1;
 }
 
+namespace wallet {
 RPCHelpMan signblock()
 {
     return RPCHelpMan{"signblock",
@@ -232,7 +247,7 @@ RPCHelpMan initpegoutwallet()
 {
     return RPCHelpMan{"initpegoutwallet",
                 "\nThis call is for Liquid network initialization on the Liquid wallet. The wallet generates a new Liquid pegout authorization key (PAK) and stores it in the Liquid wallet. It then combines this with the `bitcoin_descriptor` to finally create a PAK entry for the network. This allows the user to send Liquid coins directly to a secure offline Bitcoin wallet at the derived path from the bitcoin_descriptor using the `sendtomainchain` command. Losing the Liquid PAK or offline Bitcoin root key will result in the inability to pegout funds, so immediate backup upon initialization is required.\n" +
-                HELP_REQUIRING_PASSPHRASE,
+                wallet::HELP_REQUIRING_PASSPHRASE,
                 {
                     {"bitcoin_descriptor", RPCArg::Type::STR, RPCArg::Optional::NO, "The Bitcoin descriptor that includes a single extended pubkey. Must be one of the following: pkh(<xpub>), sh(wpkh(<xpub>)), or wpkh(<xpub>). This is used as the destination chain for the Bitcoin destination wallet. The derivation path from the xpub is given by the descriptor, typically `0/k`, reflecting the external chain of the wallet. DEPRECATED: If a plain xpub is given, pkh(<xpub>) is assumed, with the `0/k` derivation from that xpub. See link for more details on script descriptors: https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md"},
                     {"bip32_counter", RPCArg::Type::NUM , RPCArg::Default{0}, "The `k` in `0/k` to be set as the next address to derive from the `bitcoin_descriptor`. This will be stored in the wallet and incremented on each successful `sendtomainchain` invocation."},
@@ -412,7 +427,7 @@ RPCHelpMan sendtomainchain_base()
 {
     return RPCHelpMan{"sendtomainchain",
                 "\nSends sidechain funds to the given mainchain address, through the federated pegin mechanism\n"
-                + HELP_REQUIRING_PASSPHRASE,
+                + wallet::HELP_REQUIRING_PASSPHRASE,
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The destination address on Bitcoin mainchain"},
                     {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount being sent to Bitcoin mainchain"},
@@ -527,7 +542,7 @@ RPCHelpMan sendtomainchain_pak()
 {
     return RPCHelpMan{"sendtomainchain",
                 "\nSends Liquid funds to the Bitcoin mainchain, through the federated withdraw mechanism. The wallet internally generates the returned `bitcoin_address` via `bitcoin_descriptor` and `bip32_counter` previously set in `initpegoutwallet`. The counter will be incremented upon successful send, avoiding address re-use.\n"
-                + HELP_REQUIRING_PASSPHRASE,
+                + wallet::HELP_REQUIRING_PASSPHRASE,
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Must be \"\". Only for non-PAK `sendtomainchain` compatibility."},
                     {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount being sent to `bitcoin_address`."},
@@ -1196,7 +1211,7 @@ RPCHelpMan blindrawtransaction()
         }
 
         std::map<uint256, CWalletTx>::iterator it = pwallet->mapWallet.find(prevout.hash);
-        if (it == pwallet->mapWallet.end() || InputIsMine(*pwallet, tx.vin[nIn]) == ISMINE_NO) {
+        if (it == pwallet->mapWallet.end() || InputIsMine(*pwallet, tx.vin[nIn]) == wallet::ISMINE_NO) {
             // For inputs we don't own, input assetcommitments for the surjection must be supplied.
             if (auxiliary_generators.size() > 0) {
                 input_blinds.push_back(uint256());
@@ -1897,3 +1912,4 @@ RPCHelpMan getpegoutkeys()
 
 // END ELEMENTS commands
 //
+} // namespace wallet

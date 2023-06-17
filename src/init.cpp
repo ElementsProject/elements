@@ -99,6 +99,22 @@
 #include <zmq/zmqrpc.h>
 #endif
 
+using node::CacheSizes;
+using node::CalculateCacheSizes;
+using node::ChainstateLoadVerifyError;
+using node::ChainstateLoadingError;
+using node::CleanupBlockRevFiles;
+using node::DEFAULT_PRINTPRIORITY;
+using node::DEFAULT_STOPAFTERBLOCKIMPORT;
+using node::LoadChainstate;
+using node::NodeContext;
+using node::ThreadImport;
+using node::VerifyLoadedChainstate;
+using node::fHavePruned;
+using node::fPruneMode;
+using node::fReindex;
+using node::nPruneTarget;
+
 static const bool DEFAULT_PROXYRANDOMIZE = true;
 static const bool DEFAULT_REST_ENABLE = false;
 
@@ -1008,17 +1024,17 @@ bool AppInitParameterInteraction(const ArgsManager& args)
 
     if (args.IsArgSet("-trim_headers")) {
         LogPrintf("Configured for header-trimming mode. This will reduce memory usage substantially, but we will be unable to serve as a full P2P peer, and certain header fields may be missing from JSON RPC output.\n");
-        fTrimHeaders = true;
+        node::fTrimHeaders = true;
         // This calculation is driven by GetValidFedpegScripts in pegins.cpp, which walks the chain
         //   back to current epoch start, and then an additional total_valid_epochs on top of that.
         //   We add one epoch here for the current partial epoch, and then another one for good luck.
 
-        nMustKeepFullHeaders = (chainparams.GetConsensus().total_valid_epochs + 2) * epoch_length;
+        node::nMustKeepFullHeaders = (chainparams.GetConsensus().total_valid_epochs + 2) * epoch_length;
         // This is the number of headers we can have in flight downloading at a time, beyond the
         //   set of blocks we've already validated. Capping this is necessary to keep memory usage
         //   bounded during IBD.
     }
-    nHeaderDownloadBuffer = epoch_length * 2;
+    node::nHeaderDownloadBuffer = epoch_length * 2;
 
     nConnectTimeout = args.GetIntArg("-timeout", DEFAULT_CONNECT_TIMEOUT);
     if (nConnectTimeout <= 0) {
@@ -1700,7 +1716,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
 
     // if pruning, unset the service bit and perform the initial blockstore prune
     // after any wallet rescanning has taken place.
-    if (fPruneMode || fTrimHeaders) {
+    if (fPruneMode || node::fTrimHeaders) {
         LogPrintf("Unsetting NODE_NETWORK on prune mode\n");
         nLocalServices = ServiceFlags(nLocalServices & ~NODE_NETWORK);
         if (!fReindex) {
@@ -1712,7 +1728,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
         }
     }
 
-    if (fTrimHeaders) {
+    if (node::fTrimHeaders) {
         LogPrintf("Unsetting NODE_NETWORK_LIMITED on header trim mode\n");
         nLocalServices = ServiceFlags(nLocalServices & ~NODE_NETWORK_LIMITED);
     }

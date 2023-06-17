@@ -12,12 +12,15 @@
 #include <QString>
 #include <QTimer>
 
-class CCoinControl;
 class ClientModel;
 class PlatformStyle;
 class SendCoinsEntry;
 class SendCoinsRecipient;
 enum class SynchronizationState;
+namespace wallet {
+struct BlindDetails;
+class CCoinControl;
+} // namespace wallet
 
 namespace Ui {
     class SendCoinsDialog;
@@ -62,9 +65,9 @@ private:
     Ui::SendCoinsDialog *ui;
     ClientModel *clientModel;
     WalletModel *model;
-    std::unique_ptr<CCoinControl> m_coin_control;
+    std::unique_ptr<wallet::CCoinControl> m_coin_control;
     std::unique_ptr<WalletModelTransaction> m_current_transaction;
-    std::unique_ptr<BlindDetails> m_current_blind_details;
+    std::unique_ptr<wallet::BlindDetails> m_current_blind_details;
     bool fNewRecipientAllowed;
     bool fFeeMinimized;
     const PlatformStyle *platformStyle;

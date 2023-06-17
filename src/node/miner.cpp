@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <utility>
 
+namespace node {
 void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
 {
     block.proof.challenge = indexLast.get_proof().challenge;
@@ -522,3 +523,4 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
     pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
 }
+} // namespace node

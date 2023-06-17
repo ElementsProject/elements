@@ -45,6 +45,12 @@
 #include <optional>
 #include <typeinfo>
 
+using node::ReadBlockFromDisk;
+using node::ReadRawBlockFromDisk;
+using node::fImporting;
+using node::fPruneMode;
+using node::fReindex;
+
 /** How long to cache transactions in mapRelay for normal relay */
 static constexpr auto RELAY_TX_CACHE_TIME = 15min;
 /** How long a transaction has to be in the mempool before it can unconditionally be relayed (even when not in mapRelay). */
@@ -2093,7 +2099,7 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, const Peer& peer,
     //   headers message here, but never further, so that's fine.
     if (pindexBestHeader) {
         int64_t headers_ahead = pindexBestHeader->nHeight - m_chainman.ActiveHeight();
-        bool too_far_ahead = fTrimHeaders && (headers_ahead >= nHeaderDownloadBuffer);
+        bool too_far_ahead = node::fTrimHeaders && (headers_ahead >= node::nHeaderDownloadBuffer);
         if (too_far_ahead) {
             LOCK(cs_main);
             CNodeState *nodestate = State(pfrom.GetId());
@@ -4660,7 +4666,7 @@ bool PeerManagerImpl::SendMessages(CNode* pto)
         bool fFetch = state.fPreferredDownload || (nPreferredDownload == 0 && !pto->fClient && !pto->IsAddrFetchConn()); // Download if this is a nice peer, or we have no nice peers and this one might do.
         int64_t headers_ahead = pindexBestHeader->nHeight - m_chainman.ActiveHeight();
         // ELEMENTS: Only download if our headers aren't "too far ahead" of our blocks.
-        bool got_enough_headers = fTrimHeaders && (headers_ahead >= nHeaderDownloadBuffer);
+        bool got_enough_headers = node::fTrimHeaders && (headers_ahead >= node::nHeaderDownloadBuffer);
         if (!state.fSyncStarted && !pto->fClient && !fImporting && !fReindex && !got_enough_headers) {
             // Only actively request headers from a single peer, unless we're close to today.
             if ((nSyncStarted == 0 && fFetch) || pindexBestHeader->GetBlockTime() > GetAdjustedTime() - 24 * 60 * 60) {

@@ -32,6 +32,11 @@
 
 #include <univalue.h>
 
+using node::GetTransaction;
+using node::IsBlockPruned;
+using node::NodeContext;
+using node::ReadBlockFromDisk;
+
 static const size_t MAX_GETUTXOS_OUTPOINTS = 15; //allow a max of 15 outpoints to be queried at once
 static constexpr unsigned int MAX_REST_HEADERS_RESULTS = 2000;
 
@@ -229,7 +234,7 @@ static bool rest_headers(const std::any& context,
         for (const CBlockIndex *pindex : headers) {
             if (pindex->trimmed()) {
                 CBlockHeader tmp;
-                ReadBlockHeaderFromDisk(tmp, pindex, Params().GetConsensus());
+                node::ReadBlockHeaderFromDisk(tmp, pindex, Params().GetConsensus());
                 ssHeader << tmp;
             } else {
                 ssHeader << pindex->GetBlockHeader();
@@ -247,7 +252,7 @@ static bool rest_headers(const std::any& context,
         for (const CBlockIndex *pindex : headers) {
             if (pindex->trimmed()) {
                 CBlockHeader tmp;
-                ReadBlockHeaderFromDisk(tmp, pindex, Params().GetConsensus());
+                node::ReadBlockHeaderFromDisk(tmp, pindex, Params().GetConsensus());
                 ssHeader << tmp;
 
             } else {

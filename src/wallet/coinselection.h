@@ -15,6 +15,10 @@
 
 #include <optional>
 
+// class CWallet;
+// class uint256;
+
+namespace wallet {
 //! target minimum change amount
 static constexpr CAmount MIN_CHANGE{COIN / 100};
 //! final minimum change amount after paying for fees
@@ -22,7 +26,6 @@ static const CAmount MIN_FINAL_CHANGE = MIN_CHANGE/2;
 
 class CWallet;
 class CWalletTx;
-class uint256;
 
 /** A UTXO under consideration for use in funding a new transaction. */
 class CInputCoin {
@@ -283,5 +286,6 @@ std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, 
 
 // Get coin selection waste for a map of asset->amount.
 [[nodiscard]] CAmount GetSelectionWaste(const std::set<CInputCoin>& inputs, CAmount change_cost, const CAmountMap& target_map, bool use_effective_value);
+} // namespace wallet
 
 #endif // BITCOIN_WALLET_COINSELECTION_H

@@ -37,6 +37,10 @@
 #include <QSet>
 #include <QTimer>
 
+using wallet::CCoinControl;
+using wallet::CRecipient;
+using wallet::DEFAULT_DISABLE_WALLET;
+
 SendAssetsRecipient::SendAssetsRecipient(SendCoinsRecipient r) :
     address(r.address),
     label(r.label),
@@ -176,7 +180,7 @@ bool WalletModel::validateAddress(const QString &address)
     return IsValidDestinationString(address.toStdString());
 }
 
-WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransaction &transaction, BlindDetails *blind_details, const CCoinControl& coinControl)
+WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransaction &transaction, wallet::BlindDetails *blind_details, const CCoinControl& coinControl)
 {
     CAmountMap total;
     bool fSubtractFeeFromAmount = false;
@@ -269,7 +273,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
     return SendCoinsReturn(OK);
 }
 
-WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction &transaction, BlindDetails *blind_details)
+WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction &transaction, wallet::BlindDetails *blind_details)
 {
     QByteArray transaction_array; /* store serialized transaction */
 

@@ -17,6 +17,7 @@
 #include <wallet/spend.h>
 #include <wallet/wallet.h>
 
+namespace wallet {
 //! Check whether transaction has descendant in wallet or mempool, or has been
 //! mined, or conflicts with a mined transaction. Return a feebumper::Result.
 static feebumper::Result PreconditionChecks(const CWallet& wallet, const CWalletTx& wtx, std::vector<bilingual_str>& errors) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
@@ -179,7 +180,7 @@ Result CreateRateBumpTransaction(CWallet& wallet, const uint256& txid, const CCo
 
     // Fill in recipients (and preserve a single change key per asset if there is one)
     std::map<CAsset, CTxDestination> destinations;
-    std::vector<CRecipient> recipients;
+    std::vector<wallet::CRecipient> recipients;
     for (const auto& output : wtx.tx->vout) {
         // ELEMENTS:
         bool is_change = OutputIsChange(wallet, output);
@@ -190,7 +191,7 @@ Result CreateRateBumpTransaction(CWallet& wallet, const uint256& txid, const CCo
         }
 
         if (!is_change && !is_fee) {
-            CRecipient recipient = {output.scriptPubKey, output.nValue.GetAmount(), output.nAsset.GetAsset(), CPubKey(output.nNonce.vchCommitment), false};
+            wallet::CRecipient recipient = {output.scriptPubKey, output.nValue.GetAmount(), output.nAsset.GetAsset(), CPubKey(output.nNonce.vchCommitment), false};
             recipients.push_back(recipient);
         } else if (is_change) {
             CTxDestination change_dest;
@@ -302,3 +303,4 @@ Result CommitTransaction(CWallet& wallet, const uint256& txid, CMutableTransacti
 }
 
 } // namespace feebumper
+} // namespace wallet
