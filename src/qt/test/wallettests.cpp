@@ -27,6 +27,7 @@
 #include <qt/recentrequeststablemodel.h>
 #include <qt/receiverequestdialog.h>
 
+#include <chrono>
 #include <memory>
 
 #include <QAbstractButton>
@@ -122,7 +123,7 @@ void BumpFee(TransactionView& view, const uint256& txid, bool expectDisabled, st
     if (expectError.empty()) {
         ConfirmSend(&text, cancel);
     } else {
-        ConfirmMessage(&text);
+        ConfirmMessage(&text, 0ms);
     }
     action->trigger();
     QVERIFY(text.indexOf(QString::fromStdString(expectError)) != -1);

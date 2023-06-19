@@ -25,11 +25,12 @@
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <txmempool.h>
+#include <validation.h>
 #include <wallet/coincontrol.h>
 #include <wallet/fees.h>
 #include <wallet/wallet.h>
 
-#include <validation.h>
+#include <chrono>
 
 #include <QFontMetrics>
 #include <QScrollBar>
@@ -1083,7 +1084,7 @@ SendConfirmationDialog::SendConfirmationDialog(const QString& title, const QStri
 int SendConfirmationDialog::exec()
 {
     updateButtons();
-    countDownTimer.start(1000);
+    countDownTimer.start(1s);
     return QMessageBox::exec();
 }
 

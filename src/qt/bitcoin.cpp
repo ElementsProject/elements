@@ -40,6 +40,7 @@
 #endif // ENABLE_WALLET
 
 #include <boost/signals2/connection.hpp>
+#include <chrono>
 #include <memory>
 
 #include <QApplication>
@@ -392,7 +393,7 @@ void BitcoinApplication::initializeResult(bool success, interfaces::BlockAndHead
         Q_EMIT splashFinished();
         Q_EMIT windowShown(window);
 
-        pollShutdownTimer->start(200);
+        pollShutdownTimer->start(SHUTDOWN_POLLING_DELAY);
     } else {
         Q_EMIT splashFinished(); // Make sure splash screen doesn't stick around during shutdown
         requestShutdown();
