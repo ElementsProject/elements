@@ -15,6 +15,7 @@ from test_framework.messages import (
     CTxIn,
     CTxOut,
     CTxOutValue,
+    SEQUENCE_FINAL,
 )
 from test_framework.script import CScript, OP_DROP
 from test_framework.test_framework import BitcoinTestFramework
@@ -418,7 +419,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
         # Create a non-opting in transaction
         tx1a = CTransaction()
-        tx1a.vin = [CTxIn(tx0_outpoint, nSequence=0xffffffff)]
+        tx1a.vin = [CTxIn(tx0_outpoint, nSequence=SEQUENCE_FINAL)]
         tx1a.vout = [CTxOut(1 * COIN, DUMMY_P2WPKH_SCRIPT), CTxOut(int(0.1*COIN))]
         tx1a_hex = tx1a.serialize().hex()
         tx1a_txid = self.nodes[0].sendrawtransaction(tx1a_hex, 0)
@@ -461,7 +462,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         tx2a_txid = int(tx2a_txid, 16)
 
         tx3a = CTransaction()
-        tx3a.vin = [CTxIn(COutPoint(tx1a_txid, 0), nSequence=0xffffffff),
+        tx3a.vin = [CTxIn(COutPoint(tx1a_txid, 0), nSequence=SEQUENCE_FINAL),
                     CTxIn(COutPoint(tx2a_txid, 0), nSequence=0xfffffffd)]
         tx3a.vout = [CTxOut(int(0.9 * COIN), CScript([b'c'])), CTxOut(int(0.9 * COIN), CScript([b'd']))]
         tx3a.vout.append(CTxOut(int(0.2 * COIN)))
@@ -580,7 +581,6 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         assert_equal(True, self.nodes[0].getmempoolentry(optin_parent_tx['txid'])['bip125-replaceable'])
 
         replacement_parent_tx = self.wallet.create_self_transfer(
-            from_node=self.nodes[0],
             utxo_to_spend=confirmed_utxo,
             sequence=BIP125_SEQUENCE_NUMBER,
             fee_rate=Decimal('0.02'),
@@ -597,7 +597,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         optout_child_tx = self.wallet.send_self_transfer(
             from_node=self.nodes[0],
             utxo_to_spend=parent_utxo,
-            sequence=0xffffffff,
+            sequence=SEQUENCE_FINAL,
             fee_rate=Decimal('0.01'),
         )
 
@@ -605,9 +605,8 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         assert_equal(True, self.nodes[0].getmempoolentry(optout_child_tx['txid'])['bip125-replaceable'])
 
         replacement_child_tx = self.wallet.create_self_transfer(
-            from_node=self.nodes[0],
             utxo_to_spend=parent_utxo,
-            sequence=0xffffffff,
+            sequence=SEQUENCE_FINAL,
             fee_rate=Decimal('0.02'),
             mempool_valid=False,
         )
@@ -626,7 +625,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         replacement_parent_tx = self.wallet.send_self_transfer(
             from_node=self.nodes[0],
             utxo_to_spend=confirmed_utxo,
-            sequence=0xffffffff,
+            sequence=SEQUENCE_FINAL,
             fee_rate=Decimal('0.03'),
         )
         # Check that child is removed and update wallet utxo state

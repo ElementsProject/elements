@@ -23,6 +23,7 @@ from .messages import (
     CTxInWitness,
     CTxOut,
     CTxOutValue,
+    SEQUENCE_FINAL,
     hash256,
     ser_uint256,
     tx_from_hex,
@@ -146,7 +147,7 @@ def create_coinbase(height, pubkey=None, extra_output_script=None, fees=0, nValu
     If extra_output_script is given, make a 0-value output to that
     script. This is useful to pad block weight/sigops as needed. """
     coinbase = CTransaction()
-    coinbase.vin.append(CTxIn(COutPoint(0, 0xffffffff), script_BIP34_coinbase_height(height), 0xffffffff))
+    coinbase.vin.append(CTxIn(COutPoint(0, 0xffffffff), script_BIP34_coinbase_height(height), SEQUENCE_FINAL))
     coinbaseoutput = CTxOut()
     value = nValue * COIN
     if nValue == 50:
@@ -175,7 +176,7 @@ def create_tx_with_script(prevtx, n, script_sig=b"", *, amount, fee=0, script_pu
     """
     tx = CTransaction()
     assert n < len(prevtx.vout)
-    tx.vin.append(CTxIn(COutPoint(prevtx.sha256, n), script_sig, 0xffffffff))
+    tx.vin.append(CTxIn(COutPoint(prevtx.sha256, n), script_sig, SEQUENCE_FINAL))
     tx.vout.append(CTxOut(amount, script_pub_key))
     if fee > 0:
         tx.vout.append(CTxOut(fee))
