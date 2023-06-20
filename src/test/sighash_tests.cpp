@@ -91,8 +91,9 @@ void static RandomScript(CScript &script) {
         script << oplist[InsecureRandRange(std::size(oplist))];
 }
 
-void static RandomTransaction(CMutableTransaction &tx, bool fSingle) {
-    tx.nVersion = InsecureRand32();
+void static RandomTransaction(CMutableTransaction& tx, bool fSingle)
+{
+    tx.nVersion = int(InsecureRand32());
     tx.vin.clear();
     tx.vout.clear();
     tx.nLockTime = (InsecureRandBool()) ? InsecureRand32() : 0;
@@ -127,7 +128,7 @@ BOOST_AUTO_TEST_CASE(sighash_test)
     #endif
     for (int i=0; i<nRandomTests; i++) {
         // In randomized test, we disable SIGHASH_RANGEPROOF.
-        int nHashType = InsecureRand32() & ~SIGHASH_RANGEPROOF;
+        int nHashType{int(InsecureRand32() & ~SIGHASH_RANGEPROOF)};
         CMutableTransaction txTo;
         RandomTransaction(txTo, (nHashType & 0x1f) == SIGHASH_SINGLE);
         CScript scriptCode;
