@@ -15,7 +15,7 @@
 class DummySigChecker : public MutableTransactionSignatureChecker {
     bool CheckECDSASignature(const std::vector<unsigned char>& vchSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion, unsigned int flags) const override { return !vchSig.empty() && vchSig[0] > 0x80; }
 
-    bool CheckSchnorrSignature(Span<const unsigned char> sig, Span<const unsigned char> pubkey, SigVersion sigversion, const ScriptExecutionData& execdata, ScriptError* serror = nullptr) const override { return !sig.empty() && sig[0] > 0x80; }
+    bool CheckSchnorrSignature(Span<const unsigned char> sig, Span<const unsigned char> pubkey, SigVersion sigversion, ScriptExecutionData& execdata, ScriptError* serror = nullptr) const override { return !sig.empty() && sig[0] > 0x80; }
 
 public:
     DummySigChecker(const CMutableTransaction* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn, const PrecomputedTransactionData& txdataIn, MissingDataBehavior mdb) : MutableTransactionSignatureChecker{txToIn, nInIn, amountIn, txdataIn, mdb} {}
@@ -142,4 +142,3 @@ FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
         return;
     }
 }
-
