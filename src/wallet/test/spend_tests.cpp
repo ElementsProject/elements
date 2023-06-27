@@ -63,5 +63,64 @@ BOOST_FIXTURE_TEST_CASE(SubtractFee, TestChain100Setup)
     BOOST_CHECK_EQUAL(fee, check_tx(fee + 123));
 }
 
+static void TestFillInputToWeight(int64_t additional_weight, std::vector<int64_t> expected_stack_sizes)
+{
+    CMutableTransaction mtx;
+    mtx.vin.resize(1);
+    mtx.witness.vtxinwit.resize(1);
+    static const int64_t EMPTY_INPUT_WEIGHT = GetTransactionInputWeight(CTransaction(mtx), 0);
+
+    CTxIn input;
+    int64_t target_weight = EMPTY_INPUT_WEIGHT + additional_weight;
+    size_t nIn{0};
+    BOOST_CHECK(FillInputToWeight(mtx, nIn, target_weight));
+    BOOST_CHECK_EQUAL(GetTransactionInputWeight(CTransaction(mtx), nIn), target_weight);
+    BOOST_CHECK_EQUAL(mtx.witness.vtxinwit[nIn].scriptWitness.stack.size(), expected_stack_sizes.size());
+    for (unsigned int i = 0; i < expected_stack_sizes.size(); ++i) {
+        BOOST_CHECK_EQUAL(mtx.witness.vtxinwit[nIn].scriptWitness.stack[i].size(), expected_stack_sizes[i]);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(FillInputToWeightTest, BasicTestingSetup)
+{
+    {
+        // Less than or equal minimum of 165 should not add any witness data
+        CTxIn input;
+        CMutableTransaction mtx;
+        mtx.vin.resize(1);
+        mtx.witness.vtxinwit.resize(1);
+        size_t nIn{0};
+        BOOST_CHECK(!FillInputToWeight(mtx, nIn, -1));
+        BOOST_CHECK_EQUAL(GetTransactionInputWeight(CTransaction(mtx), nIn), 165);
+        BOOST_CHECK_EQUAL(mtx.witness.vtxinwit[nIn].scriptWitness.stack.size(), 0);
+        BOOST_CHECK(!FillInputToWeight(mtx, nIn, 0));
+        BOOST_CHECK_EQUAL(GetTransactionInputWeight(CTransaction(mtx), nIn), 165);
+        BOOST_CHECK_EQUAL(mtx.witness.vtxinwit[nIn].scriptWitness.stack.size(), 0);
+        BOOST_CHECK(!FillInputToWeight(mtx, nIn, 164));
+        BOOST_CHECK_EQUAL(GetTransactionInputWeight(CTransaction(mtx), nIn), 165);
+        BOOST_CHECK_EQUAL(mtx.witness.vtxinwit[nIn].scriptWitness.stack.size(), 0);
+        BOOST_CHECK(FillInputToWeight(mtx, nIn, 165));
+        BOOST_CHECK_EQUAL(GetTransactionInputWeight(CTransaction(mtx), nIn), 165);
+        BOOST_CHECK_EQUAL(mtx.witness.vtxinwit[nIn].scriptWitness.stack.size(), 0);
+    }
+
+    // Make sure we can add at least one weight
+    TestFillInputToWeight(1, {0});
+
+    // 1 byte compact size uint boundary
+    TestFillInputToWeight(252, {251});
+    TestFillInputToWeight(253, {83, 168});
+    TestFillInputToWeight(262, {86, 174});
+    TestFillInputToWeight(263, {260});
+
+    // 3 byte compact size uint boundary
+    TestFillInputToWeight(65535, {65532});
+    TestFillInputToWeight(65536, {21842, 43688});
+    TestFillInputToWeight(65545, {21845, 43694});
+    TestFillInputToWeight(65546, {65541});
+
+    // Note: We don't test the next boundary because of memory allocation constraints.
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 } // namespace wallet
