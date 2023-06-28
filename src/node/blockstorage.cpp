@@ -847,8 +847,8 @@ bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const FlatFilePos& pos, c
         }
 
         block.resize(blk_size); // Zeroing of memory is intentional here
-        filein.read((char*)block.data(), blk_size);
-    } catch(const std::exception& e) {
+        filein.read(MakeWritableByteSpan(block));
+    } catch (const std::exception& e) {
         return error("%s: Read from block file failed: %s for %s", __func__, e.what(), pos.ToString());
     }
 

@@ -32,9 +32,9 @@ static constexpr uint8_t DB_REINDEX_FLAG{'R'};
 static constexpr uint8_t DB_LAST_BLOCK{'l'};
 
 // ELEMENTS:
-static const char DB_PEGIN_FLAG = 'w';
-// static const char DB_INVALID_BLOCK_Q = 'q';  // No longer used, but avoid reuse.
-static const char DB_PAK = 'p';
+static constexpr uint8_t DB_PEGIN_FLAG{'w'};
+// static constexpr uint8_t DB_INVALID_BLOCK_Q{'q'};  // No longer used, but avoid reuse.
+static constexpr uint8_t DB_PAK{'p'};
 
 // Keys used in previous version that might still be found in the DB:
 static constexpr uint8_t DB_TXINDEX_BLOCK{'T'};
@@ -150,7 +150,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) {
                 } else {
                     // Once spent, we don't care about the entry data, so we store
                     // a static byte to indicate spentness.
-                    batch.Write(std::make_pair(DB_PEGIN_FLAG, it->first), '1');
+                    batch.Write(std::make_pair(DB_PEGIN_FLAG, it->first), 1);
                 }
             } else {
                 // Non-pegin entries are stored the same way as in Core.

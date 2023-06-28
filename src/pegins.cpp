@@ -512,16 +512,18 @@ CScriptWitness CreatePeginWitnessInner(const CAmount& value, const CAsset& asset
     // Strip witness data for proof inclusion since only TXID-covered fields matters
     CDataStream ss_tx(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
     ss_tx << tx_ref;
-    std::vector<unsigned char> tx_data_stripped(ss_tx.begin(), ss_tx.end());
+    const auto* ss_tx_ptr = UCharCast(ss_tx.data());
+    std::vector<unsigned char> tx_data_stripped(ss_tx_ptr, ss_tx_ptr + ss_tx.size());
 
     // Serialize merkle block
     CDataStream ss_txout_proof(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
     ss_txout_proof << merkle_block;
-    std::vector<unsigned char> txout_proof_bytes(ss_txout_proof.begin(), ss_txout_proof.end());
+    const auto* ss_txout_ptr = UCharCast(ss_txout_proof.data());
+    std::vector<unsigned char> txout_proof_bytes(ss_txout_ptr, ss_txout_ptr + ss_txout_proof.size());
 
     // Construct pegin proof
     CScriptWitness pegin_witness;
-    std::vector<std::vector<unsigned char> >& stack = pegin_witness.stack;
+    std::vector<std::vector<unsigned char>>& stack = pegin_witness.stack;
     stack.push_back(value_bytes);
     stack.push_back(std::vector<unsigned char>(asset.begin(), asset.end()));
     stack.push_back(std::vector<unsigned char>(genesis_hash.begin(), genesis_hash.end()));
