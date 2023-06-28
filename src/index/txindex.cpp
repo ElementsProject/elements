@@ -60,7 +60,9 @@ bool TxIndex::WriteBlock(const CBlock& block, const CBlockIndex* pindex)
     //ELEMENTS: we do index the genesis block
     //if (pindex->nHeight == 0) return true;
 
-    CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
+    CDiskTxPos pos{
+        WITH_LOCK(::cs_main, return pindex->GetBlockPos()),
+        GetSizeOfCompactSize(block.vtx.size())};
     std::vector<std::pair<uint256, CDiskTxPos>> vPos;
     vPos.reserve(block.vtx.size());
     for (const auto& tx : block.vtx) {
