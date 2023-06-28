@@ -4,6 +4,7 @@
         {
             "asm": "1 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
             "address": "ert1pamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhqnfmjkn",
+            "desc": "addr(ert1pamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhqnfmjkn)#u53ma2hm",
             "type": "witness_v1_taproot"
         }
     ],
@@ -12,6 +13,7 @@
         {
             "asm": "1 -28398",
             "address": "ert1pamhq3gyqm0",
+            "desc": "addr(ert1pamhq3gyqm0)#xsdxlc5y",
             "type": "witness_unknown"
         }
     ],
@@ -20,6 +22,7 @@
         {
             "asm": "0 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
             "address": "ert1qamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhqe7mmw0",
+            "desc": "addr(ert1qamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhwamhqe7mmw0)#t9jly3y0",
             "type": "witness_v0_scripthash",
             "p2sh": "XFNkzds9MMK5WhLbZNNuFWzLfsaer7rUkB"
         }
@@ -29,6 +32,7 @@
         {
             "asm": "OP_HASH160 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee OP_EQUAL",
             "address": "XZ8buBNH3hX8Zr47TbE4tXCfvdxtpvrY6u",
+            "desc": "addr(XZ8buBNH3hX8Zr47TbE4tXCfvdxtpvrY6u)#4t0v7xza",
             "type": "scripthash"
         }
     ],
@@ -36,6 +40,7 @@
         "6a00",
         {
             "asm": "OP_RETURN 0",
+            "desc": "raw(6a00)#ncfmkl43",
             "type": "nulldata"
         }
     ],
@@ -43,6 +48,7 @@
         "6aee",
         {
             "asm": "OP_RETURN OP_UNKNOWN",
+            "desc": "raw(6aee)#vsyzgqdt",
             "type": "nonstandard"
         }
     ],
@@ -50,6 +56,7 @@
         "6a02ee",
         {
             "asm": "OP_RETURN [error]",
+            "desc": "raw(6a02ee)#gvdwnlzl",
             "type": "nonstandard"
         }
     ],
@@ -57,10 +64,12 @@
         "02eeee",
         {
             "asm": "-28398",
+            "desc": "raw(02eeee)#5xzck7pr",
             "type": "nonstandard",
             "p2sh": "XMAja8jcZvRRSGi6VVWk4154G7HPUZggEs",
             "segwit": {
                 "asm": "0 96c2368fc30514a438a8bd909f93c49a1549d77198ccbdb792043b666cb24f42",
+                "desc": "addr(ert1qjmprdr7rq522gw9ghkgfly7yng25n4m3nrxtmdujqsakvm9jfapq8dd2ks)#7xuusqpz",
                 "hex": "002096c2368fc30514a438a8bd909f93c49a1549d77198ccbdb792043b666cb24f42",
                 "address": "ert1qjmprdr7rq522gw9ghkgfly7yng25n4m3nrxtmdujqsakvm9jfapq8dd2ks",
                 "type": "witness_v0_scripthash",
@@ -72,6 +81,7 @@
         "ba",
         {
             "asm": "OP_CHECKSIGADD",
+            "desc": "raw(ba)#yy0eg44l",
             "type": "nonstandard"
         }
     ],
@@ -79,6 +89,7 @@
         "50",
         {
             "asm": "OP_RESERVED",
+            "desc": "raw(50)#a7tu03xf",
             "type": "nonstandard"
         }
     ]
