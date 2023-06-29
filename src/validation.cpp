@@ -2568,6 +2568,7 @@ bool CChainState::FlushStateToDisk(
                 m_blockman.FlushBlockFile();
             }
 
+            std::set<CBlockIndex*> setTrimmableBlockIndex(m_blockman.m_dirty_blockindex);
             // Then update all block file information (which may refer to block and undo files).
             {
                 LOG_TIME_MILLIS_WITH_CATEGORY("write block index to disk", BCLog::BENCH);
@@ -2577,7 +2578,6 @@ bool CChainState::FlushStateToDisk(
                 }
 
                 if (node::fTrimHeaders) {
-                    std::set<CBlockIndex*> setTrimmableBlockIndex(m_blockman.m_dirty_blockindex);
                     LogPrintf("Flushing block index, trimming headers, setTrimmableBlockIndex.size(): %d\n", setTrimmableBlockIndex.size());
                     int trim_height = m_chain.Height() - node::nMustKeepFullHeaders;
                     int min_height = std::numeric_limits<int>::max();
