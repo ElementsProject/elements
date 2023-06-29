@@ -224,6 +224,8 @@ public:
     }
 
     void untrim();
+    const CBlockIndex *untrim_to(CBlockIndex *pindexNew) const;
+
     inline bool trimmed() const {
         return m_trimmed;
     }

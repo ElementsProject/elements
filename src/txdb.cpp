@@ -18,6 +18,7 @@
 
 // ELEMENTS
 #include <block_proof.h> // CheckProof
+#include <chainparams.h> // Params()
 
 static constexpr uint8_t DB_COIN{'C'};
 static constexpr uint8_t DB_COINS{'c'};
@@ -340,6 +341,51 @@ bool CBlockTreeDB::WalkBlockIndexGutsForMaxHeight(int* nHeight) {
         }
     }
     return true;
+}
+
+const CBlockIndex *CBlockTreeDB::RegenerateFullIndex(const CBlockIndex *pindexTrimmed, CBlockIndex *pindexNew) const
+{
+    if(!pindexTrimmed->trimmed()) {
+        return pindexTrimmed;
+    }
+    CBlockHeader tmp;
+    bool BlockRead = false;
+    {
+        // At this point we can either be locked or unlocked depending on where we're being called
+        // but cs_main is a RecursiveMutex, so it doesn't matter
+        LOCK(cs_main);
+        // In unpruned nodes, same data could be read from blocks using ReadBlockFromDisk, but that turned out to
+        // be about 6x slower than reading from the index
+        std::pair<uint8_t, uint256> key(DB_BLOCK_INDEX, pindexTrimmed->GetBlockHash());
+        CDiskBlockIndex diskindex;
+        BlockRead = this->Read(key, diskindex);
+        tmp = diskindex.GetBlockHeader();
+    }
+    assert(BlockRead);
+    // Clone the needed data from the original trimmed block
+    pindexNew->pprev          = pindexTrimmed->pprev;
+    pindexNew->phashBlock     = pindexTrimmed->phashBlock;
+    // Construct block index object
+    pindexNew->nHeight        = pindexTrimmed->nHeight;
+    pindexNew->nFile          = pindexTrimmed->nFile;
+    pindexNew->nDataPos       = pindexTrimmed->nDataPos;
+    pindexNew->nUndoPos       = pindexTrimmed->nUndoPos;
+    pindexNew->nVersion       = pindexTrimmed->nVersion;
+    pindexNew->hashMerkleRoot = pindexTrimmed->hashMerkleRoot;
+    pindexNew->nTime          = pindexTrimmed->nTime;
+    pindexNew->nBits          = pindexTrimmed->nBits;
+    pindexNew->nNonce         = pindexTrimmed->nNonce;
+    pindexNew->nStatus        = pindexTrimmed->nStatus;
+    pindexNew->nTx            = pindexTrimmed->nTx;
+
+    pindexNew->proof               = tmp.proof;
+    pindexNew->m_dynafed_params    = tmp.m_dynafed_params;
+    pindexNew->m_signblock_witness = tmp.m_signblock_witness;
+
+    if (pindexTrimmed->nHeight && pindexTrimmed->nHeight % 1000 == 0) {
+        assert(CheckProof(pindexNew->GetBlockHeader(), Params().GetConsensus()));
+    }
+    return pindexNew;
 }
 
 bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, std::function<CBlockIndex*(const uint256&)> insertBlockIndex, int trimBelowHeight)

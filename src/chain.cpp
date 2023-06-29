@@ -5,6 +5,8 @@
 
 #include <chain.h>
 
+#include <validation.h> // pblocktree
+
 /**
  * CChain implementation
  */
@@ -46,6 +48,11 @@ CBlockLocator CChain::GetLocator(const CBlockIndex *pindex) const {
     }
 
     return CBlockLocator(vHave);
+}
+
+const CBlockIndex *CBlockIndex::untrim_to(CBlockIndex *pindexNew) const
+{
+    return pblocktree->RegenerateFullIndex(this, pindexNew);
 }
 
 const CBlockIndex *CChain::FindFork(const CBlockIndex *pindex) const {

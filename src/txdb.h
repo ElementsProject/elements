@@ -87,6 +87,7 @@ public:
     bool ReadFlag(const std::string &name, bool &fValue);
     bool LoadBlockIndexGuts(const Consensus::Params& consensusParams, std::function<CBlockIndex*(const uint256&)> insertBlockIndex, int trimBelowHeight);
     // ELEMENTS:
+    const CBlockIndex* RegenerateFullIndex(const CBlockIndex *pindexTrimmed, CBlockIndex *pindexNew) const;
     bool WalkBlockIndexGutsForMaxHeight(int* nHeight);
     bool ReadPAKList(std::vector<std::vector<unsigned char> >& offline_list, std::vector<std::vector<unsigned char> >& online_list, bool& reject);
     bool WritePAKList(const std::vector<std::vector<unsigned char> >& offline_list, const std::vector<std::vector<unsigned char> >& online_list, bool reject);
