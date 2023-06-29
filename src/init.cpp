@@ -987,7 +987,7 @@ bool AppInitParameterInteraction(const ArgsManager& args)
     }
 
     if (args.GetBoolArg("-trim_headers", false)) {
-        LogPrintf("Configured for header-trimming mode. This will reduce memory usage substantially, but we will be unable to serve as a full P2P peer, and certain header fields may be missing from JSON RPC output.\n");
+        LogPrintf("Configured for header-trimming mode. This will reduce memory usage substantially, but will increase IO usage when the headers need to be temporarily untrimmed.\n");
         fTrimHeaders = true;
         // This calculation is driven by GetValidFedpegScripts in pegins.cpp, which walks the chain
         //   back to current epoch start, and then an additional total_valid_epochs on top of that.
@@ -1711,7 +1711,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
 
     // if pruning, unset the service bit and perform the initial blockstore prune
     // after any wallet rescanning has taken place.
-    if (fPruneMode || fTrimHeaders) {
+    if (fPruneMode) {
         LogPrintf("Unsetting NODE_NETWORK on prune mode\n");
         nLocalServices = ServiceFlags(nLocalServices & ~NODE_NETWORK);
         if (!fReindex) {
@@ -1721,11 +1721,6 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
                 chainstate->PruneAndFlush();
             }
         }
-    }
-
-    if (fTrimHeaders) {
-        LogPrintf("Unsetting NODE_NETWORK_LIMITED on header trim mode\n");
-        nLocalServices = ServiceFlags(nLocalServices & ~NODE_NETWORK_LIMITED);
     }
 
     if (DeploymentEnabled(chainparams.GetConsensus(), Consensus::DEPLOYMENT_SEGWIT)) {
