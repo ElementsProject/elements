@@ -243,11 +243,11 @@ class SighashRangeproofTest(BitcoinTestFramework):
             self.assert_tx_valid(tx, True)
 
         # Activate dynafed (nb of blocks taken from dynafed activation test)
-        # Generate acress several calls to `generatetoaddress` to ensure no individual call times out
+        # Generate across several calls to `generatetoaddress` to ensure no individual call times out
         self.generate(self.nodes[0], 503)
         self.generate(self.nodes[0], 503)
         self.generate(self.nodes[0], 1 + 144 + 144)
-        assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "active")
+        assert_equal(self.nodes[0].getdeploymentinfo()["deployments"]["dynafed"]["bip9"]["status"], "active")
 
         self.sync_all()
 
@@ -279,4 +279,3 @@ class SighashRangeproofTest(BitcoinTestFramework):
 
 if __name__ == '__main__':
     SighashRangeproofTest().main()
-

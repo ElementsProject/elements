@@ -91,7 +91,7 @@ class DynaFedTest(BitcoinTestFramework):
             assert_equal(self.nodes[i].getblockcount(), 0)
 
             # Check deployment exists and is not active
-            dyna_activate = self.nodes[i].getblockchaininfo()["softforks"]["dynafed"]["bip9"]
+            dyna_activate = self.nodes[i].getdeploymentinfo()["deployments"]["dynafed"]["bip9"]
             assert_equal(dyna_activate["status"], "defined")
 
             # fedpegscript is OP_TRUE
@@ -120,19 +120,20 @@ class DynaFedTest(BitcoinTestFramework):
         self.log.info("Testing dynafed versionbits activation...")
 
         # Signaling window is in height, not time, so first block that will signal is
-        # at height 1008 which is evenly disible by 144(regtest bip9 window size)
+        # at height 1008 which is evenly divisible by 144(regtest bip9 window size)
         # Giving funds to node 1 to avoid a transaction size blowup when sweeping later
-        blocks = self.generatetoaddress(self.nodes[0], 1006, self.nodes[1].getnewaddress(), sync_fun=self.no_op)
-        assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "defined")
+        blocks = self.generatetoaddress(self.nodes[0], 1007, self.nodes[1].getnewaddress(), sync_fun=self.no_op)
+        assert_equal(self.nodes[0].getdeploymentinfo()["deployments"]["dynafed"]["bip9"]["status"], "defined")
         blocks += self.generatetoaddress(self.nodes[0], 1, self.nodes[0].getnewaddress(), sync_fun=self.no_op)
-        assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "started")
+        assert_equal(self.nodes[0].getdeploymentinfo()["deployments"]["dynafed"]["bip9"]["status"], "started")
         blocks += self.generatetoaddress(self.nodes[0], 144, self.nodes[0].getnewaddress(), sync_fun=self.no_op)
-        assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "locked_in")
+        assert_equal(self.nodes[0].getdeploymentinfo()["deployments"]["dynafed"]["bip9"]["status"], "locked_in")
 
         # Move chain forward to activation, any new blocks will be enforced
-        blocks += self.generatetoaddress(self.nodes[0], 144, self.nodes[0].getnewaddress(), sync_fun=self.no_op)
+        # bitcoin PR #23508 changed bip9 status to the current block instead of the next block
+        blocks += self.generatetoaddress(self.nodes[0], 143, self.nodes[0].getnewaddress(), sync_fun=self.no_op)
         self.sync_blocks(timeout=240)
-        assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "active")
+        assert_equal(self.nodes[0].getdeploymentinfo()["deployments"]["dynafed"]["bip9"]["status"], "locked_in")
 
         # Existing blocks should have null dynafed fields
         for block in blocks:
@@ -140,6 +141,7 @@ class DynaFedTest(BitcoinTestFramework):
 
         # Next block is first dynamic federation block
         block = self.generatetoaddress(self.nodes[0], 1, self.nodes[0].getnewaddress())[0]
+        assert_equal(self.nodes[0].getdeploymentinfo()["deployments"]["dynafed"]["bip9"]["status"], "active")
         # We publish full block on BIP9 transition
         for i in range(self.num_nodes):
             validate_no_vote_op_true(self.nodes[i], block, True)
