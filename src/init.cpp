@@ -993,7 +993,7 @@ bool AppInitParameterInteraction(const ArgsManager& args)
         //   back to current epoch start, and then an additional total_valid_epochs on top of that.
         //   We add one epoch here for the current partial epoch, and then another one for good luck.
 
-        nMustKeepFullHeaders = (chainparams.GetConsensus().total_valid_epochs + 2) * epoch_length;
+        nMustKeepFullHeaders = chainparams.GetConsensus().total_valid_epochs * epoch_length;
         // This is the number of headers we can have in flight downloading at a time, beyond the
         //   set of blocks we've already validated. Capping this is necessary to keep memory usage
         //   bounded during IBD.
