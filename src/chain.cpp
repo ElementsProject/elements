@@ -5,6 +5,11 @@
 
 #include <chain.h>
 #include <util/time.h>
+#include <validation.h>
+#include <node/context.h>
+
+
+node::NodeContext *CBlockIndex::m_pcontext;
 
 std::string CBlockFileInfo::ToString() const
 {

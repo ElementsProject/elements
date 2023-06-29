@@ -76,6 +76,7 @@ class BlockManager
 {
     friend CChainState;
     friend ChainstateManager;
+    friend CBlockIndex;
 
 private:
     void FlushBlockFile(bool fFinalize = false, bool finalize_undo = false);
