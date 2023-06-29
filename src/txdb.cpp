@@ -373,6 +373,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
 
+                pindexNew->set_stored();
                 n_total++;
                 if (diskindex.nHeight >= trimBelowHeight) {
                     n_untrimmed++;
