@@ -2582,7 +2582,7 @@ bool CChainState::FlushStateToDisk(
                     (*it)->set_stored();
                 }
 
-                if (node::fTrimHeaders) {
+                if (node::fTrimHeaders && !ShutdownRequested()) {
                     LogPrintf("Flushing block index, trimming headers, setTrimmableBlockIndex.size(): %d\n", setTrimmableBlockIndex.size());
                     int trim_height = m_chain.Height() - node::nMustKeepFullHeaders;
                     int min_height = std::numeric_limits<int>::max();
