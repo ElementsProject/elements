@@ -396,24 +396,26 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
 
+                pindexNew->proof               = diskindex.proof;
+                pindexNew->m_dynafed_params    = diskindex.m_dynafed_params;
+                pindexNew->m_signblock_witness = diskindex.m_signblock_witness;
+
+                assert(!(g_signed_blocks && diskindex.m_dynafed_params.value().IsNull() && diskindex.proof.value().IsNull()));
+
                 pindexNew->set_stored();
                 n_total++;
+
+                const uint256 block_hash = pindexNew->GetBlockHash();
+                // Only validate one of every 1000 block header for sanity check
+                if (pindexNew->nHeight % 1000 == 0 &&
+                        block_hash != consensusParams.hashGenesisBlock &&
+                        !CheckProof(pindexNew->GetBlockHeader(), consensusParams)) {
+                    return error("%s: CheckProof: %s, %s", __func__, block_hash.ToString(), pindexNew->ToString());
+                }
                 if (diskindex.nHeight >= trimBelowHeight) {
                     n_untrimmed++;
-                    pindexNew->proof               = diskindex.proof;
-                    pindexNew->m_dynafed_params    = diskindex.m_dynafed_params;
-                    pindexNew->m_signblock_witness = diskindex.m_signblock_witness;
-
-                    const uint256 block_hash = pindexNew->GetBlockHash();
-                    // Only validate one of every 1000 block header for sanity check
-                    if (pindexNew->nHeight % 1000 == 0 &&
-                            block_hash != consensusParams.hashGenesisBlock &&
-                            !CheckProof(pindexNew->GetBlockHeader(), consensusParams)) {
-                        return error("%s: CheckProof: %s, %s", __func__, block_hash.ToString(), pindexNew->ToString());
-                    }
                 } else {
-                    pindexNew->m_trimmed = true;
-                    pindexNew->m_trimmed_dynafed_block = !diskindex.m_dynafed_params.value().IsNull();
+                    pindexNew->trim();
                 }
 
                 pcursor->Next();
