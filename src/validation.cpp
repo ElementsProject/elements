@@ -2577,6 +2577,11 @@ bool CChainState::FlushStateToDisk(
                     return AbortNode(state, "Failed to write to block index database");
                 }
 
+                // This should be done inside WriteBatchSync, but CBlockIndex is const there
+                for (std::set<CBlockIndex*>::iterator it = setTrimmableBlockIndex.begin(); it != setTrimmableBlockIndex.end(); it++) {
+                    (*it)->set_stored();
+                }
+
                 if (node::fTrimHeaders) {
                     LogPrintf("Flushing block index, trimming headers, setTrimmableBlockIndex.size(): %d\n", setTrimmableBlockIndex.size());
                     int trim_height = m_chain.Height() - node::nMustKeepFullHeaders;
