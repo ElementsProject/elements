@@ -217,11 +217,11 @@ public:
         m_signblock_witness = std::nullopt;
     }
 
-    bool trimmed() const {
+    inline bool trimmed() const {
         return m_trimmed;
     }
 
-    void assert_untrimmed() const {
+    inline void assert_untrimmed() const {
         assert(!m_trimmed);
     }
 
