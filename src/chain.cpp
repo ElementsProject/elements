@@ -56,6 +56,11 @@ CBlockLocator CChain::GetLocator(const CBlockIndex *pindex) const {
     return CBlockLocator(vHave);
 }
 
+const CBlockIndex *CBlockIndex::untrim_to(CBlockIndex *pindexNew) const
+{
+    return m_pcontext->chainman->m_blockman.m_block_tree_db->RegenerateFullIndex(this, pindexNew);
+}
+
 const CBlockIndex *CChain::FindFork(const CBlockIndex *pindex) const {
     if (pindex == nullptr) {
         return nullptr;

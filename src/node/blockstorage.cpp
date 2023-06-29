@@ -803,23 +803,6 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus
     return true;
 }
 
-bool ReadBlockHeaderFromDisk(CBlockHeader& header, const CBlockIndex* pindex, const Consensus::Params& consensusParams)
-{
-    // Not very efficient: read a block and throw away all but the header.
-    CBlock tmp;
-    if (!ReadBlockFromDisk(tmp, pindex, consensusParams)) {
-        return false;
-    }
-    const FlatFilePos block_pos{WITH_LOCK(cs_main, return pindex->GetBlockPos())};
-
-    header = tmp.GetBlockHeader();
-    if (tmp.GetHash() != pindex->GetBlockHash()) {
-        return error("ReadBlockheaderFromDisk(CBlockHeader&, CBlockIndex*): GetHash() doesn't match index for %s at %s",
-                     pindex->ToString(), block_pos.ToString());
-    }
-    return true;
-}
-
 bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const FlatFilePos& pos, const CMessageHeader::MessageStartChars& message_start)
 {
     FlatFilePos hpos = pos;
