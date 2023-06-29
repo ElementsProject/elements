@@ -2360,29 +2360,31 @@ bool CChainState::FlushStateToDisk(
                     (*it)->set_stored();
                 }
 
-                if (fTrimHeaders && !ShutdownRequested()) {
+                int trim_height = pindexBestHeader ? pindexBestHeader->nHeight - nMustKeepFullHeaders : 0;
+                if (fTrimHeaders && trim_height > 0 && !ShutdownRequested()) {
+                    static int nMinTrimHeight{0};
                     LogPrintf("Flushing block index, trimming headers, setTrimmableBlockIndex.size(): %d\n", setTrimmableBlockIndex.size());
-                    int trim_height = m_chain.Height() - nMustKeepFullHeaders;
-                    int min_height = std::numeric_limits<int>::max();
-                    CBlockIndex* min_index = nullptr;
                     for (std::set<CBlockIndex*>::iterator it = setTrimmableBlockIndex.begin(); it != setTrimmableBlockIndex.end(); it++) {
                         (*it)->assert_untrimmed();
                         if ((*it)->nHeight < trim_height) {
                             (*it)->trim();
-                            if ((*it)->nHeight < min_height) {
-                                min_height = (*it)->nHeight;
-                                min_index = *it;
-                            }
                         }
                     }
-
+                    CBlockIndex* min_index = pindexBestHeader->GetAncestor(trim_height-1);
                     // Handle any remaining untrimmed blocks that were too recent for trimming last time we flushed.
                     if (min_index) {
-                        min_index = min_index->pprev;
-                        while (min_index && !min_index->trimmed()) {
-                            min_index->trim();
+                        int nMaxTrimHeightRound = std::max(nMinTrimHeight, min_index->nHeight + 1);
+                        while (min_index && min_index->nHeight >= nMinTrimHeight) {
+                            if (!min_index->trimmed()) {
+                                // there may be gaps due to untrimmed blocks, we need to check them all
+                                if (!min_index->trim()) {
+                                    // Header could not be trimmed, we'll need to try again next round
+                                    nMaxTrimHeightRound = min_index->nHeight;
+                                }
+                            }
                             min_index = min_index->pprev;
                         }
+                        nMinTrimHeight = nMaxTrimHeightRound;
                     }
                 }
             }
