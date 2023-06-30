@@ -1924,8 +1924,9 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 error("DisconnectBlock(): transaction and undo data inconsistent");
                 return DISCONNECT_FAILED;
             }
-            for (unsigned int j = tx.vin.size(); j-- > 0;) {
-                const COutPoint &out = tx.vin[j].prevout;
+            for (unsigned int j = tx.vin.size(); j > 0;) {
+                --j;
+                const COutPoint& out = tx.vin[j].prevout;
                 const CScriptWitness& pegin_wit = tx.witness.vtxinwit.size() > j ? tx.witness.vtxinwit[j].m_pegin_witness : CScriptWitness();
                 int res = ApplyTxInUndo(std::move(txundo.vprevout[j]), view, out, tx.vin[j], pegin_wit, fedpegscripts);
                 if (res == DISCONNECT_FAILED) return DISCONNECT_FAILED;
