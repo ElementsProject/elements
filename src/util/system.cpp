@@ -249,19 +249,6 @@ static std::optional<util::SettingsValue> InterpretValue(const KeyInfo& key, con
     return value;
 }
 
-namespace {
-fs::path StripRedundantLastElementsOfPath(const fs::path& path)
-{
-    auto result = path;
-    while (result.filename().empty() || fs::PathToString(result.filename()) == ".") {
-        result = result.parent_path();
-    }
-
-    assert(fs::equivalent(result, path.lexically_normal()));
-    return result;
-}
-} // namespace
-
 // Define default constructor and destructor that are not inline, so code instantiating this class doesn't need to
 // #include class definitions for all members.
 // For example, m_settings has an internal dependency on univalue.
@@ -387,6 +374,13 @@ std::optional<unsigned int> ArgsManager::GetArgFlags(const std::string& name) co
     return std::nullopt;
 }
 
+fs::path ArgsManager::GetPathArg(std::string pathlike_arg) const
+{
+    auto result = fs::PathFromString(GetArg(pathlike_arg, "")).lexically_normal();
+    // Remove trailing slash, if present.
+    return result.has_filename() ? result : result.parent_path();
+}
+
 const fs::path& ArgsManager::GetBlocksDirPath() const
 {
     LOCK(cs_args);
@@ -397,7 +391,7 @@ const fs::path& ArgsManager::GetBlocksDirPath() const
     if (!path.empty()) return path;
 
     if (IsArgSet("-blocksdir")) {
-        path = fs::absolute(fs::PathFromString(GetArg("-blocksdir", "")));
+        path = fs::absolute(GetPathArg("-blocksdir"));
         if (!fs::is_directory(path)) {
             path = "";
             return path;
@@ -421,9 +415,9 @@ const fs::path& ArgsManager::GetDataDir(bool net_specific) const
     // this function
     if (!path.empty()) return path;
 
-    std::string datadir = GetArg("-datadir", "");
+    const fs::path datadir{GetPathArg("-datadir")};
     if (!datadir.empty()) {
-        path = fs::absolute(StripRedundantLastElementsOfPath(fs::PathFromString(datadir)));
+        path = fs::absolute(datadir);
         if (!fs::is_directory(path)) {
             path = "";
             return path;
@@ -443,7 +437,6 @@ const fs::path& ArgsManager::GetDataDir(bool net_specific) const
         }
     }
 
-    path = StripRedundantLastElementsOfPath(path);
     return path;
 }
 
@@ -860,8 +853,8 @@ fs::path GetMainchainDefaultDataDir()
 
 bool CheckDataDirOption()
 {
-    std::string datadir = gArgs.GetArg("-datadir", "");
-    return datadir.empty() || fs::is_directory(fs::absolute(fs::PathFromString(datadir)));
+    const fs::path datadir{gArgs.GetPathArg("-datadir")};
+    return datadir.empty() || fs::is_directory(fs::absolute(datadir));
 }
 
 fs::path GetConfigFile(const std::string& confPath)
