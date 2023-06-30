@@ -2088,7 +2088,10 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
 {
     AssertLockHeld(cs_main);
     assert(pindex);
-    assert(*pindex->phashBlock == block.GetHash());
+
+    uint256 block_hash{block.GetHash()};
+    assert(*pindex->phashBlock == block_hash);
+
     int64_t nTimeStart = GetTimeMicros();
 
     // verify that the view's current state corresponds to the previous block
@@ -2097,7 +2100,7 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
 
     const Consensus::Params& consensusParams = m_params.GetConsensus();
     // Add genesis outputs but don't validate.
-    if (block.GetHash() == consensusParams.hashGenesisBlock) {
+    if (block_hash == consensusParams.hashGenesisBlock) {
         if (!fJustCheck) {
             if (consensusParams.connect_genesis_outputs) {
                 for (const auto& tx : block.vtx) {
@@ -2438,12 +2441,12 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
     LogPrint(BCLog::BENCH, "    - Index writing: %.2fms [%.2fs (%.2fms/blk)]\n", MILLI * (nTime5 - nTime4), nTimeIndex * MICRO, nTimeIndex * MILLI / nBlocksTotal);
 
     TRACE6(validation, block_connected,
-        block.GetHash().data(),
+        block_hash.data(),
         pindex->nHeight,
         block.vtx.size(),
         nInputs,
         nSigOpsCost,
-        GetTimeMicros() - nTimeStart // in microseconds (µs)
+        nTime5 - nTimeStart // in microseconds (µs)
     );
 
     return true;
