@@ -708,7 +708,7 @@ elements_bin_ldadd = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-elements_bin_ldadd += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(NATPMP_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(SQLITE_LIBS)
+elements_bin_ldadd += $(BDB_LIBS) $(MINIUPNPC_LIBS) $(NATPMP_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(SQLITE_LIBS)
 
 elementsd_SOURCES = $(elements_daemon_sources) init/bitcoind.cpp
 elementsd_CPPFLAGS = $(elements_bin_cppflags)
@@ -738,7 +738,7 @@ elements_cli_LDADD = \
   $(LIBBITCOIN_UTIL) \
   $(LIBBITCOIN_CRYPTO)
 
-elements_cli_LDADD += $(BOOST_LIBS) $(EVENT_LIBS)
+elements_cli_LDADD += $(EVENT_LIBS)
 #
 
 # bitcoin-tx binary #
@@ -758,8 +758,6 @@ elements_tx_LDADD = \
   $(LIBBITCOIN_CONSENSUS) \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBSECP256K1)
-
-elements_tx_LDADD += $(BOOST_LIBS)
 #
 
 # bitcoin-wallet binary #
@@ -777,7 +775,6 @@ elements_wallet_LDADD = \
   $(LIBBITCOIN_CONSENSUS) \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBSECP256K1) \
-  $(BOOST_LIBS) \
   $(BDB_LIBS) \
   $(EVENT_LIBS) \
   $(LIBLEVELDB) \
@@ -807,8 +804,6 @@ elements_util_LDADD = \
   $(LIBBITCOIN_CONSENSUS) \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBSECP256K1)
-
-elements_util_LDADD += $(BOOST_LIBS)
 #
 
 # bitcoinconsensus library #
