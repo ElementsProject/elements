@@ -1239,7 +1239,7 @@ static bool CreateTransactionInternal(
     if (nChangePosInOut == -1) {
        // randomly set policyasset change position
     } else if ((unsigned int)nChangePosInOut >= change_pos.size()) {
-        error = _("Change index out of range");
+        error = _("Transaction change output index out of range");
         return false;
     } else {
         change_pos[nChangePosInOut] = policyAsset;
