@@ -105,7 +105,10 @@ static int AppInitRawTx(int argc, char* argv[])
     if (argc < 2 || HelpRequested(gArgs) || gArgs.IsArgSet("-version")) {
         // First part of help message is specific to this utility
         std::string strUsage = PACKAGE_NAME " elements-tx utility version " + FormatFullVersion() + "\n";
-        if (!gArgs.IsArgSet("-version")) {
+
+        if (gArgs.IsArgSet("-version")) {
+            strUsage += FormatParagraph(LicenseInfo());
+        } else {
             strUsage += "\n"
                 "Usage:  elements-tx [options] <hex-tx> [commands]  Update hex-encoded Elements transaction\n"
                 "or:     elements-tx [options] -create [commands]   Create hex-encoded Elements transaction\n"
