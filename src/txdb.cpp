@@ -412,6 +412,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                     }
                 } else {
                     pindexNew->m_trimmed = true;
+                    pindexNew->m_trimmed_dynafed_block = !diskindex.m_dynafed_params.value().IsNull();
                 }
 
                 pcursor->Next();

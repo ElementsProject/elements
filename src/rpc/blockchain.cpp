@@ -215,7 +215,7 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
         result.pushKV("difficulty", GetDifficulty(blockindex));
         result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     } else {
-        if (blockindex->dynafed_params().IsNull()) {
+        if (!blockindex->dynafed_block()) {
             if (blockindex->trimmed()) {
                 result.pushKV("signblock_witness_asm", "<trimmed>");
                 result.pushKV("signblock_witness_hex", "<trimmed>");
@@ -247,13 +247,7 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
 
 UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, TxVerbosity verbosity)
 {
-    UniValue result;
-    if (blockindex->trimmed()) {
-        CBlockIndex tmp = CBlockIndex(block.GetBlockHeader());
-        result = blockheaderToJSON(tip, &tmp);
-    } else {
-        result = blockheaderToJSON(tip, blockindex);
-    }
+    UniValue result = blockheaderToJSON(tip, blockindex);
 
     result.pushKV("strippedsize", (int)::GetSerializeSize(block, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS));
     result.pushKV("size", (int)::GetSerializeSize(block, PROTOCOL_VERSION));
