@@ -29,6 +29,8 @@ initial_offline = "03808355deeb0555203b53df7ef8f36edaf66ab0207ca1b11968a7ac42155
 initial_extension = [initial_online+initial_online]
 new_extension = [initial_offline+initial_online]
 
+initial_cpe_root = "3700bdb2975ff8e0dadaaba2b33857b0ca2610c950a92b1db725025e3647a8e1"
+
 ERR_MP_INVALID_PEGOUT = "invalid-pegout-proof"
 ERR_MP_INVALID_PEGIN = "pegin-no-witness"
 
@@ -43,16 +45,19 @@ def validate_no_vote_op_true(node, block, first_dynafed_active_block):
     assert_equal(dynamic_parameters["current"]["signblockscript"], WSH_OP_TRUE)
     if block_height % 10 == 0 or first_dynafed_active_block:
         assert_equal(dynamic_parameters["current"]["type"], "full")
+        assert_equal(dynamic_parameters["current"]["root"], initial_cpe_root)
         assert_equal(dynamic_parameters["current"]["fedpegscript"], "51")
         assert_equal(dynamic_parameters["current"]["extension_space"], initial_extension)
     else:
         assert_equal(dynamic_parameters["current"]["type"], "compact")
+        assert_equal(dynamic_parameters["current"]["root"], initial_cpe_root)
         assert not "fedpegscript" in dynamic_parameters["proposed"]
         assert not "extension_space" in dynamic_parameters["proposed"]
     assert_equal(dynamic_parameters["current"]["max_block_witness"], 74)
     # nothing was proposed, null fields make impossible to be valid blockheader
     # due to script rules requiring bool true on stack
     assert_equal(dynamic_parameters["proposed"]["type"], "null")
+    assert not "root" in dynamic_parameters["proposed"]
     assert not "signblockscript" in dynamic_parameters["proposed"]
     assert not "max_block_witness" in dynamic_parameters["proposed"]
     assert not "fedpegscript" in dynamic_parameters["proposed"]
@@ -134,6 +139,9 @@ class DynaFedTest(BitcoinTestFramework):
         blocks += self.generatetoaddress(self.nodes[0], 143, self.nodes[0].getnewaddress(), sync_fun=self.no_op)
         self.sync_blocks(timeout=240)
         assert_equal(self.nodes[0].getdeploymentinfo()["deployments"]["dynafed"]["bip9"]["status"], "locked_in")
+
+        # Check the root hash
+        assert_equal(self.nodes[0].getblockchaininfo()["current_params_root"], initial_cpe_root)
 
         # Existing blocks should have null dynafed fields
         for block in blocks:

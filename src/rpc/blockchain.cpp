@@ -121,17 +121,17 @@ UniValue paramEntryToJSON(const DynaFedParamEntry& entry)
     }
 
     // fields all params have
-    result.pushKV("root", HexStr(entry.CalculateRoot()));
+    result.pushKV("root", entry.CalculateRoot().GetHex());
     result.pushKV("signblockscript", HexStr(entry.m_signblockscript));
     result.pushKV("max_block_witness", (uint64_t)entry.m_signblock_witness_limit);
 
     // add the extra root which is stored for compact and calculated for full
     if (entry.m_serialize_type == 1) {
         // compact
-        result.pushKV("extra_root", HexStr(entry.m_elided_root));
+        result.pushKV("extra_root", entry.m_elided_root.GetHex());
     } else if (entry.m_serialize_type == 2) {
         // full
-        result.pushKV("extra_root", HexStr(entry.CalculateExtraRoot()));
+        result.pushKV("extra_root", entry.CalculateExtraRoot().GetHex());
     }
 
     // some extra fields only present on full params
