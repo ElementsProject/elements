@@ -1284,7 +1284,7 @@ PackageMempoolAcceptResult MemPoolAccept::AcceptMultipleTransactions(const std::
     std::vector<Workspace> workspaces{};
     workspaces.reserve(txns.size());
     std::transform(txns.cbegin(), txns.cend(), std::back_inserter(workspaces),
-                   [](const auto& tx) { return Workspace(tx); });
+                   [&](const auto& tx) { return Workspace(tx, args.m_chainparams.HashGenesisBlock()); });
     std::map<const uint256, const MempoolAcceptResult> results;
 
     LOCK(m_pool.cs);
