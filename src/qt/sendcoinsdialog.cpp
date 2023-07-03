@@ -795,7 +795,7 @@ void SendCoinsDialog::useAvailableBalance(SendCoinsEntry* entry)
     CAmount amount = valueFor(model->wallet().getAvailableBalance(*m_coin_control), ::policyAsset);
     for (int i = 0; i < ui->entries->count(); ++i) {
         SendCoinsEntry* e = qobject_cast<SendCoinsEntry*>(ui->entries->itemAt(i)->widget());
-        if (e && !e->isHidden() && e != entry) {
+        if (e && !e->isHidden() && e != entry && e->getValue().asset == ::policyAsset) {
             amount -= e->getValue().asset_amount;
         }
     }
