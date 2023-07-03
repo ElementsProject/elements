@@ -1,5 +1,5 @@
 AC_PREREQ([2.69])
-define(_CLIENT_VERSION_MAJOR, 22)
+define(_CLIENT_VERSION_MAJOR, 23)
 define(_CLIENT_VERSION_MINOR, 99)
 define(_CLIENT_VERSION_BUILD, 0)
 define(_CLIENT_VERSION_RC, 0)
@@ -24,6 +24,7 @@ BITCOIN_GUI_NAME=elements-qt
 BITCOIN_CLI_NAME=elements-cli
 BITCOIN_TX_NAME=elements-tx
 BITCOIN_UTIL_NAME=elements-util
+BITCOIN_CHAINSTATE_NAME=elements-chainstate
 BITCOIN_WALLET_TOOL_NAME=elements-wallet
 dnl Multi Process
 BITCOIN_MP_NODE_NAME=elements-node
@@ -654,6 +655,12 @@ AC_ARG_ENABLE([util-util],
   [build_bitcoin_util=$enableval],
   [build_bitcoin_util=$build_bitcoin_utils])
 
+AC_ARG_ENABLE([experimental-util-chainstate],
+  [AS_HELP_STRING([--enable-experimental-util-chainstate],
+  [build experimental bitcoin-chainstate executable (default=no)])],
+  [build_bitcoin_chainstate=$enableval],
+  [build_bitcoin_chainstate=no])
+
 AC_ARG_WITH([libs],
   [AS_HELP_STRING([--with-libs],
   [build libraries (default=yes)])],
@@ -1279,6 +1286,7 @@ if test "$enable_fuzz" = "yes"; then
   build_bitcoin_cli=no
   build_bitcoin_tx=no
   build_bitcoin_util=no
+  build_bitcoin_chainstate=no
   build_bitcoin_wallet=no
   build_bitcoind=no
   build_bitcoin_libs=no
@@ -1635,6 +1643,10 @@ AC_MSG_CHECKING([whether to build bitcoin-util])
 AM_CONDITIONAL([BUILD_BITCOIN_UTIL], [test $build_bitcoin_util = "yes"])
 AC_MSG_RESULT($build_bitcoin_util)
 
+AC_MSG_CHECKING([whether to build experimental bitcoin-chainstate])
+AM_CONDITIONAL([BUILD_BITCOIN_CHAINSTATE], [test $build_bitcoin_chainstate = "yes"])
+AC_MSG_RESULT($build_bitcoin_chainstate)
+
 AC_MSG_CHECKING([whether to build libraries])
 AM_CONDITIONAL([BUILD_BITCOIN_LIBS], [test $build_bitcoin_libs = "yes"])
 if test "$build_bitcoin_libs" = "yes"; then
@@ -1855,6 +1867,7 @@ AC_SUBST(BITCOIN_GUI_NAME)
 AC_SUBST(BITCOIN_CLI_NAME)
 AC_SUBST(BITCOIN_TX_NAME)
 AC_SUBST(BITCOIN_UTIL_NAME)
+AC_SUBST(BITCOIN_CHAINSTATE_NAME)
 AC_SUBST(BITCOIN_WALLET_TOOL_NAME)
 AC_SUBST(BITCOIN_MP_NODE_NAME)
 AC_SUBST(BITCOIN_MP_GUI_NAME)
