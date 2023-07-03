@@ -791,21 +791,25 @@ void SendCoinsDialog::useAvailableBalance(SendCoinsEntry* entry)
     // Include watch-only for wallets without private key
     m_coin_control->fAllowWatchOnly = model->wallet().privateKeysDisabled() && !model->wallet().hasExternalSigner();
 
+    SendAssetsRecipient recipient = entry->getValue();
     // Calculate available amount to send.
-    CAmount amount = valueFor(model->wallet().getAvailableBalance(*m_coin_control), ::policyAsset);
+    CAmount amount = valueFor(model->wallet().getAvailableBalance(*m_coin_control), recipient.asset);
     for (int i = 0; i < ui->entries->count(); ++i) {
         SendCoinsEntry* e = qobject_cast<SendCoinsEntry*>(ui->entries->itemAt(i)->widget());
-        if (e && !e->isHidden() && e != entry && e->getValue().asset == ::policyAsset) {
+        if (e && !e->isHidden() && e != entry && e->getValue().asset == recipient.asset) {
             amount -= e->getValue().asset_amount;
         }
     }
 
     if (amount > 0) {
-      entry->checkSubtractFeeFromAmount();
-      entry->setAmount(amount);
+        if (recipient.asset == ::policyAsset) {
+            entry->checkSubtractFeeFromAmount();
+        }
+        recipient.asset_amount = amount;
     } else {
-      entry->setAmount(0);
+        recipient.asset_amount = 0;
     }
+    entry->setValue(recipient);
 }
 
 void SendCoinsDialog::updateFeeSectionControls()
