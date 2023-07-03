@@ -21,6 +21,7 @@ from test_framework.messages import (
     CTxOut,
     CTxOutValue,
     CTxOutWitness,
+    ser_uint256,
     uint256_from_str,
     SEQUENCE_FINAL,
 )
@@ -1225,12 +1226,15 @@ def dump_json_test(tx, input_utxos, idx, success, failure):
     # Determine flags to dump
     flags = LEGACY_FLAGS if spender.comment.startswith("legacy/") or spender.comment.startswith("inactive/") else TAPROOT_FLAGS
 
+    hash_genesis_block = bytearray(ser_uint256(g_genesis_hash))
+    hash_genesis_block.reverse()
     fields = [
         ("tx", tx.serialize().hex()),
         ("prevouts", [x.output.serialize().hex() for x in input_utxos]),
         ("index", idx),
         ("flags", flags),
-        ("comment", spender.comment)
+        ("comment", spender.comment),
+        ("hash_genesis_block", hash_genesis_block.hex())
     ]
 
     # The "final" field indicates that a spend should be always valid, even with more validation flags enabled

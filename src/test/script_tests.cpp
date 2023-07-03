@@ -1686,7 +1686,7 @@ static void AssetTest(const UniValue& test)
     size_t idx = test["index"].get_int64();
     uint32_t test_flags{ParseScriptFlags(test["flags"].get_str())};
     bool fin = test.exists("final") && test["final"].get_bool();
-    // ELEMENTS FIXME: update feature_taproot.py --dumptests to actually output these
+    // ELEMENTS: feature_taproot.py --dumptests outputs this field
     uint256 hash_genesis_block = test.exists("hash_genesis_block") ? uint256S(test["hash_genesis_block"].get_str()) : uint256{};
 
     if (test.exists("success")) {
@@ -1727,6 +1727,8 @@ BOOST_AUTO_TEST_CASE(script_assets_test)
 {
     // See src/test/fuzz/script_assets_test_minimizer.cpp for information on how to generate
     // the script_assets_test.json file used by this test.
+    // ELEMENTS: qa-assets repo can be cloned here https://github.com/ElementsProject/qa-assets
+    // then set DIR_UNIT_TEST_DATA env var to /path/to/qa-assets/unit_test_data when running this test
 
     const char* dir = std::getenv("DIR_UNIT_TEST_DATA");
     BOOST_WARN_MESSAGE(dir != nullptr, "Variable DIR_UNIT_TEST_DATA unset, skipping script_assets_test");
@@ -1746,12 +1748,11 @@ BOOST_AUTO_TEST_CASE(script_assets_test)
     BOOST_CHECK(tests.isArray());
     BOOST_CHECK(tests.size() > 0);
 
-/*
-    ELEMENTS: temporarily disabled until we implement the new Taproot sighash and upload new qa-assets
+    g_con_elementsmode = true;
     for (size_t i = 0; i < tests.size(); i++) {
         AssetTest(tests[i]);
     }
-*/
+    g_con_elementsmode = false;
     file.close();
 }
 
