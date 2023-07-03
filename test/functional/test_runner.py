@@ -313,6 +313,7 @@ BASE_SCRIPTS = [
     #'feature_minchainwork.py', # ELEMENTS: we deleted this at some point, not applicable to signed blocks
     'rpc_estimatefee.py',
     'rpc_getblockstats.py',
+    'feature_bind_port_externalip.py',
     'wallet_create_tx.py --legacy-wallet',
     'wallet_send.py --legacy-wallet',
     'wallet_send.py --descriptors',
@@ -328,6 +329,7 @@ BASE_SCRIPTS = [
     #'feature_loadblock.py', # ELEMENTS: fixme figure out why this doesn't work
     #'p2p_dos_header_tree.py', # ELEMENTS: this test requires connecting to testnet3
     'p2p_add_connections.py',
+    'feature_bind_port_discover.py',
     'p2p_unrequested_blocks.py',
     'p2p_blockfilters.py',
     'p2p_message_capture.py',
