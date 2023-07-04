@@ -223,15 +223,7 @@ bool BlockManager::LoadBlockIndex(
 {
     int trim_below_height = 0;
     if (fTrimHeaders) {
-        int max_height = 0;
-        if (!m_block_tree_db->WalkBlockIndexGutsForMaxHeight(&max_height)) {
-            LogPrintf("LoadBlockIndex: Failed to WalkBlockIndexGutsForMaxHeight.\n");
-            return false;
-        }
-
-        int must_keep_headers = (consensus_params.total_valid_epochs + 2) * consensus_params.dynamic_epoch_length;
-        int extra_headers_buffer = consensus_params.dynamic_epoch_length * 2; // XXX arbitrary
-        trim_below_height = max_height - must_keep_headers - extra_headers_buffer;
+        trim_below_height = std::numeric_limits<int>::max();
     }
     if (!m_block_tree_db->LoadBlockIndexGuts(consensus_params, [this](const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return this->InsertBlockIndex(hash); }, trim_below_height)) {
         return false;
@@ -337,6 +329,9 @@ bool BlockManager::LoadBlockIndex(
         }
     }
 
+    if (pindexBestHeader) {
+        ForceUntrimHeader(pindexBestHeader);
+    }
     return true;
 }
 
