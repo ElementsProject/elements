@@ -248,7 +248,7 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
         result.pushKV("difficulty", GetDifficulty(blockindex));
         result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     } else {
-        if (!blockindex->dynafed_block()) {
+        if (!blockindex->is_dynafed_block()) {
             if (blockindex->trimmed()) {
                 result.pushKV("signblock_witness_asm", "<trimmed>");
                 result.pushKV("signblock_witness_hex", "<trimmed>");
