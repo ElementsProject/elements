@@ -2348,6 +2348,7 @@ bool CChainState::FlushStateToDisk(
                 vBlocks.reserve(setDirtyBlockIndex.size());
                 std::set<CBlockIndex*> setTrimmableBlockIndex(setDirtyBlockIndex);
                 for (std::set<CBlockIndex*>::iterator it = setDirtyBlockIndex.begin(); it != setDirtyBlockIndex.end(); ) {
+                    (*it)->untrim();
                     vBlocks.push_back(*it);
                     setDirtyBlockIndex.erase(it++);
                 }
@@ -2460,6 +2461,18 @@ static void AppendWarning(bilingual_str& res, const bilingual_str& warn)
     res += warn;
 }
 
+void ForceUntrimHeader(const CBlockIndex *pindex_)
+{
+    assert(pindex_);
+    if (!pindex_->trimmed()) {
+        return;
+    }
+    AssertLockHeld(cs_main);
+    CBlockIndex* pindex = const_cast<CBlockIndex*>(pindex_);
+    pindex->untrim();
+    setDirtyBlockIndex.insert(pindex);
+}
+
 void CChainState::UpdateTip(const CBlockIndex* pindexNew)
 {
     // New best block
@@ -2497,11 +2510,13 @@ void CChainState::UpdateTip(const CBlockIndex* pindexNew)
       this->CoinsTip().DynamicMemoryUsage() * (1.0 / (1<<20)), this->CoinsTip().GetCacheSize(),
       !warning_messages.empty() ? strprintf(" warning='%s'", warning_messages.original) : "");
 
+    ForceUntrimHeader(pindexNew);
     // Do some logging if dynafed parameters changed.
     if (pindexNew->pprev && !pindexNew->dynafed_params().IsNull()) {
         int height = pindexNew->nHeight;
         uint256 hash = pindexNew->GetBlockHash();
         uint256 root = pindexNew->dynafed_params().m_current.CalculateRoot();
+        ForceUntrimHeader(pindexNew->pprev);
         if (pindexNew->pprev->dynafed_params().IsNull()) {
             LogPrintf("Dynafed activated in block %d:%s: %s\n", height, hash.GetHex(), root.GetHex());
         } else if (root != pindexNew->pprev->dynafed_params().m_current.CalculateRoot()) {
