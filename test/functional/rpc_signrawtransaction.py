@@ -357,7 +357,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         4) The signature of signrawtransactionwithwallet by inputs and
            the signature of signrawtransactionwithwallet by utxos are equal.
         5) The signed transaction can broadcast."""
-        utxo_address = self.nodes[2].getnewaddress('', 'bech32')
+        utxo_address = self.nodes[2].getnewaddress('', 'blech32')
         utxo_address_info = self.nodes[2].getaddressinfo(utxo_address)
         uc_addr = utxo_address_info['unconfidential']
         utxo_address_privkey = self.nodes[2].dumpprivkey(uc_addr)
