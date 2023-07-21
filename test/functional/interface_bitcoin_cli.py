@@ -145,7 +145,7 @@ class TestBitcoinCli(BitcoinTestFramework):
         assert_equal(cli_get_info["Proxies"], "127.0.0.1:9050 (ipv4, ipv6, onion, cjdns), 127.0.0.1:7656 (i2p)")
 
         if self.is_specified_wallet_compiled():
-            self.log.info("Test -getinfo and bitcoin-cli getwalletinfo return expected wallet info")
+            self.log.info("Test -getinfo and elements-cli getwalletinfo return expected wallet info")
             # Explicitly set the output type in order to have consistent tx vsize / fees
             # for both legacy and descriptor wallets (disables the change address type detection algorithm)
             self.restart_node(0, extra_args=["-addresstype=bech32", "-changetype=bech32"])
