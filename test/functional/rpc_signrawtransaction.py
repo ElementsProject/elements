@@ -213,7 +213,6 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         self.generate(self.nodes[0], COINBASE_MATURITY + 1, sync_fun=self.no_op)
         self.nodes[0].sendtoaddress(p2sh_p2wsh_address["address"], 49.999)
         self.generate(self.nodes[0], 1, sync_fun=self.no_op)
-        self.sync_all(self.nodes[:2])
         # Get the UTXO info from scantxoutset
         unspent_output = self.nodes[1].scantxoutset('start', [p2sh_p2wsh_address['descriptor']])['unspents'][0]
         spk = script_to_p2sh_p2wsh_script(p2sh_p2wsh_address['redeemScript']).hex()
