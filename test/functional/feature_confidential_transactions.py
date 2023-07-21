@@ -483,7 +483,7 @@ class CTTest (BitcoinTestFramework):
 
         # And finally send
         self.nodes[2].sendrawtransaction(signed_assets['hex'])
-        self.generate(self.nodes[0], 101)
+        self.generate(self.nodes[2], 101)
         self.sync_all()
 
         issuancedata = self.nodes[2].issueasset(0, Decimal('0.00000006')) #0 of asset, 6 reissuance token

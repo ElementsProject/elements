@@ -633,7 +633,7 @@ class PSBTTest(BitcoinTestFramework):
 
         # Extractor test
         for extractor in extractors:
-            extracted = self.n  des[2].finalizepsbt(extractor['extract'], True)['hex']
+            extracted = self.nodes[2].finalizepsbt(extractor['extract'], True)['hex']
             assert_equal(extracted, extractor['result'])
 
         # Unload extra wallets
