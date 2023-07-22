@@ -573,7 +573,6 @@ std::optional<SelectionResult> SelectCoins(const CWallet& wallet, const std::vec
 
     // calculate value from preset inputs and store them
     std::set<CInputCoin> setPresetCoins;
-    CAmountMap mapValueFromPresetInputs;
 
     std::vector<COutPoint> vPresetInputs;
     coin_control.ListSelected(vPresetInputs);
@@ -621,7 +620,6 @@ std::optional<SelectionResult> SelectCoins(const CWallet& wallet, const std::vec
             coin = CInputCoin(outpoint, txout, input_bytes);
         }
 
-        mapValueFromPresetInputs[coin.asset] += coin.value;
         if (coin.m_input_bytes == -1) {
             // error = _("Missing solving data for estimating transaction size"); // ELEMENTS
             return std::nullopt; // Not solvable, can't estimate size for fee
@@ -744,7 +742,6 @@ std::optional<SelectionResult> SelectCoins(const CWallet& wallet, const std::vec
     if (!res) return std::nullopt;
 
     // add preset inputs to the total value selected
-    // mapValueRet += mapValueFromPresetInputs;
     // Add preset inputs to result
     res->AddInput(preset_inputs);
 
