@@ -1140,7 +1140,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         input_add_weight = high_input_weight - (41 * 4)
         tx4_weight = ext_fund.decoderawtransaction(funded_tx4["hex"])["weight"] + input_add_weight
         tx4_vsize = int(ceil(tx4_weight / 4))
-        # assert_fee_amount(funded_tx4["fee"], tx4_vsize, Decimal(0.0001))
+        # assert_fee_amount(funded_tx4["fee"], tx4_vsize, Decimal(0.0001)) Fee is different in Elements
 
         # Funding with weight at csuint boundaries should not cause problems
         funded_tx = ext_fund.fundrawtransaction(raw_tx, {"input_weights": [{"txid": ext_utxo["txid"], "vout": ext_utxo["vout"], "weight": 255}]})
