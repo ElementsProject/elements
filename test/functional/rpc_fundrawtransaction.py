@@ -828,6 +828,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         for param, zero_value in product(["fee_rate", "feeRate"], [0, 0.000, 0.00000000, "0", "0.000", "0.00000000"]):
             assert_equal(self.nodes[3].fundrawtransaction(rawtx, {param: zero_value})["fee"], 0)
 
+        # With no arguments passed, expect fee of 1374 satoshis.
         assert_approx(node.fundrawtransaction(rawtx)["fee"], vexp=0.00001374, vspan=0.00000001)
         # Expect fee to be 10,000x higher when an explicit fee rate 10,000x greater is specified.
         result = node.fundrawtransaction(rawtx, {"fee_rate": 1000}) # ELEMENTS: reduce by 10x
