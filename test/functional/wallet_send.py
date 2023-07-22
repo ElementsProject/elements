@@ -510,6 +510,7 @@ class WalletSendTest(BitcoinTestFramework):
 
         # An external input without solving data should result in an error
         # ELEMENTS: minor FIXME error is different since SelectCoins no longer has the error out
+        # (Bitcoin error: 'Missing solving data for estimating transaction size')
         self.test_send(from_wallet=ext_wallet, to_wallet=self.nodes[0], amount=15, inputs=[ext_utxo], add_inputs=True, psbt=True, include_watching=True, expect_error=(-4, "Insufficient funds"))
 
         # But funding should work when the solving data is provided
