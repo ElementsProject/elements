@@ -17,3 +17,5 @@ useable
 mut
 wit
 te
+ligh
+atack
