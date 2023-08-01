@@ -1075,6 +1075,7 @@ static RPCHelpMan testmempoolaccept()
                 result_inner.pushKV("reject-reason", "missing-inputs");
             } else {
                 result_inner.pushKV("reject-reason", state.GetRejectReason());
+                result_inner.pushKV("error", state.ToString());
             }
         }
         rpc_result.push_back(result_inner);

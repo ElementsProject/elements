@@ -251,8 +251,12 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, 
         }
 
         // Verify that amounts add up.
-        if (fScriptChecks && !VerifyAmounts(spent_inputs, tx, pvChecks, cacheStore)) {
-            return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-in-ne-out", "value in != value out");
+        if (fScriptChecks) {
+            const std::string amounts_check_result = VerifyAmounts(spent_inputs, tx, pvChecks, cacheStore);
+            if (amounts_check_result.length() != 0) {
+                /* return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-in-ne-out", "value in != value out"); */
+                return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-in-ne-out", amounts_check_result);
+            }
         }
         fee_map += GetFeeMap(tx);
         if (!MoneyRange(fee_map)) {
