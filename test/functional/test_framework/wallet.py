@@ -212,7 +212,7 @@ class MiniWallet:
         tx_info = from_node.testmempoolaccept([tx_hex])[0]
         assert_equal(mempool_valid, tx_info['allowed'])
         if mempool_valid:
-            # assert_equal(tx_info['vsize'], vsize) # ELEMENTS: FIXME feature_cltv.py vsize is 184 but rpc_block.py vsize is 185...
+            assert_equal(tx_info['vsize'], vsize)
             assert_equal(tx_info['fees']['base'], utxo_to_spend['value'] - Decimal(send_value) / COIN)
         return {'txid': tx_info['txid'], 'wtxid': tx_info['wtxid'], 'hex': tx_hex, 'tx': tx}
 
