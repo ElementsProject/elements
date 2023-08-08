@@ -7,8 +7,8 @@
 #ifndef SECP256K1_MODULE_ECDSA_ADAPTOR_MAIN_H
 #define SECP256K1_MODULE_ECDSA_ADAPTOR_MAIN_H
 
-#include "include/secp256k1_ecdsa_adaptor.h"
-#include "modules/ecdsa_adaptor/dleq_impl.h"
+#include "../../../include/secp256k1_ecdsa_adaptor.h"
+#include "dleq_impl.h"
 
 /* (R, R', s', dleq_proof) */
 static int secp256k1_ecdsa_adaptor_sig_serialize(unsigned char *adaptor_sig162, secp256k1_ge *r, secp256k1_ge *rp, const secp256k1_scalar *sp, const secp256k1_scalar *dleq_proof_e, const secp256k1_scalar *dleq_proof_s) {
@@ -188,7 +188,7 @@ int secp256k1_ecdsa_adaptor_encrypt(const secp256k1_context* ctx, unsigned char 
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &rpj, &k);
     secp256k1_ge_set_gej(&rp, &rpj);
     /* R = k*Y; */
-    secp256k1_ecmult_const(&rj, &enckey_ge, &k, 256);
+    secp256k1_ecmult_const(&rj, &enckey_ge, &k);
     secp256k1_ge_set_gej(&r, &rj);
     /* We declassify the non-secret values rp and r to allow using them
      * as branch points. */

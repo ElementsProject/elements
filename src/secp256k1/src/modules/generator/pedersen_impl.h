@@ -4,18 +4,18 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php. *
  ***********************************************************************/
 
-#ifndef _SECP256K1_PEDERSEN_IMPL_H_
-#define _SECP256K1_PEDERSEN_IMPL_H_
+#ifndef SECP256K1_PEDERSEN_IMPL_H
+#define SECP256K1_PEDERSEN_IMPL_H
 
 #include <string.h>
 
-#include "eckey.h"
-#include "ecmult_const.h"
-#include "ecmult_gen.h"
-#include "group.h"
-#include "field.h"
-#include "scalar.h"
-#include "util.h"
+#include "../../eckey.h"
+#include "../../ecmult_const.h"
+#include "../../ecmult_gen.h"
+#include "../../group.h"
+#include "../../field.h"
+#include "../../scalar.h"
+#include "../../util.h"
 
 static void secp256k1_pedersen_scalar_set_u64(secp256k1_scalar *sec, uint64_t value) {
     unsigned char data[32];
@@ -34,7 +34,7 @@ static void secp256k1_pedersen_scalar_set_u64(secp256k1_scalar *sec, uint64_t va
 static void secp256k1_pedersen_ecmult_small(secp256k1_gej *r, uint64_t gn, const secp256k1_ge* genp) {
     secp256k1_scalar s;
     secp256k1_pedersen_scalar_set_u64(&s, gn);
-    secp256k1_ecmult_const(r, genp, &s, 64);
+    secp256k1_ecmult_const(r, genp, &s);
     secp256k1_scalar_clear(&s);
 }
 

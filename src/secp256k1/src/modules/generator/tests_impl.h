@@ -4,85 +4,73 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef SECP256K1_MODULE_GENERATOR_TESTS
-#define SECP256K1_MODULE_GENERATOR_TESTS
+#ifndef SECP256K1_MODULE_GENERATOR_TESTS_H
+#define SECP256K1_MODULE_GENERATOR_TESTS_H
 
 #include <string.h>
 #include <stdio.h>
 
-#include "group.h"
-#include "scalar.h"
-#include "testrand.h"
-#include "util.h"
+#include "../../group.h"
+#include "../../scalar.h"
+#include "../../testrand.h"
+#include "../../util.h"
 
-#include "include/secp256k1_generator.h"
+#include "../../../include/secp256k1_generator.h"
 
-void test_generator_api(void) {
+static void test_generator_api(void) {
     unsigned char key[32];
     unsigned char blind[32];
     unsigned char sergen[33];
-    secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
-    secp256k1_context *sign = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
-    secp256k1_context *vrfy = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
-    secp256k1_context *sttc = secp256k1_context_clone(secp256k1_context_no_precomp);
     secp256k1_generator gen;
     int32_t ecount = 0;
 
-    secp256k1_context_set_error_callback(none, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_error_callback(sign, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_error_callback(vrfy, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_error_callback(sttc, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(none, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(sign, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(vrfy, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(sttc, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(CTX, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(STATIC_CTX, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(CTX, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(STATIC_CTX, counting_illegal_callback_fn, &ecount);
     secp256k1_testrand256(key);
     secp256k1_testrand256(blind);
 
-    CHECK(secp256k1_generator_generate(none, &gen, key) == 1);
+    CHECK(secp256k1_generator_generate(CTX, &gen, key) == 1);
     CHECK(ecount == 0);
-    CHECK(secp256k1_generator_generate(none, NULL, key) == 0);
+    CHECK(secp256k1_generator_generate(CTX, NULL, key) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_generator_generate(none, &gen, NULL) == 0);
+    CHECK(secp256k1_generator_generate(CTX, &gen, NULL) == 0);
     CHECK(ecount == 2);
 
-    CHECK(secp256k1_generator_generate_blinded(sign, &gen, key, blind) == 1);
+    CHECK(secp256k1_generator_generate_blinded(CTX, &gen, key, blind) == 1);
     CHECK(ecount == 2);
-    CHECK(secp256k1_generator_generate_blinded(vrfy, &gen, key, blind) == 1);
-    CHECK(ecount == 2);
-    CHECK(secp256k1_generator_generate_blinded(none, &gen, key, blind) == 1);
-    CHECK(ecount == 2);
-    CHECK(secp256k1_generator_generate_blinded(sttc, &gen, key, blind) == 0);
+    CHECK(secp256k1_generator_generate_blinded(STATIC_CTX, &gen, key, blind) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_generator_generate_blinded(vrfy, NULL, key, blind) == 0);
+    CHECK(secp256k1_generator_generate_blinded(CTX, NULL, key, blind) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_generator_generate_blinded(vrfy, &gen, NULL, blind) == 0);
+    CHECK(secp256k1_generator_generate_blinded(CTX, &gen, NULL, blind) == 0);
     CHECK(ecount == 5);
-    CHECK(secp256k1_generator_generate_blinded(vrfy, &gen, key, NULL) == 0);
+    CHECK(secp256k1_generator_generate_blinded(CTX, &gen, key, NULL) == 0);
     CHECK(ecount == 6);
 
-    CHECK(secp256k1_generator_serialize(none, sergen, &gen) == 1);
+    CHECK(secp256k1_generator_serialize(CTX, sergen, &gen) == 1);
     CHECK(ecount == 6);
-    CHECK(secp256k1_generator_serialize(none, NULL, &gen) == 0);
+    CHECK(secp256k1_generator_serialize(CTX, NULL, &gen) == 0);
     CHECK(ecount == 7);
-    CHECK(secp256k1_generator_serialize(none, sergen, NULL) == 0);
+    CHECK(secp256k1_generator_serialize(CTX, sergen, NULL) == 0);
     CHECK(ecount == 8);
 
-    CHECK(secp256k1_generator_serialize(none, sergen, &gen) == 1);
-    CHECK(secp256k1_generator_parse(none, &gen, sergen) == 1);
+    CHECK(secp256k1_generator_serialize(CTX, sergen, &gen) == 1);
+    CHECK(secp256k1_generator_parse(CTX, &gen, sergen) == 1);
     CHECK(ecount == 8);
-    CHECK(secp256k1_generator_parse(none, NULL, sergen) == 0);
+    CHECK(secp256k1_generator_parse(CTX, NULL, sergen) == 0);
     CHECK(ecount == 9);
-    CHECK(secp256k1_generator_parse(none, &gen, NULL) == 0);
+    CHECK(secp256k1_generator_parse(CTX, &gen, NULL) == 0);
     CHECK(ecount == 10);
 
-    secp256k1_context_destroy(none);
-    secp256k1_context_destroy(sign);
-    secp256k1_context_destroy(vrfy);
-    secp256k1_context_destroy(sttc);
+    secp256k1_context_set_error_callback(CTX, NULL, NULL);
+    secp256k1_context_set_error_callback(STATIC_CTX, NULL, NULL);
+    secp256k1_context_set_illegal_callback(CTX, NULL, NULL);
+    secp256k1_context_set_illegal_callback(STATIC_CTX, NULL, NULL);
 }
 
-void test_shallue_van_de_woestijne(void) {
+static void test_shallue_van_de_woestijne(void) {
     /* Matches with the output of the shallue_van_de_woestijne.sage SAGE program */
     static const secp256k1_ge_storage results[32] = {
         SECP256K1_GE_STORAGE_CONST(0xedd1fd3e, 0x327ce90c, 0xc7a35426, 0x14289aee, 0x9682003e, 0x9cf7dcc9, 0xcf2ca974, 0x3be5aa0c, 0x0225f529, 0xee75acaf, 0xccfc4560, 0x26c5e46b, 0xf80237a3, 0x3924655a, 0x16f90e88, 0x085ed52a),
@@ -134,12 +122,12 @@ void test_shallue_van_de_woestijne(void) {
             shallue_van_de_woestijne(&ge, &fe);
             secp256k1_ge_to_storage(&ges, &ge);
 
-            CHECK(memcmp(&ges, &results[i * 2 + s - 2], sizeof(secp256k1_ge_storage)) == 0);
+            CHECK(secp256k1_memcmp_var(&ges, &results[i * 2 + s - 2], sizeof(secp256k1_ge_storage)) == 0);
         }
     }
 }
 
-void test_generator_generate(void) {
+static void test_generator_generate(void) {
     static const secp256k1_ge_storage results[32] = {
         SECP256K1_GE_STORAGE_CONST(0x806cd8ed, 0xd6c153e3, 0x4aa9b9a0, 0x8755c4be, 0x4718b1ef, 0xb26cb93f, 0xfdd99e1b, 0x21f2af8e, 0xc7062208, 0xcc649a03, 0x1bdc1a33, 0x9d01f115, 0x4bcd0dca, 0xfe0b875d, 0x62f35f73, 0x28673006),
         SECP256K1_GE_STORAGE_CONST(0xd91b15ec, 0x47a811f4, 0xaa189561, 0xd13f5c4d, 0x4e81f10d, 0xc7dc551f, 0x4fea9b84, 0x610314c4, 0x9b0ada1e, 0xb38efd67, 0x8bff0b6c, 0x7d7315f7, 0xb49b8cc5, 0xa679fad4, 0xc94f9dc6, 0x9da66382),
@@ -185,26 +173,26 @@ void test_generator_generate(void) {
     for (i = 1; i <= 32; i++) {
         memset(v, 0, 31);
         v[31] = i;
-        CHECK(secp256k1_generator_generate_blinded(ctx, &gen, v, s));
+        CHECK(secp256k1_generator_generate_blinded(CTX, &gen, v, s));
         secp256k1_generator_load(&ge, &gen);
         secp256k1_ge_to_storage(&ges, &ge);
-        CHECK(memcmp(&ges, &results[i - 1], sizeof(secp256k1_ge_storage)) == 0);
-        CHECK(secp256k1_generator_generate(ctx, &gen, v));
+        CHECK(secp256k1_memcmp_var(&ges, &results[i - 1], sizeof(secp256k1_ge_storage)) == 0);
+        CHECK(secp256k1_generator_generate(CTX, &gen, v));
         secp256k1_generator_load(&ge, &gen);
         secp256k1_ge_to_storage(&ges, &ge);
-        CHECK(memcmp(&ges, &results[i - 1], sizeof(secp256k1_ge_storage)) == 0);
+        CHECK(secp256k1_memcmp_var(&ges, &results[i - 1], sizeof(secp256k1_ge_storage)) == 0);
     }
 
     /* There is no range restriction on the value, but the blinder must be a
      * valid scalar. Check that an invalid blinder causes the call to fail
      * but not crash. */
     memset(v, 0xff, 32);
-    CHECK(secp256k1_generator_generate(ctx, &gen, v));
+    CHECK(secp256k1_generator_generate(CTX, &gen, v));
     memset(s, 0xff, 32);
-    CHECK(!secp256k1_generator_generate_blinded(ctx, &gen, v, s));
+    CHECK(!secp256k1_generator_generate_blinded(CTX, &gen, v, s));
 }
 
-void test_generator_fixed_vector(void) {
+static void test_generator_fixed_vector(void) {
     const unsigned char two_g[33] = {
         0x0b,
         0xc6, 0x04, 0x7f, 0x94, 0x41, 0xed, 0x7d, 0x6d, 0x30, 0x45, 0x40, 0x6e, 0x95, 0xc0, 0x7c, 0xd8,
@@ -213,21 +201,174 @@ void test_generator_fixed_vector(void) {
     unsigned char result[33];
     secp256k1_generator parse;
 
-    CHECK(secp256k1_generator_parse(ctx, &parse, two_g));
-    CHECK(secp256k1_generator_serialize(ctx, result, &parse));
-    CHECK(memcmp(two_g, result, 33) == 0);
+    CHECK(secp256k1_generator_parse(CTX, &parse, two_g));
+    CHECK(secp256k1_generator_serialize(CTX, result, &parse));
+    CHECK(secp256k1_memcmp_var(two_g, result, 33) == 0);
 
     result[0] = 0x0a;
-    CHECK(secp256k1_generator_parse(ctx, &parse, result));
+    CHECK(secp256k1_generator_parse(CTX, &parse, result));
     result[0] = 0x08;
-    CHECK(!secp256k1_generator_parse(ctx, &parse, result));
+    CHECK(!secp256k1_generator_parse(CTX, &parse, result));
 }
 
-void run_generator_tests(void) {
+static void test_pedersen_api(void) {
+    secp256k1_pedersen_commitment commit;
+    const secp256k1_pedersen_commitment *commit_ptr = &commit;
+    unsigned char blind[32];
+    unsigned char blind_out[32];
+    const unsigned char *blind_ptr = blind;
+    unsigned char *blind_out_ptr = blind_out;
+    uint64_t val = secp256k1_testrand32();
+    int32_t ecount = 0;
+
+    secp256k1_context_set_error_callback(CTX, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(STATIC_CTX, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(CTX, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(STATIC_CTX, counting_illegal_callback_fn, &ecount);
+
+    secp256k1_testrand256(blind);
+    CHECK(secp256k1_pedersen_commit(CTX, &commit, blind, val, secp256k1_generator_h) != 0);
+    CHECK(ecount == 0);
+    CHECK(secp256k1_pedersen_commit(STATIC_CTX, &commit, blind, val, secp256k1_generator_h) == 0);
+    CHECK(ecount == 1);
+
+    CHECK(secp256k1_pedersen_commit(CTX, NULL, blind, val, secp256k1_generator_h) == 0);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_pedersen_commit(CTX, &commit, NULL, val, secp256k1_generator_h) == 0);
+    CHECK(ecount == 3);
+    CHECK(secp256k1_pedersen_commit(CTX, &commit, blind, val, NULL) == 0);
+    CHECK(ecount == 4);
+
+    CHECK(secp256k1_pedersen_blind_sum(CTX, blind_out, &blind_ptr, 1, 1) != 0);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_pedersen_blind_sum(CTX, NULL, &blind_ptr, 1, 1) == 0);
+    CHECK(ecount == 5);
+    CHECK(secp256k1_pedersen_blind_sum(CTX, blind_out, NULL, 1, 1) == 0);
+    CHECK(ecount == 6);
+    CHECK(secp256k1_pedersen_blind_sum(CTX, blind_out, &blind_ptr, 0, 1) == 0);
+    CHECK(ecount == 7);
+    CHECK(secp256k1_pedersen_blind_sum(CTX, blind_out, &blind_ptr, 0, 0) != 0);
+    CHECK(ecount == 7);
+
+    CHECK(secp256k1_pedersen_commit(CTX, &commit, blind, val, secp256k1_generator_h) != 0);
+    CHECK(secp256k1_pedersen_verify_tally(CTX, &commit_ptr, 1, &commit_ptr, 1) != 0);
+    CHECK(secp256k1_pedersen_verify_tally(CTX, NULL, 0, &commit_ptr, 1) == 0);
+    CHECK(secp256k1_pedersen_verify_tally(CTX, &commit_ptr, 1, NULL, 0) == 0);
+    CHECK(secp256k1_pedersen_verify_tally(CTX, NULL, 0, NULL, 0) != 0);
+    CHECK(ecount == 7);
+    CHECK(secp256k1_pedersen_verify_tally(CTX, NULL, 1, &commit_ptr, 1) == 0);
+    CHECK(ecount == 8);
+    CHECK(secp256k1_pedersen_verify_tally(CTX, &commit_ptr, 1, NULL, 1) == 0);
+    CHECK(ecount == 9);
+
+    CHECK(secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, &blind_ptr, &blind_out_ptr, 1, 0) != 0);
+    CHECK(ecount == 9);
+    CHECK(secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, &blind_ptr, &blind_out_ptr, 1, 1) == 0);
+    CHECK(ecount == 10);
+    CHECK(secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, &blind_ptr, &blind_out_ptr, 0, 0) == 0);
+    CHECK(ecount == 11);
+    CHECK(secp256k1_pedersen_blind_generator_blind_sum(CTX, NULL, &blind_ptr, &blind_out_ptr, 1, 0) == 0);
+    CHECK(ecount == 12);
+    CHECK(secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, NULL, &blind_out_ptr, 1, 0) == 0);
+    CHECK(ecount == 13);
+    CHECK(secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, &blind_ptr, NULL, 1, 0) == 0);
+    CHECK(ecount == 14);
+
+    secp256k1_context_set_error_callback(CTX, NULL, NULL);
+    secp256k1_context_set_error_callback(STATIC_CTX, NULL, NULL);
+    secp256k1_context_set_illegal_callback(CTX, NULL, NULL);
+    secp256k1_context_set_illegal_callback(STATIC_CTX, NULL, NULL);
+}
+
+static void test_pedersen(void) {
+    secp256k1_pedersen_commitment commits[19];
+    const secp256k1_pedersen_commitment *cptr[19];
+    unsigned char blinds[32*19];
+    const unsigned char *bptr[19];
+    secp256k1_scalar s;
+    uint64_t values[19];
+    int64_t totalv;
+    int i;
+    int inputs;
+    int outputs;
+    int total;
+    inputs = (secp256k1_testrand32() & 7) + 1;
+    outputs = (secp256k1_testrand32() & 7) + 2;
+    total = inputs + outputs;
+    for (i = 0; i < 19; i++) {
+        cptr[i] = &commits[i];
+        bptr[i] = &blinds[i * 32];
+    }
+    totalv = 0;
+    for (i = 0; i < inputs; i++) {
+        values[i] = secp256k1_testrandi64(0, INT64_MAX - totalv);
+        totalv += values[i];
+    }
+    for (i = 0; i < outputs - 1; i++) {
+        values[i + inputs] = secp256k1_testrandi64(0, totalv);
+        totalv -= values[i + inputs];
+    }
+    values[total - 1] = totalv;
+
+    for (i = 0; i < total - 1; i++) {
+        random_scalar_order(&s);
+        secp256k1_scalar_get_b32(&blinds[i * 32], &s);
+    }
+    CHECK(secp256k1_pedersen_blind_sum(CTX, &blinds[(total - 1) * 32], bptr, total - 1, inputs));
+    for (i = 0; i < total; i++) {
+        CHECK(secp256k1_pedersen_commit(CTX, &commits[i], &blinds[i * 32], values[i], secp256k1_generator_h));
+    }
+    CHECK(secp256k1_pedersen_verify_tally(CTX, cptr, inputs, &cptr[inputs], outputs));
+    CHECK(secp256k1_pedersen_verify_tally(CTX, &cptr[inputs], outputs, cptr, inputs));
+    if (inputs > 0 && values[0] > 0) {
+        CHECK(!secp256k1_pedersen_verify_tally(CTX, cptr, inputs - 1, &cptr[inputs], outputs));
+    }
+    random_scalar_order(&s);
+    for (i = 0; i < 4; i++) {
+        secp256k1_scalar_get_b32(&blinds[i * 32], &s);
+    }
+    values[0] = INT64_MAX;
+    values[1] = 0;
+    values[2] = 1;
+    for (i = 0; i < 3; i++) {
+        CHECK(secp256k1_pedersen_commit(CTX, &commits[i], &blinds[i * 32], values[i], secp256k1_generator_h));
+    }
+    CHECK(secp256k1_pedersen_verify_tally(CTX, &cptr[0], 1, &cptr[0], 1));
+    CHECK(secp256k1_pedersen_verify_tally(CTX, &cptr[1], 1, &cptr[1], 1));
+}
+
+static void test_pedersen_commitment_fixed_vector(void) {
+    const unsigned char two_g[33] = {
+        0x09,
+        0xc6, 0x04, 0x7f, 0x94, 0x41, 0xed, 0x7d, 0x6d, 0x30, 0x45, 0x40, 0x6e, 0x95, 0xc0, 0x7c, 0xd8,
+        0x5c, 0x77, 0x8e, 0x4b, 0x8c, 0xef, 0x3c, 0xa7, 0xab, 0xac, 0x09, 0xb9, 0x5c, 0x70, 0x9e, 0xe5
+    };
+    unsigned char result[33];
+    secp256k1_pedersen_commitment parse;
+
+    CHECK(secp256k1_pedersen_commitment_parse(CTX, &parse, two_g));
+    CHECK(secp256k1_pedersen_commitment_serialize(CTX, result, &parse));
+    CHECK(secp256k1_memcmp_var(two_g, result, 33) == 0);
+
+    result[0] = 0x08;
+    CHECK(secp256k1_pedersen_commitment_parse(CTX, &parse, result));
+    result[0] = 0x0c;
+    CHECK(!secp256k1_pedersen_commitment_parse(CTX, &parse, result));
+}
+
+
+static void run_generator_tests(void) {
+    int i;
+
     test_shallue_van_de_woestijne();
     test_generator_fixed_vector();
     test_generator_api();
     test_generator_generate();
+    test_pedersen_api();
+    test_pedersen_commitment_fixed_vector();
+    for (i = 0; i < COUNT / 2 + 1; i++) {
+        test_pedersen();
+    }
 }
 
 #endif
