@@ -4,8 +4,8 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef _SECP256K1_WHITELIST_
-#define _SECP256K1_WHITELIST_
+#ifndef SECP256K1_WHITELIST_H
+#define SECP256K1_WHITELIST_H
 
 #include "secp256k1.h"
 
@@ -58,7 +58,7 @@ typedef struct {
  *  to fail validation for any set of keys.
  */
 SECP256K1_API int secp256k1_whitelist_signature_parse(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     secp256k1_whitelist_signature *sig,
     const unsigned char *input,
     size_t input_len
@@ -84,7 +84,7 @@ SECP256K1_API size_t secp256k1_whitelist_signature_n_keys(
  *  See secp256k1_whitelist_signature_parse for details about the encoding.
  */
 SECP256K1_API int secp256k1_whitelist_signature_serialize(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     unsigned char *output,
     size_t *output_len,
     const secp256k1_whitelist_signature *sig
@@ -93,7 +93,7 @@ SECP256K1_API int secp256k1_whitelist_signature_serialize(
 /** Compute a whitelist signature
  * Returns 1: signature was successfully created
  *         0: signature was not successfully created
- * In:     ctx: pointer to a context object, initialized for signing and verification
+ * In:     ctx: pointer to a context object (not secp256k1_context_static)
  *         online_pubkeys: list of all online pubkeys
  *         offline_pubkeys: list of all offline pubkeys
  *         n_keys: the number of entries in each of the above two arrays
@@ -111,7 +111,7 @@ SECP256K1_API int secp256k1_whitelist_signature_serialize(
  * compressed serialization of the key.
  */
 SECP256K1_API int secp256k1_whitelist_sign(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   secp256k1_whitelist_signature *sig,
   const secp256k1_pubkey *online_pubkeys,
   const secp256k1_pubkey *offline_pubkeys,
@@ -125,7 +125,7 @@ SECP256K1_API int secp256k1_whitelist_sign(
 /** Verify a whitelist signature
  * Returns 1: signature is valid
  *         0: signature is not valid
- * In:     ctx: pointer to a context object, initialized for signing and verification
+ * In:     ctx: pointer to a context object (not secp256k1_context_static)
  *         sig: the signature to be verified
  *         online_pubkeys: list of all online pubkeys
  *         offline_pubkeys: list of all offline pubkeys
@@ -133,7 +133,7 @@ SECP256K1_API int secp256k1_whitelist_sign(
  *         sub_pubkey: the key to be whitelisted
  */
 SECP256K1_API int secp256k1_whitelist_verify(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   const secp256k1_whitelist_signature *sig,
   const secp256k1_pubkey *online_pubkeys,
   const secp256k1_pubkey *offline_pubkeys,

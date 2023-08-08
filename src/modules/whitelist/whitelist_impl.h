@@ -4,8 +4,8 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef _SECP256K1_WHITELIST_IMPL_H_
-#define _SECP256K1_WHITELIST_IMPL_H_
+#ifndef SECP256K1_WHITELIST_IMPL_H
+#define SECP256K1_WHITELIST_IMPL_H
 
 static int secp256k1_whitelist_hash_pubkey(secp256k1_scalar* output, secp256k1_gej* pubkey) {
     unsigned char h[32];

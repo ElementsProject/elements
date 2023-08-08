@@ -4,8 +4,8 @@
  * file COPYING or https://www.opensource.org/licenses/mit-license.php.*
  ***********************************************************************/
 
-#ifndef SECP256K1_HSORT_H_
-#define SECP256K1_HSORT_H_
+#ifndef SECP256K1_HSORT_H
+#define SECP256K1_HSORT_H
 
 #include <stddef.h>
 #include <string.h>
