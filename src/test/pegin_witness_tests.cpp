@@ -117,7 +117,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
 
     CAmountMap fee_map;
 
-    std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
+    std::set<std::pair<uint256, COutPoint>> setPeginsSpent;
     TxValidationState state;
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
@@ -150,4 +150,3 @@ BOOST_AUTO_TEST_CASE(witness_valid)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-
