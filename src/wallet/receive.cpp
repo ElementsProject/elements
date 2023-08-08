@@ -113,27 +113,12 @@ bool ScriptIsChange(const CWallet& wallet, const CScript& script)
     return false;
 }
 
-CAmountMap OutputGetChange(const CWallet& wallet, const CTxOut& txout)
-{
-    AssertLockHeld(wallet.cs_wallet);
-
-    CAmountMap change;
-    change[txout.nAsset.GetAsset()] = txout.nValue.GetAmount();
-    if (!MoneyRange(change))
-        throw std::runtime_error(std::string(__func__) + ": value out of range");
-    return (OutputIsChange(wallet, txout) ? change : CAmountMap());
-}
-
-CAmountMap TxGetChange(const CWallet& wallet, const CTransaction& tx)
+CAmountMap TxGetChange(const CWallet& wallet, const CWalletTx& wtx)
 {
     LOCK(wallet.cs_wallet);
-    CAmountMap nChange;
-    for (const CTxOut& txout : tx.vout)
-    {
-        nChange += OutputGetChange(wallet, txout);
-        if (!MoneyRange(nChange))
-            throw std::runtime_error(std::string(__func__) + ": value out of range");
-    }
+    CAmountMap nChange = GetChange(wallet, wtx);
+    if (!MoneyRange(nChange))
+        throw std::runtime_error(std::string(__func__) + ": value out of range");
     return nChange;
 }
 
@@ -203,7 +188,7 @@ CAmountMap CachedTxGetChange(const CWallet& wallet, const CWalletTx& wtx)
 {
     if (wtx.fChangeCached)
         return wtx.nChangeCached;
-    wtx.nChangeCached = TxGetChange(wallet, *wtx.tx);
+    wtx.nChangeCached = TxGetChange(wallet, wtx);
     wtx.fChangeCached = true;
     return wtx.nChangeCached;
 }
