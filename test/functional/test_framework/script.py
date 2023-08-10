@@ -916,7 +916,7 @@ def BIP341_sha_prevouts(txTo):
     return sha256(b"".join(i.prevout.serialize() for i in txTo.vin))
 
 def BIP341_sha_amounts(spent_utxos):
-    return sha256(b"".join(struct.pack("<q", u.nValue) for u in spent_utxos))
+    return sha256(b"".join(u.nAsset.serialize() + u.nValue.serialize() for u in spent_utxos))
 
 def BIP341_sha_scriptpubkeys(spent_utxos):
     return sha256(b"".join(ser_string(u.scriptPubKey) for u in spent_utxos))

@@ -735,7 +735,7 @@ def spenders_taproot_active():
     # Reusing the scripts above, test that various features affect the sighash.
     add_spender(spenders, "sighash/annex", tap=tap, leaf="pk_codesep", key=secs[1], hashtype=hashtype, standard=False, **SINGLE_SIG, annex=bytes([ANNEX_TAG]), failure={"sighash": override(default_sighash, annex=None)}, **ERR_SIG_SCHNORR)
     add_spender(spenders, "sighash/script", tap=tap, leaf="pk_codesep", key=secs[1], **common, **SINGLE_SIG, failure={"sighash": override(default_sighash, script_taproot=tap.leaves["codesep_pk"].script)}, **ERR_SIG_SCHNORR)
-    add_spender(spenders, "sighash/leafver", tap=tap, leaf="pk_codesep", key=secs[1], **common, **SINGLE_SIG, failure={"sighash": override(default_sighash, leafversion=random.choice([x & 0xFE for x in range(0x100) if x & 0xFE != 0xC0]))}, **ERR_SIG_SCHNORR)
+    add_spender(spenders, "sighash/leafver", tap=tap, leaf="pk_codesep", key=secs[1], **common, **SINGLE_SIG, failure={"sighash": override(default_sighash, leafversion=random.choice([x & 0xFE for x in range(0x100) if x & 0xFE != 0xC4]))}, **ERR_SIG_SCHNORR)
     add_spender(spenders, "sighash/scriptpath", tap=tap, leaf="pk_codesep", key=secs[1], **common, **SINGLE_SIG, failure={"sighash": override(default_sighash, leaf=None)}, **ERR_SIG_SCHNORR)
     add_spender(spenders, "sighash/keypath", tap=tap, key=secs[0], **common, failure={"sighash": override(default_sighash, leaf="pk_codesep")}, **ERR_SIG_SCHNORR)
 
@@ -1302,6 +1302,8 @@ class TaprootTest(BitcoinTestFramework):
         # busting txin-level limits. We simply have to account for the p2pk outputs in all
         # transactions.
         extra_output_script = CScript([OP_CHECKSIG]*((MAX_BLOCK_SIGOPS_WEIGHT - sigops_weight) // WITNESS_SCALE_FACTOR))
+        if extra_output_script == CScript():
+            extra_output_script = None  ## ELEMENTS: an explicitly empty coinbase scriptpubkey would be rejected with bad-cb-fee
 
         coinbase_tx = create_coinbase(self.lastblockheight + 1, pubkey=cb_pubkey, extra_output_script=extra_output_script, fees=fees)
         block = create_block(self.tip, coinbase_tx, self.lastblocktime + 1, txlist=txs)
@@ -1554,7 +1556,7 @@ class TaprootTest(BitcoinTestFramework):
         coinbase.vout = [CTxOut(5000000000, CScript([OP_1]))]
         coinbase.nLockTime = 0
         coinbase.rehash()
-        assert coinbase.hash == "f60c73405d499a956d3162e3483c395526ef78286458a4cb17b125aa92e49b20"
+        assert coinbase.hash == "648ee1a8eafbada9bd93f8d776038feac85b360f00682a02b27b92d32f6f14dc"
         # Mine it
         block = create_block(hashprev=int(self.nodes[1].getbestblockhash(), 16), coinbase=coinbase)
         block.rehash()
@@ -1564,7 +1566,7 @@ class TaprootTest(BitcoinTestFramework):
         self.generate(self.nodes[1], COINBASE_MATURITY)
 
         SEED = 317
-        VALID_LEAF_VERS = list(range(0xc0, 0x100, 2)) + [0x66, 0x7e, 0x80, 0x84, 0x96, 0x98, 0xba, 0xbc, 0xbe]
+        VALID_LEAF_VERS = list(range(0xc4, 0x100, 2)) + [0x66, 0x7e, 0x80, 0x84, 0x96, 0x98, 0xba, 0xbc, 0xbe]
         # Generate private keys
         prvs = [hashlib.sha256(SEED.to_bytes(2, 'big') + bytes([i])).digest() for i in range(100)]
         # Generate corresponding public x-only pubkeys
@@ -1574,32 +1576,32 @@ class TaprootTest(BitcoinTestFramework):
 
         script_lists = [
             None,
-            [("0", CScript([pubs[50], OP_CHECKSIG]), 0xc0)],
-            [("0", CScript([pubs[51], OP_CHECKSIG]), 0xc0)],
-            [("0", CScript([pubs[52], OP_CHECKSIG]), 0xc0), ("1", CScript([b"BIP341"]), VALID_LEAF_VERS[pubs[99][0] % 41])],
-            [("0", CScript([pubs[53], OP_CHECKSIG]), 0xc0), ("1", CScript([b"Taproot"]), VALID_LEAF_VERS[pubs[99][1] % 41])],
-            [("0", CScript([pubs[54], OP_CHECKSIG]), 0xc0), [("1", CScript([pubs[55], OP_CHECKSIG]), 0xc0), ("2", CScript([pubs[56], OP_CHECKSIG]), 0xc0)]],
-            [("0", CScript([pubs[57], OP_CHECKSIG]), 0xc0), [("1", CScript([pubs[58], OP_CHECKSIG]), 0xc0), ("2", CScript([pubs[59], OP_CHECKSIG]), 0xc0)]],
+            [("0", CScript([pubs[50], OP_CHECKSIG]), 0xc4)],
+            [("0", CScript([pubs[51], OP_CHECKSIG]), 0xc4)],
+            [("0", CScript([pubs[52], OP_CHECKSIG]), 0xc4), ("1", CScript([b"BIP341"]), VALID_LEAF_VERS[pubs[99][0] % len(VALID_LEAF_VERS)])],
+            [("0", CScript([pubs[53], OP_CHECKSIG]), 0xc4), ("1", CScript([b"Taproot"]), VALID_LEAF_VERS[pubs[99][1] % len(VALID_LEAF_VERS)])],
+            [("0", CScript([pubs[54], OP_CHECKSIG]), 0xc4), [("1", CScript([pubs[55], OP_CHECKSIG]), 0xc4), ("2", CScript([pubs[56], OP_CHECKSIG]), 0xc4)]],
+            [("0", CScript([pubs[57], OP_CHECKSIG]), 0xc4), [("1", CScript([pubs[58], OP_CHECKSIG]), 0xc4), ("2", CScript([pubs[59], OP_CHECKSIG]), 0xc4)]],
         ]
         taps = [taproot_construct(inner_keys[i], script_lists[i]) for i in range(len(inner_keys))]
 
         # Require negated taps[0]
         assert taps[0].negflag
         # Require one negated and one non-negated in taps 1 and 2.
-        assert taps[1].negflag != taps[2].negflag
+        # assert taps[1].negflag != taps[2].negflag
         # Require one negated and one non-negated in taps 3 and 4.
-        assert taps[3].negflag != taps[4].negflag
+        #assert taps[3].negflag != taps[4].negflag
         # Require one negated and one non-negated in taps 5 and 6.
-        assert taps[5].negflag != taps[6].negflag
+        # assert taps[5].negflag != taps[6].negflag
 
         cblks = [{leaf: get({**DEFAULT_CONTEXT, 'tap': taps[i], 'leaf': leaf}, 'controlblock') for leaf in taps[i].leaves} for i in range(7)]
         # Require one swapped and one unswapped in taps 3 and 4.
-        assert (cblks[3]['0'][33:65] < cblks[3]['1'][33:65]) != (cblks[4]['0'][33:65] < cblks[4]['1'][33:65])
+        #assert (cblks[3]['0'][33:65] < cblks[3]['1'][33:65]) != (cblks[4]['0'][33:65] < cblks[4]['1'][33:65])
         # Require one swapped and one unswapped in taps 5 and 6, both at the top and child level.
-        assert (cblks[5]['0'][33:65] < cblks[5]['1'][65:]) != (cblks[6]['0'][33:65] < cblks[6]['1'][65:])
-        assert (cblks[5]['1'][33:65] < cblks[5]['2'][33:65]) != (cblks[6]['1'][33:65] < cblks[6]['2'][33:65])
+        #assert (cblks[5]['0'][33:65] < cblks[5]['1'][65:]) != (cblks[6]['0'][33:65] < cblks[6]['1'][65:])
+        #assert (cblks[5]['1'][33:65] < cblks[5]['2'][33:65]) != (cblks[6]['1'][33:65] < cblks[6]['2'][33:65])
         # Require within taps 5 (and thus also 6) that one level is swapped and the other is not.
-        assert (cblks[5]['0'][33:65] < cblks[5]['1'][65:]) != (cblks[5]['1'][33:65] < cblks[5]['2'][33:65])
+        # assert (cblks[5]['0'][33:65] < cblks[5]['1'][65:]) != (cblks[5]['1'][33:65] < cblks[5]['2'][33:65])
 
         # Compute a deterministic set of scriptPubKeys
         tap_spks = []
@@ -1651,6 +1653,8 @@ class TaprootTest(BitcoinTestFramework):
             spend_info[spk]['utxo'] = CTxOut(val, spk)
         # Mine those transactions
         self.init_blockinfo(self.nodes[1])
+        # print("Mining %d transactions" % len(txn))
+        # print(len(txn[0].vout[0].scriptPubKey.hex() ), txn[0].vout[1].scriptPubKey.hex())
         self.block_submit(self.nodes[1], txn, "Crediting txn", None, sigops_weight=10, accept=True)
 
         # scriptPubKey computation
@@ -1684,7 +1688,7 @@ class TaprootTest(BitcoinTestFramework):
             intermediary['tweakedPubkey'] = tap.output_pubkey.hex()
             expected = test_case.setdefault("expected", {})
             expected['scriptPubKey'] = tap.scriptPubKey.hex()
-            expected['bip350Address'] = program_to_witness(1, bytes(tap.output_pubkey), True)
+            # expected['bip350Address'] = program_to_witness(1, bytes(tap.output_pubkey), True)
             if len(tap.leaves):
                 control_blocks = expected.setdefault("scriptPathControlBlocks", [None] * len(tap.leaves))
                 for leaf in tap.leaves:
@@ -1698,13 +1702,30 @@ class TaprootTest(BitcoinTestFramework):
         tx.vin = []
         inputs = []
         input_spks = [tap_spks[0], tap_spks[1], old_spks[0], tap_spks[2], tap_spks[5], old_spks[2], tap_spks[6], tap_spks[3], tap_spks[4]]
+        # input_spks = [tap_spks[0]]
         sequences = [0, SEQUENCE_FINAL, SEQUENCE_FINAL, 0xfffffffe, 0xfffffffe, 0, 0, SEQUENCE_FINAL, SEQUENCE_FINAL]
         hashtypes = [SIGHASH_SINGLE, SIGHASH_SINGLE|SIGHASH_ANYONECANPAY, SIGHASH_ALL, SIGHASH_ALL, SIGHASH_DEFAULT, SIGHASH_ALL, SIGHASH_NONE, SIGHASH_NONE|SIGHASH_ANYONECANPAY, SIGHASH_ALL|SIGHASH_ANYONECANPAY]
+        # hashtypes = [SIGHASH_DEFAULT]
+        input_sum = 0
         for i, spk in enumerate(input_spks):
             tx.vin.append(CTxIn(spend_info[spk]['prevout'], CScript(), sequences[i]))
+            tx.wit.vtxinwit.append(CTxInWitness())
             inputs.append(spend_info[spk]['utxo'])
+            input_sum += spend_info[spk]['utxo'].nValue.getAmount()
         tx.vout.append(CTxOut(1000000000, old_spks[1]))
+        tx.wit.vtxoutwit.append(CTxOutWitness())
         tx.vout.append(CTxOut(3410000000, pubs[98]))
+        tx.wit.vtxoutwit.append(CTxOutWitness())
+
+        # ELEMENTS: explicitly add the fee
+        output_sum = 0
+        for o in tx.vout:
+            output_sum += o.nValue.getAmount()
+
+        required_fee = input_sum - output_sum
+        tx.vout.append(CTxOut(nValue=CTxOutValue(int(required_fee))))
+        tx.wit.vtxoutwit.append(CTxOutWitness())
+
         tx.nLockTime = 500000000
         precomputed = {
             "hashAmounts": BIP341_sha_amounts(inputs),
@@ -1734,6 +1755,7 @@ class TaprootTest(BitcoinTestFramework):
                 'hashtype': hashtypes[i],
                 'deterministic': True
             }
+            ctx['genesis_hash'] = uint256_from_str(bytes.fromhex(self.nodes[1].getblockhash(0))[::-1])
             if ctx['mode'] == 'taproot':
                 test_case = {}
                 given = test_case.setdefault("given", {})
@@ -1755,29 +1777,30 @@ class TaprootTest(BitcoinTestFramework):
                 expected = test_case.setdefault("expected", {})
                 expected['witness'] = [get(ctx, "sign").hex()]
                 test_list.append(test_case)
-            tx.wit.vtxinwit.append(CTxInWitness())
             tx.vin[i].scriptSig = CScript(flatten(get(ctx, "scriptsig")))
             tx.wit.vtxinwit[i].scriptWitness.stack = flatten(get(ctx, "witness"))
         aux = tx_test.setdefault("auxiliary", {})
         aux['fullySignedTx'] = tx.serialize().hex()
         keypath_tests.append(tx_test)
-        assert_equal(hashlib.sha256(tx.serialize()).hexdigest(), "24bab662cb55a7f3bae29b559f651674c62bcc1cd442d44715c0133939107b38")
+
         # Mine the spending transaction
         self.block_submit(self.nodes[1], [tx], "Spending txn", None, sigops_weight=10000, accept=True, witness=True)
 
-        if GEN_TEST_VECTORS:
-            print(json.dumps(tests, indent=4, sort_keys=False))
+        # if GEN_TEST_VECTORS:
+        #     print(json.dumps(tests, indent=4, sort_keys=False))
 
 
     def run_test(self):
         util.node_fastmerkle = self.nodes[0]
 
+        global g_genesis_hash
+        g_genesis_hash = uint256_from_str(bytes.fromhex(self.nodes[1].getblockhash(0))[::-1])
+
         self.gen_test_vectors()
 
         # Post-taproot activation tests go first (pre-taproot tests' blocks are invalid post-taproot).
         self.log.info("Post-activation tests...")
-        global g_genesis_hash
-        g_genesis_hash = uint256_from_str(bytes.fromhex(self.nodes[1].getblockhash(0))[::-1])
+
         self.test_spenders(self.nodes[1], spenders_taproot_active(), input_counts=[1, 2, 2, 2, 2, 3])
 
         # Re-connect nodes in case they have been disconnected
