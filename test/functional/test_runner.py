@@ -110,6 +110,7 @@ BASE_SCRIPTS = [
     'feature_progress.py',
     'rpc_getnewblockhex.py',
     'wallet_elements_regression_1172.py',
+    'wallet_elements_regression_1259.py',
     # Longest test should go first, to favor running tests in parallel
     'wallet_hd.py --legacy-wallet',
     'wallet_hd.py --descriptors',
