@@ -10,6 +10,7 @@
 #include "../../../include/secp256k1.h"
 #include "../../../include/secp256k1_extrakeys.h"
 #include "hsort_impl.h"
+#include "../../util.h"
 
 static SECP256K1_INLINE int secp256k1_xonly_pubkey_load(const secp256k1_context* ctx, secp256k1_ge *ge, const secp256k1_xonly_pubkey *pubkey) {
     return secp256k1_pubkey_load(ctx, ge, (const secp256k1_pubkey *) pubkey);
@@ -28,7 +29,7 @@ int secp256k1_xonly_pubkey_parse(const secp256k1_context* ctx, secp256k1_xonly_p
     memset(pubkey, 0, sizeof(*pubkey));
     ARG_CHECK(input32 != NULL);
 
-    if (!secp256k1_fe_set_b32(&x, input32)) {
+    if (!secp256k1_fe_set_b32_limit(&x, input32)) {
         return 0;
     }
     if (!secp256k1_ge_set_xo_var(&pk, &x, 0)) {
@@ -151,28 +152,6 @@ int secp256k1_xonly_pubkey_tweak_add_check(const secp256k1_context* ctx, const u
 
     return secp256k1_memcmp_var(&pk_expected32, tweaked_pubkey32, 32) == 0
             && secp256k1_fe_is_odd(&pk.y) == tweaked_pk_parity;
-}
-
-/* This struct wraps a const context pointer to satisfy the secp256k1_hsort api
- * which expects a non-const cmp_data pointer. */
-typedef struct {
-    const secp256k1_context *ctx;
-} secp256k1_xonly_sort_cmp_data;
-
-static int secp256k1_xonly_sort_cmp(const void* pk1, const void* pk2, void *cmp_data) {
-    return secp256k1_xonly_pubkey_cmp(((secp256k1_xonly_sort_cmp_data*)cmp_data)->ctx,
-                                      *(secp256k1_xonly_pubkey **)pk1,
-                                      *(secp256k1_xonly_pubkey **)pk2);
-}
-
-int secp256k1_xonly_sort(const secp256k1_context* ctx, const secp256k1_xonly_pubkey **pubkeys, size_t n_pubkeys) {
-    secp256k1_xonly_sort_cmp_data cmp_data;
-    VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(pubkeys != NULL);
-
-    cmp_data.ctx = ctx;
-    secp256k1_hsort(pubkeys, n_pubkeys, sizeof(*pubkeys), secp256k1_xonly_sort_cmp, &cmp_data);
-    return 1;
 }
 
 static void secp256k1_keypair_save(secp256k1_keypair *keypair, const secp256k1_scalar *sk, secp256k1_ge *pk) {
@@ -302,6 +281,67 @@ int secp256k1_keypair_xonly_tweak_add(const secp256k1_context* ctx, secp256k1_ke
 
     secp256k1_scalar_clear(&sk);
     return ret;
+}
+
+int secp256k1_pubkey_cmp(const secp256k1_context* ctx, const secp256k1_pubkey* pk0, const secp256k1_pubkey* pk1) {
+    unsigned char out[2][33];
+    const secp256k1_pubkey* pk[2];
+    int i;
+
+    VERIFY_CHECK(ctx != NULL);
+    pk[0] = pk0; pk[1] = pk1;
+    for (i = 0; i < 2; i++) {
+        size_t outputlen = sizeof(out[i]);
+        /* If the public key is NULL or invalid, pubkey_serialize will
+         * call the illegal_callback and return 0. In that case we will
+         * serialize the key as all zeros which is less than any valid public
+         * key. This results in consistent comparisons even if NULL or invalid
+         * pubkeys are involved and prevents edge cases such as sorting
+         * algorithms that use this function and do not terminate as a
+         * result. */
+        if (!secp256k1_ec_pubkey_serialize(ctx, out[i], &outputlen, pk[i], SECP256K1_EC_COMPRESSED)) {
+            /* Note that pubkey_serialize should already set the output to
+             * zero in that case, but it's not guaranteed by the API, we can't
+             * test it and writing a VERIFY_CHECK is more complex than
+             * explicitly memsetting (again). */
+            memset(out[i], 0, sizeof(out[i]));
+        }
+    }
+    return secp256k1_memcmp_var(out[0], out[1], sizeof(out[1]));
+}
+
+/* This struct wraps a const context pointer to satisfy the secp256k1_hsort api
+ * which expects a non-const cmp_data pointer. */
+typedef struct {
+    const secp256k1_context *ctx;
+} secp256k1_pubkey_sort_cmp_data;
+
+static int secp256k1_pubkey_sort_cmp(const void* pk1, const void* pk2, void *cmp_data) {
+    return secp256k1_pubkey_cmp(((secp256k1_pubkey_sort_cmp_data*)cmp_data)->ctx,
+                                  *(secp256k1_pubkey **)pk1,
+                                  *(secp256k1_pubkey **)pk2);
+}
+
+int secp256k1_pubkey_sort(const secp256k1_context* ctx, const secp256k1_pubkey **pubkeys, size_t n_pubkeys) {
+    secp256k1_pubkey_sort_cmp_data cmp_data;
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(pubkeys != NULL);
+
+    cmp_data.ctx = ctx;
+
+    /* Suppress wrong warning (fixed in MSVC 19.33) */
+    #if defined(_MSC_VER) && (_MSC_VER < 1933)
+    #pragma warning(push)
+    #pragma warning(disable: 4090)
+    #endif
+
+    secp256k1_hsort(pubkeys, n_pubkeys, sizeof(*pubkeys), secp256k1_pubkey_sort_cmp, &cmp_data);
+
+    #if defined(_MSC_VER) && (_MSC_VER < 1933)
+    #pragma warning(pop)
+    #endif
+
+    return 1;
 }
 
 #endif

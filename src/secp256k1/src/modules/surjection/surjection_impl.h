@@ -4,16 +4,16 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef _SECP256K1_SURJECTION_IMPL_H_
-#define _SECP256K1_SURJECTION_IMPL_H_
+#ifndef SECP256K1_SURJECTION_IMPL_H
+#define SECP256K1_SURJECTION_IMPL_H
 
 #include <assert.h>
 #include <string.h>
 
-#include "eckey.h"
-#include "group.h"
-#include "scalar.h"
-#include "hash.h"
+#include "../../eckey.h"
+#include "../../group.h"
+#include "../../scalar.h"
+#include "../../hash.h"
 
 SECP256K1_INLINE static void secp256k1_surjection_genmessage(unsigned char *msg32, const secp256k1_generator *ephemeral_input_tags, size_t n_input_tags, const secp256k1_generator *ephemeral_output_tag) {
     /* compute message */

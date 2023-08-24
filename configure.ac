@@ -669,6 +669,7 @@ case $host in
        AC_MSG_ERROR("windres not found")
      fi
 
+     CPPFLAGS="$CPPFLAGS -DSECP256K1_STATIC"
      CPPFLAGS="$CPPFLAGS -D_MT -DWIN32 -D_WINDOWS -D_WIN32_WINNT=0x0601 -D_WIN32_IE=0x0501 -DWIN32_LEAN_AND_MEAN"
 
      dnl libtool insists upon adding -nostdlib and a list of objects/libs to link against.
