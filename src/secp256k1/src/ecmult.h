@@ -11,7 +11,18 @@
 #include "scalar.h"
 #include "scratch.h"
 
-/* Noone will ever need more than a window size of 24. The code might
+#ifndef ECMULT_WINDOW_SIZE
+#  define ECMULT_WINDOW_SIZE 15
+#  ifdef DEBUG_CONFIG
+#     pragma message DEBUG_CONFIG_MSG("ECMULT_WINDOW_SIZE undefined, assuming default value")
+#  endif
+#endif
+
+#ifdef DEBUG_CONFIG
+#  pragma message DEBUG_CONFIG_DEF(ECMULT_WINDOW_SIZE)
+#endif
+
+/* No one will ever need more than a window size of 24. The code might
  * be correct for larger values of ECMULT_WINDOW_SIZE but this is not
  * tested.
  *

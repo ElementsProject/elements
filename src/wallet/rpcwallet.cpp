@@ -294,7 +294,9 @@ static RPCHelpMan getnewaddress()
         label = LabelFromValue(request.params[0]);
 
     OutputType output_type = pwallet->m_default_address_type;
-    bool force_blind = false;
+    // default blinding to the blindedaddresses setting
+    bool add_blinding_key = gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode);
+
     if (!request.params[1].isNull()) {
         if (!ParseOutputType(request.params[1].get_str(), output_type)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[1].get_str()));
@@ -302,15 +304,17 @@ static RPCHelpMan getnewaddress()
         if (output_type == OutputType::BECH32M && pwallet->GetLegacyScriptPubKeyMan()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Legacy wallets cannot provide bech32m addresses");
         }
-        // Special case for "blech32" when `-blindedaddresses=0` in the config.
         if (request.params[1].get_str() == "blech32") {
-            force_blind = true;
+            // always blind for "blech32" even if `-blindedaddresses=0` in the config.
+            add_blinding_key = true;
+        } else if (request.params[1].get_str() == "bech32") {
+            // never blind for "bech32"
+            add_blinding_key = false;
         }
     }
 
     CTxDestination dest;
     std::string error;
-    bool add_blinding_key = force_blind || gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode);
     if (!pwallet->GetNewDestination(output_type, label, dest, error, add_blinding_key)) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
     }

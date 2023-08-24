@@ -7,6 +7,7 @@
 #include <QStringList>
 
 #include <cassert>
+#include <util/system.h>
 
 static constexpr auto MAX_DIGITS_BTC = 16;
 
@@ -42,6 +43,19 @@ bool BitcoinUnits::valid(int unit)
 
 QString BitcoinUnits::longName(int unit)
 {
+    const std::string default_asset_name = gArgs.GetArg("-defaultpeggedassetname", "");
+    if (default_asset_name != "") {
+        std::string rv;
+        switch(unit)
+        {
+        case BTC: rv=default_asset_name;break;
+        case mBTC: rv=std::string("m-")+default_asset_name;break;
+        case uBTC: rv=std::string("μ-")+default_asset_name;break;
+        case SAT: rv=std::string("sat-")+default_asset_name;break;
+        default: rv="???";break;
+        }
+        return QString::fromUtf8(rv.c_str());
+    }
     switch(unit)
     {
     case BTC: return QString("L-BTC");
@@ -54,6 +68,9 @@ QString BitcoinUnits::longName(int unit)
 
 QString BitcoinUnits::shortName(int unit)
 {
+    if (gArgs.GetArg("-defaultpeggedassetname", "") != "") {
+        return longName(unit);
+    }
     switch(unit)
     {
     case uBTC: return QString::fromUtf8("L-bits");
