@@ -7,8 +7,8 @@
 #ifndef SECP256K1_MODULE_ECDSA_S2C_MAIN_H
 #define SECP256K1_MODULE_ECDSA_S2C_MAIN_H
 
-#include "include/secp256k1.h"
-#include "include/secp256k1_ecdsa_s2c.h"
+#include "../../../include/secp256k1.h"
+#include "../../../include/secp256k1_ecdsa_s2c.h"
 
 static void secp256k1_ecdsa_s2c_opening_save(secp256k1_ecdsa_s2c_opening* opening, secp256k1_ge* ge) {
     secp256k1_pubkey_save((secp256k1_pubkey*) opening, ge);

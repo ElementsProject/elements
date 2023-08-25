@@ -2023,7 +2023,7 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, const Peer& peer,
             if ((nodestate->pindexBestKnownBlock == nullptr) ||
                 (nodestate->pindexBestKnownBlock->nHeight < m_chainman.ActiveHeight())) {
                 // Our notion of what blocks a peer has available is based on its pindexBestKnownBlock,
-                // which is based on headers recieved from it. If we don't have one, or it's too old,
+                // which is based on headers received from it. If we don't have one, or it's too old,
                 // then we can never get blocks from this peer until we accept headers from it first.
                 LogPrint(BCLog::NET, "NOT discarding headers from peer=%d, to update its block availability. (current best header %d, active chain height %d)\n", pfrom.GetId(), pindexBestHeader->nHeight, m_chainman.ActiveHeight());
             } else {

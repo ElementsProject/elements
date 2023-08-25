@@ -1172,7 +1172,7 @@ PackageMempoolAcceptResult MemPoolAccept::AcceptMultipleTransactions(const std::
     }
 
     for (Workspace& ws : workspaces) {
-        PrecomputedTransactionData txdata;
+        PrecomputedTransactionData txdata(args.m_chainparams.HashGenesisBlock());
         if (!PolicyScriptChecks(args, ws, txdata)) {
             // Exit early to avoid doing pointless work. Update the failed tx result; the rest are unfinished.
             package_state.Invalid(PackageValidationResult::PCKG_TX, "transaction failed");

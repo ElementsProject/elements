@@ -5,12 +5,13 @@
  **********************************************************************/
 #include <stdio.h>
 
-#include "include/secp256k1.h"
+#include "../include/secp256k1.h"
 
-#include "include/secp256k1_whitelist.h"
+#include "../include/secp256k1_whitelist.h"
 #include "util.h"
 #include "bench.h"
 #include "hash_impl.h"
+#include "int128_impl.h"
 #include "scalar_impl.h"
 #include "testrand_impl.h"
 
@@ -48,7 +49,7 @@ static void run_test(bench_data* data, int iters) {
     run_benchmark(str, bench_whitelist, bench_whitelist_setup, NULL, data, 100, iters);
 }
 
-void random_scalar_order(secp256k1_scalar *num) {
+static void random_scalar_order(secp256k1_scalar *num) {
     do {
         unsigned char b32[32];
         int overflow = 0;
@@ -68,7 +69,7 @@ int main(void) {
     secp256k1_scalar ssub;
     int iters = get_iters(5);
 
-    data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
 
     /* Start with subkey */
     random_scalar_order(&ssub);

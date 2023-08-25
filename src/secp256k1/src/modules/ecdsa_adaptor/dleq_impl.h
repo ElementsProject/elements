@@ -81,7 +81,7 @@ static void secp256k1_dleq_pair(const secp256k1_ecmult_gen_context *ecmult_gen_c
 
     secp256k1_ecmult_gen(ecmult_gen_ctx, &p1j, sk);
     secp256k1_ge_set_gej(p1, &p1j);
-    secp256k1_ecmult_const(&p2j, gen2, sk, 256);
+    secp256k1_ecmult_const(&p2j, gen2, sk);
     secp256k1_ge_set_gej(p2, &p2j);
 }
 

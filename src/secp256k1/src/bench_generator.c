@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "include/secp256k1_generator.h"
+#include "../include/secp256k1_generator.h"
 #include "util.h"
 #include "bench.h"
 
@@ -50,7 +50,7 @@ int main(void) {
     bench_generator_t data;
     int iters = get_iters(20000);
 
-    data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
 
     run_benchmark("generator_generate", bench_generator_generate, bench_generator_setup, NULL, &data, 10, iters);
     run_benchmark("generator_generate_blinded", bench_generator_generate_blinded, bench_generator_setup, NULL, &data, 10, iters);
