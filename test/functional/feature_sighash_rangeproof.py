@@ -129,7 +129,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
                 struct.pack("<B", len(signature)) + signature
                 + struct.pack("<B", len(pubkey.get_bytes())) + pubkey.get_bytes()
             )
-        elif address_type == "bech32" or address_type == "p2sh-segwit":
+        elif address_type == "blech32" or address_type == "p2sh-segwit":
             assert signed_tx.wit.vtxinwit[0].scriptWitness.stack[1] == pubkey.get_bytes()
             pubkeyhash = hash160(pubkey.get_bytes())
             script = get_p2pkh_script(pubkeyhash)
@@ -216,7 +216,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
 
     def run_test(self):
         util.node_fastmerkle = self.nodes[0]
-        ADDRESS_TYPES = ["legacy", "bech32", "p2sh-segwit"]
+        ADDRESS_TYPES = ["legacy", "blech32", "p2sh-segwit"]
 
         # Different test scenarios.
         # - before activation, using the flag is non-standard
