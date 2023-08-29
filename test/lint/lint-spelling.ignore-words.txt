@@ -26,3 +26,6 @@ useable
 validata
 wit
 xwindows
+te
+ligh
+atack
