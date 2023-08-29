@@ -231,11 +231,11 @@ public:
         m_signblock_witness = std::nullopt;
     }
 
-    bool trimmed() const {
+    inline bool trimmed() const {
         return m_trimmed;
     }
 
-    void assert_untrimmed() const {
+    inline void assert_untrimmed() const {
         assert(!m_trimmed);
     }
 
@@ -244,7 +244,7 @@ public:
         return proof.value();
     }
 
-    const bool dynafed_block() const {
+    bool is_dynafed_block() const {
         if (m_trimmed) {
             return m_trimmed_dynafed_block;
         }
@@ -454,12 +454,12 @@ public:
             nVersion = ~CBlockHeader::DYNAFED_HF_MASK & nVersion;
             return is_dyna;
         } else {
-            return !dynafed_params().IsNull();
+            return is_dynafed_block();
         }
     }
     bool RemoveDynaFedMaskOnSerialize(bool for_read) const {
         assert(!for_read);
-        return !dynafed_params().IsNull();
+        return is_dynafed_block();
     }
 
     SERIALIZE_METHODS(CDiskBlockIndex, obj)
@@ -483,12 +483,12 @@ public:
             READWRITE(obj.nVersion);
         } else {
             int32_t nVersion = obj.nVersion;
-            if (!obj.dynafed_params().IsNull()) {
+            if (obj.is_dynafed_block()) {
                 nVersion |= CBlockHeader::DYNAFED_HF_MASK;
             }
             READWRITE(nVersion);
         }
-        bool is_dyna = obj.RemoveDynaFedMaskOnSerialize(ser_action.ForRead());;
+        bool is_dyna = obj.RemoveDynaFedMaskOnSerialize(ser_action.ForRead());
 
         READWRITE(obj.hashPrev);
         READWRITE(obj.hashMerkleRoot);
