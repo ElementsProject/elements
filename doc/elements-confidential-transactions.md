@@ -5,7 +5,7 @@
 This document provides an overview and introduction to
 the Confidential Assets implementation in Elements. A list of relevant
 RPCs is provided as well as a list of references providing further
-information.  
+information.
 
 A working knowledge of Bitcoin and Elements, familiarity with Elements
 Remote Procedure Calls (RPCs), and some knowledge of the cryptography
@@ -15,14 +15,14 @@ used in Bitcoin are assumed.
 ## Overview of Confidential Assets
 
 Using Elements, the sender of a transaction can hide the amounts and
-types of assets in a transaction’s outputs, in such a way that: 
+types of assets in a transaction’s outputs, in such a way that:
 
 1. Only the sender and receiver of the transaction can see the actual
 amounts and types of assets.
 2. A verifier can prove that all assets coming out of a transaction
-went into it. 
+went into it.
 3. The amounts and assets of the outputs may be revealed to a third
-party, by the receiver or by the sender. 
+party, by the receiver or by the sender.
 
 This feature is called Confidential Assets. To create a confidential
 assets transaction, the recipient generates a Confidential Address and
@@ -34,10 +34,10 @@ transaction's outputs at will. The unblinding process is called
 "rewinding", or "rewinding the range proof", and requires the private
 blinding key of the confidential address. Either the sender or a
 receiver may also share a blinding key with a third party, enabling
-them to view, but not to spend, the transaction's outputs. 
+them to view, but not to spend, the transaction's outputs.
 
 Confidential Assets transactions do not conceal the transaction ids or indexes on
-the inputs (the transaction graph is public, as it is with Bitcoin). 
+the inputs (the transaction graph is public, as it is with Bitcoin).
 
 A Confidential Transaction must also include an explicit (unblinded)
 fee output, paid in the sidechain's default asset (L-BTC for Liquid).
@@ -75,7 +75,7 @@ having to see the actual value.
 When assets are blinded in a transaction, a verifier cannot see which
 input assets are sent to which outputs. A Surjection proof [^2] allows
 a verifier to prove that an output’s asset appears in at least one
-input, without revealing the actual asset type. In other words, the 
+input, without revealing the actual asset type. In other words, the
 mapping from input assets to the output asset must be an "onto" function, or a
 "surjection". Every blinded transaction output has a Surjection
 proof.
@@ -123,14 +123,14 @@ possible to send more than 21 million in any one unconfidential output.  The ran
 proof parameters are not part of consensus, and may be overridden and
 adjusted using the `ct_bits` elements configuration parameter. Reducing
 the number of bits will reduce the size of a transaction, and  also
-reduce the maximum provable value of any output. 
+reduce the maximum provable value of any output.
 
 An Elements range proof is a Borromean ring signature [^4] over
 possible values of each digit in the base 4 representation of an
 output value. Each digit requires the storage of 4+1 elliptic curve
 points. Not including a fixed size header for the range proof, the
 space required for a range proof in Elements is approximately 80 bytes
-per bit of precision (default 52). 
+per bit of precision (default 52).
 
 The [secp256k1-zkp range proof implementation](https://github.com/BlockstreamResearch/secp256k1-zkp/blob/master/include/secp256k1_rangeproof.h)
 supports a maximum range of 64 bits. A range proof supporting a 64 bit
@@ -159,12 +159,12 @@ A confidential address combines a segwit address and a public blinding
 key into a single checksummed string. This address format is called
 "blech32" and is based on the "bech32" format that was introduced for
 segwit. Liquid production addresses use the prefix "lq1". Liquid
-regtest (elementsregtest) addresses use the prefix "el1".   
+regtest (elementsregtest) addresses use the prefix "el1".
 
 By default, the Elements RPC `getnewaddress` will return a
 confidential address. A non-confidential segwit address and a public
 blinding key may be combined with the RPC `createblindedaddress` to
-create a confidential address. 
+create a confidential address.
 
 See the python script [../test/functional/test_framework/liquid_addr.py](../test/functional/test_framework/liquid_addr.py)
 for a reference implementation of blech32 addresses.
@@ -173,7 +173,7 @@ for a reference implementation of blech32 addresses.
 ## Workflow Considerations
 
 The steps for manually creating a confidential transaction using
-Elements RPCs are as follows: 
+Elements RPCs are as follows:
 
 1. `createrawtransaction` – adds inputs and outputs to an empty
 transaction. Any outputs using confidential addresses will be blinded.
@@ -202,33 +202,33 @@ zero-valued output.
 An asset issuance creates a non-zero amount of a new asset, and zero
 or more reissuance  token that may be used to create more of the same
 asset at a later time. Reissuance tokens are also called "inflation
-keys".  
+keys".
 
 In Elements, there are four types of transaction inputs:
 
 1. "typical" inputs that spend UTXOs
 2. coinbase inputs
 3. peg-ins
-4. asset issuances/reissuances.  
+4. asset issuances/reissuances.
 
 An asset issuance input defines the ID of a new asset, some non-zero amount
 of the asset to be issued, and zero or more reissuance tokens. While
 the ID of the asset must be explicit (it is a property derived
 from the issuance itself), the amount of the asset issued and the
-number of reissuance tokens may be blinded in the input.  
+number of reissuance tokens may be blinded in the input.
 
 An asset reissuance input issues an additional amount of an existing
 asset. The ID of the asset being reissued cannot be blinded, but the
-amount of additional asset being created can be blinded in the input. 
+amount of additional asset being created can be blinded in the input.
 
 The range proofs for an input's issuance and reissuance amounts are
-stored in the input witness. 
+stored in the input witness.
 
 The non-fee outputs of an issuance transaction, as in any transaction
 in Elements, may be blinded. There will be at least one output for the
 new asset, an explicit (unblinded) output for the transaction fee, an
 optional change output, and optionally at least one output for
-reissuance tokens. 
+reissuance tokens.
 
 See the elements transaction format document
 [elements-tx-format.md](./elements-tx-format.md) for more information.
@@ -236,11 +236,11 @@ See the elements transaction format document
 The private key used to blind the amount of an issuance or reissuance
 input may be revealed or imported into an Elements wallet, using the
 RPCs `dumpissuanceblindingkey` or `importissuanceblindingkey`,
-respectively.  
+respectively.
 
 In summary, the id of an issued or reissued asset is always explicit,
 but the issued amounts and destinations may be blinded and kept
-confidential. 
+confidential.
 
 
 ## Partially Signed Elements Transactions (PSET)
@@ -249,11 +249,11 @@ Partially Signed Bitcoin Transactions (PSBT) is a document standard
 that allows multiple parties to construct and sign a bitcoin
 transaction offline, before broadcasting it. Elements expands on PSBT
 to provide support for assets and confidential transactions, with
-Partially Signed Elements Transactions (PSET).  
+Partially Signed Elements Transactions (PSET).
 
 Several Elements RPCs provide support for working with PSETs. Note
 that the PSET RPCs in Elements retain "psbt" in their names of RPCs
-adapted from Bitcoin core. 
+adapted from Bitcoin core.
 
 A description of PSET is outside the scope of this document. Please
 see [pset.mediawiki](./pset.mediawiki) for more information.
@@ -261,9 +261,9 @@ see [pset.mediawiki](./pset.mediawiki) for more information.
 
 ## Elements RPCs
 
-RPCs that are directly related to Confidential Transactions are listed 
-here in the groups listed in the Elements help text. Note that some raw 
-transaction RPCs appear in the Wallet section. See the Elements RPC help 
+RPCs that are directly related to Confidential Transactions are listed
+here in the groups listed in the Elements help text. Note that some raw
+transaction RPCs appear in the Wallet section. See the Elements RPC help
 for details on parameters and invocation.
 
 
@@ -306,7 +306,7 @@ Blinds the outputs of a raw transaction (as might be created by
 `rawblindrawtransaction`
 Blinds the outputs of a raw transaction (as might be created by
 `createrawtransaction`). This RPC requires that all blinding factors be
-provided explicitly. 
+provided explicitly.
 
 
 ### Wallet  - Keys and Addresses
@@ -315,7 +315,7 @@ provided explicitly.
 By default, generates a confidential address encoded as blech32 (see
 "Confidential Addresses" section above). The public key is embedded in
 the address along with the ScriptPubKey. A confidential address is a
-tuple (confidential_key, unconfidential address). 
+tuple (confidential_key, unconfidential address).
 
 `getaddressinfo`
 Displays the (public) confidential and unconfidential properties of an address.
@@ -323,11 +323,11 @@ Displays the (public) confidential and unconfidential properties of an address.
 `dumpblindingkey`
 Reveals the private blinding key for a confidential address. A
 third-party will need this key to unblind transactions (see
-"Third-party Unblinding" below). 
+"Third-party Unblinding" below).
 
 `dumpissuanceblindingkey`
 Reveals the private blinding key that was used to blind the amounts on
-an issuance input. This key is required when using reissuance tokens. 
+an issuance input. This key is required when using reissuance tokens.
 
 `dumpmasterblindingkey`
 Reveals the wallet's master blinding key from which all blinding keys for generated addresses are derived.  See SLIP-007.
@@ -335,8 +335,8 @@ Reveals the wallet's master blinding key from which all blinding keys for genera
 `importaddress`
 A confidential address may be imported at any time. However, in order
 to unblind outputs for a confidential address, it is necessary to also
-import the blinding key for that address' public blinding key 
-(called "confidential_key" in the RPC help). 
+import the blinding key for that address' public blinding key
+(called "confidential_key" in the RPC help).
 See the `importblindingkey` RPC.
 
 `importblindingkey`
@@ -345,7 +345,7 @@ Imports the private blinding key associated with an address.
 `importissuanceblindingkey`
 Imports a private blinding key that may be used to unblind the amounts
 on an issuance input or to reissue additional amounts of an asset (using
-reissuance tokens). 
+reissuance tokens).
 
 `importmasterblindingkey`
 ***Use with caution!*** Importing a master blinding key into a wallet will
@@ -371,10 +371,10 @@ A third-party may be granted the ability to unblind the amounts and
 assets in a confidential transaction, without being able to spend the
 transaction’s UTXOs. Using Elements, the third-party would create a
 "watch-only wallet" for the addresses in question, and import the
-private blinding keys for those addresses.  
+private blinding keys for those addresses.
 
 Let's suppose that Alice has sent a confidential transaction to
-Bob. Bob wants Victor to be able to see what and how much was sent. 
+Bob. Bob wants Victor to be able to see what and how much was sent.
 
 Victor, with Bob’s help, creates a watch-only wallet in Elements:
 
@@ -388,19 +388,19 @@ Victor, with Bob’s help, creates a watch-only wallet in Elements:
 
 Once the blinding key is imported, the Elements wallet will treat the
 Confidential address address as watch-only, and its outputs will be
-visible in transaction details and in the wallet balance.  
+visible in transaction details and in the wallet balance.
 
 Please note that if Bob reuses an address A, Victor will also be able
-to see the amounts and values in any transaction sending to A. 
+to see the amounts and values in any transaction sending to A.
 
 Alternatively, a watch-only wallet may import the master blinding key
 of another wallet. The watch-only wallet would then be able to view
 the UTXOs for any confidential address created by the original
-wallet. 
+wallet.
 
-Anyone with the blinding key for an output's confidential address can rewind 
+Anyone with the blinding key for an output's confidential address can rewind
 the rangeproof for the output, and reveal the blinding factors and actual amounts and
-assets that were committed to.  
+assets that were committed to.
 
 Please see the [Elements Project
 tutorial](https://elementsproject.org/elements-code-tutorial/advanced-examples)
@@ -412,7 +412,7 @@ for examples of how to unblind with Elements.
 An Elements wallet has a "master blinding key", from which all
 blinding keys for that wallet are deterministically derived. A
 blinding key for an address is generated as `HMAC_SHA256(master
-blinding key, <address ScriptPubKey>)`. See SLIP-0077 [^6]. 
+blinding key, <address ScriptPubKey>)`. See SLIP-0077 [^6].
 
 Each confidential address has an associated confidential_key, which is
 a public key embedded in the address and used by the sender to create
@@ -424,7 +424,7 @@ key" for the address.
 
 See
 [contrib/assets_tutorial/assets_tutorial.py](../contrib/assets_tutorial/assets_tutorial.py)
-for examples of using confidential transactions with assets. 
+for examples of using confidential transactions with assets.
 
 See
 [test/functional/feature_confidential_transactions.py](../test/functional/feature_confidential_transactions.py)
@@ -462,9 +462,9 @@ Wuille, Greg Maxwell. *Bulletproofs: Short Proofs for Confidential
 Transactions and
 More.* https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8418611
 Retrieved 2023-03-08.
- 
+
 6. SLIP-077 Proposal for wallet blinding key
-derivation. https://github.com/satoshilabs/slips/blob/master/slip-0077.md 
+derivation. https://github.com/satoshilabs/slips/blob/master/slip-0077.md
 
 
 ## See Also
