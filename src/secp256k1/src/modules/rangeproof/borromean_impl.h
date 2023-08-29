@@ -5,8 +5,8 @@
  **********************************************************************/
 
 
-#ifndef _SECP256K1_BORROMEAN_IMPL_H_
-#define _SECP256K1_BORROMEAN_IMPL_H_
+#ifndef SECP256K1_BORROMEAN_IMPL_H
+#define SECP256K1_BORROMEAN_IMPL_H
 
 #include "../../scalar.h"
 #include "../../field.h"
@@ -20,24 +20,18 @@
 #include <limits.h>
 #include <string.h>
 
-#if defined(SECP256K1_BIG_ENDIAN)
-#define BE32(x) (x)
-#elif defined(SECP256K1_LITTLE_ENDIAN)
-#define BE32(p) ((((p) & 0xFF) << 24) | (((p) & 0xFF00) << 8) | (((p) & 0xFF0000) >> 8) | (((p) & 0xFF000000) >> 24))
-#endif
-
 SECP256K1_INLINE static void secp256k1_borromean_hash(unsigned char *hash, const unsigned char *m, size_t mlen, const unsigned char *e, size_t elen,
  size_t ridx, size_t eidx) {
-    uint32_t ring;
-    uint32_t epos;
+    unsigned char ring[4];
+    unsigned char epos[4];
     secp256k1_sha256 sha256_en;
     secp256k1_sha256_initialize(&sha256_en);
-    ring = BE32((uint32_t)ridx);
-    epos = BE32((uint32_t)eidx);
+    secp256k1_write_be32(ring, (uint32_t)ridx);
+    secp256k1_write_be32(epos, (uint32_t)eidx);
     secp256k1_sha256_write(&sha256_en, e, elen);
     secp256k1_sha256_write(&sha256_en, m, mlen);
-    secp256k1_sha256_write(&sha256_en, (unsigned char*)&ring, 4);
-    secp256k1_sha256_write(&sha256_en, (unsigned char*)&epos, 4);
+    secp256k1_sha256_write(&sha256_en, ring, 4);
+    secp256k1_sha256_write(&sha256_en, epos, 4);
     secp256k1_sha256_finalize(&sha256_en, hash);
 }
 

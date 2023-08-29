@@ -1,5 +1,5 @@
-#ifndef _SECP256K1_BPPP_
-# define _SECP256K1_BPPP_
+#ifndef SECP256K1_BPPP_H
+# define SECP256K1_BPPP_H
 
 # include "secp256k1.h"
 
@@ -22,7 +22,7 @@ typedef struct secp256k1_bppp_generators secp256k1_bppp_generators;
  * in a separate commit to make review easier.
  */
 SECP256K1_API secp256k1_bppp_generators *secp256k1_bppp_generators_create(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     size_t n
 ) SECP256K1_ARG_NONNULL(1);
 
@@ -32,9 +32,9 @@ SECP256K1_API secp256k1_bppp_generators *secp256k1_bppp_generators_create(
  *  In:       data: data that came from `secp256k1_bppp_generators_serialize`
  *        data_len: the length of the `data` buffer
  */
-SECP256K1_API secp256k1_bppp_generators* secp256k1_bppp_generators_parse(
-    const secp256k1_context* ctx,
-    const unsigned char* data,
+SECP256K1_API secp256k1_bppp_generators *secp256k1_bppp_generators_parse(
+    const secp256k1_context *ctx,
+    const unsigned char *data,
     size_t data_len
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
 
@@ -50,9 +50,9 @@ SECP256K1_API secp256k1_bppp_generators* secp256k1_bppp_generators_parse(
  * add it in the follow-up rangeproof PR.
  */
 SECP256K1_API int secp256k1_bppp_generators_serialize(
-    const secp256k1_context* ctx,
-    const secp256k1_bppp_generators* gen,
-    unsigned char* data,
+    const secp256k1_context *ctx,
+    const secp256k1_bppp_generators *gen,
+    unsigned char *data,
     size_t *data_len
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 
@@ -62,8 +62,8 @@ SECP256K1_API int secp256k1_bppp_generators_serialize(
  *               (can be NULL, in which case this function is a no-op)
  */
 SECP256K1_API void secp256k1_bppp_generators_destroy(
-    const secp256k1_context* ctx,
-    secp256k1_bppp_generators* gen
+    const secp256k1_context *ctx,
+    secp256k1_bppp_generators *gen
 ) SECP256K1_ARG_NONNULL(1);
 
 # ifdef __cplusplus

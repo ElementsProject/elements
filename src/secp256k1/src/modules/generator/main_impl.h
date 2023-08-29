@@ -4,8 +4,8 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef SECP256K1_MODULE_GENERATOR_MAIN
-#define SECP256K1_MODULE_GENERATOR_MAIN
+#ifndef SECP256K1_MODULE_GENERATOR_MAIN_H
+#define SECP256K1_MODULE_GENERATOR_MAIN_H
 
 #include <stdio.h>
 
@@ -14,7 +14,7 @@
 #include "../../hash.h"
 #include "../../scalar.h"
 
-#include "modules/generator/pedersen_impl.h"
+#include "../generator/pedersen_impl.h"
 
 /** Alternative generator for secp256k1.
  *  This is the sha256 of 'g' after standard encoding (without compression),
@@ -39,9 +39,9 @@ const secp256k1_generator *secp256k1_generator_h = &secp256k1_generator_h_intern
 
 static void secp256k1_generator_load(secp256k1_ge* ge, const secp256k1_generator* gen) {
     int succeed;
-    succeed = secp256k1_fe_set_b32(&ge->x, &gen->data[0]);
+    succeed = secp256k1_fe_set_b32_limit(&ge->x, &gen->data[0]);
     VERIFY_CHECK(succeed != 0);
-    succeed = secp256k1_fe_set_b32(&ge->y, &gen->data[32]);
+    succeed = secp256k1_fe_set_b32_limit(&ge->y, &gen->data[32]);
     VERIFY_CHECK(succeed != 0);
     ge->infinity = 0;
     (void) succeed;
@@ -64,7 +64,7 @@ int secp256k1_generator_parse(const secp256k1_context* ctx, secp256k1_generator*
     ARG_CHECK(input != NULL);
 
     if ((input[0] & 0xFE) != 10 ||
-        !secp256k1_fe_set_b32(&x, &input[1]) ||
+        !secp256k1_fe_set_b32_limit(&x, &input[1]) ||
         !secp256k1_ge_set_xquad(&ge, &x)) {
         return 0;
     }
@@ -84,7 +84,7 @@ int secp256k1_generator_serialize(const secp256k1_context* ctx, unsigned char *o
 
     secp256k1_generator_load(&ge, gen);
 
-    output[0] = 11 ^ secp256k1_fe_is_quad_var(&ge.y);
+    output[0] = 11 ^ secp256k1_fe_is_square_var(&ge.y);
     secp256k1_fe_normalize_var(&ge.x);
     secp256k1_fe_get_b32(&output[1], &ge.x);
     return 1;
@@ -205,7 +205,7 @@ static int secp256k1_generator_generate_internal(const secp256k1_context* ctx, s
     secp256k1_sha256_write(&sha256, prefix1, 16);
     secp256k1_sha256_write(&sha256, key32, 32);
     secp256k1_sha256_finalize(&sha256, b32);
-    ret &= secp256k1_fe_set_b32(&t, b32);
+    ret &= secp256k1_fe_set_b32_limit(&t, b32);
     shallue_van_de_woestijne(&add, &t);
     if (blind32) {
         secp256k1_gej_add_ge(&accum, &accum, &add);
@@ -217,7 +217,7 @@ static int secp256k1_generator_generate_internal(const secp256k1_context* ctx, s
     secp256k1_sha256_write(&sha256, prefix2, 16);
     secp256k1_sha256_write(&sha256, key32, 32);
     secp256k1_sha256_finalize(&sha256, b32);
-    ret &= secp256k1_fe_set_b32(&t, b32);
+    ret &= secp256k1_fe_set_b32_limit(&t, b32);
     shallue_van_de_woestijne(&add, &t);
     secp256k1_gej_add_ge(&accum, &accum, &add);
 
@@ -244,7 +244,7 @@ int secp256k1_generator_generate_blinded(const secp256k1_context* ctx, secp256k1
 
 static void secp256k1_pedersen_commitment_load(secp256k1_ge* ge, const secp256k1_pedersen_commitment* commit) {
     secp256k1_fe fe;
-    secp256k1_fe_set_b32(&fe, &commit->data[1]);
+    secp256k1_fe_set_b32_mod(&fe, &commit->data[1]);
     secp256k1_ge_set_xquad(ge, &fe);
     if (commit->data[0] & 1) {
         secp256k1_ge_neg(ge, ge);
@@ -254,7 +254,7 @@ static void secp256k1_pedersen_commitment_load(secp256k1_ge* ge, const secp256k1
 static void secp256k1_pedersen_commitment_save(secp256k1_pedersen_commitment* commit, secp256k1_ge* ge) {
     secp256k1_fe_normalize(&ge->x);
     secp256k1_fe_get_b32(&commit->data[1], &ge->x);
-    commit->data[0] = 9 ^ secp256k1_fe_is_quad_var(&ge->y);
+    commit->data[0] = 9 ^ secp256k1_fe_is_square_var(&ge->y);
 }
 
 int secp256k1_pedersen_commitment_parse(const secp256k1_context* ctx, secp256k1_pedersen_commitment* commit, const unsigned char *input) {
@@ -267,7 +267,7 @@ int secp256k1_pedersen_commitment_parse(const secp256k1_context* ctx, secp256k1_
     (void) ctx;
 
     if ((input[0] & 0xFE) != 8 ||
-        !secp256k1_fe_set_b32(&x, &input[1]) ||
+        !secp256k1_fe_set_b32_limit(&x, &input[1]) ||
         !secp256k1_ge_set_xquad(&ge, &x)) {
         return 0;
     }
@@ -287,7 +287,7 @@ int secp256k1_pedersen_commitment_serialize(const secp256k1_context* ctx, unsign
 
     secp256k1_pedersen_commitment_load(&ge, commit);
 
-    output[0] = 9 ^ secp256k1_fe_is_quad_var(&ge.y);
+    output[0] = 9 ^ secp256k1_fe_is_square_var(&ge.y);
     secp256k1_fe_normalize_var(&ge.x);
     secp256k1_fe_get_b32(&output[1], &ge.x);
     return 1;

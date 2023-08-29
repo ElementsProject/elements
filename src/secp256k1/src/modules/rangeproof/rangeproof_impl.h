@@ -4,8 +4,8 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef _SECP256K1_RANGEPROOF_IMPL_H_
-#define _SECP256K1_RANGEPROOF_IMPL_H_
+#ifndef SECP256K1_RANGEPROOF_IMPL_H
+#define SECP256K1_RANGEPROOF_IMPL_H
 
 #include "../../eckey.h"
 #include "../../scalar.h"
@@ -13,9 +13,9 @@
 #include "../../hash_impl.h"
 #include "../../util.h"
 
-#include "modules/generator/pedersen.h"
-#include "modules/rangeproof/borromean.h"
-#include "modules/rangeproof/rangeproof.h"
+#include "../generator/pedersen.h"
+#include "../rangeproof/borromean.h"
+#include "../rangeproof/rangeproof.h"
 
 SECP256K1_INLINE static void secp256k1_rangeproof_pub_expand(secp256k1_gej *pubs,
  int exp, size_t *rsizes, size_t rings, const secp256k1_ge* genp) {
@@ -54,7 +54,7 @@ SECP256K1_INLINE static void secp256k1_rangeproof_serialize_point(unsigned char*
     secp256k1_fe pointx;
     pointx = point->x;
     secp256k1_fe_normalize(&pointx);
-    data[0] = !secp256k1_fe_is_quad_var(&point->y);
+    data[0] = !secp256k1_fe_is_square_var(&point->y);
     secp256k1_fe_get_b32(data + 1, &pointx);
 }
 
@@ -606,7 +606,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_ecm
     }
     for(i = 0; i < rings - 1; i++) {
         secp256k1_fe fe;
-        if (!secp256k1_fe_set_b32(&fe, &proof[offset]) ||
+        if (!secp256k1_fe_set_b32_limit(&fe, &proof[offset]) ||
             !secp256k1_ge_set_xquad(&c, &fe)) {
             return 0;
         }

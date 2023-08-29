@@ -3,11 +3,11 @@
  * Distributed under the MIT software license, see the accompanying   *
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
-#ifndef _SECP256K1_MODULE_BPPP_PP_TRANSCRIPT_IMPL_
-#define _SECP256K1_MODULE_BPPP_PP_TRANSCRIPT_IMPL_
+#ifndef SECP256K1_MODULE_BPPP_PP_TRANSCRIPT_IMPL_H
+#define SECP256K1_MODULE_BPPP_PP_TRANSCRIPT_IMPL_H
 
-#include "group.h"
-#include "scalar.h"
+#include "../../group.h"
+#include "../../scalar.h"
 #include "bppp_util.h"
 
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying

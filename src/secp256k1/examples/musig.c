@@ -14,11 +14,13 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
+
 #include <secp256k1.h>
 #include <secp256k1_schnorrsig.h>
 #include <secp256k1_musig.h>
 
-#include "random.h"
+#include "examples_util.h"
 
 struct signer_secrets {
     secp256k1_keypair keypair;
@@ -34,7 +36,7 @@ struct signer {
  /* Number of public keys involved in creating the aggregate signature */
 #define N_SIGNERS 3
 /* Create a key pair, store it in signer_secrets->keypair and signer->pubkey */
-int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
+static int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
     unsigned char seckey[32];
     while (1) {
         if (!fill_random(seckey, sizeof(seckey))) {
@@ -53,7 +55,7 @@ int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_s
 
 /* Tweak the pubkey corresponding to the provided keyagg cache, update the cache
  * and return the tweaked aggregate pk. */
-int tweak(const secp256k1_context* ctx, secp256k1_xonly_pubkey *agg_pk, secp256k1_musig_keyagg_cache *cache) {
+static int tweak(const secp256k1_context* ctx, secp256k1_xonly_pubkey *agg_pk, secp256k1_musig_keyagg_cache *cache) {
     secp256k1_pubkey output_pk;
     unsigned char plain_tweak[32] = "this could be a BIP32 tweak....";
     unsigned char xonly_tweak[32] = "this could be a taproot tweak..";
@@ -91,7 +93,7 @@ int tweak(const secp256k1_context* ctx, secp256k1_xonly_pubkey *agg_pk, secp256k
 }
 
 /* Sign a message hash with the given key pairs and store the result in sig */
-int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer, const secp256k1_musig_keyagg_cache *cache, const unsigned char *msg32, unsigned char *sig64) {
+static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer, const secp256k1_musig_keyagg_cache *cache, const unsigned char *msg32, unsigned char *sig64) {
     int i;
     const secp256k1_musig_pubnonce *pubnonces[N_SIGNERS];
     const secp256k1_musig_partial_sig *partial_sigs[N_SIGNERS];
@@ -170,8 +172,8 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
     unsigned char msg[32] = "this_could_be_the_hash_of_a_msg!";
     unsigned char sig[64];
 
-    /* Create a context for signing and verification */
-    ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    /* Create a secp256k1 context */
+    ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
     printf("Creating key pairs......");
     for (i = 0; i < N_SIGNERS; i++) {
         if (!create_keypair(ctx, &signer_secrets[i], &signers[i])) {

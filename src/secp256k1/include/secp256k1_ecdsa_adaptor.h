@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#include "secp256k1.h"
+
 /** This module implements single signer ECDSA adaptor signatures following
  *  "One-Time Verifiably Encrypted Signatures A.K.A. Adaptor Signatures" by
  *  Lloyd Fournier
@@ -59,7 +61,7 @@ typedef int (*secp256k1_nonce_function_hardened_ecdsa_adaptor)(
  *  assumed to be a pointer to 32 bytes of auxiliary random data as defined in BIP-340.
  *  The hash will be tagged with algo after removing all terminating null bytes.
  */
-SECP256K1_API extern const secp256k1_nonce_function_hardened_ecdsa_adaptor secp256k1_nonce_function_ecdsa_adaptor;
+SECP256K1_API const secp256k1_nonce_function_hardened_ecdsa_adaptor secp256k1_nonce_function_ecdsa_adaptor;
 
 /** Encrypted Signing
  *
@@ -69,7 +71,7 @@ SECP256K1_API extern const secp256k1_nonce_function_hardened_ecdsa_adaptor secp2
  *  this file and applied the suggested countermeasures.
  *
  *  Returns: 1 on success, 0 on failure
- *  Args:             ctx: a secp256k1 context object, initialized for signing
+ *  Args:             ctx: a secp256k1 context object (not secp256k1_context_static)
  *  Out:   adaptor_sig162: pointer to 162 byte to store the returned signature
  *  In:          seckey32: pointer to 32 byte secret key that will be used for
  *                         signing
@@ -84,7 +86,7 @@ SECP256K1_API extern const secp256k1_nonce_function_hardened_ecdsa_adaptor secp2
  *                         as per BIP-340.
  */
 SECP256K1_API int secp256k1_ecdsa_adaptor_encrypt(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     unsigned char *adaptor_sig162,
     unsigned char *seckey32,
     const secp256k1_pubkey *enckey,
@@ -99,7 +101,7 @@ SECP256K1_API int secp256k1_ecdsa_adaptor_encrypt(
  *  and the completed ECDSA signature.
  *
  *  Returns: 1 on success, 0 on failure
- *  Args:            ctx: a secp256k1 context object, initialized for verification
+ *  Args:            ctx: a secp256k1 context object
  *  In:   adaptor_sig162: pointer to 162-byte signature to verify
  *                pubkey: pointer to the public key corresponding to the secret key
  *                        used for signing
@@ -107,7 +109,7 @@ SECP256K1_API int secp256k1_ecdsa_adaptor_encrypt(
  *                enckey: pointer to the adaptor encryption public key
  */
 SECP256K1_API int secp256k1_ecdsa_adaptor_verify(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     const unsigned char *adaptor_sig162,
     const secp256k1_pubkey *pubkey,
     const unsigned char *msg32,
@@ -126,7 +128,7 @@ SECP256K1_API int secp256k1_ecdsa_adaptor_verify(
  *          adaptor_sig162: pointer to 162-byte adaptor sig
  */
 SECP256K1_API int secp256k1_ecdsa_adaptor_decrypt(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     secp256k1_ecdsa_signature *sig,
     const unsigned char *deckey32,
     const unsigned char *adaptor_sig162
@@ -138,7 +140,7 @@ SECP256K1_API int secp256k1_ecdsa_adaptor_decrypt(
  *  signature.
  *
  *  Returns: 1 on success, 0 on failure
- *  Args:             ctx: a secp256k1 context object, initialized for signing
+ *  Args:             ctx: a secp256k1 context object (not secp256k1_context_static)
  *  Out:         deckey32: pointer to 32-byte adaptor decryption key for the adaptor
  *                         encryption public key
  *  In:               sig: pointer to ECDSA signature to recover the adaptor decryption
@@ -148,7 +150,7 @@ SECP256K1_API int secp256k1_ecdsa_adaptor_decrypt(
  *                 enckey: pointer to the adaptor encryption public key
  */
 SECP256K1_API int secp256k1_ecdsa_adaptor_recover(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     unsigned char *deckey32,
     const secp256k1_ecdsa_signature *sig,
     const unsigned char *adaptor_sig162,

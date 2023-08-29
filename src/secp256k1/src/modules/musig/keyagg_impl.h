@@ -41,8 +41,10 @@ static void secp256k1_point_load(secp256k1_ge *ge, const unsigned char *data) {
     } else {
         /* Otherwise, fall back to 32-byte big endian for X and Y. */
         secp256k1_fe x, y;
-        secp256k1_fe_set_b32(&x, data);
-        secp256k1_fe_set_b32(&y, data + 32);
+        int ret = 1;
+        ret &= secp256k1_fe_set_b32_limit(&x, data);
+        ret &= secp256k1_fe_set_b32_limit(&y, data + 32);
+        VERIFY_CHECK(ret);
         secp256k1_ge_set_xy(ge, &x, &y);
     }
 }
@@ -165,6 +167,12 @@ static void secp256k1_musig_keyaggcoef_sha256(secp256k1_sha256 *sha) {
  * second_pk are normalized. */
 static void secp256k1_musig_keyaggcoef_internal(secp256k1_scalar *r, const unsigned char *pk_hash, secp256k1_ge *pk, const secp256k1_ge *second_pk) {
     secp256k1_sha256 sha;
+
+    VERIFY_CHECK(!secp256k1_ge_is_infinity(pk));
+#ifdef VERIFY
+    VERIFY_CHECK(pk->x.normalized && pk->y.normalized);
+    VERIFY_CHECK(secp256k1_ge_is_infinity(second_pk) || (second_pk->x.normalized && second_pk->y.normalized));
+#endif
 
     if (!secp256k1_ge_is_infinity(second_pk)
           && secp256k1_fe_equal(&pk->x, &second_pk->x)

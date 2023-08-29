@@ -3,12 +3,13 @@
 set -eou pipefail
 
 help() {
-    echo "$0 range [end]"
-    echo "    merges every merge commit present in upstream and missing locally."
+    echo "$0 [-b <branch>] range [end]"
+    echo "    merges every merge commit present in upstream and missing in <branch> (default: master)."
     echo "    If the optional [end] commit is provided, only merges up to [end]."
+    echo "    If the optional [-b branch] provided, then ."
     echo
-    echo "$0 select <commit> ... <commit>"
-    echo "    merges every selected merge commit"
+    echo "$0 [-b <branch>] select <commit> ... <commit>"
+    echo "    merges every selected merge commit into <branch> (default: master)"
     echo
     echo "This tool creates a branch and a script that can be executed to create the"
     echo "PR automatically. The script requires the github-cli tool (aka gh)."
@@ -17,12 +18,9 @@ help() {
     exit 1
 }
 
-if [ "$#" -lt 1 ]; then
-    help
-fi
-
 REMOTE=upstream
 REMOTE_BRANCH="$REMOTE/master"
+LOCAL_BRANCH="master"
 # Makes sure you have a remote "upstream" that is up-to-date
 setup() {
     ret=0
@@ -41,7 +39,7 @@ setup() {
 }
 
 range() {
-    RANGESTART_COMMIT=$(git merge-base "$REMOTE_BRANCH" master)
+    RANGESTART_COMMIT=$(git merge-base "$REMOTE_BRANCH" "$LOCAL_BRANCH")
     RANGEEND_COMMIT=$(git rev-parse "$REMOTE_BRANCH")
     if [ "$#" = 1 ]; then
         RANGEEND_COMMIT=$1
@@ -57,18 +55,37 @@ range() {
     esac
 }
 
+# Process -b <branch> argument
+while getopts "b:" opt; do
+  case $opt in
+    b)
+      LOCAL_BRANCH=$OPTARG
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      ;;
+  esac
+done
+
+# Shift off the processed options
+shift $((OPTIND -1))
+
+if [ "$#" -lt 1 ]; then
+    help
+fi
+
 case $1 in
     range)
         shift
         setup
         range "$@"
-        REPRODUCE_COMMAND="$0 range $RANGEEND_COMMIT"
+        REPRODUCE_COMMAND="$0 -b $LOCAL_BRANCH range $RANGEEND_COMMIT"
         ;;
     select)
         shift
         setup
         COMMITS=$*
-        REPRODUCE_COMMAND="$0 select $@"
+        REPRODUCE_COMMAND="$0 -b $LOCAL_BRANCH select $@"
         ;;
     help)
         help
@@ -87,8 +104,7 @@ do
 done
 # Remove trailing ","
 TITLE=${TITLE%?}
-
-BODY=$(printf "%s\n\n%s" "$BODY" "This PR can be recreated with \`$REPRODUCE_COMMAND\`.")
+BODY=$(printf "%s\n\n%s\n%s" "$BODY" "This PR can be recreated with \`$REPRODUCE_COMMAND\`." "Tip: Use \`git show --remerge-diff\` to show the changes manually added to the merge commit.")
 
 echo "-----------------------------------"
 echo "$TITLE"
@@ -96,8 +112,8 @@ echo "-----------------------------------"
 echo "$BODY"
 echo "-----------------------------------"
 # Create branch from PR commit and create PR
-git checkout master
-git pull
+git checkout "$LOCAL_BRANCH"
+git pull --autostash
 git checkout -b temp-merge-"$PRNUM"
 
 # Escape single quote
@@ -115,7 +131,7 @@ cat <<EOT > "$FNAME"
 #!/bin/sh
 gh pr create -t '$TITLE' -b '$BODY' --web
 # Remove temporary branch
-git checkout master
+git checkout "$LOCAL_BRANCH"
 git branch -D temp-merge-"$PRNUM"
 EOT
 chmod +x "$FNAME"

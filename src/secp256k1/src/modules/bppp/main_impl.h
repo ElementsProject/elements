@@ -4,16 +4,16 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef _SECP256K1_MODULE_BPPP_MAIN_
-#define _SECP256K1_MODULE_BPPP_MAIN_
+#ifndef SECP256K1_MODULE_BPPP_MAIN_IMPL_H
+#define SECP256K1_MODULE_BPPP_MAIN_IMPL_H
 
-#include "include/secp256k1_bppp.h"
-#include "include/secp256k1_generator.h"
-#include "modules/generator/main_impl.h" /* for generator_{load, save} */
-#include "hash.h"
-#include "util.h"
-#include "modules/bppp/main.h"
-#include "modules/bppp/bppp_norm_product_impl.h"
+#include "../../../include/secp256k1_bppp.h"
+#include "../../../include/secp256k1_generator.h"
+#include "../generator/main_impl.h" /* for generator_{load, save} */
+#include "../../hash.h"
+#include "../../util.h"
+#include "../bppp/main.h"
+#include "../bppp/bppp_norm_product_impl.h"
 
 secp256k1_bppp_generators *secp256k1_bppp_generators_create(const secp256k1_context *ctx, size_t n) {
     secp256k1_bppp_generators *ret;

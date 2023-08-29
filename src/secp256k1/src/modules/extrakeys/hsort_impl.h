@@ -4,8 +4,8 @@
  * file COPYING or https://www.opensource.org/licenses/mit-license.php.*
  ***********************************************************************/
 
-#ifndef SECP256K1_HSORT_IMPL_H_
-#define SECP256K1_HSORT_IMPL_H_
+#ifndef SECP256K1_HSORT_IMPL_H
+#define SECP256K1_HSORT_IMPL_H
 
 #include "hsort.h"
 

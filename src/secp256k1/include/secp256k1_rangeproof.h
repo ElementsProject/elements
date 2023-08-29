@@ -1,5 +1,5 @@
-#ifndef _SECP256K1_RANGEPROOF_
-# define _SECP256K1_RANGEPROOF_
+#ifndef SECP256K1_RANGEPROOF_H
+# define SECP256K1_RANGEPROOF_H
 
 # include "secp256k1.h"
 # include "secp256k1_generator.h"
@@ -22,7 +22,7 @@ extern "C" {
 /** Verify a proof that a committed value is within a range.
  * Returns 1: Value is within the range [0..2^64), the specifically proven range is in the min/max value outputs.
  *         0: Proof failed or other error.
- * In:   ctx: pointer to a context object, initialized for range-proof and commitment (cannot be NULL)
+ * In:   ctx: pointer to a context object (not secp256k1_context_static)
  *       commit: the commitment being proved. (cannot be NULL)
  *       proof: pointer to character array with the proof. (cannot be NULL)
  *       plen: length of proof in bytes.
@@ -33,7 +33,7 @@ extern "C" {
  *       max_value: pointer to a unsigned int64 which will be updated with the maximum value that commit could have. (cannot be NULL)
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_verify(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   uint64_t *min_value,
   uint64_t *max_value,
   const secp256k1_pedersen_commitment *commit,
@@ -41,13 +41,13 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_verify(
   size_t plen,
   const unsigned char *extra_commit,
   size_t extra_commit_len,
-  const secp256k1_generator* gen
+  const secp256k1_generator *gen
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(9);
 
 /** Verify a range proof proof and rewind the proof to recover information sent by its author.
  *  Returns 1: Value is within the range [0..2^64), the specifically proven range is in the min/max value outputs, and the value and blinding were recovered.
  *          0: Proof failed, rewind failed, or other error.
- *  In:   ctx: pointer to a context object, initialized for range-proof and Pedersen commitment (cannot be NULL)
+ *  In:   ctx: pointer to a context object (not secp256k1_context_static)
  *        commit: the commitment being proved. (cannot be NULL)
  *        proof: pointer to character array with the proof. (cannot be NULL)
  *        plen: length of proof in bytes.
@@ -65,7 +65,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_verify(
  *        max_value: pointer to an unsigned int64 which will be updated with the maximum value that commit could have. (cannot be NULL)
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   unsigned char *blind_out,
   uint64_t *value_out,
   unsigned char *message_out,
@@ -84,7 +84,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
 /** Author a proof that a committed value is within a range.
  *  Returns 1: Proof successfully created.
  *          0: Error
- *  In:     ctx:    pointer to a context object, initialized for range-proof, signing, and Pedersen commitment (cannot be NULL)
+ *  In:     ctx:    pointer to a context object (not secp256k1_context_static)
  *          proof:  pointer to array to receive the proof, can be up to 5134 bytes. (cannot be NULL)
  *          min_value: constructs a proof where the verifer can tell the minimum value is at least the specified amount.
  *          commit: the commitment being proved.
@@ -110,7 +110,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
  *
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_sign(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   unsigned char *proof,
   size_t *plen,
   uint64_t min_value,
@@ -139,7 +139,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_sign(
  *        max_value: pointer to an unsigned int64 which will be updated with the maximum value that commit could have. (cannot be NULL)
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   int *exp,
   int *mantissa,
   uint64_t *min_value,
@@ -170,7 +170,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
  *       min_bits: the value that will be passed as `min_bits` for the proof.
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT size_t secp256k1_rangeproof_max_size(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   uint64_t max_value,
   int min_bits
 ) SECP256K1_ARG_NONNULL(1);

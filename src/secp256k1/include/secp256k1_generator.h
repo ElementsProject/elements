@@ -1,5 +1,5 @@
-#ifndef _SECP256K1_GENERATOR_
-# define _SECP256K1_GENERATOR_
+#ifndef SECP256K1_GENERATOR_H
+# define SECP256K1_GENERATOR_H
 
 # include "secp256k1.h"
 
@@ -24,7 +24,7 @@ typedef struct {
 /**
  * Static constant generator 'h' maintained for historical reasons.
  */
-SECP256K1_API extern const secp256k1_generator *secp256k1_generator_h;
+SECP256K1_API const secp256k1_generator *secp256k1_generator_h;
 
 /** Parse a 33-byte generator byte sequence into a generator object.
  *
@@ -34,8 +34,8 @@ SECP256K1_API extern const secp256k1_generator *secp256k1_generator_h;
  *  In:   input:    pointer to a 33-byte serialized generator
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_parse(
-    const secp256k1_context* ctx,
-    secp256k1_generator* gen,
+    const secp256k1_context *ctx,
+    secp256k1_generator *gen,
     const unsigned char *input
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
@@ -47,9 +47,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_parse(
  *  In:     gen:        a pointer to a generator
  */
 SECP256K1_API int secp256k1_generator_serialize(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     unsigned char *output,
-    const secp256k1_generator* gen
+    const secp256k1_generator *gen
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /** Generate a generator for the curve.
@@ -66,8 +66,8 @@ SECP256K1_API int secp256k1_generator_serialize(
  *  or to the base generator G.
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_generate(
-    const secp256k1_context* ctx,
-    secp256k1_generator* gen,
+    const secp256k1_context *ctx,
+    secp256k1_generator *gen,
     const unsigned char *seed32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
@@ -75,7 +75,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_generate(
  *
  *  Returns: 0 in the highly unlikely case the seed is not acceptable or when
  *           blind is out of range. 1 otherwise.
- *  Args: ctx:     a secp256k1 context object, initialized for signing
+ *  Args: ctx:     a secp256k1 context object (not secp256k1_context_static)
  *  Out:  gen:     a generator object
  *  In:   seed32:  a 32-byte seed
  *        blind32: a 32-byte secret value to blind the generator with.
@@ -85,8 +85,8 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_generate(
  *  and then converting back to generator form.
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_generate_blinded(
-    const secp256k1_context* ctx,
-    secp256k1_generator* gen,
+    const secp256k1_context *ctx,
+    secp256k1_generator *gen,
     const unsigned char *seed32,
     const unsigned char *blind32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
@@ -112,8 +112,8 @@ typedef struct {
  *  In:   input:    pointer to a 33-byte serialized commitment key
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commitment_parse(
-    const secp256k1_context* ctx,
-    secp256k1_pedersen_commitment* commit,
+    const secp256k1_context *ctx,
+    secp256k1_pedersen_commitment *commit,
     const unsigned char *input
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
@@ -126,9 +126,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commitment_par
  *                      initialized commitment
  */
 SECP256K1_API int secp256k1_pedersen_commitment_serialize(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     unsigned char *output,
-    const secp256k1_pedersen_commitment* commit
+    const secp256k1_pedersen_commitment *commit
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /** Generate a pedersen commitment.
@@ -136,7 +136,7 @@ SECP256K1_API int secp256k1_pedersen_commitment_serialize(
  *          0: Error. The blinding factor is larger than the group order
  *             (probability for random 32 byte number < 2^-127) or results in the
  *             point at infinity. Retry with a different factor.
- *  In:     ctx:        pointer to a context object, initialized for signing and Pedersen commitment (cannot be NULL)
+ *  In:     ctx:        pointer to a context object (not secp256k1_context_static)
  *          blind:      pointer to a 32-byte blinding factor (cannot be NULL)
  *          value:      unsigned 64-bit integer value to commit to.
  *          gen:        additional generator 'h'
@@ -145,7 +145,7 @@ SECP256K1_API int secp256k1_pedersen_commitment_serialize(
  *  Blinding factors can be generated and verified in the same way as secp256k1 private keys for ECDSA.
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   secp256k1_pedersen_commitment *commit,
   const unsigned char *blind,
   uint64_t value,
@@ -164,7 +164,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit(
  *  Out:    blind_out:  pointer to a 32-byte array for the sum (cannot be NULL)
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_blind_sum(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   unsigned char *blind_out,
   const unsigned char * const *blinds,
   size_t n,
@@ -188,10 +188,10 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_blind_sum(
  *
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_verify_tally(
-  const secp256k1_context* ctx,
-  const secp256k1_pedersen_commitment * const* commits,
+  const secp256k1_context *ctx,
+  const secp256k1_pedersen_commitment * const *commits,
   size_t pcnt,
-  const secp256k1_pedersen_commitment * const* ncommits,
+  const secp256k1_pedersen_commitment * const *ncommits,
   size_t ncnt
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4);
 
@@ -226,10 +226,10 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_verify_tally(
  *                          the last value will be modified to get the total sum to zero.
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_blind_generator_blind_sum(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   const uint64_t *value,
-  const unsigned char* const* generator_blind,
-  unsigned char* const* blinding_factor,
+  const unsigned char * const *generator_blind,
+  unsigned char * const *blinding_factor,
   size_t n_total,
   size_t n_inputs
 );

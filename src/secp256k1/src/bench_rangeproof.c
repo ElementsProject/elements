@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 
-#include "include/secp256k1_rangeproof.h"
+#include "../include/secp256k1_rangeproof.h"
 #include "util.h"
 #include "bench.h"
 
@@ -53,7 +53,7 @@ int main(void) {
     bench_rangeproof_t data;
     int iters;
 
-    data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
 
     data.min_bits = 32;
     iters = data.min_bits*get_iters(32);

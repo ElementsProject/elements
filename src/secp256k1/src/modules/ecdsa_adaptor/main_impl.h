@@ -188,7 +188,7 @@ int secp256k1_ecdsa_adaptor_encrypt(const secp256k1_context* ctx, unsigned char 
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &rpj, &k);
     secp256k1_ge_set_gej(&rp, &rpj);
     /* R = k*Y; */
-    secp256k1_ecmult_const(&rj, &enckey_ge, &k, 256);
+    secp256k1_ecmult_const(&rj, &enckey_ge, &k);
     secp256k1_ge_set_gej(&r, &rj);
     /* We declassify the non-secret values rp and r to allow using them
      * as branch points. */
