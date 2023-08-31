@@ -11,7 +11,6 @@
 #include <wallet/receive.h>
 #include <wallet/rpc/wallet.h>
 #include <wallet/rpc/util.h>
-#include <wallet/rpc/wallet.h>
 
 #include <optional>
 

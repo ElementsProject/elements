@@ -1,4 +1,3 @@
-
 #ifndef BITCOIN_ASSET_H
 #define BITCOIN_ASSET_H
 
@@ -104,4 +103,4 @@ CAmount valueFor(const CAmountMap& mapValue, const CAsset& asset);
 
 std::ostream& operator<<(std::ostream& out, const CAmountMap& map);
 
-#endif //  BITCOIN_AMOUNT_H
+#endif // BITCOIN_ASSET_H

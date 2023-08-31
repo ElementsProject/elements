@@ -1,7 +1,6 @@
 // Copyright (c) 2017-2019 The Elements Core developers
 // // Distributed under the MIT software license, see the accompanying
 // // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #ifndef BITCOIN_BLIND_H
 #define BITCOIN_BLIND_H
 
@@ -78,4 +77,4 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
  */
 void RawFillBlinds(CMutableTransaction& tx, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CPubKey>& output_pubkeys);
 
-#endif //BITCOIN_BLIND_H
+#endif // BITCOIN_BLIND_H
