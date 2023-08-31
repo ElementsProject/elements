@@ -269,10 +269,6 @@ if ENABLE_MODULE_BPPP
 include src/modules/bppp/Makefile.am.include
 endif
 
-if ENABLE_MODULE_BPPP
-include src/modules/bppp/Makefile.am.include
-endif
-
 if ENABLE_MODULE_ECDH
 include src/modules/ecdh/Makefile.am.include
 endif
