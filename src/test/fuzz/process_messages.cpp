@@ -52,7 +52,6 @@ FUZZ_TARGET_INIT(process_messages, initialize_process_messages)
         connman.AddTestNode(p2p_node);
     }
 
-    int elements_iter_count = 0;
     LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 100) {
         // ELEMENTS: this loop runs on a single core and achieves nothing that couldn't
         //  be achieved by just repeating the fuzz runs. It typically takes around 11

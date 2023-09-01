@@ -391,7 +391,7 @@ BOOST_AUTO_TEST_CASE(script_standard_taproot_builder)
 
 BOOST_AUTO_TEST_CASE(bip341_spk_test_vectors)
 {
-    using control_set = decltype(TaprootSpendData::scripts)::mapped_type;
+    // using control_set = decltype(TaprootSpendData::scripts)::mapped_type;
 
     UniValue tests;
     tests.read((const char*)json_tests::bip341_wallet_vectors, sizeof(json_tests::bip341_wallet_vectors));
@@ -426,9 +426,9 @@ BOOST_AUTO_TEST_CASE(bip341_spk_test_vectors)
             // BOOST_CHECK_EQUAL(vec["intermediary"]["merkleRoot"].get_str(), HexStr(spend_data.merkle_root));
         }
         BOOST_CHECK_EQUAL(spend_data.scripts.size(), scriptposes.size());
-        for (const auto& scriptpos : scriptposes) {
-            // BOOST_CHECK(spend_data.scripts[scriptpos.first] == control_set{ParseHex(vec["expected"]["scriptPathControlBlocks"][scriptpos.second].get_str())});
-        }
+        // for (const auto& scriptpos : scriptposes) {
+        //     BOOST_CHECK(spend_data.scripts[scriptpos.first] == control_set{ParseHex(vec["expected"]["scriptPathControlBlocks"][scriptpos.second].get_str())});
+        // }
     }
 }
 

@@ -873,7 +873,6 @@ void CTxMemPool::check(const CBlockIndex* active_chain_tip, const CCoinsViewCach
         assert(it->GetSizeWithDescendants() >= child_sizes + it->GetTxSize());
 
         TxValidationState dummy_state; // Not used. CheckTxInputs() should always pass
-        CAmount txfee = 0;
         assert(!tx.IsCoinBase());
 
         // ELEMENTS
