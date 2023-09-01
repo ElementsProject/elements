@@ -7,7 +7,7 @@
 
 from decimal import Decimal
 from itertools import product
-from math import ceil
+# from math import ceil
 
 from test_framework.descriptors import descsum_create
 from test_framework.key import ECKey
@@ -1136,10 +1136,10 @@ class RawTransactionsTest(BitcoinTestFramework):
         funded_tx3 = ext_fund.fundrawtransaction(raw_tx, {"solving_data": {"descriptors": [desc]}, "input_weights": [{"txid": ext_utxo["txid"], "vout": ext_utxo["vout"], "weight": high_input_weight}]})
         assert_equal(funded_tx2["fee"], funded_tx3["fee"])
         # The feerate should be met
-        funded_tx4 = ext_fund.fundrawtransaction(raw_tx, {"input_weights": [{"txid": ext_utxo["txid"], "vout": ext_utxo["vout"], "weight": high_input_weight}], "fee_rate": 10})
-        input_add_weight = high_input_weight - (41 * 4)
-        tx4_weight = ext_fund.decoderawtransaction(funded_tx4["hex"])["weight"] + input_add_weight
-        tx4_vsize = int(ceil(tx4_weight / 4))
+        # funded_tx4 = ext_fund.fundrawtransaction(raw_tx, {"input_weights": [{"txid": ext_utxo["txid"], "vout": ext_utxo["vout"], "weight": high_input_weight}], "fee_rate": 10})
+        # input_add_weight = high_input_weight - (41 * 4)
+        # tx4_weight = ext_fund.decoderawtransaction(funded_tx4["hex"])["weight"] + input_add_weight
+        # tx4_vsize = int(ceil(tx4_weight / 4))
         # assert_fee_amount(funded_tx4["fee"], tx4_vsize, Decimal(0.0001)) Fee is different in Elements
 
         # Funding with weight at csuint boundaries should not cause problems

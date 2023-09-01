@@ -24,7 +24,7 @@ from test_framework.messages import (
     CTxOut,
     MAX_BLOCK_WEIGHT,
     SEQUENCE_FINAL,
-    uint256_from_compact,
+    # uint256_from_compact,
     uint256_from_str,
 )
 from test_framework.p2p import P2PDataStore

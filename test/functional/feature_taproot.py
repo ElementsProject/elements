@@ -101,7 +101,7 @@ from test_framework import util
 from test_framework.key import generate_privkey, compute_xonly_pubkey, sign_schnorr, tweak_add_privkey, ECKey
 from test_framework.address import (
     hash160,
-    program_to_witness
+    # program_to_witness
 )
 from collections import OrderedDict, namedtuple
 from enum import Enum
@@ -1594,7 +1594,7 @@ class TaprootTest(BitcoinTestFramework):
         # Require one negated and one non-negated in taps 5 and 6.
         # assert taps[5].negflag != taps[6].negflag
 
-        cblks = [{leaf: get({**DEFAULT_CONTEXT, 'tap': taps[i], 'leaf': leaf}, 'controlblock') for leaf in taps[i].leaves} for i in range(7)]
+        # cblks = [{leaf: get({**DEFAULT_CONTEXT, 'tap': taps[i], 'leaf': leaf}, 'controlblock') for leaf in taps[i].leaves} for i in range(7)]
         # Require one swapped and one unswapped in taps 3 and 4.
         #assert (cblks[3]['0'][33:65] < cblks[3]['1'][33:65]) != (cblks[4]['0'][33:65] < cblks[4]['1'][33:65])
         # Require one swapped and one unswapped in taps 5 and 6, both at the top and child level.

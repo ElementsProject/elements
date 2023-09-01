@@ -19,7 +19,6 @@ from test_framework.messages import (
     CTransaction,
     hash256,
 )
-from test_framework import util
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,

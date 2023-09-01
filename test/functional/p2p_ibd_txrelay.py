@@ -88,7 +88,7 @@ class P2PIBDTxRelayTest(BitcoinTestFramework):
         peer_txer = self.nodes[0].add_p2p_connection(P2PInterface())
         # ELEMENTS FIXME:
         # with self.nodes[0].assert_debug_log(expected_msgs=["was not accepted"]):
-            #peer_txer.send_and_ping(msg_tx(tx))
+        #   peer_txer.send_and_ping(msg_tx(tx))
 
 if __name__ == '__main__':
     P2PIBDTxRelayTest().main()

@@ -26,7 +26,6 @@ from test_framework.wallet import (
     bulk_transaction,
     create_child_with_parents,
     make_chain,
-    DEFAULT_FEE,
 )
 
 class MempoolPackageLimitsTest(BitcoinTestFramework):

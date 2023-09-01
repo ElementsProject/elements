@@ -4,7 +4,6 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the RBF code."""
 
-from copy import deepcopy
 from decimal import Decimal
 
 from test_framework.messages import (

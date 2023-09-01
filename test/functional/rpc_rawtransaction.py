@@ -325,7 +325,6 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         self.sync_all()
         inputs = [{"txid": txId, "vout": vout['n']}]
-        txout = self.nodes[0].gettxout(txId, vout['n'])
         # Fee 10,000 satoshis, (1 - (10000 sat * 0.00000001 BTC/sat)) = 0.9999
         outputs = [{self.nodes[0].getnewaddress(): Decimal("0.99990000")}, {"fee": 0.0001}]
         rawTx = self.nodes[2].createrawtransaction(inputs, outputs)
