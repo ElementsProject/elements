@@ -569,7 +569,7 @@ private:
     // All the intermediate state that gets passed between the various levels
     // of checking a given transaction.
     struct Workspace {
-        explicit Workspace(const CTransactionRef& ptx) : m_ptx(ptx), m_hash(ptx->GetHash()) {}
+        // explicit Workspace(const CTransactionRef& ptx) : m_ptx(ptx), m_hash(ptx->GetHash()) {} // ELEMENTS: unused since we need the genesis block hash
         explicit Workspace(const CTransactionRef& ptx, const uint256& hash_genesis_block) : m_ptx(ptx), m_hash(ptx->GetHash()), m_precomputed_txdata(hash_genesis_block) {} // ELEMENTS
         /** Txids of mempool transactions that this transaction directly conflicts with. */
         std::set<uint256> m_conflicts;
