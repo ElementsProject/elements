@@ -13,7 +13,7 @@
 
 
 namespace wallet {
-class CRecipient;
+struct CRecipient;
 /** Get the marginal bytes if spending the specified output from this transaction */
 int GetTxSpendSize(const CWallet& wallet, const CWalletTx& wtx, unsigned int out, bool use_max_sig = false);
 
