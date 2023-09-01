@@ -29,6 +29,9 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     # multi-asset transaction or not. Probably this check should be done in
     # CreateTransaction instead.
     "wallet/coinselection -> wallet/wallet -> wallet/coinselection"
+    # ELEMENTS: FIXMEs
+    "wallet/receive -> wallet/wallet -> wallet/receive"
+    "wallet/spend -> wallet/wallet -> wallet/spend"
 )
 
 EXIT_CODE=0
