@@ -15,9 +15,11 @@
 #include <script/generic.hpp>
 #include <script/pegins.h>
 #include <secp256k1.h>
+#include <wallet/coincontrol.h>
 #include <wallet/fees.h>
 #include <wallet/rpc/util.h>
 #include <wallet/receive.h>
+#include <wallet/spend.h>
 #include <wallet/wallet.h>
 
 using wallet::BlindDetails;

@@ -69,44 +69,6 @@ public:
     }
 };
 
-// ELEMENTS
-struct IssuanceDetails {
-    bool issuing = false;
-
-    // Indicated fields.
-    bool blind_issuance = true;
-    uint256 contract_hash;
-
-    // Calculated fields.
-    CAsset reissuance_asset;
-    CAsset reissuance_token;
-    uint256 entropy;
-};
-
-struct BlindDetails {
-    bool ignore_blind_failure = true; // Certain corner-cases are hard to avoid
-
-    // Temporary tx-specific details.
-    std::vector<uint256> i_amount_blinds;
-    std::vector<uint256> i_asset_blinds;
-    std::vector<CAsset>  i_assets;
-    std::vector<CAmount> i_amounts;
-    std::vector<CAmount> o_amounts;
-    std::vector<CPubKey> o_pubkeys;
-    std::vector<uint256> o_amount_blinds;
-    std::vector<CAsset>  o_assets;
-    std::vector<uint256> o_asset_blinds;
-
-    int num_to_blind;
-    int change_to_blind;
-    // Only used to strip blinding if its the only blind output in certain situations
-    int only_recipient_blind_index;
-    // Needed in case of one blinded output that is change and no blind inputs
-    int only_change_pos;
-};
-
-// end ELEMENTS
-
 class WalletRescanReserver; //forward declarations for ScanForWalletTransactions/RescanFromTime
 /**
  * A CWallet maintains a set of transactions and balances, and provides the ability to create new transactions.
