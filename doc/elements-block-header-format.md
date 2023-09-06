@@ -10,7 +10,7 @@ _Notes_:
 
 - The Byte Order column shows the [Endianness](https://en.wikipedia.org/wiki/Endianness) of the serialized bytes.
 
-- In the LiquidV1 chain, Dynamic Federations (DynaFed) has been active since block height `1 517 040`.
+- In the LiquidV1 chain, Dynamic Federations (DynaFed) has been active since block height `1517040`.
 
 #### "CompactSize" Encoding
 
@@ -35,7 +35,7 @@ Link to Elements source: [`src/serialize.h`](https://github.com/ElementsProject/
 
 **Pre-DynaFed Headers**
 
-> Before block height `1 517 039`, DynaFed was not yet active on LiquidV1.
+> Before block height `1517039`, DynaFed was not yet active on LiquidV1.
 
 | Field               | Required         | Size     | Data Type  | Byte Order    | Notes                                                                                                                                                                           |
 | ------------------- | ---------------- | -------- | ---------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -62,7 +62,7 @@ Link to Elements source: [`src/serialize.h`](https://github.com/ElementsProject/
 
 **DynaFed Headers**
 
-DynaFed has been active on LiquidV1 from block height `1 517 040` onwards.
+DynaFed has been active on LiquidV1 from block height `1517040` onwards.
 
 | Field               | Required | Size     | Data Type                       | Byte Order    | Notes                                                                                                                                                        |
 | ------------------- | -------- | -------- | ------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -83,6 +83,9 @@ DynaFed has been active on LiquidV1 from block height `1 517 040` onwards.
 | Current  | Yes      |      | `DynaFedParamEntry` | The active DynaFed parameters at this height                                                                                                     |
 | Proposed | Yes      |      | `DynaFedParamEntry` | The proposed DynaFed parameters for the next [epoch](https://github.com/ElementsProject/elements/blob/elements-22.1/src/chainparamsbase.cpp#L60) |
 
+In DynaFed, the chain is initalized with a *dynamic epoch length*. This is the number of blocks that Dynamic Federation voting and enforcement are in effect for. In Liquid this value is 20160 blocks, approximately 2 weeks. When DynaFed is active, the Current parameters will always either be a Full set of all fields in the DynaFedParamEntry (given below), or a set of Compact parameters indicating no change since the previous Full parameters. During a normal non-proposing epoch, the Proposed parameters will be Null, indicating that no change in the Federation is being proposed for the next epoch. During a proposing epoch, block producers will include their intended parameters in the Proposed field, either as Full parameters or Compact parameters commiting to their previous proposal.
+
+In order for a Proposed entry to be locked-in, at the end of the proposing epoch at least 4/5 blocks in that epoch must agree on the same Proposed parameters. If that condition is satisfied, then in the following epoch those Proposed parameters will become the Current parameters. There is a configurable `total_valid_epochs` consensus setting that defines how many epochs a given fedpegscript is valid for. In Liquid, this value is 2, meaning that once Proposed parameters become Current (ie. a successful transition), the fedpegscript of the previous epoch is valid for a grace period of 1 more epoch.
 #### DynaFed Parameters Entry (`class DynaFedParamEntry`)
 
 | Field                   | Required          | Size     | Data Type                       | Byte Order    | Notes                                                                                                                                                         |
@@ -103,7 +106,7 @@ DynaFed has been active on LiquidV1 from block height `1 517 040` onwards.
 
 | Block Height | Block Hash                                                         | Link to header hex                                                                                                                    |
 | ------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `1 517 039`  | `33a0890bea61d70b9dd1bd23f12e447730336906a44cdea621cba6d65fe90013` | [blockstream.info](https://blockstream.info/liquid/api/block/33a0890bea61d70b9dd1bd23f12e447730336906a44cdea621cba6d65fe90013/header) |
+| `1517039`  | `33a0890bea61d70b9dd1bd23f12e447730336906a44cdea621cba6d65fe90013` | [blockstream.info](https://blockstream.info/liquid/api/block/33a0890bea61d70b9dd1bd23f12e447730336906a44cdea621cba6d65fe90013/header) |
 
 4 bytes - **version** (`0x20000000 | 0x02000000` - 25th bit [dynafed signalling](https://github.com/ElementsProject/elements/blob/elements-22.1/src/chainparams.cpp#L344))
 
@@ -159,7 +162,7 @@ DynaFed has been active on LiquidV1 from block height `1 517 040` onwards.
 
 | Block Height | Block Hash                                                         | Link to header hex                                                                                                                    |
 | ------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `1 517 040`  | `1f8d44d6a34987f59cd19061d0af7b8734ab9129737397a95fc85ba38309ca3d` | [blockstream.info](https://blockstream.info/liquid/api/block/1f8d44d6a34987f59cd19061d0af7b8734ab9129737397a95fc85ba38309ca3d/header) |
+| `1517040`  | `1f8d44d6a34987f59cd19061d0af7b8734ab9129737397a95fc85ba38309ca3d` | [blockstream.info](https://blockstream.info/liquid/api/block/1f8d44d6a34987f59cd19061d0af7b8734ab9129737397a95fc85ba38309ca3d/header) |
 
 4 bytes - **version** (`0x20000000 | 0x80000000`)
 
@@ -349,7 +352,7 @@ DynaFed has been active on LiquidV1 from block height `1 517 040` onwards.
 
 | Block Height | Block Hash                                                         | Link to header hex                                                                                                                    |
 | ------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `2 197 439`  | `e889f779cd06228fc423b115fc913cbdaf213296b2a465f6869c98bc8d7fbe54` | [blockstream.info](https://blockstream.info/liquid/api/block/e889f779cd06228fc423b115fc913cbdaf213296b2a465f6869c98bc8d7fbe54/header) |
+| `2197439`  | `e889f779cd06228fc423b115fc913cbdaf213296b2a465f6869c98bc8d7fbe54` | [blockstream.info](https://blockstream.info/liquid/api/block/e889f779cd06228fc423b115fc913cbdaf213296b2a465f6869c98bc8d7fbe54/header) |
 
 4 bytes - **version** (`0x20000000 | 0x80000000`)
 
@@ -579,7 +582,7 @@ DynaFed has been active on LiquidV1 from block height `1 517 040` onwards.
 
 | Block Height | Block Hash                                                         | Link to header hex                                                                                                                    |
 | ------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `2 197 441`  | `b057a10a549fd95f1c8c30bccd3b564232d649b3ed8327c59f6ac523d0b586ad` | [blockstream.info](https://blockstream.info/liquid/api/block/b057a10a549fd95f1c8c30bccd3b564232d649b3ed8327c59f6ac523d0b586ad/header) |
+| `2197441`  | `b057a10a549fd95f1c8c30bccd3b564232d649b3ed8327c59f6ac523d0b586ad` | [blockstream.info](https://blockstream.info/liquid/api/block/b057a10a549fd95f1c8c30bccd3b564232d649b3ed8327c59f6ac523d0b586ad/header) |
 
 4 bytes - **version** (`0x20000000 | 0x80000000`)
 
