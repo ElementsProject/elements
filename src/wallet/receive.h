@@ -17,7 +17,7 @@ isminetype InputIsMine(const CWallet& wallet, const COutPoint& txin) EXCLUSIVE_L
 /** Returns whether all of the inputs match the filter */
 bool AllInputsMine(const CWallet& wallet, const CTransaction& tx, const isminefilter& filter);
 
-CAmountMap OutputGetCredit(const CWallet& wallet, const CTransaction& tx, const size_t out_index, const isminefilter& filter);
+CAmountMap OutputGetCredit(const CWallet& wallet, const CTransaction& tx, const size_t out_index, const isminefilter& filter) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 CAmountMap TxGetCredit(const CWallet& wallet, const CTransaction& tx, const isminefilter& filter);
 
 bool ScriptIsChange(const CWallet& wallet, const CScript& script) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);

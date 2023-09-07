@@ -121,7 +121,7 @@ void CCoinsViewCache::EmplaceCoinInternalDANGER(COutPoint&& outpoint, Coin&& coi
     cachedCoinsUsage += coin.DynamicMemoryUsage();
     cacheCoins.emplace(
         std::piecewise_construct,
-        std::forward_as_tuple(std::move(native_key(outpoint))),
+        std::forward_as_tuple(native_key(outpoint)),
         std::forward_as_tuple(std::move(coin), CCoinsCacheEntry::DIRTY));
 }
 
