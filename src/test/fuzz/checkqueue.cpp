@@ -15,7 +15,8 @@ namespace {
 struct DumbCheck {
     const bool result = false;
 
-    DumbCheck() = default;
+    // ELEMENTS: fix unused member function warnings
+    // DumbCheck() = default;
 
     explicit DumbCheck(const bool _result) : result(_result)
     {
@@ -26,9 +27,9 @@ struct DumbCheck {
         return result;
     }
 
-    void swap(DumbCheck& x)
-    {
-    }
+    // void swap(DumbCheck& x)
+    // {
+    // }
 };
 } // namespace
 

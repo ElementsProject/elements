@@ -30,8 +30,9 @@ static void CCheckQueueSpeedPrevectorJob(benchmark::Bench& bench)
 
     struct PrevectorJob {
         prevector<PREVECTOR_SIZE, uint8_t> p;
-        PrevectorJob(){
-        }
+        // ELEMENTS: fix unused member function warnings
+        // PrevectorJob(){
+        // }
         explicit PrevectorJob(FastRandomContext& insecure_rand){
             p.resize(insecure_rand.randrange(PREVECTOR_SIZE*2));
         }
@@ -39,7 +40,7 @@ static void CCheckQueueSpeedPrevectorJob(benchmark::Bench& bench)
         {
             return true;
         }
-        void swap(PrevectorJob& x){p.swap(x.p);};
+        // void swap(PrevectorJob& x){p.swap(x.p);};
     };
     CCheckQueue<PrevectorJob> queue {QUEUE_BATCH_SIZE};
     // The main thread should be counted to prevent thread oversubscription, and
