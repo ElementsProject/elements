@@ -1820,7 +1820,7 @@ BOOST_AUTO_TEST_CASE(bip341_keypath_test_vectors)
             ScriptExecutionData sed;
             sed.m_annex_init = true;
             sed.m_annex_present = false;
-            uint256 sighash;
+            // uint256 sighash;
             // BOOST_CHECK(SignatureHashSchnorr(sighash, sed, tx, txinpos, hashtype, SigVersion::TAPROOT, txdata, MissingDataBehavior::FAIL));
             // BOOST_CHECK_EQUAL(HexStr(sighash), input["intermediary"]["sigHash"].get_str());
 
