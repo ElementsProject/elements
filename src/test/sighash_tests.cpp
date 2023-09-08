@@ -128,7 +128,7 @@ BOOST_AUTO_TEST_CASE(sighash_test)
     #endif
     for (int i=0; i<nRandomTests; i++) {
         // In randomized test, we disable SIGHASH_RANGEPROOF.
-        int nHashType{int(InsecureRand32() & ~SIGHASH_RANGEPROOF)};
+        int nHashType{int(InsecureRand32()) & ~SIGHASH_RANGEPROOF};
         CMutableTransaction txTo;
         RandomTransaction(txTo, (nHashType & 0x1f) == SIGHASH_SINGLE);
         CScript scriptCode;
