@@ -484,7 +484,7 @@ public:
         } else {
             int32_t nVersion = obj.nVersion;
             if (obj.is_dynafed_block()) {
-                nVersion |= CBlockHeader::DYNAFED_HF_MASK;
+                nVersion |= (int32_t)CBlockHeader::DYNAFED_HF_MASK;
             }
             READWRITE(nVersion);
         }
