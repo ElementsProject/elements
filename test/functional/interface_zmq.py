@@ -23,6 +23,7 @@ from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
 )
+from test_framework import util
 from test_framework.netutil import test_ipv6_local
 from io import BytesIO
 from time import sleep
@@ -111,6 +112,7 @@ class ZMQTest (BitcoinTestFramework):
         self.skip_if_no_bitcoind_zmq()
 
     def run_test(self):
+        util.node_fastmerkle = self.nodes[0]
         self.ctx = zmq.Context()
         try:
             self.test_basic()
