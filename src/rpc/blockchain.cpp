@@ -2429,6 +2429,7 @@ static RPCHelpMan getblockstats()
                     if (out.nValue.IsExplicit() && out.nAsset.IsExplicit() && out.nAsset.GetAsset() == asset) {
                         tx_total_out += out.nValue.GetAmount();
                     }
+                    utxo_size_inc += GetSerializeSize(out, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
                 }
             }
         } else {
