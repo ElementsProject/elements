@@ -5,41 +5,110 @@
 #ifndef BITCOIN_WALLET_TRANSACTION_H
 #define BITCOIN_WALLET_TRANSACTION_H
 
-#include <amount.h>
+#include <consensus/amount.h>
 #include <primitives/transaction.h>
 #include <serialize.h>
 #include <wallet/ismine.h>
 #include <threadsafety.h>
 #include <tinyformat.h>
+#include <util/overloaded.h>
 #include <util/strencodings.h>
 #include <util/string.h>
 
 #include <list>
+#include <variant>
 #include <vector>
 
-struct COutputEntry;
+namespace wallet {
+//! State of transaction confirmed in a block.
+struct TxStateConfirmed {
+    uint256 confirmed_block_hash;
+    int confirmed_block_height;
+    int position_in_block;
+
+    explicit TxStateConfirmed(const uint256& block_hash, int height, int index) : confirmed_block_hash(block_hash), confirmed_block_height(height), position_in_block(index) {}
+};
+
+//! State of transaction added to mempool.
+struct TxStateInMempool {
+};
+
+//! State of rejected transaction that conflicts with a confirmed block.
+struct TxStateConflicted {
+    uint256 conflicting_block_hash;
+    int conflicting_block_height;
+
+    explicit TxStateConflicted(const uint256& block_hash, int height) : conflicting_block_hash(block_hash), conflicting_block_height(height) {}
+};
+
+//! State of transaction not confirmed or conflicting with a known block and
+//! not in the mempool. May conflict with the mempool, or with an unknown block,
+//! or be abandoned, never broadcast, or rejected from the mempool for another
+//! reason.
+struct TxStateInactive {
+    bool abandoned;
+
+    explicit TxStateInactive(bool abandoned = false) : abandoned(abandoned) {}
+};
+
+//! State of transaction loaded in an unrecognized state with unexpected hash or
+//! index values. Treated as inactive (with serialized hash and index values
+//! preserved) by default, but may enter another state if transaction is added
+//! to the mempool, or confirmed, or abandoned, or found conflicting.
+struct TxStateUnrecognized {
+    uint256 block_hash;
+    int index;
+
+    TxStateUnrecognized(const uint256& block_hash, int index) : block_hash(block_hash), index(index) {}
+};
+
+//! All possible CWalletTx states
+using TxState = std::variant<TxStateConfirmed, TxStateInMempool, TxStateConflicted, TxStateInactive, TxStateUnrecognized>;
+
+//! Subset of states transaction sync logic is implemented to handle.
+using SyncTxState = std::variant<TxStateConfirmed, TxStateInMempool, TxStateInactive>;
+
+//! Try to interpret deserialized TxStateUnrecognized data as a recognized state.
+static inline TxState TxStateInterpretSerialized(TxStateUnrecognized data)
+{
+    if (data.block_hash == uint256::ZERO) {
+        if (data.index == 0) return TxStateInactive{};
+    } else if (data.block_hash == uint256::ONE) {
+        if (data.index == -1) return TxStateInactive{/*abandoned=*/true};
+    } else if (data.index >= 0) {
+        return TxStateConfirmed{data.block_hash, /*height=*/-1, data.index};
+    } else if (data.index == -1) {
+        return TxStateConflicted{data.block_hash, /*height=*/-1};
+    }
+    return data;
+}
+
+//! Get TxState serialized block hash. Inverse of TxStateInterpretSerialized.
+static inline uint256 TxStateSerializedBlockHash(const TxState& state)
+{
+    return std::visit(util::Overloaded{
+        [](const TxStateInactive& inactive) { return inactive.abandoned ? uint256::ONE : uint256::ZERO; },
+        [](const TxStateInMempool& in_mempool) { return uint256::ZERO; },
+        [](const TxStateConfirmed& confirmed) { return confirmed.confirmed_block_hash; },
+        [](const TxStateConflicted& conflicted) { return conflicted.conflicting_block_hash; },
+        [](const TxStateUnrecognized& unrecognized) { return unrecognized.block_hash; }
+    }, state);
+}
+
+//! Get TxState serialized block index. Inverse of TxStateInterpretSerialized.
+static inline int TxStateSerializedIndex(const TxState& state)
+{
+    return std::visit(util::Overloaded{
+        [](const TxStateInactive& inactive) { return inactive.abandoned ? -1 : 0; },
+        [](const TxStateInMempool& in_mempool) { return 0; },
+        [](const TxStateConfirmed& confirmed) { return confirmed.position_in_block; },
+        [](const TxStateConflicted& conflicted) { return -1; },
+        [](const TxStateUnrecognized& unrecognized) { return unrecognized.index; }
+    }, state);
+}
+
 
 typedef std::map<std::string, std::string> mapValue_t;
-
-//Get the marginal bytes of spending the specified output
-int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* pwallet, bool use_max_sig = false);
-
-static inline void ReadOrderPos(int64_t& nOrderPos, mapValue_t& mapValue)
-{
-    if (!mapValue.count("n"))
-    {
-        nOrderPos = -1; // TODO: calculate elsewhere
-        return;
-    }
-    nOrderPos = atoi64(mapValue["n"]);
-}
-
-static inline void WriteOrderPos(const int64_t& nOrderPos, mapValue_t& mapValue)
-{
-    if (nOrderPos == -1)
-        return;
-    mapValue["n"] = ToString(nOrderPos);
-}
 
 /** Legacy class used for deserializing vtxPrev for backwards compatibility.
  * vtxPrev was removed in commit 93a18a3650292afbb441a47d1fa1b94aeb0164e3,
@@ -67,14 +136,6 @@ public:
  */
 class CWalletTx
 {
-private:
-    const CWallet* const pwallet;
-
-    /** Constant used in hashBlock to indicate tx has been abandoned, only used at
-     * serialization/deserialization to avoid ambiguity with conflicted.
-     */
-    static constexpr const uint256& ABANDON_HASH = uint256::ONE;
-
 public:
     /**
      * Key/value map with information about the transaction.
@@ -126,11 +187,6 @@ public:
 
     // memory only
     enum AmountType { DEBIT, CREDIT, IMMATURE_CREDIT, AVAILABLE_CREDIT, AMOUNTTYPE_ENUM_ELEMENTS };
-    // TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
-    // annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The
-    // annotation "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid
-    // having to resolve the issue of member access into incomplete type CWallet.
-    CAmountMap GetCachableAmount(AmountType type, const isminefilter& filter, bool recalculate = false) const NO_THREAD_SAFETY_ANALYSIS;
     mutable CachableAmountMap m_amounts[AMOUNTTYPE_ENUM_ELEMENTS];
     /**
      * This flag is true if all m_amounts caches are empty. This is particularly
@@ -140,12 +196,9 @@ public:
      */
     mutable bool m_is_cache_empty{true};
     mutable bool fChangeCached;
-    mutable bool fInMempool;
     mutable CAmountMap nChangeCached;
 
-    CWalletTx(const CWallet* wallet, CTransactionRef arg)
-        : pwallet(wallet),
-          tx(std::move(arg))
+    CWalletTx(CTransactionRef tx, const TxState& state) : tx(std::move(tx)), m_state(state)
     {
         Init();
     }
@@ -159,43 +212,12 @@ public:
         nTimeSmart = 0;
         fFromMe = false;
         fChangeCached = false;
-        fInMempool = false;
         nChangeCached = CAmountMap();
         nOrderPos = -1;
-        m_confirm = Confirmation{};
     }
 
     CTransactionRef tx;
-
-    /** New transactions start as UNCONFIRMED. At BlockConnected,
-     * they will transition to CONFIRMED. In case of reorg, at BlockDisconnected,
-     * they roll back to UNCONFIRMED. If we detect a conflicting transaction at
-     * block connection, we update conflicted tx and its dependencies as CONFLICTED.
-     * If tx isn't confirmed and outside of mempool, the user may switch it to ABANDONED
-     * by using the abandontransaction call. This last status may be override by a CONFLICTED
-     * or CONFIRMED transition.
-     */
-    enum Status {
-        UNCONFIRMED,
-        CONFIRMED,
-        CONFLICTED,
-        ABANDONED
-    };
-
-    /** Confirmation includes tx status and a triplet of {block height/block hash/tx index in block}
-     * at which tx has been confirmed. All three are set to 0 if tx is unconfirmed or abandoned.
-     * Meaning of these fields changes with CONFLICTED state where they instead point to block hash
-     * and block height of the deepest conflicting tx.
-     */
-    struct Confirmation {
-        Status status;
-        int block_height;
-        uint256 hashBlock;
-        int nIndex;
-        Confirmation(Status s = UNCONFIRMED, int b = 0, uint256 h = uint256(), int i = 0) : status(s), block_height(b), hashBlock(h), nIndex(i) {}
-    };
-
-    Confirmation m_confirm;
+    TxState m_state;
 
     template<typename Stream>
     void Serialize(Stream& s) const
@@ -203,7 +225,9 @@ public:
         mapValue_t mapValueCopy = mapValue;
 
         mapValueCopy["fromaccount"] = "";
-        WriteOrderPos(nOrderPos, mapValueCopy);
+        if (nOrderPos != -1) {
+            mapValueCopy["n"] = ToString(nOrderPos);
+        }
         if (nTimeSmart) {
             mapValueCopy["timesmart"] = strprintf("%u", nTimeSmart);
         }
@@ -211,8 +235,8 @@ public:
         std::vector<uint8_t> dummy_vector1; //!< Used to be vMerkleBranch
         std::vector<uint8_t> dummy_vector2; //!< Used to be vtxPrev
         bool dummy_bool = false; //!< Used to be fSpent
-        uint256 serializedHash = isAbandoned() ? ABANDON_HASH : m_confirm.hashBlock;
-        int serializedIndex = isAbandoned() || isConflicted() ? -1 : m_confirm.nIndex;
+        uint256 serializedHash = TxStateSerializedBlockHash(m_state);
+        int serializedIndex = TxStateSerializedIndex(m_state);
         s << tx << serializedHash << dummy_vector1 << serializedIndex << dummy_vector2 << mapValueCopy << vOrderForm << fTimeReceivedIsTxTime << nTimeReceived << fFromMe << dummy_bool;
     }
 
@@ -224,27 +248,16 @@ public:
         std::vector<uint256> dummy_vector1; //!< Used to be vMerkleBranch
         std::vector<CMerkleTx> dummy_vector2; //!< Used to be vtxPrev
         bool dummy_bool; //! Used to be fSpent
+        uint256 serialized_block_hash;
         int serializedIndex;
-        s >> tx >> m_confirm.hashBlock >> dummy_vector1 >> serializedIndex >> dummy_vector2 >> mapValue >> vOrderForm >> fTimeReceivedIsTxTime >> nTimeReceived >> fFromMe >> dummy_bool;
+        s >> tx >> serialized_block_hash >> dummy_vector1 >> serializedIndex >> dummy_vector2 >> mapValue >> vOrderForm >> fTimeReceivedIsTxTime >> nTimeReceived >> fFromMe >> dummy_bool;
 
-        /* At serialization/deserialization, an nIndex == -1 means that hashBlock refers to
-         * the earliest block in the chain we know this or any in-wallet ancestor conflicts
-         * with. If nIndex == -1 and hashBlock is ABANDON_HASH, it means transaction is abandoned.
-         * In same context, an nIndex >= 0 refers to a confirmed transaction (if hashBlock set) or
-         * unconfirmed one. Older clients interpret nIndex == -1 as unconfirmed for backward
-         * compatibility (pre-commit 9ac63d6).
-         */
-        if (serializedIndex == -1 && m_confirm.hashBlock == ABANDON_HASH) {
-            setAbandoned();
-        } else if (serializedIndex == -1) {
-            setConflicted();
-        } else if (!m_confirm.hashBlock.IsNull()) {
-            m_confirm.nIndex = serializedIndex;
-            setConfirmed();
-        }
+        m_state = TxStateInterpretSerialized({serialized_block_hash, serializedIndex});
 
-        ReadOrderPos(nOrderPos, mapValue);
-        nTimeSmart = mapValue.count("timesmart") ? (unsigned int)atoi64(mapValue["timesmart"]) : 0;
+        const auto it_op = mapValue.find("n");
+        nOrderPos = (it_op != mapValue.end()) ? LocaleIndependentAtoi<int64_t>(it_op->second) : -1;
+        const auto it_ts = mapValue.find("timesmart");
+        nTimeSmart = (it_ts != mapValue.end()) ? static_cast<unsigned int>(LocaleIndependentAtoi<int64_t>(it_ts->second)) : 0;
 
         mapValue.erase("fromaccount");
         mapValue.erase("spent");
@@ -258,7 +271,7 @@ public:
     }
 
     //! make sure balances are recalculated
-    void MarkDirty()
+    void MarkDirty(const CWallet& wallet)
     {
         m_amounts[DEBIT].Reset();
         m_amounts[CREDIT].Reset();
@@ -266,52 +279,27 @@ public:
         m_amounts[AVAILABLE_CREDIT].Reset();
         fChangeCached = false;
         m_is_cache_empty = true;
-        WipeUnknownBlindingData();
-    }
-
-    //! filter decides which addresses will count towards the debit
-    CAmountMap GetDebit(const isminefilter& filter) const;
-    CAmountMap GetCredit(const isminefilter& filter) const;
-    CAmountMap GetImmatureCredit(bool fUseCache=true) const;
-    // TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
-    // annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The
-    // annotation "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid
-    // having to resolve the issue of member access into incomplete type CWallet.
-    CAmountMap GetAvailableCredit(bool fUseCache=true, const isminefilter& filter=ISMINE_SPENDABLE) const NO_THREAD_SAFETY_ANALYSIS;
-    CAmountMap GetImmatureWatchOnlyCredit(const bool fUseCache=true) const;
-    // TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
-    // annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The
-    // annotation "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid
-    // having to resolve the issue of member access into incomplete type CWallet.
-    CAmountMap GetChange() const NO_THREAD_SAFETY_ANALYSIS;
-
-    /** Get the marginal bytes if spending the specified output from this transaction */
-    int GetSpendSize(unsigned int out, bool use_max_sig = false) const
-    {
-        return CalculateMaximumSignedInputSize(tx->vout[out], pwallet, use_max_sig);
-    }
-
-    void GetAmounts(std::list<COutputEntry>& listReceived,
-                    std::list<COutputEntry>& listSent, CAmount& nFee, const isminefilter& filter) const;
-
-    bool IsFromMe(const isminefilter& filter) const
-    {
-        return (GetDebit(filter) > CAmountMap());
+        WipeUnknownBlindingData(wallet);
     }
 
     /** True if only scriptSigs are different */
     bool IsEquivalentTo(const CWalletTx& tx) const;
 
     bool InMempool() const;
-    bool IsTrusted() const;
 
     int64_t GetTxTime() const;
 
-    /** Pass this transaction to node for mempool insertion and relay to peers if flag set to true */
-    bool SubmitMemoryPoolAndRelay(std::string& err_string, bool relay);
+    template<typename T> const T* state() const { return std::get_if<T>(&m_state); }
+    template<typename T> T* state() { return std::get_if<T>(&m_state); }
 
-    // ELEMENTS:
+    bool isAbandoned() const { return state<TxStateInactive>() && state<TxStateInactive>()->abandoned; }
+    bool isConflicted() const { return state<TxStateConflicted>(); }
+    bool isUnconfirmed() const { return !isAbandoned() && !isConflicted() && !isConfirmed(); }
+    bool isConfirmed() const { return state<TxStateConfirmed>(); }
+    const uint256& GetHash() const { return tx->GetHash(); }
+    bool IsCoinBase() const { return tx->IsCoinBase(); }
 
+    // ELEMENTS
 private:
     /* Computes, stores and returns the unblinded info, or retrieves if already computed previously.
     * @param[in]    map_index - Where to store the blinding data. Issuance data is stored after the output data, with additional index offset calculated via GetPseudoInputOffset
@@ -326,8 +314,8 @@ private:
     * @param[out]   asset_out - Pointer to the recovered underlying asset type
     * @param[out]   asset_factor_out - Pointer to the recovered asset blinding factor of the output
     */
-    void GetBlindingData(const unsigned int map_index, const std::vector<unsigned char>& vchRangeproof, const CConfidentialValue& conf_value, const CConfidentialAsset& conf_asset, const CConfidentialNonce nonce, const CScript& scriptPubKey, CPubKey* blinding_pubkey_out, CAmount* value_out, uint256* value_factor_out, CAsset* asset_out, uint256* asset_factor_out) const;
-    void WipeUnknownBlindingData();
+    void GetBlindingData(const CWallet& wallet, const unsigned int map_index, const std::vector<unsigned char>& vchRangeproof, const CConfidentialValue& conf_value, const CConfidentialAsset& conf_asset, const CConfidentialNonce nonce, const CScript& scriptPubKey, CPubKey* blinding_pubkey_out, CAmount* value_out, uint256* value_factor_out, CAsset* asset_out, uint256* asset_factor_out) const;
+    void WipeUnknownBlindingData(const CWallet& wallet);
 
 public:
     // For use in wallet transaction creation to remember 3rd party values
@@ -335,76 +323,32 @@ public:
     void SetBlindingData(const unsigned int output_index, const CPubKey& blinding_pubkey, const CAmount value, const uint256& value_factor, const CAsset& asset, const uint256& asset_factor);
 
     // Convenience method to retrieve all blinding data at once, for an ordinary non-issuance tx
-    void GetNonIssuanceBlindingData(const unsigned int output_index, CPubKey* blinding_pubkey_out, CAmount* value_out, uint256* value_factor_out, CAsset* asset_out, uint256* asset_factor_out) const;
-
-    //! Returns either the value out (if it is known) or -1
-    CAmount GetOutputValueOut(unsigned int ouput_index) const;
+    void GetNonIssuanceBlindingData(const CWallet& wallet, const unsigned int output_index, CPubKey* blinding_pubkey_out, CAmount* value_out, uint256* value_factor_out, CAsset* asset_out, uint256* asset_factor_out) const;
 
     //! Returns either the blinding factor (if it is to us) or 0
-    uint256 GetOutputAmountBlindingFactor(unsigned int output_index) const;
-    uint256 GetOutputAssetBlindingFactor(unsigned int output_index) const;
-    //! Returns the underlying asset type, or 0 if unknown
-    CAsset GetOutputAsset(unsigned int output_index) const;
+    uint256 GetOutputAmountBlindingFactor(const CWallet& wallet, unsigned int output_index) const;
+    uint256 GetOutputAssetBlindingFactor(const CWallet& wallet, unsigned int output_index) const;
     //! Get the issuance CAssets for both the asset itself and the issuing tokens
     void GetIssuanceAssets(unsigned int vinIndex, CAsset* out_asset, CAsset* out_reissuance_token) const;
     // ! Return map of issued assets at input_index
-    CAmountMap GetIssuanceAssets(unsigned int input_index) const;
+    CAmountMap GetIssuanceAssets(const CWallet& wallet, unsigned int input_index) const;
     // ! Returns receiver's blinding pubkey
-    CPubKey GetOutputBlindingPubKey(unsigned int output_index) const;
+    CPubKey GetOutputBlindingPubKey(const CWallet& wallet, unsigned int output_index) const;
     //! Get the issuance blinder for either the asset itself or the issuing tokens
-    uint256 GetIssuanceBlindingFactor(unsigned int input_index, bool reissuance_token) const;
+    uint256 GetIssuanceBlindingFactor(const CWallet& wallet, unsigned int input_index, bool reissuance_token) const;
     //! Get the issuance amount for either the asset itself or the issuing tokens
-    CAmount GetIssuanceAmount(unsigned int input_index, bool reissuance_token) const;
+    CAmount GetIssuanceAmount(const CWallet& wallet, unsigned int input_index, bool reissuance_token) const;
 
     //! Get the mapValue offset for a specific vin index and type of issuance pseudo-input
     unsigned int GetPseudoInputOffset(unsigned int input_index, bool reissuance_token) const;
+    // END ELEMENTS
 
-    // TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
-    // annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The annotation
-    // "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid having to
-    // resolve the issue of member access into incomplete type CWallet. Note
-    // that we still have the runtime check "AssertLockHeld(pwallet->cs_wallet)"
-    // in place.
-    std::set<uint256> GetConflicts() const NO_THREAD_SAFETY_ANALYSIS;
+    //! Returns either the value out (if it is known) or -1
+    CAmount GetOutputValueOut(const CWallet& wallet, unsigned int ouput_index) const;
+    //! Returns the underlying asset type, or 0 if unknown
+    CAsset GetOutputAsset(const CWallet& wallet, unsigned int output_index) const;
 
-    /**
-     * Return depth of transaction in blockchain:
-     * <0  : conflicts with a transaction this deep in the blockchain
-     *  0  : in memory pool, waiting to be included in a block
-     * >=1 : this many blocks deep in the main chain
-     */
-    // TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
-    // annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The annotation
-    // "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid having to
-    // resolve the issue of member access into incomplete type CWallet. Note
-    // that we still have the runtime check "AssertLockHeld(pwallet->cs_wallet)"
-    // in place.
-    int GetDepthInMainChain() const NO_THREAD_SAFETY_ANALYSIS;
-    bool IsInMainChain() const { return GetDepthInMainChain() > 0; }
-
-    /**
-     * @return number of blocks to maturity for this transaction:
-     *  0 : is not a coinbase transaction, or is a mature coinbase transaction
-     * >0 : is a coinbase transaction which matures in this many blocks
-     */
-    int GetBlocksToMaturity() const;
-    bool isAbandoned() const { return m_confirm.status == CWalletTx::ABANDONED; }
-    void setAbandoned()
-    {
-        m_confirm.status = CWalletTx::ABANDONED;
-        m_confirm.hashBlock = uint256();
-        m_confirm.block_height = 0;
-        m_confirm.nIndex = 0;
-    }
-    bool isConflicted() const { return m_confirm.status == CWalletTx::CONFLICTED; }
-    void setConflicted() { m_confirm.status = CWalletTx::CONFLICTED; }
-    bool isUnconfirmed() const { return m_confirm.status == CWalletTx::UNCONFIRMED; }
-    void setUnconfirmed() { m_confirm.status = CWalletTx::UNCONFIRMED; }
-    bool isConfirmed() const { return m_confirm.status == CWalletTx::CONFIRMED; }
-    void setConfirmed() { m_confirm.status = CWalletTx::CONFIRMED; }
-    const uint256& GetHash() const { return tx->GetHash(); }
-    bool IsCoinBase() const { return tx->IsCoinBase(); }
-    bool IsImmatureCoinBase() const;
+    // END ELEMENTS
 
     // Disable copying of CWalletTx objects to prevent bugs where instances get
     // copied in and out of the mapWallet map, and fields are updated in the
@@ -412,5 +356,6 @@ public:
     CWalletTx(CWalletTx const &) = delete;
     void operator=(CWalletTx const &x) = delete;
 };
+} // namespace wallet
 
 #endif // BITCOIN_WALLET_TRANSACTION_H

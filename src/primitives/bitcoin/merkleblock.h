@@ -10,7 +10,7 @@
 #include <uint256.h>
 #include <merkleblock.h>
 #include <primitives/bitcoin/block.h>
-#include <bloom.h>
+#include <common/bloom.h>
 
 #include <vector>
 

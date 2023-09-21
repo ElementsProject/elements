@@ -3,7 +3,7 @@
 #define BITCOIN_ISSUANCE_H
 
 #include <primitives/transaction.h>
-#include <amount.h>
+#include <consensus/amount.h>
 #include <hash.h>
 #include <consensus/merkle.h>
 

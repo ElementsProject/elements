@@ -110,8 +110,8 @@ bool CreateValueRangeProof(std::vector<unsigned char>& rangeproof, const uint256
     memcpy(asset_message + 32, asset_blinder.begin(), 32);
 
     // Sign rangeproof
-    int ct_exponent = (int)gArgs.GetArg("-ct_exponent", 0);
-    int ct_bits = (int)gArgs.GetArg("-ct_bits", 52);
+    int ct_exponent = (int)gArgs.GetIntArg("-ct_exponent", 0);
+    int ct_bits = (int)gArgs.GetIntArg("-ct_bits", 52);
     // If min_value is 0, scriptPubKey must be unspendable
     uint64_t min_value = scriptPubKey.IsUnspendable() ? 0 : 1;
     int res = secp256k1_rangeproof_sign(secp256k1_blind_context, rangeproof.data(), &rangeproof_len, min_value, &value_commit, value_blinder.begin(), nonce.begin(), ct_exponent, ct_bits, amount, asset_message, sizeof(asset_message), scriptPubKey.size() ? &scriptPubKey.front() : NULL, scriptPubKey.size(), &gen);

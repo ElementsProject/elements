@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The Bitcoin Core developers
+// Copyright (c) 2020-2021 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -14,6 +14,7 @@
 #include <test/fuzz/FuzzedDataProvider.h>
 #include <test/fuzz/fuzz.h>
 #include <test/fuzz/util.h>
+#include <util/translation.h>
 
 #include <cassert>
 #include <cstdint>
@@ -48,7 +49,7 @@ FUZZ_TARGET_INIT(script_sign, initialize_script_sign)
 
     {
         std::map<CPubKey, KeyOriginInfo> hd_keypaths;
-        while (fuzzed_data_provider.ConsumeBool()) {
+        LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 10000) {
             const std::optional<CPubKey> pub_key = ConsumeDeserializable<CPubKey>(fuzzed_data_provider);
             if (!pub_key) {
                 break;
@@ -127,7 +128,7 @@ FUZZ_TARGET_INIT(script_sign, initialize_script_sign)
                 (void)signature_creator.CreateSig(provider, vch_sig, address, ConsumeScript(fuzzed_data_provider), fuzzed_data_provider.PickValueInArray({SigVersion::BASE, SigVersion::WITNESS_V0}), 0);
             }
             std::map<COutPoint, Coin> coins;
-            while (fuzzed_data_provider.ConsumeBool()) {
+            LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 10000) {
                 const std::optional<COutPoint> outpoint = ConsumeDeserializable<COutPoint>(fuzzed_data_provider);
                 if (!outpoint) {
                     break;
@@ -138,7 +139,7 @@ FUZZ_TARGET_INIT(script_sign, initialize_script_sign)
                 }
                 coins[*outpoint] = *coin;
             }
-            std::map<int, std::string> input_errors;
+            std::map<int, bilingual_str> input_errors;
             auto genesis_hash = ConsumeUInt256(fuzzed_data_provider);
             (void)SignTransaction(sign_transaction_tx_to, &provider, coins, fuzzed_data_provider.ConsumeIntegral<int>(), genesis_hash, input_errors);
         }

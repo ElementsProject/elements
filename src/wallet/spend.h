@@ -5,9 +5,17 @@
 #ifndef BITCOIN_WALLET_SPEND_H
 #define BITCOIN_WALLET_SPEND_H
 
+#include <consensus/amount.h>
+#include <wallet/coincontrol.h>
 #include <wallet/coinselection.h>
 #include <wallet/transaction.h>
 #include <wallet/wallet.h>
+
+
+namespace wallet {
+struct CRecipient;
+/** Get the marginal bytes if spending the specified output from this transaction */
+int GetTxSpendSize(const CWallet& wallet, const CWalletTx& wtx, unsigned int out, bool use_max_sig = false);
 
 class COutput
 {
@@ -43,65 +51,106 @@ public:
      */
     bool fSafe;
 
-    COutput(const CWalletTx *txIn, int iIn, int nDepthIn, bool fSpendableIn, bool fSolvableIn, bool fSafeIn, bool use_max_sig_in = false)
+    COutput(const CWallet& wallet, const CWalletTx& wtx, int iIn, int nDepthIn, bool fSpendableIn, bool fSolvableIn, bool fSafeIn, bool use_max_sig_in = false)
     {
-        tx = txIn; i = iIn; nDepth = nDepthIn; fSpendable = fSpendableIn; fSolvable = fSolvableIn; fSafe = fSafeIn; nInputBytes = -1; use_max_sig = use_max_sig_in;
+        tx = &wtx; i = iIn; nDepth = nDepthIn; fSpendable = fSpendableIn; fSolvable = fSolvableIn; fSafe = fSafeIn; nInputBytes = -1; use_max_sig = use_max_sig_in;
         // If known and signable by the given wallet, compute nInputBytes
         // Failure will keep this value -1
-        if (fSpendable && tx) {
-            nInputBytes = tx->GetSpendSize(i, use_max_sig);
+        if (fSpendable) {
+            nInputBytes = GetTxSpendSize(wallet, wtx, i, use_max_sig);
         }
     }
 
-    std::string ToString() const;
+    std::string ToString(const CWallet& wallet) const;
 
-    inline CInputCoin GetInputCoin() const
+    inline CInputCoin GetInputCoin(const CWallet& wallet) const
     {
-        return CInputCoin(tx, i, nInputBytes);
+        return CInputCoin(wallet, tx, i, nInputBytes);
     }
 };
-
-// ELEMENTS
-struct IssuanceDetails {
-    bool issuing = false;
-
-    // Indicated fields.
-    bool blind_issuance = true;
-    uint256 contract_hash;
-
-    // Calculated fields.
-    CAsset reissuance_asset;
-    CAsset reissuance_token;
-    uint256 entropy;
-};
-
-struct BlindDetails {
-    bool ignore_blind_failure = true; // Certain corner-cases are hard to avoid
-
-    // Temporary tx-specific details.
-    std::vector<uint256> i_amount_blinds;
-    std::vector<uint256> i_asset_blinds;
-    std::vector<CAsset>  i_assets;
-    std::vector<CAmount> i_amounts;
-    std::vector<CAmount> o_amounts;
-    std::vector<CPubKey> o_pubkeys;
-    std::vector<uint256> o_amount_blinds;
-    std::vector<CAsset>  o_assets;
-    std::vector<uint256> o_asset_blinds;
-
-    int num_to_blind;
-    int change_to_blind;
-    // Only used to strip blinding if its the only blind output in certain situations
-    int only_recipient_blind_index;
-    // Needed in case of one blinded output that is change and no blind inputs
-    int only_change_pos;
-};
-
-// end ELEMENTS
 
 class WalletRescanReserver; //forward declarations for ScanForWalletTransactions/RescanFromTime
 /**
  * A CWallet maintains a set of transactions and balances, and provides the ability to create new transactions.
  */
+
+//Get the marginal bytes of spending the specified output
+int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* pwallet, bool use_max_sig = false);
+int CalculateMaximumSignedInputSize(const CTxOut& txout, const SigningProvider* pwallet, bool use_max_sig = false);
+
+struct TxSize {
+    int64_t vsize{-1};
+    int64_t weight{-1};
+};
+
+/** Calculate the size of the transaction assuming all signatures are max size
+* Use DummySignatureCreator, which inserts 71 byte signatures everywhere.
+* NOTE: this requires that all inputs must be in mapWallet (eg the tx should
+* be AllInputsMine). */
+TxSize CalculateMaximumSignedTxSize(const CTransaction& tx, const CWallet* wallet, const std::vector<CTxOut>& txouts, const CCoinControl* coin_control = nullptr);
+TxSize CalculateMaximumSignedTxSize(const CTransaction& tx, const CWallet* wallet, const CCoinControl* coin_control = nullptr);
+
+/**
+ * populate vCoins with vector of available COutputs.
+ */
+void AvailableCoins(const CWallet& wallet, std::vector<COutput>& vCoins, const CCoinControl* coinControl = nullptr, const CAmount& nMinimumAmount = 1, const CAmount& nMaximumAmount = MAX_MONEY, const CAmount& nMinimumSumAmount = MAX_MONEY, const uint64_t nMaximumCount = 0, const CAsset* = nullptr);
+
+CAmountMap GetAvailableBalance(const CWallet& wallet, const CCoinControl* coinControl = nullptr);
+
+/**
+ * Find non-change parent output.
+ */
+const CTxOut& FindNonChangeParentOutput(const CWallet& wallet, const CTransaction& tx, int output);
+
+/**
+ * Return list of available coins and locked coins grouped by non-change output address.
+ */
+std::map<CTxDestination, std::vector<COutput>> ListCoins(const CWallet& wallet);
+
+std::vector<OutputGroup> GroupOutputs(const CWallet& wallet, const std::vector<COutput>& outputs, const CoinSelectionParams& coin_sel_params, const CoinEligibilityFilter& filter, bool positive_only);
+
+/**
+ * Attempt to find a valid input set that meets the provided eligibility filter and target.
+ * Multiple coin selection algorithms will be run and the input set that produces the least waste
+ * (according to the waste metric) will be chosen.
+ *
+ * param@[in]  wallet                 The wallet which provides solving data for the coins
+ * param@[in]  nTargetValue           The target value
+ * param@[in]  eligilibity_filter     A filter containing rules for which coins are allowed to be included in this selection
+ * param@[in]  coins                  The vector of coins available for selection prior to filtering
+ * param@[in]  coin_selection_params  Parameters for the coin selection
+ * returns                            If successful, a SelectionResult containing the input set
+ *                                    If failed, a nullopt
+ */
+std::optional<SelectionResult> AttemptSelection(const CWallet& wallet, const CAmountMap& mapTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<COutput> coins,
+                        const CoinSelectionParams& coin_selection_params);
+
+/**
+ * Select a set of coins such that nTargetValue is met and at least
+ * all coins from coin_control are selected; never select unconfirmed coins if they are not ours
+ * param@[in]   wallet                 The wallet which provides data necessary to spend the selected coins
+ * param@[in]   vAvailableCoins        The vector of coins available to be spent
+ * param@[in]   nTargetValue           The target value
+ * param@[in]   coin_selection_params  Parameters for this coin selection such as feerates, whether to avoid partial spends,
+ *                                     and whether to subtract the fee from the outputs.
+ * returns                             If successful, a SelectionResult containing the selected coins
+ *                                     If failed, a nullopt.
+ */
+std::optional<SelectionResult> SelectCoins(const CWallet& wallet, const std::vector<COutput>& vAvailableCoins, const CAmountMap& mapTargetValue, const CCoinControl& coin_control,
+                 const CoinSelectionParams& coin_selection_params);
+
+/**
+ * Create a new transaction paying the recipients with a set of coins
+ * selected by SelectCoins(); Also create the change output, when needed
+ * @note passing nChangePosInOut as -1 will result in setting a random position
+ */
+bool CreateTransaction(CWallet& wallet, const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CAmount& nFeeRet, int& nChangePosInOut, bilingual_str& error, const CCoinControl& coin_control, FeeCalculation& fee_calc_out, bool sign = true,  BlindDetails* blind_details = nullptr, const IssuanceDetails* issuance_details = nullptr);
+
+/**
+ * Insert additional inputs into the transaction by
+ * calling CreateTransaction();
+ */
+bool FundTransaction(CWallet& wallet, CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosInOut, bilingual_str& error, bool lockUnspents, const std::set<int>& setSubtractFeeFromOutputs, CCoinControl);
+} // namespace wallet
 
 #endif // BITCOIN_WALLET_SPEND_H

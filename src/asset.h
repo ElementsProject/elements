@@ -1,11 +1,11 @@
-
 #ifndef BITCOIN_ASSET_H
 #define BITCOIN_ASSET_H
 
 #include <uint256.h>
 
-#include <amount.h>
+#include <consensus/amount.h>
 #include <serialize.h>
+#include <iostream>
 
 /**
  *  Native Asset Issuance
@@ -101,4 +101,6 @@ inline bool MoneyRange(const CAmountMap& mapValue) {
 
 CAmount valueFor(const CAmountMap& mapValue, const CAsset& asset);
 
-#endif //  BITCOIN_AMOUNT_H
+std::ostream& operator<<(std::ostream& out, const CAmountMap& map);
+
+#endif // BITCOIN_ASSET_H

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020 The Bitcoin Core developers
+// Copyright (c) 2017-2021 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -17,6 +17,7 @@
 #include <pubkey.h>
 #include <psbt.h>
 
+struct bilingual_str;
 class FillableSigningProvider;
 class UniValue;
 struct CMutableTransaction;
@@ -34,7 +35,7 @@ class SigningProvider;
  * @param result         JSON object where signed transaction results accumulate
  */
 void SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, const UniValue& hashType, UniValue& result, const CBlockIndex* active_chain_tip);
-void SignTransactionResultToJSON(CMutableTransaction& mtx, bool complete, const std::map<COutPoint, Coin>& coins, const std::map<int, std::string>& input_errors, bool immature_pegin, UniValue& result);
+void SignTransactionResultToJSON(CMutableTransaction& mtx, bool complete, const std::map<COutPoint, Coin>& coins, const std::map<int, bilingual_str>& input_errors, bool immature_pegin, UniValue& result);
 
 /**
   * Parse a prevtxs UniValue array and get the map of coins from it
@@ -55,6 +56,6 @@ void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, CTransaction
 void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, Sidechain::Bitcoin::CTransactionRef& tx_btc, Sidechain::Bitcoin::CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData, const CBlockIndex* active_chain_tip);
 
 /** Check a peg-in input against the current fedpeg parameters */
-bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, const CBlockIndex* active_chain_tip, std::map<int, std::string>& input_errors);
+bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, const CBlockIndex* active_chain_tip, std::map<int, bilingual_str>& input_errors);
 
 #endif // BITCOIN_RPC_RAWTRANSACTION_UTIL_H

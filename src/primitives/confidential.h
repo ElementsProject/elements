@@ -2,7 +2,7 @@
 #ifndef BITCOIN_PRIMITIVES_CONFIDENTIAL_H
 #define BITCOIN_PRIMITIVES_CONFIDENTIAL_H
 
-#include <amount.h>
+#include <consensus/amount.h>
 #include <asset.h>
 #include <script/script.h>
 #include <serialize.h>

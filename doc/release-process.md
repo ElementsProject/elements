@@ -6,21 +6,21 @@ Release Process
 ### Before every release candidate
 
 * Update translations see [translation_process.md](https://github.com/bitcoin/bitcoin/blob/master/doc/translation_process.md#synchronising-translations).
-* Update manpages, see [gen-manpages.sh](https://github.com/bitcoin/bitcoin/blob/master/contrib/devtools/README.md#gen-manpagessh).
 * Update release candidate version in `configure.ac` (`CLIENT_VERSION_RC`).
+* Update manpages (after rebuilding the binaries), see [gen-manpages.py](https://github.com/bitcoin/bitcoin/blob/master/contrib/devtools/README.md#gen-manpagespy).
 
 ### Before every major and minor release
 
 * Update [bips.md](bips.md) to account for changes since the last release (don't forget to bump the version number on the first line).
 * Update version in `configure.ac` (don't forget to set `CLIENT_VERSION_RC` to `0`).
+* Update manpages (see previous section)
 * Write release notes (see "Write the release notes" below).
 
 ### Before every major release
 
 * On both the master branch and the new release branch:
   - update `CLIENT_VERSION_MAJOR` in [`configure.ac`](../configure.ac)
-  - update `CLIENT_VERSION_MAJOR`, `PACKAGE_VERSION`, and `PACKAGE_STRING` in [`build_msvc/bitcoin_config.h`](/build_msvc/bitcoin_config.h)
-* On the new release branch in [`configure.ac`](../configure.ac) and [`build_msvc/bitcoin_config.h`](/build_msvc/bitcoin_config.h) (see [this commit](https://github.com/bitcoin/bitcoin/commit/742f7dd)):
+* On the new release branch in [`configure.ac`](../configure.ac)(see [this commit](https://github.com/bitcoin/bitcoin/commit/742f7dd)):
   - set `CLIENT_VERSION_MINOR` to `0`
   - set `CLIENT_VERSION_BUILD` to `0`
   - set `CLIENT_VERSION_IS_RELEASE` to `true`
@@ -60,7 +60,7 @@ Release Process
 
 To tag the version (or release candidate) in git, use the `make-tag.py` script from [bitcoin-maintainer-tools](https://github.com/bitcoin-core/bitcoin-maintainer-tools). From the root of the repository run:
 
-    ../bitcoin-maintainer-tools/make-tag.py v(new version, e.g. 0.20.0)
+    ../bitcoin-maintainer-tools/make-tag.py v(new version, e.g. 23.0)
 
 This will perform a few last-minute consistency checks in the build system files, and if they pass, create a signed tag.
 
@@ -98,7 +98,7 @@ Checkout the Bitcoin Core version you'd like to build:
 pushd ./bitcoin
 SIGNER='(your builder key, ie bluematt, sipa, etc)'
 VERSION='(new version without v-prefix, e.g. 0.20.0)'
-git fetch "v${VERSION}"
+git fetch origin "v${VERSION}"
 git checkout "v${VERSION}"
 popd
 ```
@@ -119,7 +119,7 @@ details.
 ### Build and attest to build outputs:
 
 Follow the relevant Guix README.md sections:
-- [Performing a build](/contrib/guix/README.md#performing-a-build)
+- [Building](/contrib/guix/README.md#building)
 - [Attesting to build outputs](/contrib/guix/README.md#attesting-to-build-outputs)
 
 ### Verify other builders' signatures to your own. (Optional)
@@ -136,7 +136,7 @@ Commit your signature to guix.sigs:
 ```sh
 pushd ./guix.sigs
 git add "${VERSION}/${SIGNER}"/noncodesigned.SHA256SUMS{,.asc}
-git commit -m "Add ${VERSION} unsigned sigs for ${SIGNER}"
+git commit -m "Add attestations by ${SIGNER} for ${VERSION} non-codesigned"
 git push  # Assuming you can push to the guix.sigs tree
 popd
 ```
@@ -159,6 +159,9 @@ Codesigner only: Sign the windows binaries:
     ./detached-sig-create.sh -key /path/to/codesign.key
     Enter the passphrase for the key when prompted
     signature-win.tar.gz will be created
+
+Code-signer only: It is advised to test that the code signature attaches properly prior to tagging by performing the `guix-codesign` step.
+However if this is done, once the release has been tagged in the bitcoin-detached-sigs repo, the `guix-codesign` step must be performed again in order for the guix attestation to be valid when compared against the attestations of non-codesigner builds.
 
 Codesigner only: Commit the detached codesign payloads:
 
@@ -189,36 +192,28 @@ Commit your signature for the signed macOS/Windows binaries:
 ```sh
 pushd ./guix.sigs
 git add "${VERSION}/${SIGNER}"/all.SHA256SUMS{,.asc}
-git commit -m "Add ${SIGNER} ${VERSION} signed binaries signatures"
+git commit -m "Add attestations by ${SIGNER} for ${VERSION} codesigned"
 git push  # Assuming you can push to the guix.sigs tree
 popd
 ```
 
 ### After 3 or more people have guix-built and their results match:
 
-Combine `all.SHA256SUMS` and `all.SHA256SUMS.asc` into a clear-signed
-`SHA256SUMS.asc` message:
-
-```sh
-echo -e "-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA256\n\n$(cat all.SHA256SUMS)\n$(cat filename.txt.asc)" > SHA256SUMS.asc
-```
-
-Here's an equivalent, more readable command if you're confident that you won't
-mess up whitespaces when copy-pasting:
+Combine the `all.SHA256SUMS.asc` file from all signers into `SHA256SUMS.asc`:
 
 ```bash
-cat << EOF > SHA256SUMS.asc
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA256
-
-$(cat all.SHA256SUMS)
-$(cat all.SHA256SUMS.asc)
-EOF
+cat "$VERSION"/*/all.SHA256SUMS.asc > SHA256SUMS.asc
 ```
 
-- Upload to the bitcoincore.org server (`/var/www/bin/bitcoin-core-${VERSION}`):
-    1. The contents of `./bitcoin/guix-build-${VERSION}/output`, except for
+
+- Upload to the bitcoincore.org server (`/var/www/bin/bitcoin-core-${VERSION}/`):
+    1. The contents of each `./bitcoin/guix-build-${VERSION}/output/${HOST}/` directory, except for
        `*-debug*` files.
+
+       Guix will output all of the results into host subdirectories, but the SHA256SUMS
+       file does not include these subdirectories. In order for downloads via torrent
+       to verify without directory structure modification, all of the uploaded files
+       need to be in the same directory as the SHA256SUMS file.
 
        The `*-debug*` files generated by the guix build contain debug symbols
        for troubleshooting by developers. It is assumed that anyone that is
@@ -227,7 +222,13 @@ EOF
        as save storage space *do not upload these to the bitcoincore.org server,
        nor put them in the torrent*.
 
-    2. The combined clear-signed message you just created `SHA256SUMS.asc`
+       ```sh
+       find guix-build-${VERSION}/output/ -maxdepth 2 -type f -not -name "SHA256SUMS.part" -and -not -name "*debug*" -exec scp {} user@bitcoincore.org:/var/www/bin/bitcoin-core-${VERSION} \;
+       ```
+
+    2. The `SHA256SUMS` file
+
+    3. The `SHA256SUMS.asc` combined signature file you just created
 
 - Create a torrent of the `/var/www/bin/bitcoin-core-${VERSION}` directory such
   that at the top level there is only one file: the `bitcoin-core-${VERSION}`
@@ -252,6 +253,10 @@ EOF
   - bitcoincore.org maintained versions update:
     [table](https://github.com/bitcoin-core/bitcoincore.org/commits/master/_includes/posts/maintenance-table.md)
 
+  - Delete post-EOL [release branches](https://github.com/bitcoin/bitcoin/branches/all) and create a tag `v${branch_name}-final`.
+
+  - Delete ["Needs backport" labels](https://github.com/bitcoin/bitcoin/labels?q=backport) for non-existing branches.
+
   - bitcoincore.org RPC documentation update
 
       - Install [golang](https://golang.org/doc/install)
@@ -270,26 +275,7 @@ EOF
 
       - Push the flatpak to flathub, e.g. https://github.com/flathub/org.bitcoincore.bitcoin-qt/pull/2
 
-      - Push the latest version to master (if applicable), e.g. https://github.com/bitcoin-core/packaging/pull/32
-
-      - Create a new branch for the major release "0.xx" from master (used to build the snap package) and request the
-        track (if applicable), e.g. https://forum.snapcraft.io/t/track-request-for-bitcoin-core-snap/10112/7
-
-      - Notify MarcoFalke so that he can start building the snap package
-
-        - https://code.launchpad.net/~bitcoin-core/bitcoin-core-snap/+git/packaging (Click "Import Now" to fetch the branch)
-        - https://code.launchpad.net/~bitcoin-core/bitcoin-core-snap/+git/packaging/+ref/0.xx (Click "Create snap package")
-        - Name it "bitcoin-core-snap-0.xx"
-        - Leave owner and series as-is
-        - Select architectures that are compiled via guix
-        - Leave "automatically build when branch changes" unticked
-        - Tick "automatically upload to store"
-        - Put "bitcoin-core" in the registered store package name field
-        - Tick the "edge" box
-        - Put "0.xx" in the track field
-        - Click "create snap package"
-        - Click "Request builds" for every new release on this branch (after updating the snapcraft.yml in the branch to reflect the latest guix results)
-        - Promote release on https://snapcraft.io/bitcoin-core/releases if it passes sanity checks
+      - Push the snap, see https://github.com/bitcoin-core/packaging/blob/master/snap/build.md
 
   - This repo
 

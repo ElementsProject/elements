@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2020 The Bitcoin Core developers
+// Copyright (c) 2009-2021 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -12,8 +12,6 @@
 #include <script/interpreter.h>
 #include <script/keyorigin.h>
 #include <script/standard.h>
-#include <span.h>
-#include <streams.h>
 
 class CKey;
 class CKeyID;
@@ -21,6 +19,7 @@ class CScript;
 class CTransaction;
 class SigningProvider;
 
+struct bilingual_str;
 struct CMutableTransaction;
 
 /** Interface for signature creators. */
@@ -44,8 +43,8 @@ class MutableTransactionSignatureCreator : public BaseSignatureCreator {
     const PrecomputedTransactionData* m_txdata;
 
 public:
-    MutableTransactionSignatureCreator(const CMutableTransaction* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn, int nHashTypeIn = SIGHASH_ALL);
-    MutableTransactionSignatureCreator(const CMutableTransaction* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn, const PrecomputedTransactionData* txdata, int nHashTypeIn = SIGHASH_ALL);
+    MutableTransactionSignatureCreator(const CMutableTransaction* tx, unsigned int input_idx, const CConfidentialValue& amount, int hash_type);
+    MutableTransactionSignatureCreator(const CMutableTransaction* tx, unsigned int input_idx, const CConfidentialValue& amount, const PrecomputedTransactionData* txdata, int hash_type);
     const BaseSignatureChecker& Checker() const override { return checker; }
     bool CreateSig(const SigningProvider& provider, std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode, SigVersion sigversion, unsigned int flags) const override;
     bool CreateSchnorrSig(const SigningProvider& provider, std::vector<unsigned char>& sig, const XOnlyPubKey& pubkey, const uint256* leaf_hash, const uint256* merkle_root, SigVersion sigversion) const override;
@@ -104,6 +103,6 @@ bool IsSolvable(const SigningProvider& provider, const CScript& script);
 bool IsSegWitOutput(const SigningProvider& provider, const CScript& script);
 
 /** Sign the CMutableTransaction */
-bool SignTransaction(CMutableTransaction& mtx, const SigningProvider* provider, const std::map<COutPoint, Coin>& coins, int sighash, const uint256& hash_genesis_block, std::map<int, std::string>& input_errors);
+bool SignTransaction(CMutableTransaction& mtx, const SigningProvider* provider, const std::map<COutPoint, Coin>& coins, int sighash, const uint256& hash_genesis_block, std::map<int, bilingual_str>& input_errors);
 
 #endif // BITCOIN_SCRIPT_SIGN_H

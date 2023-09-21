@@ -34,7 +34,7 @@ class NamedDefaultAssetTest(BitcoinTestFramework):
     def run_test(self):
         #Claim all anyone-can-spend coins and test that calling sendtoaddress without providing the assetlabel parameter results in the specified default pegged asset being sent.
         self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 21000000, "", "", True)
-        self.nodes[0].generate(101)
+        self.generate(self.nodes[0], 101)
         self.sync_all()
 
         #Check the default asset is named correctly
@@ -43,7 +43,7 @@ class NamedDefaultAssetTest(BitcoinTestFramework):
 
         #Send some of the default asset to the second node
         self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1, "", "", False)
-        self.nodes[0].generate(101)
+        self.generate(self.nodes[0], 101)
         self.sync_all()
 
         #Check balances are correct and asset is named correctly
@@ -56,7 +56,7 @@ class NamedDefaultAssetTest(BitcoinTestFramework):
         #Check we send the default 'testasset' when calling 'sendmany' without needing to provide the relevant asset label
         outputs = {self.nodes[1].getnewaddress(): 1.0, self.nodes[1].getnewaddress(): 3.0}
         self.nodes[0].sendmany("", outputs)
-        self.nodes[0].generate(101)
+        self.generate(self.nodes[0], 101)
         self.sync_all()
 
         #Check balances are correct and asset is named correctly

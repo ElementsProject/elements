@@ -2,7 +2,7 @@
 #include <issuance.h>
 
 #include <primitives/transaction.h>
-#include <amount.h>
+#include <consensus/amount.h>
 
 size_t GetNumIssuances(const CTransaction& tx)
 {

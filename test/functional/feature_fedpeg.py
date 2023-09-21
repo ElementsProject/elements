@@ -11,7 +11,6 @@ from test_framework.util import (
     p2p_port,
     assert_raises_rpc_error,
     assert_equal,
-    hex_str_to_bytes,
     find_vout_for_address,
     assert_greater_than
 )
@@ -181,7 +180,7 @@ class FedPegTest(BitcoinTestFramework):
                 pegout_tested = True
                 break
         assert pegout_tested
-        sidechain.generatetoaddress(1, sidechain.getnewaddress())
+        self.generatetoaddress(self.nodes[2], 1, sidechain.getnewaddress(), sync_fun=self.no_op)
         assert_equal(sidechain.gettransaction(pegout_txid)["confirmations"], 1)
 
     def run_test(self):
@@ -211,8 +210,8 @@ class FedPegTest(BitcoinTestFramework):
             node.importprivkey(privkey=node.get_deterministic_priv_key().key, label="mining")
         util.node_fastmerkle = sidechain
 
-        parent.generate(101)
-        sidechain.generate(101)
+        self.generate(parent, 101, sync_fun=self.no_op)
+        self.generate(sidechain, 101, sync_fun=self.no_op)
         self.log.info("sidechain info: {}".format(sidechain.getsidechaininfo()))
 
         addrs = sidechain.getpeginaddress()
@@ -222,7 +221,7 @@ class FedPegTest(BitcoinTestFramework):
         vout = find_vout_for_address(parent, txid1, addr)
         # 10+2 confirms required to get into mempool and confirm
         assert_equal(sidechain.getsidechaininfo()["pegin_confirmation_depth"], 10)
-        parent.generate(1)
+        self.generate(parent, 1, sync_fun=self.no_op)
         time.sleep(2)
         proof = parent.gettxoutproof([txid1])
 
@@ -245,7 +244,7 @@ class FedPegTest(BitcoinTestFramework):
             assert "Peg-in Bitcoin transaction needs more confirmations to be sent." in e.error["message"]
 
         # Second attempt simply doesn't hit mempool bar
-        parent.generate(10)
+        self.generate(parent, 10, sync_fun=self.no_op)
         try:
             pegtxid = sidechain.claimpegin(raw, proof)
             raise Exception("Peg-in should not be mature enough yet, need another block.")
@@ -267,7 +266,7 @@ class FedPegTest(BitcoinTestFramework):
             assert "Given claim_script does not match the given Bitcoin transaction." in e.error["message"]
 
         # 12 confirms allows in mempool
-        parent.generate(1)
+        self.generate(parent, 1, sync_fun=self.no_op)
 
         # Make sure that a tx with a duplicate pegin claim input gets rejected.
         raw_pegin = sidechain.createrawpegin(raw, proof)["hex"]
@@ -364,10 +363,10 @@ class FedPegTest(BitcoinTestFramework):
         # Will invalidate the block that confirms this transaction later
         for node_group in self.node_groups:
             self.sync_all(node_group)
-        blockhash = sidechain2.generate(1)
+        blockhash = self.generate(sidechain2, 1, sync_fun=self.no_op)
         for node_group in self.node_groups:
             self.sync_all(node_group)
-        sidechain.generate(5)
+        self.generate(sidechain, 5, sync_fun=self.no_op)
 
         tx1 = sidechain.gettransaction(pegtxid1)
 
@@ -411,7 +410,7 @@ class FedPegTest(BitcoinTestFramework):
         assert_raises_rpc_error(-25, "bad-txns-double-pegin", sidechain.testproposedblock, block_hex, True)
 
         # Re-enters block
-        sidechain.generate(1)
+        self.generate(sidechain, 1, sync_fun=self.no_op)
         if sidechain.gettransaction(pegtxid1)["confirmations"] != 1:
             raise Exception("Peg-in should have one confirm on side block.")
         sidechain.reconsiderblock(blockhash[0])
@@ -436,25 +435,25 @@ class FedPegTest(BitcoinTestFramework):
 
         print("Flooding mempool with a few claims")
         pegtxs = []
-        sidechain.generate(101)
+        self.generate(sidechain, 101, sync_fun=self.no_op)
 
         # Do mixture of raw peg-in and automatic peg-in tx construction
         # where raw creation is done on another node
         for i in range(n_claims):
             addrs = sidechain.getpeginaddress()
             txid = parent.sendtoaddress(addrs["mainchain_address"], 1)
-            parent.generate(1)
+            self.generate(parent, 1, sync_fun=self.no_op)
             proof = parent.gettxoutproof([txid])
             raw = parent.gettransaction(txid)["hex"]
             if i % 2 == 0:
-                parent.generate(11)
+                self.generate(parent, 11, sync_fun=self.no_op)
                 pegtxs += [sidechain.claimpegin(raw, proof)]
             else:
                 # The raw API doesn't check for the additional 2 confirmation buffer
                 # So we only get 10 confirms then send off. Miners will add to block anyways.
 
                 # Don't mature whole way yet to test signing immature peg-in input
-                parent.generate(8)
+                self.generate(parent, 8, sync_fun=self.no_op)
                 # Wallet in sidechain2 gets funds instead of sidechain
                 raw_pegin = sidechain2.createrawpegin(raw, proof, addrs["claim_script"])["hex"]
                 # First node should also be able to make a valid transaction with or without 3rd arg
@@ -465,12 +464,12 @@ class FedPegTest(BitcoinTestFramework):
                 assert signed_pegin["complete"]
                 assert "warning" in signed_pegin # warning for immature peg-in
                 # fully mature them now
-                parent.generate(1)
+                self.generate(parent, 1, sync_fun=self.no_op)
                 pegtxs += [sidechain.sendrawtransaction(signed_pegin["hex"])]
 
         for node_group in self.node_groups:
             self.sync_all(node_group)
-        sidechain2.generate(1)
+        self.generate(sidechain2, 1, sync_fun=self.no_op)
         for i, pegtxid in enumerate(pegtxs):
             if i % 2 == 0:
                 tx = sidechain.gettransaction(pegtxid)
@@ -500,7 +499,7 @@ class FedPegTest(BitcoinTestFramework):
 
         print("Test pegout Garbage valid")
         prev_txid = sidechain.sendtoaddress(sidechain.getnewaddress(), 1)
-        sidechain.generate(1)
+        self.generate(sidechain, 1, sync_fun=self.no_op)
         pegout_chain = 'a' * 64
         pegout_hex = 'b' * 500
         inputs = [{"txid": prev_txid, "vout": 0}]
@@ -525,11 +524,11 @@ class FedPegTest(BitcoinTestFramework):
         print("Now test failure to validate peg-ins based on intermittent bitcoind rpc failure")
         self.stop_node(1)
         txid = parent.sendtoaddress(addr, 1)
-        parent.generate(12)
+        self.generate(parent, 12, sync_fun=self.no_op)
         proof = parent.gettxoutproof([txid])
         raw = parent.gettransaction(txid)["hex"]
         sidechain.claimpegin(raw, proof) # stuck peg
-        sidechain.generate(1)
+        self.generate(sidechain, 1, sync_fun=self.no_op)
         print("Waiting to ensure block is being rejected by sidechain2")
         time.sleep(5)
 
@@ -543,7 +542,7 @@ class FedPegTest(BitcoinTestFramework):
         # https://github.com/ElementsProject/elements/issues/891 (sporadic
         # failures when catching up after loss of parent daemon connectivity.)
         print("Generating some blocks, to stress-test handling of parent daemon reconnection")
-        sidechain.generate(10)
+        self.generate(sidechain, 10, sync_fun=self.no_op)
 
         print("Now waiting for node to re-evaluate peg-in witness failed block... should take a few seconds")
         for node_group in self.node_groups:
@@ -616,7 +615,7 @@ class FedPegTest(BitcoinTestFramework):
         mainchain_addr = pegin_info["mainchain_address"]
         # Watch the address so we can get tx without txindex
         parent.importaddress(mainchain_addr)
-        claim_block = parent.generatetoaddress(50, mainchain_addr)[0]
+        claim_block = self.generatetoaddress(parent, 50, mainchain_addr, sync_fun=self.no_op)[0]
         for node_group in self.node_groups:
             self.sync_all(node_group)
         block_coinbase = parent.getblock(claim_block, 2)["tx"][0]
@@ -633,14 +632,14 @@ class FedPegTest(BitcoinTestFramework):
         assert_raises_rpc_error(-26, "bad-pegin-witness, Needs more confirmations.", sidechain.sendrawtransaction, signed_pegin)
 
         # 50 more blocks to allow wallet to make it succeed by relay and consensus
-        parent.generatetoaddress(50, parent.getnewaddress())
+        self.generatetoaddress(parent, 50, parent.getnewaddress(), sync_fun=self.no_op)
         for node_group in self.node_groups:
             self.sync_all(node_group)
         # Wallet still doesn't want to for 2 more confirms
         assert_equal(sidechain.createrawpegin(claim_tx, claim_proof)["mature"], False)
         # But we can just shoot it off
         claim_txid = sidechain.sendrawtransaction(signed_pegin)
-        sidechain.generatetoaddress(1, sidechain.getnewaddress())
+        self.generatetoaddress(sidechain, 1, sidechain.getnewaddress(), sync_fun=self.no_op)
         for node_group in self.node_groups:
             self.sync_all(node_group)
         assert_equal(sidechain.gettransaction(claim_txid)["confirmations"], 1)
@@ -653,7 +652,7 @@ class FedPegTest(BitcoinTestFramework):
         pegin_addr = addrs["mainchain_address"]
         txid_fund = parent.sendtoaddress(pegin_addr, 10)
         # 10+2 confirms required to get into mempool and confirm
-        parent.generate(11)
+        self.generate(parent, 11, sync_fun=self.no_op)
         for node_group in self.node_groups:
             self.sync_all(node_group)
         proof = parent.gettxoutproof([txid_fund])
@@ -667,7 +666,7 @@ class FedPegTest(BitcoinTestFramework):
         pegin_addr = addrs["mainchain_address"]
         txid_fund = parent.sendtoaddress(pegin_addr, 10)
         # 10+2 confirms required to get into mempool and confirm
-        parent.generate(11)
+        self.generate(parent, 11, sync_fun=self.no_op)
         for node_group in self.node_groups:
             self.sync_all(node_group)
         proof = parent.gettxoutproof([txid_fund])
@@ -675,11 +674,11 @@ class FedPegTest(BitcoinTestFramework):
         raw_pegin = sidechain.createrawpegin(raw, proof)['hex']
         pegin = tx_from_hex(raw_pegin)
         # add new blinding pubkey for the pegin output
-        pegin.vout[0].nNonce = CTxOutNonce(hex_str_to_bytes(sidechain.getaddressinfo(sidechain.getnewaddress("", "blech32"))["confidential_key"]))
+        pegin.vout[0].nNonce = CTxOutNonce(bytes.fromhex(sidechain.getaddressinfo(sidechain.getnewaddress("", "blech32"))["confidential_key"]))
         # now add an extra input and output from listunspent; we need a blinded output for this
         blind_addr = sidechain.getnewaddress("", "blech32")
         sidechain.sendtoaddress(blind_addr, 15)
-        sidechain.generate(6)
+        self.generate(sidechain, 6, sync_fun=self.no_op)
         # Make sure sidechain2 knows about the same input
         for node_group in self.node_groups:
             self.sync_all(node_group)
@@ -689,8 +688,8 @@ class FedPegTest(BitcoinTestFramework):
         pegin.vin.append(CTxIn(COutPoint(int(unspent["txid"], 16), unspent["vout"])))
         # insert corresponding output before fee output
         new_destination = sidechain.getaddressinfo(sidechain.getnewaddress("", "blech32"))
-        new_dest_script_pk = hex_str_to_bytes(new_destination["scriptPubKey"])
-        new_dest_nonce = CTxOutNonce(hex_str_to_bytes(new_destination["confidential_key"]))
+        new_dest_script_pk = bytes.fromhex(new_destination["scriptPubKey"])
+        new_dest_nonce = CTxOutNonce(bytes.fromhex(new_destination["confidential_key"]))
         new_dest_asset = pegin.vout[0].nAsset
         pegin.vout.insert(1, CTxOut(int(unspent["amount"]*COIN) - 10000, new_dest_script_pk, new_dest_asset, new_dest_nonce))
         # add the 10 ksat fee

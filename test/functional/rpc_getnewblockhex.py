@@ -10,7 +10,6 @@ from test_framework.p2p import (
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
-    hex_str_to_bytes,
 )
 
 class GetNewBlockHexTest(BitcoinTestFramework):
@@ -92,9 +91,9 @@ class GetNewBlockHexTest(BitcoinTestFramework):
 
         Returns a tuple of the new chain height and the block hash."""
 
-        bytes = hex_str_to_bytes(hex)
+        b = bytes.fromhex(hex)
         block = CBlock()
-        block.deserialize(BytesIO(bytes))
+        block.deserialize(BytesIO(b))
         block.solve()
         self.send_blocks([block], success=True)
         height = self.nodes[0].getblockcount()

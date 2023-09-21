@@ -83,4 +83,4 @@ When defining the opcodes which can fail, we only define the success path, and a
 
 - In order to inspect the current input, `OP_PUSHCURRENTINPUTINDEX` can be used in combination with `OP_INSPECTINPUTXX` to obtain information about input being spent on stack
 - The input nNonce field is not consistently stored in elements UTXO database. Therefore, it is not covered in sighash or `wtxid` and hence introspecting it is not possible.
-- Coversion opcodes can be used be used to convert ScriptNums/LE32 nums to LE64 for operations.
+- Conversion opcodes can be used be used to convert ScriptNums/LE32 nums to LE64 for operations.

@@ -155,3 +155,11 @@ CAmount valueFor(const CAmountMap& mapValue, const CAsset& asset) {
         return CAmount(0);
     }
 }
+
+std::ostream& operator<<(std::ostream& out, const CAmountMap& map)
+{
+    for(std::map<CAsset, CAmount>::const_iterator it = map.begin(); it != map.end(); ++it) {
+        out << it->first.GetHex() << ": " << it->second << ", ";
+    }
+    return out;
+}

@@ -1,7 +1,6 @@
 // Copyright (c) 2016-2019 The Elements developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #ifndef BITCOIN_PRIMITIVES_TXWITNESS_H
 #define BITCOIN_PRIMITIVES_TXWITNESS_H
 
@@ -151,4 +150,4 @@ private:
 uint256 ComputeFastMerkleRoot(const std::vector<uint256>& hashes);
 
 
-#endif //BITCOIN_PRIMITIVES_TXWITNESS_H
+#endif // BITCOIN_PRIMITIVES_TXWITNESS_H

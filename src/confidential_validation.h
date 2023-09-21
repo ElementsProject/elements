@@ -2,7 +2,7 @@
 #ifndef BITCOIN_CONFIDENTIAL_VALIDATION_H
 #define BITCOIN_CONFIDENTIAL_VALIDATION_H
 
-#include <amount.h>
+#include <consensus/amount.h>
 #include <asset.h>
 #include <coins.h>
 #include <primitives/confidential.h>

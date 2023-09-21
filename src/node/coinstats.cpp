@@ -1,5 +1,5 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2020 The Bitcoin Core developers
+// Copyright (c) 2009-2021 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -11,11 +11,13 @@
 #include <index/coinstatsindex.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <util/overflow.h>
 #include <util/system.h>
 #include <validation.h>
 
 #include <map>
 
+namespace node {
 // Database-independent metric indicating the UTXO set size
 uint64_t GetBogoSize(const CScript& script_pub_key)
 {
@@ -84,8 +86,8 @@ static void ApplyStats(CCoinsStats& stats, const uint256& hash, const std::map<u
     stats.nTransactions++;
     for (auto it = outputs.begin(); it != outputs.end(); ++it) {
         stats.nTransactionOutputs++;
-        if (it->second.out.nValue.IsExplicit()) {
-            stats.nTotalAmount += it->second.out.nValue.GetAmount();
+        if (stats.total_amount.has_value() && it->second.out.nValue.IsExplicit()) {
+            stats.total_amount = CheckedAdd(*stats.total_amount, it->second.out.nValue.GetAmount());
         }
         stats.nBogoSize += GetBogoSize(it->second.out.scriptPubKey);
     }
@@ -99,10 +101,8 @@ static bool GetUTXOStats(CCoinsView* view, BlockManager& blockman, CCoinsStats& 
     assert(pcursor);
 
     if (!pindex) {
-        {
-            LOCK(cs_main);
-            pindex = blockman.LookupBlockIndex(view->GetBestBlock());
-        }
+        LOCK(cs_main);
+        pindex = blockman.LookupBlockIndex(view->GetBestBlock());
     }
     stats.nHeight = Assert(pindex)->nHeight;
     stats.hashBlock = pindex->GetBlockHash();
@@ -184,3 +184,4 @@ static void FinalizeHash(MuHash3072& muhash, CCoinsStats& stats)
     stats.hashSerialized = out;
 }
 static void FinalizeHash(std::nullptr_t, CCoinsStats& stats) {}
+} // namespace node

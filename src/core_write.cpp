@@ -1,13 +1,15 @@
-// Copyright (c) 2009-2020 The Bitcoin Core developers
+// Copyright (c) 2009-2021 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <core_io.h>
 
+#include <consensus/amount.h>
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <issuance.h>
 #include <key_io.h>
+#include <script/descriptor.h>
 #include <script/script.h>
 #include <script/sign.h>
 #include <script/standard.h>
@@ -91,7 +93,7 @@ std::string FormatScript(const CScript& script)
         ret += strprintf("0x%x ", HexStr(std::vector<uint8_t>(it2, script.end())));
         break;
     }
-    return ret.substr(0, ret.size() - 1);
+    return ret.substr(0, ret.empty() ? ret.npos : ret.size() - 1);
 }
 
 const std::map<unsigned char, std::string> mapSigHashTypes = {
@@ -178,40 +180,25 @@ UniValue EncodeHexScriptWitness(const CScriptWitness& witness)
     return witness_hex;
 }
 
-void ScriptToUniv(const CScript& script, UniValue& out, bool include_address)
+void ScriptToUniv(const CScript& script, UniValue& out)
 {
-    out.pushKV("asm", ScriptToAsmStr(script));
-    out.pushKV("hex", HexStr(script));
-
-    std::vector<std::vector<unsigned char>> solns;
-    TxoutType type = Solver(script, solns);
-    out.pushKV("type", GetTxnOutputType(type));
-
-    CTxDestination address;
-    if (include_address && ExtractDestination(script, address) && type != TxoutType::PUBKEY) {
-        out.pushKV("address", EncodeDestination(address));
-    }
+    ScriptPubKeyToUniv(script, out, /* include_hex */ true, /* include_address */ false);
 }
 
 // ELEMENTS:
-static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex, bool include_addresses, bool is_parent_chain)
+static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool include_hex, bool include_addresses, bool is_parent_chain)
 {
     const std::string prefix = is_parent_chain ? "pegout_" : "";
-    TxoutType type;
     CTxDestination address;
-    std::vector<CTxDestination> addresses;
-    int nRequired;
 
     out.pushKV(prefix + "asm", ScriptToAsmStr(scriptPubKey));
-    if (fIncludeHex)
-        out.pushKV(prefix + "hex", HexStr(scriptPubKey));
+    out.pushKV(prefix + "desc", InferDescriptor(scriptPubKey, DUMMY_SIGNING_PROVIDER)->ToString());
+    if (include_hex) out.pushKV(prefix + "hex", HexStr(scriptPubKey));
 
-    if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired) || type == TxoutType::PUBKEY) {
-        out.pushKV(prefix + "type", GetTxnOutputType(type));
-        return;
-    }
+    std::vector<std::vector<unsigned char>> solns;
+    const TxoutType type{Solver(scriptPubKey, solns)};
 
-    if (ExtractDestination(scriptPubKey, address)) {
+    if (include_addresses && ExtractDestination(scriptPubKey, address) && type != TxoutType::PUBKEY) {
         if (is_parent_chain) {
             out.pushKV(prefix + "address", EncodeParentDestination(address));
         } else {
@@ -219,21 +206,6 @@ static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& o
         }
     }
     out.pushKV(prefix + "type", GetTxnOutputType(type));
-
-    if (include_addresses) {
-        UniValue a(UniValue::VARR);
-        if (is_parent_chain) {
-            for (const CTxDestination& addr : addresses) {
-                a.push_back(EncodeParentDestination(addr));
-            }
-        } else {
-            for (const CTxDestination& addr : addresses) {
-                a.push_back(EncodeDestination(addr));
-            }
-        }
-        out.pushKV(prefix + "addresses", a);
-        out.pushKV(prefix + "reqSigs", nRequired);
-    }
 }
 
 // TODO: from v23 ("addresses" and "reqSigs" deprecated) this method should be refactored to remove the `include_addresses` option
@@ -251,7 +223,7 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
     }
 }
 
-void TxToUniv(const CTransaction& tx, const uint256& hashBlock, bool include_addresses, UniValue& entry, bool include_hex, int serialize_flags, const CTxUndo* txundo)
+void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags, const CTxUndo* txundo, TxVerbosity verbosity)
 {
     entry.pushKV("txid", tx.GetHash().GetHex());
     entry.pushKV("hash", tx.GetWitnessHash().GetHex());
@@ -269,6 +241,8 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, bool include_add
 
     UniValue vin{UniValue::VARR};
 
+    const bool have_undo = txundo != nullptr;
+
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         const CTxIn& txin = tx.vin[i];
         UniValue in(UniValue::VOBJ);
@@ -282,6 +256,27 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, bool include_add
             o.pushKV("hex", HexStr(txin.scriptSig));
             in.pushKV("scriptSig", o);
             in.pushKV("is_pegin", txin.m_is_pegin);
+        }
+        if (have_undo) {
+            const Coin& prev_coin = txundo->vprevout[i];
+            const CTxOut& prev_txout = prev_coin.out;
+
+
+            if (verbosity == TxVerbosity::SHOW_DETAILS_AND_PREVOUT) {
+                UniValue o_script_pub_key(UniValue::VOBJ);
+                ScriptPubKeyToUniv(prev_txout.scriptPubKey, o_script_pub_key, /*include_hex=*/ true);
+
+                UniValue p(UniValue::VOBJ);
+                p.pushKV("generated", bool(prev_coin.fCoinBase));
+                p.pushKV("height", uint64_t(prev_coin.nHeight));
+                if (prev_txout.nValue.IsExplicit()) {
+                    p.pushKV("value", ValueFromAmount(prev_txout.nValue.GetAmount()));
+                } else {
+                    p.pushKV("value", "<confidential>");
+                }
+                p.pushKV("scriptPubKey", o_script_pub_key);
+                in.pushKV("prevout", p);
+            }
         }
         in.pushKV("sequence", (int64_t)txin.nSequence);
 
@@ -395,7 +390,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, bool include_add
         out.pushKV("n", (int64_t)i);
 
         UniValue o(UniValue::VOBJ);
-        ScriptPubKeyToUniv(txout.scriptPubKey, o, true, include_addresses);
+        ScriptPubKeyToUniv(txout.scriptPubKey, o, true);
         out.pushKV("scriptPubKey", o);
         vout.push_back(out);
     }

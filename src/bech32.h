@@ -1,4 +1,5 @@
 // Copyright (c) 2017, 2021 Pieter Wuille
+// Copyright (c) 2021 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -46,6 +47,9 @@ DecodeResult Decode(const std::string& str);
 
 /// Exported for testing.
 uint32_t PolyMod(const std::vector<uint8_t>& v);
+
+/** Return the positions of errors in a Bech32 string. */
+std::pair<std::string, std::vector<int>> LocateErrors(const std::string& str);
 
 } // namespace bech32
 

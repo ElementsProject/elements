@@ -40,7 +40,7 @@ class BlockSubsidyTest(BitcoinTestFramework):
 
         # Block will have 10 satoshi output, node 1 will ban
         addr = self.nodes[0].getnewaddress()
-        sub_block = self.nodes[0].generatetoaddress(1, addr)
+        sub_block = self.generatetoaddress(self.nodes[0], 1, addr, sync_fun=self.no_op)
         raw_coinbase = self.nodes[0].getrawtransaction(self.nodes[0].getblock(sub_block[0])["tx"][0], False, sub_block[0])
         decoded_coinbase = self.nodes[0].decoderawtransaction(raw_coinbase)
 
@@ -56,7 +56,7 @@ class BlockSubsidyTest(BitcoinTestFramework):
         assert found_ten
 
         # Block will have 0 satoshis outputs only at height 1
-        no_sub_block = self.nodes[1].generatetoaddress(1, addr)
+        no_sub_block = self.generatetoaddress(self.nodes[1], 1, addr, sync_fun=self.no_op)
         raw_coinbase = self.nodes[1].getrawtransaction(self.nodes[1].getblock(no_sub_block[0])["tx"][0], False, no_sub_block[0])
         decoded_coinbase = self.nodes[1].decoderawtransaction(raw_coinbase)
         for vout in decoded_coinbase["vout"]:

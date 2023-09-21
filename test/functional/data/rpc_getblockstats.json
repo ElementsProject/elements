@@ -142,7 +142,7 @@
       "totalfee": 0,
       "txs": 1,
       "utxo_increase": 2,
-      "utxo_size_inc": 0
+      "utxo_size_inc": 233
     },
     {
       "avgfee": 6720,
@@ -179,7 +179,7 @@
       "totalfee": 6720,
       "txs": 2,
       "utxo_increase": 4,
-      "utxo_size_inc": -110
+      "utxo_size_inc": 424
     },
     {
       "avgfee": 32320,
@@ -216,7 +216,7 @@
       "totalfee": 96960,
       "txs": 4,
       "utxo_increase": 8,
-      "utxo_size_inc": -326
+      "utxo_size_inc": 810
     }
   ]
 }

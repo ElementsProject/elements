@@ -314,8 +314,8 @@ def initialize_datadir(dirname, n):
         f.write("multi_data_permitted=0\n")
         f.write("walletrbf=0\n") # Default is 1 in Elements
         f.write("con_bip34height=100000000\n")
-        f.write("con_bip65height=1351\n")
-        f.write("con_bip66height=1251\n")
+        f.write("con_bip65height=111\n")
+        f.write("con_bip66height=102\n")
         f.write("con_genesis_style=bitcoin\n")
         f.write("con_csv_deploy_start=0\n") # Default is -1 (always active)
         f.write("blindedaddresses=0\n")

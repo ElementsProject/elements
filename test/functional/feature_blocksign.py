@@ -106,11 +106,11 @@ class BlockSignTest(BitcoinTestFramework):
         blockcount = miner.getblockcount()
 
         # If dynafed is enabled, this means signblockscript has been WSH-wrapped
-        blockchain_info = self.nodes[0].getblockchaininfo()
-        is_dyna = blockchain_info['softforks']['dynafed']['bip9']['status'] == "active"
+        deployment_info = self.nodes[0].getdeploymentinfo()
+        is_dyna = deployment_info['deployments']['dynafed']['bip9']['status'] == "active"
         if is_dyna:
             wsh_wrap = self.nodes[0].decodescript(self.witnessScript)['segwit']['hex']
-            assert_equal(wsh_wrap, blockchain_info['current_signblock_hex'])
+            assert_equal(wsh_wrap, self.nodes[0].getblockchaininfo()['current_signblock_hex'])
 
         # Make a few transactions to make non-empty blocks for compact transmission
         if make_transactions:
@@ -199,14 +199,14 @@ class BlockSignTest(BitcoinTestFramework):
         tip = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         header = self.nodes[0].getblockheader(tip)
         block = self.nodes[0].getblock(tip)
-        info = self.nodes[0].getblockchaininfo()
+        info = self.nodes[0].getdeploymentinfo()
 
         assert 'signblock_witness_asm' in header
         assert 'signblock_witness_hex' in header
         assert 'signblock_witness_asm' in block
         assert 'signblock_witness_hex' in block
 
-        assert_equal(info['softforks']['dynafed']['bip9']['status'], "defined")
+        assert_equal(info['deployments']['dynafed']['bip9']['status'], "defined")
 
         # Next let's activate dynafed
         blocks_til_dynafed = 431 - self.nodes[0].getblockcount()
@@ -214,7 +214,7 @@ class BlockSignTest(BitcoinTestFramework):
         self.mine_blocks(blocks_til_dynafed, False)
         self.check_height(111+blocks_til_dynafed)
 
-        assert_equal(self.nodes[0].getblockchaininfo()['softforks']['dynafed']['bip9']['status'], "active")
+        assert_equal(self.nodes[0].getdeploymentinfo()['deployments']['dynafed']['bip9']['status'], "locked_in")
 
         self.log.info("Mine some dynamic federation blocks without txns")
         self.mine_blocks(10, False)

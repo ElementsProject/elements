@@ -55,7 +55,7 @@ class BlockV4Test(BitcoinTestFramework):
         self.log.info("Test that a version 4 block with a valid-according-to-CLTV transaction is accepted")
 
         # Generate 100 blocks so that first coinbase matures
-        generated_blocks = self.nodes[0].generate(100)
+        generated_blocks = self.generate(self.nodes[0], 100)
         spendable_coinbase_txid = self.nodes[0].getblock(generated_blocks[0])['tx'][0]
         coinbase_value = self.nodes[0].decoderawtransaction(self.nodes[0].gettransaction(spendable_coinbase_txid)["hex"])["vout"][0]["value"]
         tip = generated_blocks[-1]

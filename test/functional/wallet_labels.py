@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2016-2020 The Bitcoin Core developers
+# Copyright (c) 2016-2021 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test label RPCs.
@@ -32,8 +32,8 @@ class WalletLabelsTest(BitcoinTestFramework):
 
         # Note each time we call generate, all generated coins go into
         # the same address, so we call twice to get two addresses w/50 each
-        node.generatetoaddress(nblocks=1, address=node.getnewaddress(label='coinbase'))
-        node.generatetoaddress(nblocks=COINBASE_MATURITY + 1, address=node.getnewaddress(label='coinbase'))
+        self.generatetoaddress(node, nblocks=1, address=node.getnewaddress(label='coinbase'))
+        self.generatetoaddress(node, nblocks=COINBASE_MATURITY + 1, address=node.getnewaddress(label='coinbase'))
         assert_equal(node.getbalance()['bitcoin'], 100)
 
         # there should be 2 address groups
@@ -65,7 +65,7 @@ class WalletLabelsTest(BitcoinTestFramework):
         assert_equal(set([a[0] for a in address_groups[0]]), linked_addresses)
         assert_equal([a[1] for a in address_groups[0]], [0, 0])
 
-        node.generate(1)
+        self.generate(node, 1)
 
         # we want to reset so that the "" label has what's expected.
         # otherwise we're off by exactly the fee amount as that's mined
@@ -89,7 +89,7 @@ class WalletLabelsTest(BitcoinTestFramework):
             label.verify(node)
 
         # Check the amounts received.
-        node.generate(1)
+        self.generate(node, 1)
         for label in labels:
             assert_equal(
                 node.getreceivedbyaddress(label.addresses[0])['bitcoin'], amount_to_send)
@@ -101,14 +101,14 @@ class WalletLabelsTest(BitcoinTestFramework):
         for i, label in enumerate(labels):
             to_label = labels[(i + 1) % len(labels)]
             node.sendtoaddress(to_label.addresses[0], amount_to_send)
-        node.generate(1)
+        self.generate(node, 1)
         for label in labels:
             address = node.getnewaddress(label.name)
             label.add_receive_address(address)
             label.verify(node)
             assert_equal(node.getreceivedbylabel(label.name)['bitcoin'], 2)
             label.verify(node)
-        node.generate(COINBASE_MATURITY + 1)
+        self.generate(node, COINBASE_MATURITY + 1)
 
         # Check that setlabel can assign a label to a new unused address.
         for label in labels:
@@ -128,7 +128,7 @@ class WalletLabelsTest(BitcoinTestFramework):
                 label.add_address(multisig_address)
                 label.purpose[multisig_address] = "send"
                 label.verify(node)
-            node.generate(COINBASE_MATURITY + 1)
+            self.generate(node, COINBASE_MATURITY + 1)
 
         # Check that setlabel can change the label of an address from a
         # different label.
@@ -155,7 +155,7 @@ class WalletLabelsTest(BitcoinTestFramework):
             for l in BECH32_VALID:
                 ad = BECH32_VALID[l]
                 wallet_watch_only.importaddress(label=l, rescan=False, address=ad)
-                node.generatetoaddress(1, ad)
+                self.generatetoaddress(node, 1, ad)
                 assert_equal(wallet_watch_only.getaddressesbylabel(label=l), {ad: {'purpose': 'receive'}})
                 assert_equal(wallet_watch_only.getreceivedbylabel(label=l)['bitcoin'], 0)
             for l in BECH32_INVALID:

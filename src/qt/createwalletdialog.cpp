@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 The Bitcoin Core developers
+// Copyright (c) 2019-2021 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -6,7 +6,7 @@
 #include <config/bitcoin-config.h>
 #endif
 
-#include <external_signer.h>
+#include <interfaces/node.h>
 #include <qt/createwalletdialog.h>
 #include <qt/forms/ui_createwalletdialog.h>
 
@@ -32,7 +32,7 @@ CreateWalletDialog::CreateWalletDialog(QWidget* parent) :
         // set to true, enable it when isEncryptWalletChecked is false.
         ui->disable_privkeys_checkbox->setEnabled(!checked);
 #ifdef ENABLE_EXTERNAL_SIGNER
-        ui->external_signer_checkbox->setEnabled(!checked);
+        ui->external_signer_checkbox->setEnabled(m_has_signers && !checked);
 #endif
         // When the disable_privkeys_checkbox is disabled, uncheck it.
         if (!ui->disable_privkeys_checkbox->isEnabled()) {
@@ -113,9 +113,10 @@ CreateWalletDialog::~CreateWalletDialog()
     delete ui;
 }
 
-void CreateWalletDialog::setSigners(const std::vector<ExternalSigner>& signers)
+void CreateWalletDialog::setSigners(const std::vector<std::unique_ptr<interfaces::ExternalSigner>>& signers)
 {
-    if (!signers.empty()) {
+    m_has_signers = !signers.empty();
+    if (m_has_signers) {
         ui->external_signer_checkbox->setEnabled(true);
         ui->external_signer_checkbox->setChecked(true);
         ui->encrypt_wallet_checkbox->setEnabled(false);
@@ -125,7 +126,7 @@ void CreateWalletDialog::setSigners(const std::vector<ExternalSigner>& signers)
         ui->blank_wallet_checkbox->setChecked(false);
         ui->disable_privkeys_checkbox->setEnabled(false);
         ui->disable_privkeys_checkbox->setChecked(true);
-        const std::string label = signers[0].m_name;
+        const std::string label = signers[0]->getName();
         ui->wallet_name_line_edit->setText(QString::fromStdString(label));
         ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(true);
     } else {

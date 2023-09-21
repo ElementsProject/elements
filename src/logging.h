@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2020 The Bitcoin Core developers
+// Copyright (c) 2009-2021 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -13,6 +13,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <list>
 #include <mutex>
 #include <string>
@@ -59,6 +60,9 @@ namespace BCLog {
         VALIDATION  = (1 << 21),
         I2P         = (1 << 22),
         IPC         = (1 << 23),
+        LOCK        = (1 << 24),
+        UTIL        = (1 << 25),
+        BLOCKSTORE  = (1 << 26),
         ALL         = ~(uint32_t)0,
     };
 
@@ -138,9 +142,9 @@ namespace BCLog {
         bool DisableCategory(const std::string& str);
 
         bool WillLogCategory(LogFlags category) const;
-        /** Returns a vector of the log categories */
+        /** Returns a vector of the log categories in alphabetical order. */
         std::vector<LogCategory> LogCategoriesList() const;
-        /** Returns a string with the log categories */
+        /** Returns a string with the log categories in alphabetical order. */
         std::string LogCategoriesString() const
         {
             return Join(LogCategoriesList(), ", ", [&](const LogCategory& i) { return i.category; });

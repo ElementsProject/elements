@@ -42,7 +42,7 @@ class ProgressTest(BitcoinTestFramework):
         blocks = []
         for i in range(10):
             self.setmocktime(i)
-            blocks.extend(node1.generate(1))
+            blocks.extend(self.generate(node1, 1, sync_fun=self.no_op))
 
         self.setmocktime(19)
         assert_close(0.5, node1.getblockchaininfo()["verificationprogress"])

@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2020 The Bitcoin Core developers
+// Copyright (c) 2009-2021 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -14,8 +14,11 @@
 #include <primitives/bitcoin/transaction.h>
 #include <primitives/bitcoin/merkleblock.h>
 #include <pubkey.h>
+#include <script/keyorigin.h>
 #include <script/sign.h>
 #include <script/signingprovider.h>
+#include <span.h>
+#include <streams.h>
 
 #include <bitset>
 #include <optional>
@@ -54,6 +57,10 @@ static constexpr uint8_t PSBT_IN_OUTPUT_INDEX = 0x0f;
 static constexpr uint8_t PSBT_IN_SEQUENCE = 0x10;
 static constexpr uint8_t PSBT_IN_REQUIRED_TIME_LOCKTIME = 0x11;
 static constexpr uint8_t PSBT_IN_REQUIRED_HEIGHT_LOCKTIME = 0x12;
+static constexpr uint8_t PSBT_IN_RIPEMD160 = 0x0A;
+static constexpr uint8_t PSBT_IN_SHA256 = 0x0B;
+static constexpr uint8_t PSBT_IN_HASH160 = 0x0C;
+static constexpr uint8_t PSBT_IN_HASH256 = 0x0D;
 static constexpr uint8_t PSBT_IN_PROPRIETARY = 0xFC;
 // Elements proprietary types
 static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_VALUE = 0x00;
@@ -214,7 +221,7 @@ void SerializeHDKeypaths(Stream& s, const std::map<CPubKey, KeyOriginInfo>& hd_k
         if (!keypath_pair.first.IsValid()) {
             throw std::ios_base::failure("Invalid CPubKey being serialized");
         }
-        SerializeToVector(s, type, MakeSpan(keypath_pair.first));
+        SerializeToVector(s, type, Span(keypath_pair.first));
         SerializeHDKeypath(s, keypath_pair.second);
     }
 }
@@ -235,9 +242,13 @@ struct PSBTInput
     std::optional<uint32_t> sequence{std::nullopt};
     std::optional<uint32_t> time_locktime{std::nullopt};
     std::optional<uint32_t> height_locktime{std::nullopt};
+    std::map<uint160, std::vector<unsigned char>> ripemd160_preimages;
+    std::map<uint256, std::vector<unsigned char>> sha256_preimages;
+    std::map<uint160, std::vector<unsigned char>> hash160_preimages;
+    std::map<uint256, std::vector<unsigned char>> hash256_preimages;
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
     std::set<PSBTProprietary> m_proprietary;
-    int sighash_type = 0;
+    std::optional<int> sighash_type;
 
     uint32_t m_psbt_version;
 
@@ -294,14 +305,14 @@ struct PSBTInput
         if (final_script_sig.empty() && final_script_witness.IsNull()) {
             // Write any partial signatures
             for (auto sig_pair : partial_sigs) {
-                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PARTIAL_SIG), MakeSpan(sig_pair.second.first));
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PARTIAL_SIG), Span{sig_pair.second.first});
                 s << sig_pair.second.second;
             }
 
             // Write the sighash type
-            if (sighash_type > 0) {
+            if (sighash_type != std::nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_SIGHASH));
-                SerializeToVector(s, sighash_type);
+                SerializeToVector(s, *sighash_type);
             }
 
             // Write the redeem script
@@ -318,6 +329,30 @@ struct PSBTInput
 
             // Write any hd keypaths
             SerializeHDKeypaths(s, hd_keypaths, CompactSizeWriter(PSBT_IN_BIP32_DERIVATION));
+
+            // Write any ripemd160 preimage
+            for (const auto& [hash, preimage] : ripemd160_preimages) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_RIPEMD160), Span{hash});
+                s << preimage;
+            }
+
+            // Write any sha256 preimage
+            for (const auto& [hash, preimage] : sha256_preimages) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_SHA256), Span{hash});
+                s << preimage;
+            }
+
+            // Write any hash160 preimage
+            for (const auto& [hash, preimage] : hash160_preimages) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_HASH160), Span{hash});
+                s << preimage;
+            }
+
+            // Write any hash256 preimage
+            for (const auto& [hash, preimage] : hash256_preimages) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_HASH256), Span{hash});
+                s << preimage;
+            }
         }
 
         // Write script sig
@@ -546,7 +581,7 @@ struct PSBTInput
             }
 
             // Type is compact size uint at beginning of key
-            VectorReader skey(s.GetType(), s.GetVersion(), key, 0);
+            SpanReader skey(s.GetType(), s.GetVersion(), key);
             uint64_t type = ReadCompactSize(skey);
 
             // Do stuff based on type
@@ -600,7 +635,9 @@ struct PSBTInput
                     } else if (key.size() != 1) {
                         throw std::ios_base::failure("Sighash type key is more than one byte type");
                     }
-                    UnserializeFromVector(s, sighash_type);
+                    int sighash;
+                    UnserializeFromVector(s, sighash);
+                    sighash_type = sighash;
                     break;
                 case PSBT_IN_REDEEMSCRIPT:
                 {
@@ -713,6 +750,90 @@ struct PSBTInput
                     uint32_t v;
                     UnserializeFromVector(s, v);
                     height_locktime = v;
+                    break;
+                }
+                case PSBT_IN_RIPEMD160:
+                {
+                    // Make sure that the key is the size of a ripemd160 hash + 1
+                    if (key.size() != CRIPEMD160::OUTPUT_SIZE + 1) {
+                        throw std::ios_base::failure("Size of key was not the expected size for the type ripemd160 preimage");
+                    }
+                    // Read in the hash from key
+                    std::vector<unsigned char> hash_vec(key.begin() + 1, key.end());
+                    uint160 hash(hash_vec);
+                    if (ripemd160_preimages.count(hash) > 0) {
+                        throw std::ios_base::failure("Duplicate Key, input ripemd160 preimage already provided");
+                    }
+
+                    // Read in the preimage from value
+                    std::vector<unsigned char> preimage;
+                    s >> preimage;
+
+                    // Add to preimages list
+                    ripemd160_preimages.emplace(hash, std::move(preimage));
+                    break;
+                }
+                case PSBT_IN_SHA256:
+                {
+                    // Make sure that the key is the size of a sha256 hash + 1
+                    if (key.size() != CSHA256::OUTPUT_SIZE + 1) {
+                        throw std::ios_base::failure("Size of key was not the expected size for the type sha256 preimage");
+                    }
+                    // Read in the hash from key
+                    std::vector<unsigned char> hash_vec(key.begin() + 1, key.end());
+                    uint256 hash(hash_vec);
+                    if (sha256_preimages.count(hash) > 0) {
+                        throw std::ios_base::failure("Duplicate Key, input sha256 preimage already provided");
+                    }
+
+                    // Read in the preimage from value
+                    std::vector<unsigned char> preimage;
+                    s >> preimage;
+
+                    // Add to preimages list
+                    sha256_preimages.emplace(hash, std::move(preimage));
+                    break;
+                }
+                case PSBT_IN_HASH160:
+                {
+                    // Make sure that the key is the size of a hash160 hash + 1
+                    if (key.size() != CHash160::OUTPUT_SIZE + 1) {
+                        throw std::ios_base::failure("Size of key was not the expected size for the type hash160 preimage");
+                    }
+                    // Read in the hash from key
+                    std::vector<unsigned char> hash_vec(key.begin() + 1, key.end());
+                    uint160 hash(hash_vec);
+                    if (hash160_preimages.count(hash) > 0) {
+                        throw std::ios_base::failure("Duplicate Key, input hash160 preimage already provided");
+                    }
+
+                    // Read in the preimage from value
+                    std::vector<unsigned char> preimage;
+                    s >> preimage;
+
+                    // Add to preimages list
+                    hash160_preimages.emplace(hash, std::move(preimage));
+                    break;
+                }
+                case PSBT_IN_HASH256:
+                {
+                    // Make sure that the key is the size of a hash256 hash + 1
+                    if (key.size() != CHash256::OUTPUT_SIZE + 1) {
+                        throw std::ios_base::failure("Size of key was not the expected size for the type hash256 preimage");
+                    }
+                    // Read in the hash from key
+                    std::vector<unsigned char> hash_vec(key.begin() + 1, key.end());
+                    uint256 hash(hash_vec);
+                    if (hash256_preimages.count(hash) > 0) {
+                        throw std::ios_base::failure("Duplicate Key, input hash256 preimage already provided");
+                    }
+
+                    // Read in the preimage from value
+                    std::vector<unsigned char> preimage;
+                    s >> preimage;
+
+                    // Add to preimages list
+                    hash256_preimages.emplace(hash, std::move(preimage));
                     break;
                 }
                 case PSBT_IN_PROPRIETARY:
@@ -1199,7 +1320,7 @@ struct PSBTOutput
             }
 
             // Type is compact size uint at beginning of key
-            VectorReader skey(s.GetType(), s.GetVersion(), key, 0);
+            SpanReader skey(s.GetType(), s.GetVersion(), key);
             uint64_t type = ReadCompactSize(skey);
 
             // Do stuff based on type
@@ -1591,7 +1712,7 @@ struct PartiallySignedTransaction
             }
 
             // Type is compact size uint at beginning of key
-            VectorReader skey(s.GetType(), s.GetVersion(), key, 0);
+            SpanReader skey(s.GetType(), s.GetVersion(), key);
             uint64_t type = ReadCompactSize(skey);
 
             // Do stuff based on type
@@ -1899,7 +2020,7 @@ bool PSBTInputSigned(const PSBTInput& input);
  * txdata should be the output of PrecomputePSBTData (which can be shared across
  * multiple SignPSBTInput calls). If it is nullptr, a dummy signature will be created.
  **/
-bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& psbt, int index, const PrecomputedTransactionData* txdata, int sighash = SIGHASH_ALL, SignatureData* out_sigdata = nullptr);
+bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& psbt, int index, const PrecomputedTransactionData* txdata, int sighash = SIGHASH_ALL, SignatureData* out_sigdata = nullptr, bool finalize = true);
 
 /** Counts the unsigned inputs of a PSBT. */
 size_t CountPSBTUnsignedInputs(const PartiallySignedTransaction& psbt);

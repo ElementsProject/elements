@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2017-2020 The Bitcoin Core developers
+# Copyright (c) 2017-2021 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test wallet replace-by-fee capabilities in conjunction with the fallbackfee."""
@@ -18,7 +18,7 @@ class WalletRBFTest(BitcoinTestFramework):
         self.skip_if_no_wallet()
 
     def run_test(self):
-        self.nodes[0].generate(COINBASE_MATURITY + 1)
+        self.generate(self.nodes[0], COINBASE_MATURITY + 1, sync_fun=self.no_op)
 
         # sending a transaction without fee estimations must be possible by default on regtest
         self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1)
@@ -46,7 +46,7 @@ class WalletRBFTest(BitcoinTestFramework):
             addrs = self.nodes[1].getpeginaddress()
             txid = self.nodes[0].sendtoaddress(addrs["mainchain_address"], 5)
             raw = self.nodes[0].getrawtransaction(txid)
-            self.nodes[0].generate(12)
+            self.generate(self.nodes[0], 12, sync_fun=self.no_op)
             proof = self.nodes[0].gettxoutproof([txid])
             assert_raises_rpc_error(-6, "Fee estimation failed", lambda: self.nodes[1].claimpegin(raw, proof))
 

@@ -1,7 +1,6 @@
 // Copyright (c) 2020 The Elements Core developers
 // // Distributed under the MIT software license, see the accompanying
 // // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #ifndef BITCOIN_BLINDPSBT_H
 #define BITCOIN_BLINDPSBT_H
 
@@ -57,4 +56,4 @@ bool VerifyBlindAssetProof(const uint256& asset, const std::vector<unsigned char
 BlindProofResult VerifyBlindProofs(const PSBTOutput& o);
 BlindProofResult VerifyBlindProofs(const PSBTInput& i);
 
-#endif //BITCOIN_BLINDPSBT_H
+#endif // BITCOIN_BLINDPSBT_H

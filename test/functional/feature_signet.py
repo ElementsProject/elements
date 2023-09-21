@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2019-2020 The Bitcoin Core developers
+# Copyright (c) 2019-2021 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test basic signet functionality"""
@@ -54,7 +54,7 @@ class SignetBasicTest(BitcoinTestFramework):
         # ELEMENTS: override our own fixed generation keys with a fixed random
         #  testnet/signet address, since we need the prefix to be correct
         self.nodes[0].set_deterministic_priv_key('tb1qet2shcx0pzm4qxymku73vcv266nyfk7kvf2t65', '')
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1, sync_fun=self.no_op)
 
         self.log.info("pregenerated signet blocks check")
 

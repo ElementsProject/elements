@@ -79,8 +79,8 @@ Guix v1.2.0 is available as a distribution package starting in [Debian
 21.04](https://packages.ubuntu.com/hirsute/guix).
 
 Note that if you intend on using Guix without using any substitutes (more
-details [here][security-model]), v1.2.0 has a known problems when building
-GnuTLS from source. Solutions and workarounds are documented
+details [here][security-model]), v1.2.0 has a known problem when building GnuTLS
+from source. Solutions and workarounds are documented
 [here](#gnutls-test-suite-fail-status-request-revoked).
 
 
@@ -270,23 +270,11 @@ Note that these environment variables are used to check for packages during
 `./configure`, so they should be set as soon as possible should you want to use
 a prefix other than `/usr`.
 
-<!-- ##### Example: Consistently using Guile 3.0 on Ubuntu -->
-
-<!-- For example, on Ubuntu, if you choose to use Guile 3.0 and install the -->
-<!-- `guile-3.0` package, you want to make sure that if you also want to install the -->
-<!-- `guile-git` package with `apt` that said `guile-git` package was built for Guile -->
-<!-- v3.0. This can be checked by invoking the following: -->
-
-<!-- ``` -->
-<!-- apt update -->
-<!-- apt show guile-git -->
-<!-- ``` -->
-
 #### Building and installing source-built packages
 
-***IMPORTANT**: A few dependencies have non-obvious quirks/erratas which are documented in the
-sub-sections immediately below. Please read these sections before proceeding to
-build and install these packages.*
+***IMPORTANT**: A few dependencies have non-obvious quirks/errata which are
+documented in the sub-sections immediately below. Please read these sections
+before proceeding to build and install these packages.*
 
 Although you should always refer to the README or INSTALL files for the most
 accurate information, most of these dependencies use autoconf-style build
@@ -370,7 +358,7 @@ This is especially notable because Ubuntu Focal packages `libgit2 v0.28.4`, and
 Should you be in this situation, you need to build both `libgit2 v1.1.x` and
 `guile-git` from source.
 
-Source: http://logs.guix.gnu.org/guix/2020-11-12.log#232527
+Source: https://logs.guix.gnu.org/guix/2020-11-12.log#232527
 
 ##### `{scheme,guile}-bytestructures` v1.0.8 and v1.0.9 are broken for Guile v2.2
 

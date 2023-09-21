@@ -11,7 +11,7 @@ We achieve bootstrappability by using Guix as a functional package manager.
 
 # Requirements
 
-Conservatively, a x86_64 machine with:
+Conservatively, you will need an x86_64 machine with:
 
 - 16GB of free disk space on the partition that /gnu/store will reside in
 - 8GB of free disk space **per platform triple** you're planning on building
@@ -75,7 +75,7 @@ crucial differences:
 
 1. Since only Windows and macOS build outputs require codesigning, the `HOSTS`
    environment variable will have a sane default value of `x86_64-w64-mingw32
-   x86_64-apple-darwin18` instead of all the platforms.
+   x86_64-apple-darwin` instead of all the platforms.
 2. The `guix-codesign` command ***requires*** a `DETACHED_SIGS_REPO` flag.
     * _**DETACHED_SIGS_REPO**_
 
@@ -87,7 +87,7 @@ crucial differences:
 An invocation with all default options would look like:
 
 ```
-env DETACHED_SIGS_REPO=<path/to/bitcoin-detached-sigs> ./contrib/guix-codesign
+env DETACHED_SIGS_REPO=<path/to/bitcoin-detached-sigs> ./contrib/guix/guix-codesign
 ```
 
 ## Cleaning intermediate work directories
@@ -159,7 +159,7 @@ which case you can override the default list by setting the space-separated
 `HOSTS` environment variable:
 
 ```sh
-env HOSTS='x86_64-w64-mingw32 x86_64-apple-darwin18' ./contrib/guix/guix-build
+env HOSTS='x86_64-w64-mingw32 x86_64-apple-darwin' ./contrib/guix/guix-build
 ```
 
 See the [recognized environment variables][env-vars-list] section for more
@@ -224,7 +224,7 @@ details.
 
   _(defaults to "x86\_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu
   riscv64-linux-gnu powerpc64-linux-gnu powerpc64le-linux-gnu
-  x86\_64-w64-mingw32 x86\_64-apple-darwin18")_
+  x86\_64-w64-mingw32 x86\_64-apple-darwin arm64-apple-darwin")_
 
 * _**SOURCES_PATH**_
 
@@ -249,7 +249,7 @@ details.
   Set the path where _extracted_ SDKs can be found. This is passed through to
   the depends tree. Note that this is should be set to the _parent_ directory of
   the actual SDK (e.g. `SDK_PATH=$HOME/Downloads/macOS-SDKs` instead of
-  `$HOME/Downloads/macOS-SDKs/Xcode-12.1-12A7403-extracted-SDK-with-libcxx-headers`).
+  `$HOME/Downloads/macOS-SDKs/Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers`).
 
   The path that this environment variable points to **must be a directory**, and
   **NOT a symlink to a directory**.
@@ -437,9 +437,8 @@ In the extraordinarily rare case where you messed up your Guix installation in
 an irreversible way, you may want to completely purge Guix from your system and
 start over.
 
-1. Uninstall Guix itself according to the way you installed it. (e.g. `sudo apt
-   purge guix` for Ubuntu packaging, `sudo make uninstall` for
-   built-from-source).
+1. Uninstall Guix itself according to the way you installed it (e.g. `sudo apt
+   purge guix` for Ubuntu packaging, `sudo make uninstall` for a build from source).
 2. Remove all build users and groups
 
    You may check for relevant users and groups using:
@@ -468,7 +467,7 @@ start over.
     - `/root/.cache/guix/`
     - `/root/.guix-profile/`
 
-[b17e]: http://bootstrappable.org/
+[b17e]: https://bootstrappable.org/
 [r12e/source-date-epoch]: https://reproducible-builds.org/docs/source-date-epoch/
 
 [guix/install.sh]: https://git.savannah.gnu.org/cgit/guix.git/plain/etc/guix-install.sh

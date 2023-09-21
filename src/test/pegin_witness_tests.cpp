@@ -78,7 +78,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     fake_prevout.n = 0;
     BOOST_CHECK(!IsValidPeginWitness(witness, fedpegscripts, fake_prevout, err, false));
 
-    // Test mistmatched but valid txid
+    // Test mismatched but valid txid
     fake_prevout = prevout;
     fake_prevout.hash = uint256S("2f103ee04a5649eecb932b4da4ca9977f53a12bbe04d9d1eb5ccc0f4a06334");
     BOOST_CHECK(!IsValidPeginWitness(witness, fedpegscripts, fake_prevout, err, false));
@@ -117,7 +117,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
 
     CAmountMap fee_map;
 
-    std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
+    std::set<std::pair<uint256, COutPoint>> setPeginsSpent;
     TxValidationState state;
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
@@ -150,4 +150,3 @@ BOOST_AUTO_TEST_CASE(witness_valid)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-

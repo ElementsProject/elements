@@ -1,4 +1,3 @@
-
 #ifndef BITCOIN_DYNAFED_H
 #define BITCOIN_DYNAFED_H
 
@@ -17,4 +16,4 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
 DynaFedParamEntry ComputeNextBlockCurrentParameters(const CBlockIndex* pindexPrev, const Consensus::Params& consensus);
 
 
-#endif //  BITCOIN_DYNAFED_H
+#endif // BITCOIN_DYNAFED_H

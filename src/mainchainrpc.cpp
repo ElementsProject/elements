@@ -81,14 +81,14 @@ static void http_error_cb(enum evhttp_request_error err, void *ctx)
 UniValue CallMainChainRPC(const std::string& strMethod, const UniValue& params)
 {
     std::string host = gArgs.GetArg("-mainchainrpchost", DEFAULT_RPCCONNECT);
-    int port = gArgs.GetArg("-mainchainrpcport", BaseParams().MainchainRPCPort());
+    int port = gArgs.GetIntArg("-mainchainrpcport", BaseParams().MainchainRPCPort());
 
     // Obtain event base
     raii_event_base base = obtain_event_base();
 
     // Synchronously look up hostname
     raii_evhttp_connection evcon = obtain_evhttp_connection_base(base.get(), host, port);
-    evhttp_connection_set_timeout(evcon.get(), gArgs.GetArg("-mainchainrpctimeout", DEFAULT_HTTP_CLIENT_TIMEOUT));
+    evhttp_connection_set_timeout(evcon.get(), gArgs.GetIntArg("-mainchainrpctimeout", DEFAULT_HTTP_CLIENT_TIMEOUT));
 
     HTTPReply response;
     raii_evhttp_request req = obtain_evhttp_request(http_request_done, (void*)&response);
@@ -105,7 +105,7 @@ UniValue CallMainChainRPC(const std::string& strMethod, const UniValue& params)
         if (!GetMainchainAuthCookie(&strRPCUserColonPass)) {
             throw std::runtime_error(strprintf(
                 _("Could not locate mainchain RPC credentials. No authentication cookie could be found, and no mainchainrpcpassword is set in the configuration file (%s)").translated,
-                    GetConfigFile(gArgs.GetArg("-conf", BITCOIN_CONF_FILENAME)).string().c_str()));
+                    gArgs.GetArg("-conf", BITCOIN_CONF_FILENAME).c_str()));
         }
     } else {
         strRPCUserColonPass = gArgs.GetArg("-mainchainrpcuser", "") + ":" + gArgs.GetArg("-mainchainrpcpassword", "");
@@ -193,4 +193,3 @@ bool IsConfirmedBitcoinBlock(const uint256& hash, const int nMinConfirmationDept
     }
     return true;
 }
-

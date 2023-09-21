@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2020 The Bitcoin Core developers
+// Copyright (c) 2011-2021 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -12,12 +12,15 @@
 #include <QString>
 #include <QTimer>
 
-class CCoinControl;
 class ClientModel;
 class PlatformStyle;
 class SendCoinsEntry;
 class SendCoinsRecipient;
 enum class SynchronizationState;
+namespace wallet {
+struct BlindDetails;
+class CCoinControl;
+} // namespace wallet
 
 namespace Ui {
     class SendCoinsDialog;
@@ -62,9 +65,9 @@ private:
     Ui::SendCoinsDialog *ui;
     ClientModel *clientModel;
     WalletModel *model;
-    std::unique_ptr<CCoinControl> m_coin_control;
+    std::unique_ptr<wallet::CCoinControl> m_coin_control;
     std::unique_ptr<WalletModelTransaction> m_current_transaction;
-    std::unique_ptr<BlindDetails> m_current_blind_details;
+    std::unique_ptr<wallet::BlindDetails> m_current_blind_details;
     bool fNewRecipientAllowed;
     bool fFeeMinimized;
     const PlatformStyle *platformStyle;
@@ -115,18 +118,21 @@ class SendConfirmationDialog : public QMessageBox
     Q_OBJECT
 
 public:
-    SendConfirmationDialog(const QString& title, const QString& text, const QString& informative_text = "", const QString& detailed_text = "", int secDelay = SEND_CONFIRM_DELAY, const QString& confirmText = "", QWidget* parent = nullptr);
+    SendConfirmationDialog(const QString& title, const QString& text, const QString& informative_text = "", const QString& detailed_text = "", int secDelay = SEND_CONFIRM_DELAY, bool enable_send = true, bool always_show_unsigned = true, QWidget* parent = nullptr);
     int exec() override;
 
 private Q_SLOTS:
     void countDown();
-    void updateYesButton();
+    void updateButtons();
 
 private:
     QAbstractButton *yesButton;
+    QAbstractButton *m_psbt_button;
     QTimer countDownTimer;
     int secDelay;
-    QString confirmButtonText;
+    QString confirmButtonText{tr("Send")};
+    bool m_enable_send;
+    QString m_psbt_button_text{tr("Create Unsigned")};
 };
 
 #endif // BITCOIN_QT_SENDCOINSDIALOG_H
