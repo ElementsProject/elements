@@ -5,8 +5,7 @@ if BUILD_BITCOIND
 endif
 
 if ENABLE_QT
-#TODO(stevenroose) uncomment and fix
-#  dist_man1_MANS+=elements-qt.1
+  dist_man1_MANS+=elements-qt.1
 endif
 
 if BUILD_BITCOIN_CLI
@@ -18,7 +17,7 @@ if BUILD_BITCOIN_TX
 endif
 
 if BUILD_BITCOIN_UTIL
-  dist_man1_MANS+=bitcoin-util.1
+  dist_man1_MANS+=elements-util.1
 endif
 
 if ENABLE_WALLET
