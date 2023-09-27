@@ -168,6 +168,7 @@ task:
   name: 'ARM [unit tests, no functional tests] [bullseye]'
   << : *GLOBAL_TASK_TEMPLATE
   container:
+    image: debian:bullseye
     docker_arguments:
       CI_IMAGE_NAME_TAG: debian:bullseye
       FILE_ENV: "./ci/test/00_setup_env_arm.sh"
