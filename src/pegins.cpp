@@ -214,7 +214,7 @@ static bool GetBlockAndTxFromMerkleBlock(uint256& block_hash, uint256& tx_hash, 
         }
         tx_hash = tx_hashes[0];
         tx_index = tx_indices[0];
-    } catch (std::exception& e) {
+    } catch (std::exception&) {
         // Invalid encoding of merkle block
         return false;
     }
