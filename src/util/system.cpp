@@ -6,7 +6,16 @@
 #include <util/system.h>
 
 #ifdef ENABLE_EXTERNAL_SIGNER
+#if defined(__GNUC__)
+// Boost 1.78 requires the following workaround.
+// See: https://github.com/boostorg/process/issues/235
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnarrowing"
+#endif
 #include <boost/process.hpp>
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 #endif // ENABLE_EXTERNAL_SIGNER
 
 #include <chainparamsbase.h>
@@ -576,7 +585,7 @@ bool ArgsManager::IsArgNegated(const std::string& strArg) const
 std::string ArgsManager::GetArg(const std::string& strArg, const std::string& strDefault) const
 {
     const util::SettingsValue value = GetSetting(strArg);
-    return value.isNull() ? strDefault : value.isFalse() ? "0" : value.isTrue() ? "1" : value.get_str();
+    return value.isNull() ? strDefault : value.isFalse() ? "0" : value.isTrue() ? "1" : value.isNum() ? value.getValStr() : value.get_str();
 }
 
 int64_t ArgsManager::GetIntArg(const std::string& strArg, int64_t nDefault) const
