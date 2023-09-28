@@ -900,33 +900,6 @@ bitcoin_chainstate_SOURCES = \
   validationinterface.cpp \
   versionbits.cpp \
   warnings.cpp
-# ELEMENTS: additional sources for chainstate
-bitcoin_chainstate_SOURCES += \
-  asset.cpp \
-  blind.cpp \
-  blindpsbt.cpp \
-  block_proof.cpp \
-  common/bloom.cpp \
-  confidential_validation.cpp \
-  dynafed.cpp \
-  issuance.cpp \
-  mainchainrpc.cpp \
-  merkleblock.cpp \
-  pegins.cpp \
-  primitives/bitcoin/block.cpp \
-  primitives/bitcoin/merkleblock.cpp \
-  primitives/bitcoin/transaction.cpp \
-  primitives/confidential.cpp \
-  primitives/pak.cpp \
-  primitives/txwitness.cpp \
-  psbt.cpp \
-  rpc/request.cpp \
-  script/pegins.cpp \
-  script/sign.cpp \
-  script/signingprovider.cpp \
-  support/events.h \
-  util/url.cpp
-
 bitcoin_chainstate_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 bitcoin_chainstate_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 bitcoin_chainstate_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
@@ -937,9 +910,6 @@ bitcoin_chainstate_LDADD = \
   $(LIBLEVELDB) \
   $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV)
-# ELEMENTS:
-bitcoin_chainstate_LDADD += \
-  $(EVENT_LIBS)
 
 # Required for obj/build.h to be generated first.
 # More details: https://www.gnu.org/software/automake/manual/html_node/Built-Sources-Example.html
