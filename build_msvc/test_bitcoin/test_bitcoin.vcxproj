@@ -17,6 +17,7 @@
     <ClCompile Include="..\..\src\wallet\test\*_fixture.cpp" />
     <ClCompile Include="..\..\src\wallet\test\*_tests.cpp" />
     <ClCompile Include="..\..\src\wallet\test\util.cpp" />
+    <ClCompile Include="..\..\src\primitives\bitcoin\transaction.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\libminisketch\libminisketch.vcxproj">
