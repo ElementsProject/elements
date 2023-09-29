@@ -149,7 +149,7 @@ static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, co
         if (!pegtx_stream.empty()) {
             return false;
         }
-    } catch (std::exception& e) {
+    } catch (std::exception&) {
         // Invalid encoding of transaction
         return false;
     }
