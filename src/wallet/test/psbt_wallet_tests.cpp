@@ -65,6 +65,7 @@ BOOST_AUTO_TEST_CASE(psbt_updater_test)
 
     // Try to sign the mutated input
     SignatureData sigdata;
+    bool complete = true;
     BOOST_CHECK(m_wallet.FillPSBT(psbtx, complete, SIGHASH_ALL, true, true) != TransactionError::OK);
     //BOOST_CHECK(spk_man->FillPSBT(psbtx, PrecomputePSBTData(psbtx), SIGHASH_ALL, true, true) != TransactionError::OK);
 }
