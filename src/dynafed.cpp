@@ -3,7 +3,10 @@
 #include <hash.h>
 #include <validation.h>
 
-bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consensus::Params& consensus, DynaFedParamEntry& winning_entry)
+
+/* Returns true if the next block would be the first block of an epoch with new
+ * parameters. It also returns the parameter set that is being transitioned to. */
+static bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consensus::Params& consensus, DynaFedParamEntry& winning_entry)
 {
     uint32_t next_height = pindexPrev->nHeight + 1;
     assert(consensus.dynamic_epoch_length != 0);
