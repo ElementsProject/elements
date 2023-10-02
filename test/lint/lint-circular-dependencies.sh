@@ -35,6 +35,25 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     # multi-asset transaction or not. Probably this check should be done in
     # CreateTransaction instead.
     "wallet/coinselection -> wallet/wallet -> wallet/coinselection"
+    # ELEMENTS: mostly derived from chain.cpp including validation.h for
+    # trim_header version 2
+    "chain -> validation -> chain"
+    "dynafed -> validation -> dynafed"
+    "pegins -> validation -> pegins"
+    "block_proof -> chain -> validation -> block_proof"
+    "chain -> validation -> consensus/tx_verify -> chain"
+    "chain -> validation -> deploymentstatus -> chain"
+    "chain -> validation -> index/blockfilterindex -> chain"
+    "chain -> validation -> primitives/pak -> chain"
+    "chain -> validation -> txdb -> chain"
+    "chain -> validation -> validationinterface -> chain"
+    "confidential_validation -> pegins -> validation -> confidential_validation"
+    "consensus/tx_verify -> pegins -> validation -> consensus/tx_verify"
+    "dynafed -> validation -> primitives/pak -> dynafed"
+    "block_proof -> chain -> validation -> txdb -> block_proof"
+    "chain -> validation -> txdb -> pow -> chain"
+    "chain -> validation -> deploymentstatus -> versionbits -> chain"
+    "core_io -> script/sign -> pegins -> validation -> signet -> core_io"
 )
 
 EXIT_CODE=0
