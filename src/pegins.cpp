@@ -475,7 +475,6 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
         fedpegscripts.push_back(std::make_pair(next_param.m_fedpeg_program, next_param.m_fedpegscript));
     }
 
-    LOCK(cs_main);
     // Next we walk backwards up to M epoch starts
     for (int32_t i = 0; i < (int32_t) params.total_valid_epochs; i++) {
         // We are within total_valid_epochs of the genesis
