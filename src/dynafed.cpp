@@ -6,7 +6,7 @@
 
 /* Returns true if the next block would be the first block of an epoch with new
  * parameters. It also returns the parameter set that is being transitioned to. */
-static bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consensus::Params& consensus, DynaFedParamEntry& winning_entry)
+static bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consensus::Params& consensus, DynaFedParamEntry& winning_entry)  EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     uint32_t next_height = pindexPrev->nHeight + 1;
     assert(consensus.dynamic_epoch_length != 0);
@@ -42,6 +42,7 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
     const uint32_t epoch_length = consensus.dynamic_epoch_length;
     uint32_t epoch_age = next_height % epoch_length;
 
+    LOCK(cs_main);
     DynaFedParamEntry winning_proposal;
     // Early return when there is a winning proposal
     if (NextBlockIsParameterTransition(pindexPrev, consensus, winning_proposal)) {
@@ -99,6 +100,7 @@ DynaFedParamEntry ComputeNextBlockCurrentParameters(const CBlockIndex* pindexPre
 {
     assert(pindexPrev);
 
+    LOCK(cs_main);
     ForceUntrimHeader(pindexPrev);
     DynaFedParamEntry entry = ComputeNextBlockFullCurrentParameters(pindexPrev, consensus);
 
