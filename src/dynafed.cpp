@@ -11,6 +11,7 @@ bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consens
         winning_entry.SetNull();
         return false;
     }
+    LOCK(cs_main);
     std::map<uint256, uint32_t> vote_tally;
     assert(next_height >= consensus.dynamic_epoch_length);
     for (int32_t height = next_height - 1; height >= (int32_t)(next_height - consensus.dynamic_epoch_length); --height) {
@@ -62,6 +63,7 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
     // may be pre-dynafed params
     const CBlockIndex* p_epoch_start = pindexPrev->GetAncestor(epoch_start_height);
     assert(p_epoch_start);
+    LOCK(cs_main);
     ForceUntrimHeader(p_epoch_start);
     if (p_epoch_start->dynafed_params().IsNull()) {
         // We need to construct the "full" current parameters of pre-dynafed
@@ -96,6 +98,7 @@ DynaFedParamEntry ComputeNextBlockCurrentParameters(const CBlockIndex* pindexPre
 {
     assert(pindexPrev);
 
+    LOCK(cs_main);
     ForceUntrimHeader(pindexPrev);
     DynaFedParamEntry entry = ComputeNextBlockFullCurrentParameters(pindexPrev, consensus);
 

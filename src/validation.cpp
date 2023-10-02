@@ -2467,6 +2467,7 @@ void ForceUntrimHeader(const CBlockIndex *pindex_)
     if (!pindex_->trimmed()) {
         return;
     }
+    LOCK(cs_main);
     AssertLockHeld(cs_main);
     CBlockIndex* pindex = const_cast<CBlockIndex*>(pindex_);
     pindex->untrim();
@@ -2510,6 +2511,7 @@ void CChainState::UpdateTip(const CBlockIndex* pindexNew)
       this->CoinsTip().DynamicMemoryUsage() * (1.0 / (1<<20)), this->CoinsTip().GetCacheSize(),
       !warning_messages.empty() ? strprintf(" warning='%s'", warning_messages.original) : "");
 
+    LOCK(cs_main);
     ForceUntrimHeader(pindexNew);
     // Do some logging if dynafed parameters changed.
     if (pindexNew->pprev && !pindexNew->dynafed_params().IsNull()) {
