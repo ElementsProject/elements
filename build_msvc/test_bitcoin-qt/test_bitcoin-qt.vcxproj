@@ -25,6 +25,7 @@
     <ClCompile Include="$(GeneratedFilesOutDir)\moc\moc_rpcnestedtests.cpp" />
     <ClCompile Include="$(GeneratedFilesOutDir)\moc\moc_uritests.cpp" />
     <ClCompile Include="$(GeneratedFilesOutDir)\moc\moc_wallettests.cpp" />
+    <ClCompile Include="..\..\src\primitives\bitcoin\transaction.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\libbitcoinconsensus\libbitcoinconsensus.vcxproj">

@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\arith_uint256.cpp" />
+    <ClCompile Include="..\..\src\asset.cpp" />
     <ClCompile Include="..\..\src\consensus\merkle.cpp" />
     <ClCompile Include="..\..\src\consensus\tx_check.cpp" />
     <ClCompile Include="..\..\src\crypto\aes.cpp" />
@@ -22,7 +23,9 @@
     <ClCompile Include="..\..\src\crypto\sha512.cpp" />
     <ClCompile Include="..\..\src\hash.cpp" />
     <ClCompile Include="..\..\src\primitives\block.cpp" />
+    <ClCompile Include="..\..\src\primitives\confidential.cpp" />
     <ClCompile Include="..\..\src\primitives\transaction.cpp" />
+    <ClCompile Include="..\..\src\primitives\txwitness.cpp" />
     <ClCompile Include="..\..\src\pubkey.cpp" />
     <ClCompile Include="..\..\src\script\bitcoinconsensus.cpp" />
     <ClCompile Include="..\..\src\script\interpreter.cpp" />
