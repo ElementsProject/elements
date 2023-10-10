@@ -8,7 +8,16 @@
     <ConfigurationType>StaticLibrary</ConfigurationType>
   </PropertyGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\pegins.cpp" />
+    <ClCompile Include="..\..\src\psbt.cpp" />
+    <ClCompile Include="..\..\src\primitives\bitcoin\transaction.cpp" />
+    <ClCompile Include="..\..\src\primitives\transaction.cpp" />
 @SOURCE_FILES@
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\libsecp256k1\libsecp256k1.vcxproj">
+      <Project>{bb493552-3b8c-4a8c-bf69-a6e7a51d2ea6}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
