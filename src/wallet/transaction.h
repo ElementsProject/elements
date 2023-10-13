@@ -297,6 +297,7 @@ public:
     bool isUnconfirmed() const { return !isAbandoned() && !isConflicted() && !isConfirmed(); }
     bool isConfirmed() const { return state<TxStateConfirmed>(); }
     const uint256& GetHash() const { return tx->GetHash(); }
+    const uint256& GetWitnessHash() const { return tx->GetWitnessHash(); }
     bool IsCoinBase() const { return tx->IsCoinBase(); }
 
     // ELEMENTS
