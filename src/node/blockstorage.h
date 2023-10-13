@@ -5,6 +5,7 @@
 #ifndef BITCOIN_NODE_BLOCKSTORAGE_H
 #define BITCOIN_NODE_BLOCKSTORAGE_H
 
+#include <chain.h>
 #include <fs.h>
 #include <protocol.h> // For CMessageHeader::MessageStartChars
 #include <sync.h>
@@ -20,7 +21,6 @@ class ArgsManager;
 class BlockValidationState;
 class CBlock;
 class CBlockFileInfo;
-class CBlockIndex;
 class CBlockUndo;
 class CChain;
 class CChainParams;
@@ -59,7 +59,11 @@ extern uint64_t nMustKeepFullHeaders;
 // NOTE: this currently only operates when in header trim mode, but it's really independent of that.
 extern int64_t nHeaderDownloadBuffer;
 
-typedef std::unordered_map<uint256, CBlockIndex*, BlockHasher> BlockMap;
+// Because validation code takes pointers to the map's CBlockIndex objects, if
+// we ever switch to another associative container, we need to either use a
+// container that has stable addressing (true of all std associative
+// containers), or make the key a `std::unique_ptr<CBlockIndex>`
+using BlockMap = std::unordered_map<uint256, CBlockIndex, BlockHasher>;
 
 struct CBlockIndexWorkComparator {
     bool operator()(const CBlockIndex* pa, const CBlockIndex* pb) const;
@@ -151,7 +155,8 @@ public:
     //! Mark one block file as pruned (modify associated database entries)
     void PruneOneBlockFile(const int fileNumber) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    CBlockIndex* LookupBlockIndex(const uint256& hash) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    CBlockIndex* LookupBlockIndex(const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    const CBlockIndex* LookupBlockIndex(const uint256& hash) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /** Get block file info entry for one block file */
     CBlockFileInfo* GetBlockFileInfo(size_t n);
