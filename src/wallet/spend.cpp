@@ -503,7 +503,6 @@ std::optional<SelectionResult> AttemptSelection(const CWallet& wallet, const CAm
         // END ELEMENTS
 
         if (auto bnb_result{SelectCoinsBnB(positive_groups, nTargetValue, coin_selection_params.m_cost_of_change)}) {
-            bnb_result->ComputeAndSetWaste(CAmount(0));
             results.push_back(*bnb_result);
         }
 
