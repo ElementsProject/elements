@@ -328,6 +328,14 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         vout = find_vout_for_address(self.nodes[0], txid, address)
         self.generate(self.nodes[0], 1, sync_fun=self.no_op)
         utxo = self.nodes[0].listunspent()[0]
+        # ELEMENTS:
+        # use increased Decimal precision
+        # when utxo['amount'] has many decimal places (eg: 50.00005640)
+        # then this 'amt' calculation would be incorrect
+        # precision  8: 1 + 50.00005640 - 0.00001 = 51.000046
+        # precision 10: 1 + 50.00005640 - 0.00001 = 51.00004640
+        # which causes the inputs/outputs to not balance
+        getcontext().prec = 10
         amt = Decimal(1) + utxo["amount"] - Decimal(0.00001)
         tx = self.nodes[0].createrawtransaction(
             [{"txid": txid, "vout": vout},{"txid": utxo["txid"], "vout": utxo["vout"]}],
