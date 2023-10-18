@@ -197,6 +197,13 @@ RPCHelpMan getpeginaddress()
 
     // Get P2CH deposit address on mainchain from most recent fedpegscript.
     const auto& fedpegscripts = GetValidFedpegScripts(pwallet->chain().getTip(), Params().GetConsensus(), true /* nextblock_validation */);
+    if (fedpegscripts.empty()) {
+        std::string message = "No valid fedpegscripts.";
+        if (!g_con_elementsmode) {
+            message += " Not running in Elements mode, check your 'chain' param.";
+        }
+        throw JSONRPCError(RPC_INTERNAL_ERROR, message);
+    }
     CTxDestination mainchain_dest(WitnessV0ScriptHash(calculate_contract(fedpegscripts.front().second, dest_script)));
     // P2SH-wrapped is the only valid choice for non-dynafed chains but still an
     // option for dynafed-enabled ones as well

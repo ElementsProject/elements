@@ -122,6 +122,7 @@ BASE_SCRIPTS = [
     'feature_block.py',
     'rpc_fundrawtransaction.py --legacy-wallet',
     'rpc_fundrawtransaction.py --descriptors',
+    'wallet_elements_regression_1263.py',
     'p2p_compactblocks.py',
     'p2p_compactblocks_blocksonly.py',
     'feature_segwit.py --legacy-wallet',
