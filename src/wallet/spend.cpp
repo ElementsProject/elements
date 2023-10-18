@@ -1446,7 +1446,12 @@ bool CWallet::CreateTransactionInternal(
 
     // The only time that fee_needed should be less than the amount available for fees (in change_and_fee - change_amount) is when
     // we are subtracting the fee from the outputs. If this occurs at any other time, it is a bug.
-    assert(coin_selection_params.m_subtract_fee_outputs || fee_needed <= map_change_and_fee.at(policyAsset) - change_amount);
+    if (!coin_selection_params.m_subtract_fee_outputs && fee_needed > map_change_and_fee.at(policyAsset) - change_amount) {
+        WalletLogPrintf("ERROR: not enough coins to cover for fee (needed: %d, total: %d, change: %d)\n",
+            fee_needed, map_change_and_fee.at(policyAsset), change_amount);
+        error = _("Could not cover fee");
+        return false;
+    }
 
     // Update nFeeRet in case fee_needed changed due to dropping the change output
     if (fee_needed <= map_change_and_fee.at(policyAsset) - change_amount) {

@@ -299,7 +299,11 @@ bool KnapsackSolver(const CAmountMap& mapTargetValue, std::vector<OutputGroup>& 
     }
 
     // Perform the standard Knapsack solver for the policy asset
-    CAmount policy_target = non_policy_effective_value + mapTargetValue.at(::policyAsset);
+    /*
+    NOTE:
+    CInputCoin::effective_value is negative for non-policy assets, so the sum non_policy_effective_value is negative. Therefore, it is subtracted in order to increase policy_target by the fees required.
+    */
+    CAmount policy_target = mapTargetValue.at(::policyAsset) - non_policy_effective_value;
     if (policy_target > 0) {
         inner_groups.clear();
         inner_coinsret.clear();
