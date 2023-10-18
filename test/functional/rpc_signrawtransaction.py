@@ -42,6 +42,8 @@ from decimal import (
     getcontext,
 )
 
+import time # ELEMENTS
+
 class SignRawTransactionsTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
@@ -213,6 +215,8 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         self.generate(self.nodes[0], COINBASE_MATURITY + 1, sync_fun=self.no_op)
         self.nodes[0].sendtoaddress(p2sh_p2wsh_address["address"], 49.999)
         self.generate(self.nodes[0], 1, sync_fun=self.no_op)
+        # ElEMENTS: allow time for block sync
+        time.sleep(1)
         # Get the UTXO info from scantxoutset
         unspent_output = self.nodes[1].scantxoutset('start', [p2sh_p2wsh_address['descriptor']])['unspents'][0]
         spk = script_to_p2sh_p2wsh_script(p2sh_p2wsh_address['redeemScript']).hex()
@@ -279,7 +283,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
     def test_signing_with_csv(self):
         self.log.info("Test signing a transaction containing a fully signed CSV input")
         self.nodes[0].walletpassphrase("password", 9999)
-        getcontext().prec = 8
+        getcontext().prec = 10
 
         # Make sure CSV is active
         assert self.nodes[0].getdeploymentinfo()['deployments']['csv']['active']
@@ -328,6 +332,14 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         vout = find_vout_for_address(self.nodes[0], txid, address)
         self.generate(self.nodes[0], 1, sync_fun=self.no_op)
         utxo = self.nodes[0].listunspent()[0]
+        # ELEMENTS:
+        # use increased Decimal precision
+        # when utxo['amount'] has many decimal places (eg: 50.00005640)
+        # then this 'amt' calculation would be incorrect
+        # precision  8: 1 + 50.00005640 - 0.00001 = 51.000046
+        # precision 10: 1 + 50.00005640 - 0.00001 = 51.00004640
+        # which causes the inputs/outputs to not balance
+        getcontext().prec = 10
         amt = Decimal(1) + utxo["amount"] - Decimal(0.00001)
         tx = self.nodes[0].createrawtransaction(
             [{"txid": txid, "vout": vout},{"txid": utxo["txid"], "vout": utxo["vout"]}],
