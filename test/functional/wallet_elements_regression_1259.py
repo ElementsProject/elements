@@ -2,7 +2,7 @@
 # Copyright (c) 2017-2020 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Tests that fundrawtransaction correcly handles the case of sending many
+"""Tests that fundrawtransaction correctly handles the case of sending many
 inputs of an issued asset, with no policy asset recipient.
 
 See: https://github.com/ElementsProject/elements/issues/1259

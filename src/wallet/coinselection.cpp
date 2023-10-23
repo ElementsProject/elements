@@ -308,6 +308,9 @@ std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, 
                 non_policy_effective_value += ic.effective_value;
             }
             result.AddInput(inner_result.value());
+        } else {
+            LogPrint(BCLog::SELECTCOINS, "Not enough funds to create target %d for asset %s\n", it->second, it->first.GetHex());
+            return std::nullopt;
         }
     }
 
