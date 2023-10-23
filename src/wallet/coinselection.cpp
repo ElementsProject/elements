@@ -353,6 +353,9 @@ std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, 
 
         if (auto inner_result = KnapsackSolver(inner_groups, policy_target, ::policyAsset)) {
             result.AddInput(*inner_result);
+        } else {
+            LogPrint(BCLog::SELECTCOINS, "Not enough funds to create target %d for policy asset %s\n", policy_target, ::policyAsset.GetHex());
+            return std::nullopt;
         }
     }
 
