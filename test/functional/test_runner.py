@@ -88,6 +88,7 @@ EXTENDED_SCRIPTS = [
 BASE_SCRIPTS = [
     # Scripts that are run by default.
     # vv First elements tests vv
+    'example_elements_code_tutorial.py',
     'feature_fedpeg.py --legacy-wallet',
     'feature_fedpeg.py --pre_transition --legacy-wallet',
     'feature_fedpeg.py --post_transition --legacy-wallet',
