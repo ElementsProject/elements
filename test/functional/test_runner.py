@@ -88,6 +88,7 @@ EXTENDED_SCRIPTS = [
 BASE_SCRIPTS = [
     # Scripts that are run by default.
     # vv First elements tests vv
+    'example_elements_code_tutorial.py',
     'feature_fedpeg.py --legacy-wallet',
     'feature_fedpeg.py --pre_transition --legacy-wallet',
     'feature_fedpeg.py --post_transition --legacy-wallet',
@@ -110,6 +111,7 @@ BASE_SCRIPTS = [
     'feature_progress.py',
     'rpc_getnewblockhex.py',
     'wallet_elements_regression_1172.py --legacy-wallet',
+    'wallet_elements_regression_1259.py --legacy-wallet',
     # Longest test should go first, to favor running tests in parallel
     'wallet_hd.py --legacy-wallet',
     'wallet_hd.py --descriptors',
@@ -122,6 +124,7 @@ BASE_SCRIPTS = [
     'feature_block.py',
     'rpc_fundrawtransaction.py --legacy-wallet',
     'rpc_fundrawtransaction.py --descriptors',
+    'wallet_elements_regression_1263.py',
     'p2p_compactblocks.py',
     'p2p_compactblocks_blocksonly.py',
     'feature_segwit.py --legacy-wallet',

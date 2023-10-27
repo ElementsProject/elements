@@ -308,11 +308,18 @@ std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, 
                 non_policy_effective_value += ic.effective_value;
             }
             result.AddInput(inner_result.value());
+        } else {
+            LogPrint(BCLog::SELECTCOINS, "Not enough funds to create target %d for asset %s\n", it->second, it->first.GetHex());
+            return std::nullopt;
         }
     }
 
     // Perform the standard Knapsack solver for the policy asset
-    CAmount policy_target = non_policy_effective_value + mapTargetValue.at(::policyAsset);
+    /*
+    NOTE:
+    CInputCoin::effective_value is negative for non-policy assets, so the sum non_policy_effective_value is negative. Therefore, it is subtracted in order to increase policy_target by the fees required.
+    */
+    CAmount policy_target = mapTargetValue.at(::policyAsset) - non_policy_effective_value;
     if (policy_target > 0) {
         inner_groups.clear();
 
@@ -346,6 +353,9 @@ std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, 
 
         if (auto inner_result = KnapsackSolver(inner_groups, policy_target, ::policyAsset)) {
             result.AddInput(*inner_result);
+        } else {
+            LogPrint(BCLog::SELECTCOINS, "Not enough funds to create target %d for policy asset %s\n", policy_target, ::policyAsset.GetHex());
+            return std::nullopt;
         }
     }
 
