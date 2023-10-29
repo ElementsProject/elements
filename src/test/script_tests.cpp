@@ -26,6 +26,7 @@
 
 #include <cstdint>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -1740,8 +1741,10 @@ static void AssetTest(const UniValue& test)
             // "final": true tests are valid for all flags. Others are only valid with flags that are
             // a subset of test_flags.
             if (fin || ((flags & test_flags) == flags)) {
-                bool ret = VerifyScript(tx.vin[idx].scriptSig, prevouts[idx].scriptPubKey, &tx.witness.vtxinwit[idx].scriptWitness, flags, txcheck, nullptr);
+                ScriptError serror;
+                bool ret = VerifyScript(tx.vin[idx].scriptSig, prevouts[idx].scriptPubKey, &tx.witness.vtxinwit[idx].scriptWitness, flags, txcheck, &serror);
                 BOOST_CHECK(ret);
+                BOOST_CHECK_EQUAL(serror, SCRIPT_ERR_OK);
             }
         }
     }
@@ -1753,11 +1756,22 @@ static void AssetTest(const UniValue& test)
         PrecomputedTransactionData txdata(hash_genesis_block);
         txdata.Init(tx, std::vector<CTxOut>(prevouts));
         CachingTransactionSignatureChecker txcheck(&tx, idx, prevouts[idx].nValue, true, txdata);
+
+        std::optional<ScriptError> expected_error;
+        if (test["failure"].exists("error")) {
+            expected_error = ParseScriptError(test["failure"]["error"].get_str());
+        }
+
         for (const auto flags : ALL_CONSENSUS_FLAGS) {
             // If a test is supposed to fail with test_flags, it should also fail with any superset thereof.
             if ((flags & test_flags) == test_flags) {
-                bool ret = VerifyScript(tx.vin[idx].scriptSig, prevouts[idx].scriptPubKey, &tx.witness.vtxinwit[idx].scriptWitness, flags, txcheck, nullptr);
+                ScriptError serror;
+                bool ret = VerifyScript(tx.vin[idx].scriptSig, prevouts[idx].scriptPubKey, &tx.witness.vtxinwit[idx].scriptWitness, flags, txcheck, &serror);
                 BOOST_CHECK(!ret);
+
+                if (expected_error) {
+                    BOOST_CHECK_EQUAL(serror, *expected_error);
+                }
             }
         }
     }
