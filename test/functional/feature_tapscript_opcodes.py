@@ -582,9 +582,6 @@ class TapHashPeginTest(BitcoinTestFramework):
             self.tapscript_satisfy_test(CScript([msg, pub, OP_CHECKSIGFROMSTACK]), inputs = [sig], fail=fail)
 
         csfs_test("e168c349d0d2499caf3a6d71734c743d517f94f8571fa52c04285b68deec1936")
-        # Elements: FIXME this test fails
-        # with test_framework.authproxy.JSONRPCException: non-mandatory-script-verify-flag (Invalid Schnorr signature) (-26)
-        # csfs_test("Hello World!".encode('utf-8').hex())
         csfs_test("Hello World!".encode('utf-8').hex(), fail="Invalid Schnorr signature", mutute_sig=True)
         msg = bytes.fromhex("e168c349d0d2499caf3a6d71734c743d517f94f8571fa52c04285b68deec1936")
         pub = bytes.fromhex("3f67e97da0df6931189cfb0072447da22707897bd5de04936a277ed7e00b35b3")
