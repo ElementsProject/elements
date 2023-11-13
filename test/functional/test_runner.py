@@ -140,8 +140,7 @@ BASE_SCRIPTS = [
     'mempool_updatefromblock.py',
     'wallet_dump.py --legacy-wallet',
     'feature_taproot.py --previous_release',
-    # ELEMENTS: FIXME taproot test needs to be updated
-    # 'feature_taproot.py',
+    'feature_taproot.py',
     'rpc_signer.py',
     'wallet_signer.py --descriptors',
     # ELEMENTS: FIXME failing tests
