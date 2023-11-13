@@ -143,8 +143,7 @@ BASE_SCRIPTS = [
     'feature_taproot.py',
     'rpc_signer.py',
     'wallet_signer.py --descriptors',
-    # ELEMENTS: FIXME failing tests
-    # 'feature_taphash_pegins_issuances.py',
+    'feature_taphash_pegins_issuances.py',
     'feature_tapscript_opcodes.py',
     # vv Tests less than 60s vv
     'p2p_sendheaders.py',

@@ -258,7 +258,7 @@ class TapHashPeginTest(BitcoinTestFramework):
     def run_test(self):
         self.generate(self.nodes[0], 101)
         self.wait_until(lambda: self.nodes[0].getblockcount() == 101, timeout=5)
-        # spend the initialfreecoins to node0, to fix bad-txns-inputs-missingorspent error when creating the first taproot utxo
+        # ELEMENTS: spend the initialfreecoins to node0, to fix bad-txns-inputs-missingorspent error when creating the first taproot utxo
         self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 50)
         self.generate(self.nodes[0], 1)
 
