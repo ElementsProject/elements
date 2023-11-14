@@ -1441,10 +1441,11 @@ static bool CreateTransactionInternal(
         }
         txNew = tx_blinded; // sigh, `fillBlindDetails` may have modified txNew
 
-        int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds, blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, tx_blinded);
-        assert(ret != -1);
-        if (ret != blind_details->num_to_blind) {
-            error = _("Unable to blind the transaction properly. This should not happen.");
+        auto info = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds, blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, tx_blinded);
+        assert(info.status == BlindStatus::SUCCESS || (info.status == BlindStatus::ERR_SINGLE_ATTEMPT_WITH_NO_INPUT_BLINDS && blind_details->num_to_blind == 0));
+        if (info.num_blinded != blind_details->num_to_blind) {
+            auto message = strprintf("Unable to blind transaction: Number to blind: %d. Number blinded: %d.", blind_details->num_to_blind, info.num_blinded);
+            error = Untranslated(message);
             return false;
         }
 
@@ -1646,11 +1647,13 @@ static bool CreateTransactionInternal(
         }
 
         if (sign) {
-            int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
-            assert(ret != -1);
-            if (ret != blind_details->num_to_blind) {
-                wallet.WalletLogPrintf("ERROR: tried to blind %d outputs but only blinded %d\n", (int) blind_details->num_to_blind, (int) ret);
-                error = _("Unable to blind the transaction properly. This should not happen.");
+            auto info = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
+            assert(info.status == BlindStatus::SUCCESS || (info.status == BlindStatus::ERR_SINGLE_ATTEMPT_WITH_NO_INPUT_BLINDS && blind_details->num_to_blind == 0));
+            if (info.num_blinded != blind_details->num_to_blind) {
+                auto status = BlindStatusString(info.status);
+                wallet.WalletLogPrintf("ERROR: tried to blind %d outputs but only blinded %d. Blind status: %s\n", (int)blind_details->num_to_blind, info.num_blinded, status);
+                auto message = strprintf("Unable to blind transaction: %s Number of blinded outputs: %d.", status, info.num_blinded);
+                error = Untranslated(message);
                 return false;
             }
         }

@@ -1293,10 +1293,11 @@ RPCHelpMan blindrawtransaction()
         }
     }
 
-    if (BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, asset_keys, token_keys, tx, (auxiliary_generators.size() ? &auxiliary_generators : NULL)) != num_pubkeys) {
-        // TODO Have more rich return values, communicating to user what has been blinded
-        // User may be ok not blinding something that for instance has no corresponding type on input
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?");
+    auto info = BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, asset_keys, token_keys, tx, (auxiliary_generators.size() ? &auxiliary_generators : NULL));
+    if (info.num_blinded != num_pubkeys) {
+        auto status = BlindStatusString(info.status);
+        auto message = strprintf("Unable to blind transaction: %s Number of blinded outputs: %d. Are you sure each asset type to blind is represented in the inputs?", status, info.num_blinded);
+        throw JSONRPCError(RPC_INVALID_PARAMETER, message);
     }
 
     return EncodeHexTx(CTransaction(tx));

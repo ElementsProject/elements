@@ -48,7 +48,7 @@ bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue&
 
 bool GenerateRangeproof(std::vector<unsigned char>& rangeproof, const std::vector<unsigned char*>& value_blindptrs, const uint256& nonce, const CAmount amount, const CScript& scriptPubKey, const secp256k1_pedersen_commitment& value_commit, const secp256k1_generator& gen, const CAsset& asset, std::vector<const unsigned char*>& asset_blindptrs);
 
-bool SurjectOutput(CTxOutWitness& txoutwit, const std::vector<secp256k1_fixed_asset_tag>& surjection_targets, const std::vector<secp256k1_generator>& target_asset_generators, const std::vector<uint256 >& target_asset_blinders, const std::vector<const unsigned char*> asset_blindptrs, const secp256k1_generator& output_asset_gen, const CAsset& asset);
+bool SurjectOutput(CTxOutWitness& txoutwit, const std::vector<secp256k1_fixed_asset_tag>& surjection_targets, const std::vector<secp256k1_generator>& target_asset_generators, const std::vector<uint256>& target_asset_blinders, const std::vector<const unsigned char*> asset_blindptrs, const secp256k1_generator& output_asset_gen, const CAsset& asset);
 
 uint256 GenerateOutputRangeproofNonce(CTxOut& out, const CPubKey output_pubkey);
 
@@ -56,8 +56,27 @@ void BlindAsset(CConfidentialAsset& conf_asset, secp256k1_generator& asset_gen, 
 
 void CreateValueCommitment(CConfidentialValue& conf_value, secp256k1_pedersen_commitment& value_commit, const unsigned char* value_blindptr, const secp256k1_generator& asset_gen, const CAmount amount);
 
-/* Returns the number of outputs that were successfully blinded.
- * In many cases a `0` can be fixed by adding an additional output.
+enum class BlindStatus {
+    SUCCESS,
+    ERR_GENERATOR_PARSE,
+    ERR_NO_AUX_GENERATORS,
+    ERR_FAIL_BLINDED_GENERATOR,
+    ERR_ISSUANCE_INVALID,
+    ERR_NEGATIVE_INPUT_AMOUNT,
+    ERR_PUBKEY_INVALID_OR_OUTPUTS_BLINDED,
+    ERR_OUTPUT_IS_FEE,
+    ERR_ALL_OUTPUTS_OWNED_UNBLINDED,
+    ERR_BLINDING_KEY_INVALID,
+    ERR_SINGLE_ATTEMPT_WITH_NO_INPUT_BLINDS,
+};
+
+struct BlindInfo {
+    BlindStatus status;
+    uint16_t num_blinded = 0;
+};
+
+/* Returns the blinding status and number of outputs that were successfully blinded.
+ * In many cases an error can be fixed by adding an additional output.
  * @param[in]   input_blinding_factors - A vector of input blinding factors that will be used to create the balanced output blinding factors
  * @param[in]   input_asset_blinding_factors - A vector of input asset blinding factors that will be used to create the balanced output blinding factors
  * @param[in]   input_assets - the asset of each corresponding input
@@ -70,11 +89,13 @@ void CreateValueCommitment(CConfidentialValue& conf_value, secp256k1_pedersen_co
  * @param[in/out]   tx - The transaction to be modified.
  * @param[in] auxiliary_generators - a list of generators to create surjection proofs when inputs are not owned by caller. Passing in non-empty elements results in ignoring of other input arguments for that index
  */
-int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<CAsset >& input_assets, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& out_val_blind_factors, std::vector<uint256 >& out_asset_blind_factors, const std::vector<CPubKey>& output_pubkeys, const std::vector<CKey>& issuance_blinding_privkey, const std::vector<CKey>& token_blinding_privkey, CMutableTransaction& tx, std::vector<std::vector<unsigned char> >* auxiliary_generators = nullptr);
+BlindInfo BlindTransaction(std::vector<uint256>& input_value_blinding_factors, const std::vector<uint256>& input_asset_blinding_factors, const std::vector<CAsset>& input_assets, const std::vector<CAmount>& input_amounts, std::vector<uint256>& out_val_blind_factors, std::vector<uint256>& out_asset_blind_factors, const std::vector<CPubKey>& output_pubkeys, const std::vector<CKey>& issuance_blinding_privkey, const std::vector<CKey>& token_blinding_privkey, CMutableTransaction& tx, std::vector<std::vector<unsigned char>>* auxiliary_generators = nullptr);
 
 /*
  * Extract pubkeys from nonce commitment placeholders, fill out vector of blank output blinding data
  */
 void RawFillBlinds(CMutableTransaction& tx, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CPubKey>& output_pubkeys);
+
+std::string BlindStatusString(const BlindStatus status);
 
 #endif // BITCOIN_BLIND_H
