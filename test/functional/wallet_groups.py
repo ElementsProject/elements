@@ -60,11 +60,6 @@ class WalletGroupTest(BitcoinTestFramework):
         # one output should be 0.2, the other should be ~0.3
         v = [vout["value"] for vout in tx1["vout"] if vout["scriptPubKey"]["type"] != "fee"]
         v.sort()
-        # JAMES/BYRON DELETE ME
-        #print(self.nodes[1].listunspent())
-        print("vin amount = {}".format(self.nodes[0].gettxout(tx1["vin"][0]["txid"], tx1["vin"][0]["vout"], True)["value"]))
-        print("vout amounts = {}".format(v))
-        # END JAMES?BYRON
         assert_approx(v[0], vexp=0.2, vspan=0.0001)
         assert_approx(v[1], vexp=0.3, vspan=0.0001)
 
@@ -114,10 +109,10 @@ class WalletGroupTest(BitcoinTestFramework):
         assert_equal(input_addrs[0], input_addrs[1])
         # Node 2 enforces avoidpartialspends so needs no checking here
 
-        tx4_ungrouped_fee = 2820
-        tx4_grouped_fee = 4160
-        tx5_6_ungrouped_fee = 5520
-        tx5_6_grouped_fee = 8240
+        tx4_ungrouped_fee = 5140
+        tx4_grouped_fee = 6520
+        tx5_6_ungrouped_fee = 7880
+        tx5_6_grouped_fee = 10620
 
         self.log.info("Test wallet option maxapsfee")
         addr_aps = self.nodes[3].getnewaddress()
