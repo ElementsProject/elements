@@ -3143,6 +3143,7 @@ bool GenericTransactionSignatureChecker<T>::CheckSimplicity(const valtype& witne
     case SIMPLICITY_ERR_EXEC_JET: return set_error(serror, SCRIPT_ERR_SIMPLICITY_EXEC_JET);
     case SIMPLICITY_ERR_EXEC_ASSERT: return set_error(serror, SCRIPT_ERR_SIMPLICITY_EXEC_ASSERT);
     case SIMPLICITY_ERR_ANTIDOS: return set_error(serror, SCRIPT_ERR_SIMPLICITY_ANTIDOS);
+    case SIMPLICITY_ERR_HIDDEN_ROOT: return set_error(serror, SCRIPT_ERR_SIMPLICITY_HIDDEN_ROOT);
     default: return set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
     }
 }

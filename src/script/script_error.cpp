@@ -176,6 +176,8 @@ std::string ScriptErrorString(const ScriptError serror)
             return SIMPLICITY_ERR_MSG(SIMPLICITY_ERR_EXEC_ASSERT);
         case SCRIPT_ERR_SIMPLICITY_ANTIDOS:
             return SIMPLICITY_ERR_MSG(SIMPLICITY_ERR_ANTIDOS);
+        case SCRIPT_ERR_SIMPLICITY_HIDDEN_ROOT:
+            return SIMPLICITY_ERR_MSG(SIMPLICITY_ERR_HIDDEN_ROOT);
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;
