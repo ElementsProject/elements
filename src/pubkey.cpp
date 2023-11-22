@@ -208,7 +208,7 @@ bool XOnlyPubKey::VerifySchnorr(const Span<const unsigned char> msg, Span<const 
     assert(sigbytes.size() == 64);
     secp256k1_xonly_pubkey pubkey;
     if (!secp256k1_xonly_pubkey_parse(secp256k1_context_verify, &pubkey, m_keydata.data())) return false;
-    return secp256k1_schnorrsig_verify(secp256k1_context_verify, sigbytes.data(), msg.begin(), 32, &pubkey);
+    return secp256k1_schnorrsig_verify(secp256k1_context_verify, sigbytes.data(), msg.data(), msg.size(), &pubkey);
 }
 
 // ELEMENTS: this is preserved from an old version of the Taproot code for use in OP_TWEAKVERIFY
