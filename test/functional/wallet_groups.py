@@ -49,6 +49,7 @@ class WalletGroupTest(BitcoinTestFramework):
 
         # For each node, send 0.2 coins back to 0;
         # - node[1] should pick one 0.5 UTXO and leave the rest
+        # ELEMENTS: since SRD was added, node[1] sometimes picks a 1.0 UTXO
         # - node[2] should pick one (1.0 + 0.5) UTXO group corresponding to a
         #   given address, and leave the rest
         self.log.info("Test sending transactions picks one UTXO group and leaves the rest")
@@ -61,7 +62,12 @@ class WalletGroupTest(BitcoinTestFramework):
         v = [vout["value"] for vout in tx1["vout"] if vout["scriptPubKey"]["type"] != "fee"]
         v.sort()
         assert_approx(v[0], vexp=0.2, vspan=0.0001)
-        assert_approx(v[1], vexp=0.3, vspan=0.0001)
+        # ELEMENTS
+        try:
+            assert_approx(v[1], vexp=0.3, vspan=0.0001)
+        except AssertionError:
+            assert_approx(v[1], vexp=0.8, vspan=0.0001)
+
 
         txid2 = self.nodes[2].sendtoaddress(self.nodes[0].getnewaddress(), 0.2)
         tx2 = self.nodes[2].getrawtransaction(txid2, True)
