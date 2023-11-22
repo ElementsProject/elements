@@ -96,7 +96,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         self.nodes[0].sendrawtransaction(signed_raw_tx['hex'])
         tx = tx_from_hex(signed_raw_tx['hex'])
         tx.rehash()
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
         assert(tx.hash in last_blk['tx'])
 
@@ -118,7 +118,7 @@ class TapHashPeginTest(BitcoinTestFramework):
             peg_id = self.nodes[0].sendtoaddress(fund_info["mainchain_address"], 1)
             raw_peg_tx = self.nodes[0].gettransaction(peg_id)["hex"]
             peg_txid = self.nodes[0].sendrawtransaction(raw_peg_tx)
-            self.nodes[0].generate(101)
+            self.generate(self.nodes[0], 101)
             peg_prf = self.nodes[0].gettxoutproof([peg_txid])
             claim_script = fund_info["claim_script"]
 
@@ -249,15 +249,19 @@ class TapHashPeginTest(BitcoinTestFramework):
 
 
         self.nodes[0].sendrawtransaction(hexstring = tx.serialize().hex())
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
         tx.rehash()
         assert(tx.hash in last_blk['tx'])
 
 
     def run_test(self):
-        self.nodes[0].generate(101)
+        self.generate(self.nodes[0], 101)
         self.wait_until(lambda: self.nodes[0].getblockcount() == 101, timeout=5)
+        # ELEMENTS: spend the initialfreecoins to node0, to fix bad-txns-inputs-missingorspent error when creating the first taproot utxo
+        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 50)
+        self.generate(self.nodes[0], 1)
+
         # Test whether the above test framework is working
         self.log.info("Test simple op_1")
         self.tapscript_satisfy_test(CScript([OP_1]))
@@ -582,9 +586,6 @@ class TapHashPeginTest(BitcoinTestFramework):
             self.tapscript_satisfy_test(CScript([msg, pub, OP_CHECKSIGFROMSTACK]), inputs = [sig], fail=fail)
 
         csfs_test("e168c349d0d2499caf3a6d71734c743d517f94f8571fa52c04285b68deec1936")
-        # Elements: FIXME this test fails
-        # with test_framework.authproxy.JSONRPCException: non-mandatory-script-verify-flag (Invalid Schnorr signature) (-26)
-        # csfs_test("Hello World!".encode('utf-8').hex())
         csfs_test("Hello World!".encode('utf-8').hex(), fail="Invalid Schnorr signature", mutute_sig=True)
         msg = bytes.fromhex("e168c349d0d2499caf3a6d71734c743d517f94f8571fa52c04285b68deec1936")
         pub = bytes.fromhex("3f67e97da0df6931189cfb0072447da22707897bd5de04936a277ed7e00b35b3")

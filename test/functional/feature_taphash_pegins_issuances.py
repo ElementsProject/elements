@@ -80,7 +80,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         self.nodes[0].sendrawtransaction(signed_raw_tx['hex'])
         tx = tx_from_hex(signed_raw_tx['hex'])
         tx.rehash()
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
         assert(tx.hash in last_blk['tx'])
 
@@ -95,7 +95,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         peg_id = self.nodes[0].sendtoaddress(fund_info["mainchain_address"], 1)
         raw_peg_tx = self.nodes[0].gettransaction(peg_id)["hex"]
         peg_txid = self.nodes[0].sendrawtransaction(raw_peg_tx)
-        self.nodes[0].generate(101)
+        self.generate(self.nodes[0], 101)
         peg_prf = self.nodes[0].gettxoutproof([peg_txid])
         claim_script = fund_info["claim_script"]
 
@@ -126,7 +126,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         assert(verify_schnorr(pub_tweak, sig, msg))
         # Since we add in/outputs the min feerate is no longer maintained.
         self.nodes[0].sendrawtransaction(hexstring = raw_claim.serialize().hex())
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
         raw_claim.rehash()
         assert(raw_claim.hash in last_blk['tx'])
@@ -166,15 +166,18 @@ class TapHashPeginTest(BitcoinTestFramework):
         assert(verify_schnorr(pub_tweak, sig, msg))
         # Since we add in/outputs the min feerate is no longer maintained.
         self.nodes[0].sendrawtransaction(hexstring = issued_tx.serialize().hex())
-        self.nodes[0].generate(1)
+        self.generate(self.nodes[0], 1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
         issued_tx.rehash()
         assert(issued_tx.hash in last_blk['tx'])
 
 
     def run_test(self):
-        self.nodes[0].generate(101)
+        self.generate(self.nodes[0], 101)
         self.wait_until(lambda: self.nodes[0].getblockcount() == 101, timeout=5)
+        # spend the initialfreecoins to node0, to fix bad-txns-inputs-missingorspent error
+        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 50)
+        self.generate(self.nodes[0], 1)
         self.log.info("Testing sighash taproot pegins")
         # Note that this does not test deposit to taproot pegin addresses
         # because there is no support for taproot pegins in rpc. The current rpc assumes
