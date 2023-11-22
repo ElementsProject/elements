@@ -131,8 +131,7 @@ BASE_SCRIPTS = [
     'feature_segwit.py --descriptors',
     # vv Tests less than 2m vv
     'wallet_basic.py --legacy-wallet',
-    # ELEMENTS: FIXME
-    # 'wallet_basic.py --descriptors',
+    'wallet_basic.py --descriptors',
     'wallet_labels.py --legacy-wallet',
     'wallet_labels.py --descriptors',
     'p2p_segwit.py',
@@ -141,13 +140,11 @@ BASE_SCRIPTS = [
     'mempool_updatefromblock.py',
     'wallet_dump.py --legacy-wallet',
     'feature_taproot.py --previous_release',
-    # ELEMENTS: FIXME taproot test needs to be updated
-    # 'feature_taproot.py',
+    'feature_taproot.py',
     'rpc_signer.py',
     'wallet_signer.py --descriptors',
-    # ELEMENTS: FIXME failing tests
-    # 'feature_taphash_pegins_issuances.py',
-    # 'feature_tapscript_opcodes.py',
+    'feature_taphash_pegins_issuances.py',
+    'feature_tapscript_opcodes.py',
     # vv Tests less than 60s vv
     'p2p_sendheaders.py',
     'wallet_importmulti.py --legacy-wallet',
@@ -211,9 +208,8 @@ BASE_SCRIPTS = [
     'rpc_signrawtransaction.py --descriptors',
     'rpc_rawtransaction.py --legacy-wallet',
     'rpc_rawtransaction.py --descriptors',
-    # ELEMENTS: FIXME failing tests
-    # 'wallet_groups.py --legacy-wallet',
-    # 'wallet_groups.py --descriptors',
+    'wallet_groups.py --legacy-wallet',
+    'wallet_groups.py --descriptors',
     'wallet_transactiontime_rescan.py --descriptors',
     'wallet_transactiontime_rescan.py --legacy-wallet',
     'p2p_addrv2_relay.py',
