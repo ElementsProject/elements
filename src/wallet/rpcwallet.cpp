@@ -5539,18 +5539,11 @@ static RPCHelpMan initpegoutwallet()
     }
 
     // Three acceptable descriptors:
-    bool is_liquid = Params().NetworkIDString() == "liquidv1";
     if (bitcoin_desc.substr(0, 8) ==  "sh(wpkh("
             && bitcoin_desc.substr(bitcoin_desc.size()-2, 2) == "))") {
-        if(is_liquid) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor is not supported by Liquid; try pkh(<xpub>) or <xpub>.");
-        }
         xpub_str = bitcoin_desc.substr(8, bitcoin_desc.size()-2);
     } else if (bitcoin_desc.substr(0, 5) ==  "wpkh("
             && bitcoin_desc.substr(bitcoin_desc.size()-1, 1) == ")") {
-        if(is_liquid) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor is not supported by Liquid; try pkh(<xpub>) or <xpub>.");
-        }
         xpub_str = bitcoin_desc.substr(5, bitcoin_desc.size()-1);
     } else if (bitcoin_desc.substr(0, 4) == "pkh("
             && bitcoin_desc.substr(bitcoin_desc.size()-1, 1) == ")") {
