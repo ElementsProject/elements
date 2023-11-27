@@ -117,12 +117,12 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         input_amounts.push_back(111);
         output_pubkeys.push_back(pubkey1);
         output_pubkeys.push_back(CPubKey());
-        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx3) == 0);
+        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx3).num_blinded == 0);
 
         // Add a dummy output. Must be unspendable since it's 0-valued.
         tx3.vout.push_back(CTxOut(bitcoinID, 0, CScript() << OP_RETURN));
         output_pubkeys.push_back(pubkeyDummy);
-        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx3) == 2);
+        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx3).num_blinded == 2);
         BOOST_CHECK(!tx3.vout[0].nValue.IsExplicit());
         BOOST_CHECK(!tx3.vout[2].nValue.IsExplicit());
         BOOST_CHECK(VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
@@ -182,7 +182,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         output_pubkeys.push_back(CPubKey());
         output_pubkeys.push_back(CPubKey());
         output_pubkeys.push_back(CPubKey());
-        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx4) == 0); // Blinds nothing
+        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx4).num_blinded == 0); // Blinds nothing
     }
 
     {
@@ -226,7 +226,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         output_pubkeys.push_back(pubkey2);
         output_pubkeys.push_back(CPubKey());
 
-        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx4) == 2);
+        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx4).num_blinded == 2);
         BOOST_CHECK(!tx4.vout[0].nValue.IsExplicit());
         BOOST_CHECK(tx4.vout[1].nValue.IsExplicit());
         BOOST_CHECK(!tx4.vout[2].nValue.IsExplicit());
@@ -323,14 +323,16 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         CMutableTransaction txtemp(tx5);
 
         // No blinding keys for fees, bails out blinding nothing, still invalid due to imbalance
-        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == -1);
+        auto info = BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp);
+        BOOST_CHECK(info.status == BlindStatus::ERR_OUTPUT_IS_FEE);
+        BOOST_CHECK(info.num_blinded == 0);
         BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
         // Last will be implied blank keys
         output_pubkeys.resize(4);
 
         // Blind transaction, verify amounts
         txtemp = tx5;
-        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == 4);
+        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp).num_blinded == 4);
         BOOST_CHECK(VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
 
         // Transaction may not have spendable 0-value output
@@ -343,7 +345,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
         txtemp.vout.resize(4);
         BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
-        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == 4);
+        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp).num_blinded == 4);
         BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
 
         txtemp = tx5;
@@ -364,7 +366,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         t_input_assets.resize(1);
         t_input_amounts.resize(1);
         BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
-        BOOST_CHECK(BlindTransaction(t_input_blinds, t_input_asset_blinds, t_input_assets, t_input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == 2);
+        BOOST_CHECK(BlindTransaction(t_input_blinds, t_input_asset_blinds, t_input_assets, t_input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp).num_blinded == 2);
         BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
     }
 }
