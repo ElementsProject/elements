@@ -1445,6 +1445,10 @@ static bool CreateTransactionInternal(
         assert(info.status == BlindStatus::SUCCESS || (info.status == BlindStatus::ERR_SINGLE_ATTEMPT_WITH_NO_INPUT_BLINDS && blind_details->num_to_blind == 0));
         if (info.num_blinded != blind_details->num_to_blind) {
             auto message = strprintf("Unable to blind transaction: Number to blind: %d. Number blinded: %d.", blind_details->num_to_blind, info.num_blinded);
+            auto num_inputs = result->GetInputSet().size();
+            if (num_inputs > 256) {
+                message = strprintf("Unable to blind transaction. Only 256 inputs can be blinded at once. Transaction has %d inputs.", num_inputs);
+            }
             error = Untranslated(message);
             return false;
         }
@@ -1651,8 +1655,12 @@ static bool CreateTransactionInternal(
             assert(info.status == BlindStatus::SUCCESS || (info.status == BlindStatus::ERR_SINGLE_ATTEMPT_WITH_NO_INPUT_BLINDS && blind_details->num_to_blind == 0));
             if (info.num_blinded != blind_details->num_to_blind) {
                 auto status = BlindStatusString(info.status);
-                wallet.WalletLogPrintf("ERROR: tried to blind %d outputs but only blinded %d. Blind status: %s\n", (int)blind_details->num_to_blind, info.num_blinded, status);
                 auto message = strprintf("Unable to blind transaction: %s Number of blinded outputs: %d.", status, info.num_blinded);
+                auto num_inputs = result->GetInputSet().size();
+                wallet.WalletLogPrintf("ERROR: tried to blind %d outputs but only blinded %d. Number of inputs: %d. Blind status: %s\n", (int)blind_details->num_to_blind, info.num_blinded, num_inputs, status);
+                if (num_inputs > 256) {
+                    message = strprintf("Unable to blind transaction. Only 256 inputs can be blinded at once. Transaction has %d inputs.", num_inputs);
+                }
                 error = Untranslated(message);
                 return false;
             }
