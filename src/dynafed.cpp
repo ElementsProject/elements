@@ -1,8 +1,12 @@
 
 #include <dynafed.h>
 #include <hash.h>
+#include <validation.h>
 
-bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consensus::Params& consensus, DynaFedParamEntry& winning_entry)
+
+/* Returns true if the next block would be the first block of an epoch with new
+ * parameters. It also returns the parameter set that is being transitioned to. */
+static bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consensus::Params& consensus, DynaFedParamEntry& winning_entry)  EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     uint32_t next_height = pindexPrev->nHeight + 1;
     assert(consensus.dynamic_epoch_length != 0);
@@ -15,6 +19,7 @@ bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consens
     for (int32_t height = next_height - 1; height >= (int32_t)(next_height - consensus.dynamic_epoch_length); --height) {
         const CBlockIndex* p_epoch_walk = pindexPrev->GetAncestor(height);
         assert(p_epoch_walk);
+        ForceUntrimHeader(p_epoch_walk);
         const DynaFedParamEntry& proposal = p_epoch_walk->dynafed_params().m_proposed;
         const uint256 proposal_root = proposal.CalculateRoot();
         vote_tally[proposal_root]++;
@@ -37,6 +42,7 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
     const uint32_t epoch_length = consensus.dynamic_epoch_length;
     uint32_t epoch_age = next_height % epoch_length;
 
+    LOCK(cs_main);
     DynaFedParamEntry winning_proposal;
     // Early return when there is a winning proposal
     if (NextBlockIsParameterTransition(pindexPrev, consensus, winning_proposal)) {
@@ -60,6 +66,7 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
     // may be pre-dynafed params
     const CBlockIndex* p_epoch_start = pindexPrev->GetAncestor(epoch_start_height);
     assert(p_epoch_start);
+    ForceUntrimHeader(p_epoch_start);
     if (p_epoch_start->dynafed_params().IsNull()) {
         // We need to construct the "full" current parameters of pre-dynafed
         // consensus
@@ -93,6 +100,8 @@ DynaFedParamEntry ComputeNextBlockCurrentParameters(const CBlockIndex* pindexPre
 {
     assert(pindexPrev);
 
+    LOCK(cs_main);
+    ForceUntrimHeader(pindexPrev);
     DynaFedParamEntry entry = ComputeNextBlockFullCurrentParameters(pindexPrev, consensus);
 
     uint32_t next_height = pindexPrev->nHeight+1;

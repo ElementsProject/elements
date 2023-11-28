@@ -26,6 +26,8 @@
 // ELEMENTS
 //
 
+#include <validation.h>
+
 namespace {
 static secp256k1_context* secp256k1_ctx_validation;
 
@@ -473,6 +475,7 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
         fedpegscripts.push_back(std::make_pair(next_param.m_fedpeg_program, next_param.m_fedpegscript));
     }
 
+    LOCK(cs_main);
     // Next we walk backwards up to M epoch starts
     for (int32_t i = 0; i < (int32_t) params.total_valid_epochs; i++) {
         // We are within total_valid_epochs of the genesis
@@ -487,6 +490,7 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
             break;
         }
 
+        ForceUntrimHeader(p_epoch_start);
         if (!p_epoch_start->dynafed_params().IsNull()) {
             fedpegscripts.push_back(std::make_pair(p_epoch_start->dynafed_params().m_current.m_fedpeg_program, p_epoch_start->dynafed_params().m_current.m_fedpegscript));
         } else {
