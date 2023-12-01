@@ -91,7 +91,7 @@ public:
     bool LoadBlockIndexGuts(const Consensus::Params& consensusParams, std::function<CBlockIndex*(const uint256&)> insertBlockIndex, int trimBelowHeight)
         EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
     // ELEMENTS:
-    bool WalkBlockIndexGutsForMaxHeight(int* nHeight);
+    const CBlockIndex *RegenerateFullIndex(const CBlockIndex *pindexTrimmed, CBlockIndex *pindexNew) const;
     bool ReadPAKList(std::vector<std::vector<unsigned char> >& offline_list, std::vector<std::vector<unsigned char> >& online_list, bool& reject);
     bool WritePAKList(const std::vector<std::vector<unsigned char> >& offline_list, const std::vector<std::vector<unsigned char> >& online_list, bool reject);
 };
