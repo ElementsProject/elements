@@ -186,17 +186,18 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
             assert_equal(nodei_utxo_hash, node3_utxo_hash)
 
     def generate_small_transactions(self, node, count, utxo_list):
-        FEE = 1000  # TODO: replace this with node relay fee based calculation
         num_transactions = 0
         random.shuffle(utxo_list)
         while len(utxo_list) >= 2 and num_transactions < count:
+            fee = 1000
             tx = CTransaction()
             input_amount = 0
             for _ in range(2):
                 utxo = utxo_list.pop()
                 tx.vin.append(CTxIn(COutPoint(int(utxo['txid'], 16), utxo['vout'])))
                 input_amount += int(utxo['amount'] * COIN)
-            output_amount = (input_amount - FEE) // 3
+            output_amount = (input_amount - fee) // 3
+            fee = input_amount - (3 * output_amount)
 
             if output_amount <= 0:
                 # Sanity check -- if we chose inputs that are too small, skip
@@ -204,6 +205,9 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
 
             for _ in range(3):
                 tx.vout.append(CTxOut(output_amount, bytes.fromhex(utxo['scriptPubKey'])))
+
+            # ELEMENTS: add fee output
+            tx.vout.append(CTxOut(fee))
 
             # Sign and send the transaction to get into the mempool
             tx_signed_hex = node.signrawtransactionwithwallet(tx.serialize().hex())['hex']
@@ -234,7 +238,8 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         # Main test loop:
         # each time through the loop, generate a bunch of transactions,
         # and then either mine a single new block on the tip, or some-sized reorg.
-        for i in range(40):
+        # ELEMENTS: reduced iters to run in some "reasonable" amount of time (~6 hours)
+        for i in range(3):
             self.log.info(f"Iteration {i}, generating 2500 transactions {self.restart_counts}")
             # Generate a bunch of small-ish transactions
             self.generate_small_transactions(self.nodes[3], 2500, utxo_list)
