@@ -173,10 +173,17 @@ inline std::vector<OutputGroup>& GroupCoins(const std::vector<COutput>& coins)
 
 inline std::vector<OutputGroup>& KnapsackGroupOutputs(const std::vector<COutput>& coins, CWallet& wallet, const CoinEligibilityFilter& filter)
 {
-    CoinSelectionParams coin_selection_params(/* change_output_size= */ 0,
-                                              /* change_spend_size= */ 0, /* effective_feerate= */ CFeeRate(0),
-                                              /* long_term_feerate= */ CFeeRate(0), /* discard_feerate= */ CFeeRate(0),
-                                              /* tx_noinputs_size= */ 0, /* avoid_partial= */ false);
+    FastRandomContext rand{};
+    CoinSelectionParams coin_selection_params{
+        rand,
+        /* change_output_size= */ 0,
+        /* change_spend_size= */ 0,
+        /* effective_feerate= */ CFeeRate(0),
+        /* long_term_feerate= */ CFeeRate(0),
+        /* discard_feerate= */ CFeeRate(0),
+        /* tx_noinputs_size= */ 0,
+        /* avoid_partial= */ false,
+    };
     static std::vector<OutputGroup> static_groups;
     static_groups = GroupOutputs(wallet, coins, coin_selection_params, filter, /*positive_only=*/false);
     return static_groups;
@@ -185,6 +192,7 @@ inline std::vector<OutputGroup>& KnapsackGroupOutputs(const std::vector<COutput>
 // Branch and bound coin selection tests
 BOOST_AUTO_TEST_CASE(bnb_search_test)
 {
+    FastRandomContext rand{};
     // Setup
     std::vector<CInputCoin> utxo_pool;
     SelectionResult expected_result(CAmountMap{{::policyAsset, 0}});
@@ -310,10 +318,16 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
     }
 
     // Make sure that effective value is working in AttemptSelection when BnB is used
-    CoinSelectionParams coin_selection_params_bnb(/* change_output_size= */ 0,
-                                                  /* change_spend_size= */ 0, /* effective_feerate= */ CFeeRate(3000),
-                                                  /* long_term_feerate= */ CFeeRate(1000), /* discard_feerate= */ CFeeRate(1000),
-                                                  /* tx_noinputs_size= */ 0, /* avoid_partial= */ false);
+    CoinSelectionParams coin_selection_params_bnb{
+        rand,
+        /* change_output_size= */ 0,
+        /* change_spend_size= */ 0,
+        /* effective_feerate= */ CFeeRate(3000),
+        /* long_term_feerate= */ CFeeRate(1000),
+        /* discard_feerate= */ CFeeRate(1000),
+        /* tx_noinputs_size= */ 0,
+        /* avoid_partial= */ false,
+    };
     {
         std::unique_ptr<CWallet> wallet = std::make_unique<CWallet>(m_node.chain.get(), "", m_args, CreateMockWalletDatabase());
         wallet->LoadWallet();
@@ -362,6 +376,9 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
 
 BOOST_AUTO_TEST_CASE(knapsack_solver_test)
 {
+    FastRandomContext rand{};
+    const auto temp1{[&rand](std::vector<OutputGroup>& g, const CAmount& v) { return KnapsackSolver(g, v, rand); }};
+    const auto KnapsackSolver{temp1};
     std::unique_ptr<CWallet> wallet = std::make_unique<CWallet>(m_node.chain.get(), "", m_args, CreateMockWalletDatabase());
     wallet->LoadWallet();
     LOCK(wallet->cs_wallet);
@@ -671,6 +688,7 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
 
 BOOST_AUTO_TEST_CASE(ApproximateBestSubset)
 {
+    FastRandomContext rand{};
     std::unique_ptr<CWallet> wallet = std::make_unique<CWallet>(m_node.chain.get(), "", m_args, CreateMockWalletDatabase());
     wallet->LoadWallet();
     LOCK(wallet->cs_wallet);
@@ -684,7 +702,7 @@ BOOST_AUTO_TEST_CASE(ApproximateBestSubset)
         add_coin(coins, *wallet, 1000 * COIN);
     add_coin(coins, *wallet, 3 * COIN);
 
-    const auto result = KnapsackSolver(KnapsackGroupOutputs(coins, *wallet, filter_standard), 1003 * COIN);
+    const auto result = KnapsackSolver(KnapsackGroupOutputs(coins, *wallet, filter_standard), 1003 * COIN, rand);
     BOOST_CHECK(result);
     BOOST_CHECK_EQUAL(result->GetSelectedValue()[::policyAsset], 1003 * COIN);
     BOOST_CHECK_EQUAL(result->GetInputSet().size(), 2U);
@@ -726,10 +744,16 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
         target[CAsset()] = rand.randrange(balance - 1000) + 1000;
 
         // Perform selection
-        CoinSelectionParams cs_params(/* change_output_size= */ 34,
-                                      /* change_spend_size= */ 148, /* effective_feerate= */ CFeeRate(0),
-                                      /* long_term_feerate= */ CFeeRate(0), /* discard_feerate= */ CFeeRate(0),
-                                      /* tx_noinputs_size= */ 0, /* avoid_partial= */ false);
+        CoinSelectionParams cs_params{
+            rand,
+            /* change_output_size= */ 34,
+            /* change_spend_size= */ 148,
+            /* effective_feerate= */ CFeeRate(0),
+            /* long_term_feerate= */ CFeeRate(0),
+            /* discard_feerate= */ CFeeRate(0),
+            /* tx_noinputs_size= */ 0,
+            /* avoid_partial= */ false,
+        };
         CCoinControl cc;
         const auto result = SelectCoins(*wallet, coins, target, cc, cs_params);
         BOOST_CHECK(result);

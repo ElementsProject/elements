@@ -100,8 +100,9 @@ public:
 };
 
 /** Parameters for one iteration of Coin Selection. */
-struct CoinSelectionParams
-{
+struct CoinSelectionParams {
+    /** Randomness to use in the context of coin selection. */
+    FastRandomContext& rng_fast;
     /** Size of a change output in bytes, determined by the output type. */
     size_t change_output_size = 0;
     /** Size of the input to spend a change output in virtual bytes. */
@@ -127,17 +128,20 @@ struct CoinSelectionParams
      * reuse. Dust outputs are not eligible to be added to output groups and thus not considered. */
     bool m_avoid_partial_spends = false;
 
-    CoinSelectionParams(size_t change_output_size, size_t change_spend_size, CFeeRate effective_feerate,
-                        CFeeRate long_term_feerate, CFeeRate discard_feerate, size_t tx_noinputs_size, bool avoid_partial) :
-        change_output_size(change_output_size),
-        change_spend_size(change_spend_size),
-        m_effective_feerate(effective_feerate),
-        m_long_term_feerate(long_term_feerate),
-        m_discard_feerate(discard_feerate),
-        tx_noinputs_size(tx_noinputs_size),
-        m_avoid_partial_spends(avoid_partial)
-    {}
-    CoinSelectionParams() {}
+    CoinSelectionParams(FastRandomContext& rng_fast, size_t change_output_size, size_t change_spend_size, CFeeRate effective_feerate,
+                        CFeeRate long_term_feerate, CFeeRate discard_feerate, size_t tx_noinputs_size, bool avoid_partial)
+        : rng_fast{rng_fast},
+          change_output_size(change_output_size),
+          change_spend_size(change_spend_size),
+          m_effective_feerate(effective_feerate),
+          m_long_term_feerate(long_term_feerate),
+          m_discard_feerate(discard_feerate),
+          tx_noinputs_size(tx_noinputs_size),
+          m_avoid_partial_spends(avoid_partial)
+    {
+    }
+    CoinSelectionParams(FastRandomContext& rng_fast)
+        : rng_fast{rng_fast} {}
 };
 
 /** Parameters for filtering which OutputGroups we may use in coin selection.
@@ -275,14 +279,14 @@ std::optional<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_poo
  * @param[in]  target_value The target value to select for
  * @returns If successful, a SelectionResult, otherwise, std::nullopt
  */
-std::optional<SelectionResult> SelectCoinsSRD(const std::vector<OutputGroup>& utxo_pool, CAmount target_value);
+std::optional<SelectionResult> SelectCoinsSRD(const std::vector<OutputGroup>& utxo_pool, CAmount target_value, FastRandomContext& rng);
 
 // Original coin selection algorithm as a fallback
-std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, const CAmount& nTargetValue, const CAsset& asset = ::policyAsset);
+std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, const CAmount& nTargetValue, FastRandomContext& rng, const CAsset& asset = ::policyAsset);
 
 // ELEMENTS:
 // Knapsack that delegates for every asset individually.
-std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, const CAmountMap& mapTargetValue);
+std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, const CAmountMap& mapTargetValue, FastRandomContext& rng);
 
 // Get coin selection waste for a map of asset->amount.
 [[nodiscard]] CAmount GetSelectionWaste(const std::set<CInputCoin>& inputs, CAmount change_cost, const CAmountMap& target_map, bool use_effective_value);

@@ -509,7 +509,7 @@ std::optional<SelectionResult> AttemptSelection(const CWallet& wallet, const CAm
         // We include the minimum final change for SRD as we do want to avoid making really small change.
         // KnapsackSolver does not need this because it includes MIN_CHANGE internally.
         const CAmount srd_target = nTargetValue + coin_selection_params.m_change_fee + MIN_FINAL_CHANGE;
-        if (auto srd_result{SelectCoinsSRD(positive_groups, srd_target)}) {
+        if (auto srd_result{SelectCoinsSRD(positive_groups, srd_target, coin_selection_params.rng_fast)}) {
             srd_result->ComputeAndSetWaste(coin_selection_params.m_cost_of_change);
             results.push_back(*srd_result);
         }
@@ -524,7 +524,7 @@ std::optional<SelectionResult> AttemptSelection(const CWallet& wallet, const CAm
         mapTargetValue_copy[::policyAsset] += coin_selection_params.m_change_fee;
     }
 
-    if (auto knapsack_result{KnapsackSolver(all_groups, mapTargetValue_copy)}) {
+    if (auto knapsack_result{KnapsackSolver(all_groups, mapTargetValue_copy, coin_selection_params.rng_fast)}) {
          knapsack_result->ComputeAndSetWaste(coin_selection_params.m_cost_of_change);
          results.push_back(*knapsack_result);
     }
@@ -668,7 +668,7 @@ std::optional<SelectionResult> SelectCoins(const CWallet& wallet, const std::vec
         // Cases where we have 101+ outputs all pointing to the same destination may result in
         // privacy leaks as they will potentially be deterministically sorted. We solve that by
         // explicitly shuffling the outputs before processing
-        Shuffle(vCoins.begin(), vCoins.end(), FastRandomContext());
+        Shuffle(vCoins.begin(), vCoins.end(), coin_selection_params.rng_fast);
     }
 
     // We will have to do coin selection on the difference between the target and the provided values.
@@ -765,7 +765,8 @@ static bool IsCurrentForAntiFeeSniping(interfaces::Chain& chain, const uint256& 
  * Set a height-based locktime for new transactions (uses the height of the
  * current chain tip unless we are not synced with the current chain
  */
-static void DiscourageFeeSniping(CMutableTransaction& tx, interfaces::Chain& chain, const uint256& block_hash, int block_height)
+static void DiscourageFeeSniping(CMutableTransaction& tx, FastRandomContext& rng_fast,
+                                 interfaces::Chain& chain, const uint256& block_hash, int block_height)
 {
     // All inputs must be added by now
     assert(!tx.vin.empty());
@@ -796,8 +797,8 @@ static void DiscourageFeeSniping(CMutableTransaction& tx, interfaces::Chain& cha
         // that transactions that are delayed after signing for whatever reason,
         // e.g. high-latency mix networks and some CoinJoin implementations, have
         // better privacy.
-        if (GetRandInt(10) == 0) {
-            tx.nLockTime = std::max(0, int(tx.nLockTime) - GetRandInt(100));
+        if (rng_fast.randrange(10) == 0) {
+            tx.nLockTime = std::max(0, int(tx.nLockTime) - int(rng_fast.randrange(100)));
         }
     } else {
         // If our chain is lagging behind, we can't discourage fee sniping nor help
@@ -946,9 +947,10 @@ static bool CreateTransactionInternal(
 
     AssertLockHeld(wallet.cs_wallet);
 
+    FastRandomContext rng_fast;
     CMutableTransaction txNew; // The resulting transaction that we make
 
-    CoinSelectionParams coin_selection_params; // Parameters for coin selection, init with dummy
+    CoinSelectionParams coin_selection_params{rng_fast}; // Parameters for coin selection, init with dummy
     coin_selection_params.m_avoid_partial_spends = coin_control.m_avoid_partial_spends;
 
     CScript dummy_script = CScript() << 0x00;
@@ -1261,7 +1263,7 @@ static bool CreateTransactionInternal(
 
         int index;
         do {
-            index = GetRandInt(change_pos.size());
+            index = rng_fast.randrange(change_pos.size());
         } while (change_pos[index]);
 
         change_pos[index] = asset_change_and_fee.first;
@@ -1365,7 +1367,7 @@ static bool CreateTransactionInternal(
             token_blinding = coin.bf_asset;
         }
     }
-    DiscourageFeeSniping(txNew, wallet.chain(), wallet.GetLastBlockHash(), wallet.GetLastBlockHeight());
+    DiscourageFeeSniping(txNew, rng_fast, wallet.chain(), wallet.GetLastBlockHash(), wallet.GetLastBlockHeight());
 
     // ELEMENTS add issuance details and blinding details
     std::vector<CKey> issuance_asset_keys;
