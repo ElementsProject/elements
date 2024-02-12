@@ -26,6 +26,7 @@ from test_framework.wallet_util import bytes_to_wif
 
 
 def get_unspent(listunspent, amount):
+    print([ utx['amount'] for utx in listunspent ])
     for utx in listunspent:
         if utx['amount'] == amount:
             return utx
@@ -227,6 +228,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.test_no_change_fee = fee  # Use the same fee for the next tx
         dec_tx  = self.nodes[2].decoderawtransaction(rawtxfund['hex'])
         totalOut = 0
+        print("rawtxfund: \n")
+        print(dec_tx)
         for out in dec_tx['vout']:
             if out["scriptPubKey"]["type"] == "fee":
                 continue
