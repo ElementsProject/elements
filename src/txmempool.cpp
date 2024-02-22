@@ -13,6 +13,7 @@
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <pegins.h>
+#include <policy/discount.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/settings.h>
@@ -965,7 +966,14 @@ void CTxMemPool::queryHashes(std::vector<uint256>& vtxid) const
 }
 
 static TxMempoolInfo GetInfo(CTxMemPool::indexed_transaction_set::const_iterator it) {
-    return TxMempoolInfo{it->GetSharedTx(), it->GetTime(), it->GetFee(), it->GetTxSize(), it->GetModifiedFee() - it->GetFee()};
+    // ELEMENTS: include the discounted vsize of the tx
+    size_t discountvsize = it->GetTxSize();
+    CTransaction tx = it->GetTx();
+    // discountvsize only differs from vsize if we accept discounted CTs
+    if (Params().GetAcceptDiscountCT()) {
+        discountvsize = GetDiscountVirtualTransactionSize(tx);
+    }
+    return TxMempoolInfo{it->GetSharedTx(), it->GetTime(), it->GetFee(), it->GetTxSize(), it->GetModifiedFee() - it->GetFee(), discountvsize};
 }
 
 std::vector<TxMempoolInfo> CTxMemPool::infoAll() const

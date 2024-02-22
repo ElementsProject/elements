@@ -345,6 +345,9 @@ struct TxMempoolInfo
 
     /** The fee delta. */
     int64_t nFeeDelta;
+
+    /** ELEMENTS: Discounted CT size. */
+    size_t discountvsize;
 };
 
 /** Reason why a transaction was removed from the mempool,
