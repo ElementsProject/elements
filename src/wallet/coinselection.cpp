@@ -20,15 +20,15 @@ namespace wallet {
 // ELEMENTS COutput constructors are here, bitcoin ones are in coinselection.h
 
 COutput::COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me)
-    : outpoint(outpoint),
-      txout(txout),
-      depth(depth),
-      input_bytes(input_bytes),
-      spendable(spendable),
-      solvable(solvable),
-      safe(safe),
-      time(time),
-      from_me(from_me)
+    : outpoint{outpoint},
+      txout{txout},
+      depth{depth},
+      input_bytes{input_bytes},
+      spendable{spendable},
+      solvable{solvable},
+      safe{safe},
+      time{time},
+      from_me{from_me}
 {
     if (txout.nValue.IsExplicit()) {
         effective_value = txout.nValue.GetAmount();
@@ -40,20 +40,20 @@ COutput::COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int 
 }
 
 COutput::COutput(const CWallet& wallet, const CWalletTx& wtx, const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me)
-    : outpoint(outpoint),
-    txout(txout),
-    depth(depth),
-    input_bytes(input_bytes),
-    spendable(spendable),
-    solvable(solvable),
-    safe(safe),
-    time(time),
-    from_me(from_me),
-    effective_value(wtx.GetOutputValueOut(wallet, outpoint.n)),
-    value(wtx.GetOutputValueOut(wallet, outpoint.n)),
-    asset(wtx.GetOutputAsset(wallet, outpoint.n)),
-    bf_value(wtx.GetOutputAmountBlindingFactor(wallet, outpoint.n)),
-    bf_asset(wtx.GetOutputAssetBlindingFactor(wallet, outpoint.n)) { }
+    : outpoint{outpoint},
+      txout{txout},
+      depth{depth},
+      input_bytes{input_bytes},
+      spendable{spendable},
+      solvable{solvable},
+      safe{safe},
+      time{time},
+      from_me{from_me},
+      effective_value{wtx.GetOutputValueOut(wallet, outpoint.n)},
+      value{wtx.GetOutputValueOut(wallet, outpoint.n)},
+      asset{wtx.GetOutputAsset(wallet, outpoint.n)},
+      bf_value{wtx.GetOutputAmountBlindingFactor(wallet, outpoint.n)},
+      bf_asset{wtx.GetOutputAssetBlindingFactor(wallet, outpoint.n)} { }
 
 // Descending order comparator
 struct {

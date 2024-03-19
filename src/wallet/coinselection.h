@@ -30,9 +30,7 @@ class CWallet;
 class CWalletTx;
 
 /** A UTXO under consideration for use in funding a new transaction. */
-class COutput
-{
-public:
+struct COutput {
     /** The outpoint identifying this UTXO */
     COutPoint outpoint;
 
@@ -96,7 +94,8 @@ public:
 
     std::string ToString() const;
 
-    bool operator<(const COutput& rhs) const {
+    bool operator<(const COutput& rhs) const
+    {
         return outpoint < rhs.outpoint;
     }
 };
