@@ -41,18 +41,22 @@ struct CTxMemPoolModifiedEntry {
     {
         iter = entry;
         nSizeWithAncestors = entry->GetSizeWithAncestors();
+        discountSizeWithAncestors = entry->GetDiscountSizeWithAncestors();
         nModFeesWithAncestors = entry->GetModFeesWithAncestors();
         nSigOpCostWithAncestors = entry->GetSigOpCostWithAncestors();
     }
 
     int64_t GetModifiedFee() const { return iter->GetModifiedFee(); }
     uint64_t GetSizeWithAncestors() const { return nSizeWithAncestors; }
+    uint64_t GetDiscountSizeWithAncestors() const { return discountSizeWithAncestors; }
     CAmount GetModFeesWithAncestors() const { return nModFeesWithAncestors; }
     size_t GetTxSize() const { return iter->GetTxSize(); }
+    size_t GetDiscountTxSize() const { return iter->GetDiscountTxSize(); }
     const CTransaction& GetTx() const { return iter->GetTx(); }
 
     CTxMemPool::txiter iter;
     uint64_t nSizeWithAncestors;
+    uint64_t discountSizeWithAncestors;
     CAmount nModFeesWithAncestors;
     int64_t nSigOpCostWithAncestors;
 };
@@ -103,12 +107,19 @@ typedef boost::multi_index_container<
             boost::multi_index::tag<ancestor_score>,
             boost::multi_index::identity<CTxMemPoolModifiedEntry>,
             CompareTxMemPoolEntryByAncestorFee
+        >,
+        // ELEMENTS
+        boost::multi_index::ordered_non_unique<
+            boost::multi_index::tag<confidential_score>,
+            boost::multi_index::identity<CTxMemPoolModifiedEntry>,
+            CompareTxMemPoolEntryByConfidentialFee
         >
     >
 > indexed_modified_transaction_set;
 
 typedef indexed_modified_transaction_set::nth_index<0>::type::iterator modtxiter;
 typedef indexed_modified_transaction_set::index<ancestor_score>::type::iterator modtxscoreiter;
+typedef indexed_modified_transaction_set::index<confidential_score>::type::iterator modconftxscoreiter; // ELEMENTS
 
 struct update_for_parent_inclusion
 {
