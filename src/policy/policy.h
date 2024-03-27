@@ -7,6 +7,7 @@
 #define BITCOIN_POLICY_POLICY_H
 
 #include <consensus/consensus.h>
+#include <policy/discount.h>
 #include <policy/feerate.h>
 #include <script/interpreter.h>
 #include <script/standard.h>
