@@ -25,7 +25,7 @@ class WalletTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.extra_args = [[
-            "-acceptnonstdtxn=1",
+            "-acceptnonstdtxn=1", "-walletrejectlongchains=0"
             "-bech32_hrp=bcrt",
         ]] * self.num_nodes
         self.setup_clean_chain = True
@@ -143,7 +143,7 @@ class WalletTest(BitcoinTestFramework):
         self.nodes[2].lockunspent(False, [unspent_0], True)
 
         # Restarting the node with the lock written to the wallet should keep the lock
-        self.restart_node(2)
+        self.restart_node(2, ["-walletrejectlongchains=0"])
         assert_raises_rpc_error(-8, "Invalid parameter, output already locked", self.nodes[2].lockunspent, False, [unspent_0])
 
         # Unloading and reloading the wallet with a persistent lock should keep the lock
@@ -445,8 +445,8 @@ class WalletTest(BitcoinTestFramework):
             # This will raise an exception for importing an invalid pubkey
             assert_raises_rpc_error(-5, "Pubkey is not a valid public key", self.nodes[0].importpubkey, "5361746f736869204e616b616d6f746f")
 
-            # Bech32m addresses cannot be imported into a legacy wallet
-            assert_raises_rpc_error(-5, "Bech32m addresses cannot be imported into legacy wallets", self.nodes[0].importaddress, "bcrt1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqc8gma6")
+            # Blech32m addresses cannot be imported into a legacy wallet
+            assert_raises_rpc_error(-5, "Blech32m addresses cannot be imported into legacy wallets", self.nodes[0].importaddress, "el1pqwp9ze75659cn5ad0hw25nt2kv7j882gudn636hnh4qvjcmjh6jq5ca0d4cgl009m5rn5w0n3k2cqa3ths2qf7s8q6x2xplwgvlfhg0atxwjah9089tf")
 
             # Import address and private key to check correct behavior of spendable unspents
             # 1. Send some coins to generate new UTXO
@@ -573,7 +573,7 @@ class WalletTest(BitcoinTestFramework):
         self.log.info("Test -reindex")
         self.stop_nodes()
         # set lower ancestor limit for later
-        self.start_node(0, ['-reindex', "-limitancestorcount=" + str(chainlimit)])
+        self.start_node(0, ['-reindex', "-walletrejectlongchains=0", "-limitancestorcount=" + str(chainlimit)])
         self.start_node(1, ['-reindex', "-limitancestorcount=" + str(chainlimit)])
         self.start_node(2, ['-reindex', "-limitancestorcount=" + str(chainlimit)])
         # reindex will leave rpc warm up "early"; Wait for it to finish

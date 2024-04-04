@@ -268,7 +268,7 @@ RPCHelpMan importaddress()
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Cannot use the p2sh flag with an address - use a script instead");
             }
             if (OutputTypeFromDestination(dest) == OutputType::BECH32M) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Bech32m addresses cannot be imported into legacy wallets");
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Blech32m addresses cannot be imported into legacy wallets");
             }
 
             pwallet->MarkDirty();
