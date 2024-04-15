@@ -174,6 +174,8 @@ static RPCHelpMan getrawtransaction()
                              {RPCResult::Type::STR_HEX, "hex", "The serialized, hex-encoded data for 'txid'"},
                              {RPCResult::Type::STR_HEX, "txid", "The transaction id (same as provided)"},
                              {RPCResult::Type::STR_HEX, "hash", "The transaction hash (differs from txid for witness transactions)"},
+                             {RPCResult::Type::STR_HEX, "wtxid", ""}, // ELEMENTS FIXME: what is this field?
+                             {RPCResult::Type::STR_HEX, "withash", "The hash of the witness"}, // ELEMENTS FIXME: is this optional?
                              {RPCResult::Type::NUM, "size", "The serialized transaction size"},
                              {RPCResult::Type::NUM, "vsize", "The virtual transaction size (differs from size for witness transactions)"},
                              {RPCResult::Type::NUM, "weight", "The transaction's weight (between vsize*4-3 and vsize*4)"},
@@ -193,8 +195,9 @@ static RPCHelpMan getrawtransaction()
                                      {RPCResult::Type::NUM, "sequence", "The script sequence number"},
                                      {RPCResult::Type::ARR, "txinwitness", /*optional=*/true, "",
                                      {
-                                         {RPCResult::Type::STR_HEX, "hex", "hex-encoded witness data (if any)"},
+                                        {RPCResult::Type::STR_HEX, "hex", "hex-encoded witness data (if any)"},
                                      }},
+                                     {RPCResult::Type::BOOL, "is_pegin", /*optional=*/true, "Is this transaction a pegin"},
                                  }},
                              }},
                              {RPCResult::Type::ARR, "vout", "",
@@ -202,6 +205,9 @@ static RPCHelpMan getrawtransaction()
                                  {RPCResult::Type::OBJ, "", "",
                                  {
                                      {RPCResult::Type::NUM, "value", "The value in " + CURRENCY_UNIT},
+                                     {RPCResult::Type::STR_HEX, "asset", "The assetId being transacted"},
+                                     {RPCResult::Type::STR_HEX, "commitmentnonce", "The commitment nonce"},
+                                     {RPCResult::Type::BOOL, "commitmentnonce_fully_valid", "Whether the commitment nonce is fully valid"}, // ELEMENTS: FIXME (this is a pretty bad explanation)
                                      {RPCResult::Type::NUM, "n", "index"},
                                      {RPCResult::Type::OBJ, "scriptPubKey", "",
                                      {
@@ -210,11 +216,12 @@ static RPCHelpMan getrawtransaction()
                                          {RPCResult::Type::STR, "hex", "the hex"},
                                          {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
                                          {RPCResult::Type::STR, "address", /*optional=*/true, "The Bitcoin address (only if a well-defined address exists)"},
-                                         {RPCResult::Type::STR_HEX, "pegout_chain", "(only pegout) Hash of genesis block of parent chain"},
-                                         {RPCResult::Type::STR, "pegout_asm", "(only pegout) pegout scriptpubkey (asm)"},
-                                         {RPCResult::Type::STR_HEX, "pegout_hex", "(only pegout) pegout scriptpubkey (hex)"},
-                                         {RPCResult::Type::STR, "pegout_type", "(only pegout) The pegout type, eg 'pubkeyhash'"},
-                                         {RPCResult::Type::STR, "pegout_address", "(only pegout)"},
+                                         {RPCResult::Type::STR_HEX, "pegout_chain", /*optional=*/true, "(only pegout) Hash of genesis block of parent chain"},
+                                         {RPCResult::Type::STR_HEX, "pegout_desc", /*optional=*/true, ""}, // ELEMENTS FIXME: what is this field for?
+                                         {RPCResult::Type::STR, "pegout_asm", /*optional=*/true, "(only pegout) pegout scriptpubkey (asm)"},
+                                         {RPCResult::Type::STR_HEX, "pegout_hex", /*optional=*/true, "(only pegout) pegout scriptpubkey (hex)"},
+                                         {RPCResult::Type::STR, "pegout_type", /*optional=*/true, "(only pegout) The pegout type, eg 'pubkeyhash'"},
+                                         {RPCResult::Type::STR, "pegout_address", /*optional=*/true, "(only pegout)"},
                                          {RPCResult::Type::ARR, "pegout_addresses", /*optional=*/ true, "(DEPRECATED, returned only if config option -deprecatedrpc=addresses is passed)",
                                          {
                                              {RPCResult::Type::STR, "address", ""},
@@ -226,6 +233,7 @@ static RPCHelpMan getrawtransaction()
                              {RPCResult::Type::NUM, "confirmations", /*optional=*/true, "The confirmations"},
                              {RPCResult::Type::NUM_TIME, "blocktime", /*optional=*/true, "The block time expressed in " + UNIX_EPOCH_TIME},
                              {RPCResult::Type::NUM, "time", /*optional=*/true, "Same as \"blocktime\""},
+                             {RPCResult::Type::OBJ, "fee", "The fee supplied for the transaction.", {}, /*skip_type_check=*/true}, // ELEMENTS: this is an object (assetId and value), but in bitcoin this is a STR_AMOUNT
                         }
                     },
                 },
@@ -365,9 +373,12 @@ static RPCHelpMan decoderawtransaction()
                     {
                         {RPCResult::Type::STR_HEX, "txid", "The transaction id"},
                         {RPCResult::Type::STR_HEX, "hash", "The transaction hash (differs from txid for witness transactions)"},
+                        {RPCResult::Type::OBJ, "fee", "The fee specified in the transaction", {}, /*skip_type_check=*/true}, // Elements: this is an object
                         {RPCResult::Type::NUM, "size", "The transaction size"},
                         {RPCResult::Type::NUM, "vsize", "The virtual transaction size (differs from size for witness transactions)"},
                         {RPCResult::Type::NUM, "weight", "The transaction's weight (between vsize*4 - 3 and vsize*4)"},
+                        {RPCResult::Type::STR_HEX, "withash", /*optional=*/true, "The hash of the witness"}, // ELEMENTS FIXME: is this optional?
+                        {RPCResult::Type::STR_HEX, "wtxid", /*optional=*/true, "The hash of the witness"}, // ELEMENTS FIXME: is this correct?
                         {RPCResult::Type::NUM, "version", "The version"},
                         {RPCResult::Type::NUM_TIME, "locktime", "The lock time"},
                         {RPCResult::Type::ARR, "vin", "",
@@ -387,19 +398,40 @@ static RPCHelpMan decoderawtransaction()
                                     {RPCResult::Type::STR_HEX, "hex", "hex-encoded witness data (if any)"},
                                 }},
                                 {RPCResult::Type::NUM, "sequence", "The script sequence number"},
+                                {RPCResult::Type::BOOL, "is_pegin", "Is this input a pegin"},
+                                {RPCResult::Type::ARR, "pegin_witness", /*optional=*/true, "",
+                                {
+                                    {RPCResult::Type::STR_HEX, "", "hex-encoded witness data (if any)"},
+                                }},
                             }},
                         }},
                         {RPCResult::Type::ARR, "vout", "",
                         {
                             {RPCResult::Type::OBJ, "", "",
                             {
-                                {RPCResult::Type::NUM, "value", "The value in " + CURRENCY_UNIT},
+                                {RPCResult::Type::NUM, "value", /*optional=*/true, "The value in " + CURRENCY_UNIT + " if known"}, // ELEMENTS: present if not confidential
+                                {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "Asset type for issuance if known"},
+                                {RPCResult::Type::STR_HEX, "assetcommitment", /*optional=*/true, "Commitment for the asset"},
+                                {RPCResult::Type::STR_HEX, "commitmentnonce", "The commitment nonce"},
+                                {RPCResult::Type::BOOL, "commitmentnonce_fully_valid", "Whether the commitment nonce is fully valid"}, // ELEMENTS: FIXME (this is a pretty bad explanation)
+                                {RPCResult::Type::NUM, "ct-bits", /*optional=*/true, "The mantissa of the range proof"},
+                                {RPCResult::Type::NUM, "ct-exponent", /*optional=*/true, "The exponent of the range proof"},
                                 {RPCResult::Type::NUM, "n", "index"},
+                                {RPCResult::Type::STR_HEX, "surjectionproof", /*optional=*/true, "The surjection proof for the output"},
+                                {RPCResult::Type::NUM, "value-maximum", /*optional=*/true, "The maximum value in the range of the confidential output"},
+                                {RPCResult::Type::NUM, "value-minimum", /*optional=*/true, "The minimum value in the range of the confidential output"},
+                                {RPCResult::Type::STR_HEX, "valuecommitment", /*optional=*/true, "The commitment for the range proof"}, // ELEMENTS FIXME: is this correct?
                                 {RPCResult::Type::OBJ, "scriptPubKey", "",
                                 {
                                     {RPCResult::Type::STR, "asm", "the asm"},
                                     {RPCResult::Type::STR, "desc", "Inferred descriptor for the output"},
                                     {RPCResult::Type::STR_HEX, "hex", "the hex"},
+                                    {RPCResult::Type::STR, "pegout_address", /*optional=*/true, "(only pegout)"},
+                                    {RPCResult::Type::STR, "pegout_asm", /*optional=*/true, "(only pegout) pegout scriptpubkey (asm)"},
+                                    {RPCResult::Type::STR_HEX, "pegout_hex", /*optional=*/true, "(only pegout) pegout scriptpubkey (hex)"},
+                                    {RPCResult::Type::STR_HEX, "pegout_chain", /*optional=*/true, "(only pegout) Hash of genesis block of parent chain"},
+                                    {RPCResult::Type::STR_HEX, "pegout_desc", /*optional=*/true, ""}, // ELEMENTS FIXME: what is thiss field for?
+                                    {RPCResult::Type::STR, "pegout_type", /*optional=*/true, "(only pegout) The pegout type, eg 'pubkeyhash'"},
                                     {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
                                     {RPCResult::Type::STR, "address", /*optional=*/true, "The Bitcoin address (only if a well-defined address exists)"},
                                 }},
@@ -796,6 +828,7 @@ static RPCHelpMan decodepsbt()
                         }},
                         {RPCResult::Type::NUM, "tx_version", "The version number of the unsigned transaction. Not to be confused with PSBT version"},
                         {RPCResult::Type::NUM, "fallback_locktime", "The locktime to fallback to if no inputs specify a required locktime."},
+                        {RPCResult::Type::NUM, "fees", "The fees specified in this psbt.", {}, /*skip_type_check=*/true}, // ELEMENTS has an explicit fee output, bitcoin does not (they are implicit)
                         {RPCResult::Type::NUM, "input_count", "The number of inputs in this psbt"},
                         {RPCResult::Type::NUM, "output_count", "The number of outputs in this psbt."},
                         {RPCResult::Type::NUM, "inputs_modifiable", "Whether inputs can be modified"},
@@ -818,7 +851,7 @@ static RPCHelpMan decodepsbt()
                                 {RPCResult::Type::STR_HEX, "value", "The hex for the value"},
                             }},
                         }},
-                        {RPCResult::Type::OBJ_DYN, "unknown", "The unknown global fields",
+                        {RPCResult::Type::OBJ_DYN, "unknown", /*optional=*/true, "The unknown global fields",
                         {
                              {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
                         }},
@@ -995,7 +1028,7 @@ static RPCHelpMan decodepsbt()
                             }},
                         }},
                         {RPCResult::Type::STR_AMOUNT, "fee", /*optional=*/true, "The transaction fee paid if all UTXOs slots in the PSBT have been filled."},
-                    }
+                    }, /*skip_type_check=*/true // ELEMENTS FIXME: go through and make the types correct in these docs, and then remove this argument. If we remove it now, every call will throw an exception
                 },
                 RPCExamples{
                     HelpExampleCli("decodepsbt", "\"psbt\"")

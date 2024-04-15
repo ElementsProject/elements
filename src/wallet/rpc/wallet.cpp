@@ -39,9 +39,18 @@ static RPCHelpMan getwalletinfo()
                         {RPCResult::Type::STR, "walletname", "the wallet name"},
                         {RPCResult::Type::NUM, "walletversion", "the wallet version"},
                         {RPCResult::Type::STR, "format", "the database format (bdb or sqlite)"},
-                        {RPCResult::Type::STR_AMOUNT, "balance", "DEPRECATED. Identical to getbalances().mine.trusted"},
-                        {RPCResult::Type::STR_AMOUNT, "unconfirmed_balance", "DEPRECATED. Identical to getbalances().mine.untrusted_pending"},
-                        {RPCResult::Type::STR_AMOUNT, "immature_balance", "DEPRECATED. Identical to getbalances().mine.immature"},
+                        {RPCResult::Type::OBJ, "balance", "DEPRECATED. Identical to getbalances().mine.trusted", {
+                            // A different entry for each asset in the wallet
+                            {RPCResult::Type::STR_AMOUNT, "bitcoin", "amount of bitcoin in the wallet"},
+                        }, /*skip_type_check=*/true},
+                        {RPCResult::Type::OBJ, "unconfirmed_balance", "DEPRECATED. Identical to getbalances().mine.untrusted_pending", {
+                            // A different entry for each asset in the wallet
+                            {RPCResult::Type::STR_AMOUNT, "bitcoin", "amount of bitcoin in the wallet"},
+                        }, /*skip_type_check=*/true},
+                        {RPCResult::Type::OBJ, "immature_balance", "DEPRECATED. Identical to getbalances().mine.immature", {
+                            // A different entry for each asset in the wallet
+                            {RPCResult::Type::STR_AMOUNT, "bitcoin", "amount of bitcoin in the wallet"},
+                        }, /*skip_type_check=*/true},
                         {RPCResult::Type::NUM, "txcount", "the total number of transactions in the wallet"},
                         {RPCResult::Type::NUM_TIME, "keypoololdest", /*optional=*/true, "the " + UNIX_EPOCH_TIME + " of the oldest pre-generated key in the key pool. Legacy wallets only."},
                         {RPCResult::Type::NUM, "keypoolsize", "how many new keys are pre-generated (only counts external keys)"},

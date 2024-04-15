@@ -62,7 +62,7 @@ static RPCHelpMan validateaddress()
                 {RPCResult::Type::STR_HEX, "witness_program", /*optional=*/true, "The hex value of the witness program"},
                 {RPCResult::Type::STR_HEX, "confidential_key", "the raw blinding public key for that address, if any. \"\" if none"},
                 {RPCResult::Type::STR, "unconfidential", "The address without confidentiality key"},
-                {RPCResult::Type::OBJ, "parent_address_info", "If the address isvalid_parent, this object contains details about the parent address type",
+                {RPCResult::Type::OBJ, "parent_address_info", /*optional=*/true, "If the address isvalid_parent, this object contains details about the parent address type",
                 {
                     {RPCResult::Type::STR, "address", ""},
                     {RPCResult::Type::STR_HEX, "scriptPubKey", ""},

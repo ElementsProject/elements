@@ -595,14 +595,15 @@ static RPCHelpMan getblockheader()
                             {RPCResult::Type::STR_HEX, "merkleroot", "The merkle root"},
                             {RPCResult::Type::NUM_TIME, "time", "The block time expressed in " + UNIX_EPOCH_TIME},
                             {RPCResult::Type::NUM_TIME, "mediantime", "The median block time expressed in " + UNIX_EPOCH_TIME},
-                            {RPCResult::Type::NUM, "nonce", "The nonce"},
-                            {RPCResult::Type::STR_HEX, "bits", "The bits"},
-                            {RPCResult::Type::NUM, "difficulty", "The difficulty"},
-                            {RPCResult::Type::STR_HEX, "chainwork", "Expected number of hashes required to produce the current chain"},
+                            {RPCResult::Type::NUM, "nonce", /*optional=*/true, "The nonce"}, // Not for elements
+                            {RPCResult::Type::STR_HEX, "bits", /*optional=*/true, "The bits"},
+                            {RPCResult::Type::NUM, "difficulty", /*optional=*/true, "The difficulty"}, // Not for elements
+                            {RPCResult::Type::STR_HEX, "chainwork", /*optional=*/true, "Expected number of hashes required to produce the current chain"}, // Not for elements
                             {RPCResult::Type::NUM, "nTx", "The number of transactions in the block"},
+                            {RPCResult::Type::STR, "signblock_challenge", /*optional=*/true, "The challenge for blocksigning (pre-dynafed)"},
                             {RPCResult::Type::STR, "signblock_witness_asm", "ASM of sign block witness data"},
                             {RPCResult::Type::STR_HEX, "signblock_witness_hex", "Hex of sign block witness data"},
-                            {RPCResult::Type::OBJ, "dynamic_parameters", "Dynamic federation parameters in the block, if any",
+                            {RPCResult::Type::OBJ, "dynamic_parameters", /*optional=*/true, "Dynamic federation parameters in the block, if any",
                             {
                                 {RPCResult::Type::OBJ, "current", "enforced dynamic federation parameters. The signblockscript is published for each block, while others are published only at epoch start",
                                 {
@@ -1089,7 +1090,11 @@ static RPCHelpMan gettxout()
             RPCResult{"Otherwise", RPCResult::Type::OBJ, "", "", {
                 {RPCResult::Type::STR_HEX, "bestblock", "The hash of the block at the tip of the chain"},
                 {RPCResult::Type::NUM, "confirmations", "The number of confirmations"},
-                {RPCResult::Type::STR_AMOUNT, "value", "The transaction value in " + CURRENCY_UNIT},
+                {RPCResult::Type::STR_AMOUNT, "value", /*optional=*/true, "The transaction value in " + CURRENCY_UNIT + " if known"}, // ELEMENTS: only known if non-confidential
+                {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "The asset of the output, if known"},
+                {RPCResult::Type::STR_HEX, "valuecommitment", /*optional=*/true, "The commitment for the range proof"}, // ELEMENTS FIXME: is this correct?
+                {RPCResult::Type::STR_HEX, "commitmentnonce", /*optional=*/true, "The commitment nonce"},
+                {RPCResult::Type::STR_HEX, "assetcommitment", /*optional=*/true, "Commitment for the asset"},
                 {RPCResult::Type::OBJ, "scriptPubKey", "", {
                     {RPCResult::Type::STR, "asm", ""},
                     {RPCResult::Type::STR, "desc", "Inferred descriptor for the output"},
@@ -1307,27 +1312,30 @@ RPCHelpMan getblockchaininfo()
                 {RPCResult::Type::NUM, "blocks", "the height of the most-work fully-validated chain. The genesis block has height 0"},
                 {RPCResult::Type::NUM, "headers", "the current number of headers we have validated"},
                 {RPCResult::Type::STR, "bestblockhash", "the hash of the currently best block"},
-                {RPCResult::Type::NUM, "difficulty", "the current difficulty"},
+                /* ELEMENTS: not present {RPCResult::Type::NUM, "difficulty", "the current difficulty"}, */
                 {RPCResult::Type::NUM_TIME, "time", "The block time expressed in " + UNIX_EPOCH_TIME},
                 {RPCResult::Type::NUM_TIME, "mediantime", "The median block time expressed in " + UNIX_EPOCH_TIME},
                 {RPCResult::Type::NUM, "verificationprogress", "estimate of verification progress [0..1]"},
                 {RPCResult::Type::BOOL, "initialblockdownload", "(debug information) estimate of whether this node is in Initial Block Download mode"},
-                {RPCResult::Type::STR_HEX, "chainwork", "total amount of work in active chain, in hexadecimal"},
+                /* ELEMENTS: not present {RPCResult::Type::STR_HEX, "chainwork", "total amount of work in active chain, in hexadecimal"}, */
                 {RPCResult::Type::NUM, "size_on_disk", "the estimated size of the block and undo files on disk"},
                 {RPCResult::Type::BOOL, "pruned", "if the blocks are subject to pruning"},
-                {RPCResult::Type::STR_HEX, "current_params_root", "the root of the currently active dynafed params"},
-                {RPCResult::Type::STR, "signblock_asm", "ASM of sign block challenge data from genesis block"},
-                {RPCResult::Type::STR_HEX, "signblock_hex", "Hex of sign block challenge data from genesis block"},
-                {RPCResult::Type::STR, "current_signblock_asm", "ASM of sign block challenge data enforced on the next block"},
-                {RPCResult::Type::STR_HEX, "current_signblock_hex", "Hex of sign block challenge data enforced on the next block"},
+                {RPCResult::Type::STR_HEX, "current_params_root", /*optional=*/true, "the root of the currently active dynafed params"}, // present if dynafed is active
+                {RPCResult::Type::STR, "signblock_asm", /*optional=*/true, "ASM of sign block challenge data from genesis block"}, // not present if dynafed is active
+                {RPCResult::Type::STR, "signblock_asm", /*optional=*/true, "ASM of sign block challenge data from genesis block"}, // not present if dynafed is active
+                {RPCResult::Type::STR_HEX, "signblock_hex", /*optional=*/true, "Hex of sign block challenge data from genesis block"}, // not present if dynafed is active
+                {RPCResult::Type::STR, "current_signblock_asm", /*optional=*/true, "ASM of sign block challenge data enforced on the next block"}, // present if dynafed is active
+                {RPCResult::Type::STR_HEX, "current_signblock_hex", /*optional=*/true, "Hex of sign block challenge data enforced on the next block"}, // present if dynafed is active
                 {RPCResult::Type::NUM, "max_block_witness", "maximum sized block witness serialized size for the next block"},
-                {RPCResult::Type::NUM, "epoch_length", "length of dynamic federations epoch, or signaling period"},
-                {RPCResult::Type::NUM, "total_valid_epochs", "number of epochs a given fedpscript is valid for, defined per chain"},
-                {RPCResult::Type::NUM, "epoch_age", "number of blocks into a dynamic federation epoch chain tip is. This number is between 0 to epoch_length-1"},
+                {RPCResult::Type::NUM, "epoch_length", /*optional=*/true, "length of dynamic federations epoch, or signaling period"}, // present if dynafed is active
+                {RPCResult::Type::NUM, "total_valid_epochs", /*optional=*/true, "number of epochs a given fedpscript is valid for, defined per chain"}, // present if dynafed is active
+                {RPCResult::Type::NUM, "epoch_age", /*optional=*/true, "number of blocks into a dynamic federation epoch chain tip is. This number is between 0 to epoch_length-1"}, // present if dynafed is active
                 {RPCResult::Type::ARR, "extension_space", "array of extension fields in dynamic blockheader",
                 {
                     {RPCResult::Type::ELISION, "", ""}
                 }},
+                {RPCResult::Type::STR_HEX, "current_fedpeg_program", /*optional=*/true, "Current dynafed fedpeg program"},
+                {RPCResult::Type::STR_HEX, "current_fedpeg_script", /*optional=*/true, "Current dynafed fedpeg script"},
                 {RPCResult::Type::NUM, "pruneheight", /*optional=*/true, "lowest-height complete block stored (only present if pruning is enabled)"},
                 {RPCResult::Type::BOOL, "automatic_pruning", /*optional=*/true, "whether automatic pruning is enabled (only present if pruning is enabled)"},
                 {RPCResult::Type::NUM, "prune_target_size", /*optional=*/true, "the target size used by pruning (only present if automatic pruning is enabled)"},
@@ -2639,9 +2647,9 @@ static RPCHelpMan getsidechaininfo()
                         {RPCResult::Type::STR, "min_peg_diff", "The minimum difficulty parent chain header target. Peg-in headers that have less work will be rejected as an anti-Dos measure"},
                         {RPCResult::Type::STR_HEX, "parent_blockhash", "The parent genesis blockhash as source of pegged-in funds"},
                         {RPCResult::Type::BOOL, "parent_chain_has_pow", "Whether parent chain has pow or signed blocks"},
-                        {RPCResult::Type::STR, "parent_chain_signblockscript_asm", "If the parent chain has signed blocks, its signblockscript in ASM"},
-                        {RPCResult::Type::STR_HEX, "parent_chain_signblockscript_hex", "If the parent chain has signed blocks, its signblockscript in hex"},
-                        {RPCResult::Type::STR_HEX, "parent_pegged_asset", "If the parent chain has Confidential Assets, the asset id of the pegged asset in that chain"},
+                        {RPCResult::Type::STR, "parent_chain_signblockscript_asm", /*optional=*/true, "If the parent chain has signed blocks, its signblockscript in ASM"},
+                        {RPCResult::Type::STR_HEX, "parent_chain_signblockscript_hex", /*optional=*/true, "If the parent chain has signed blocks, its signblockscript in hex"},
+                        {RPCResult::Type::STR_HEX, "parent_pegged_asset", /*optional=*/true, "If the parent chain has Confidential Assets, the asset id of the pegged asset in that chain"},
                         {RPCResult::Type::NUM, "pegin_confirmation_depth", "The number of mainchain confirmations required for a peg-in transaction to become valid"},
                         {RPCResult::Type::BOOL, "enforce_pak", "If peg-out authorization is being enforced"},
                     }},

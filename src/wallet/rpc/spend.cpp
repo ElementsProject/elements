@@ -915,7 +915,7 @@ RPCHelpMan signrawtransactionwithwallet()
                                 {RPCResult::Type::STR, "error", "Verification or signing error related to the input"},
                             }},
                         }},
-                        {RPCResult::Type::STR, "warning", "Warning that a peg-in input signed may be immature. This could mean lack of connectivity to or misconfiguration of the daemon."},
+                        {RPCResult::Type::STR, "warning", /*optional=*/true, "Warning that a peg-in input signed may be immature. This could mean lack of connectivity to or misconfiguration of the daemon."},
                     }
                 },
                 RPCExamples{

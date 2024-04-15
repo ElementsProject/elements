@@ -1550,9 +1550,9 @@ static RPCHelpMan consumecompactsketch()
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
                     {
-                        {RPCResult::Type::STR_HEX, "blockhex", "The filled block hex. Only returns when block is final"},
-                        {RPCResult::Type::STR_HEX, "block_tx_req", "The serialized structure of missing transaction indices, given to serving node"},
-                        {RPCResult::Type::STR_HEX, "found_tranasctions", "The serialized list of found transactions to be used in finalizecompactblock"},
+                        {RPCResult::Type::STR_HEX, "blockhex", /*optional=*/true, "The filled block hex. Only returns when block is final"},
+                        {RPCResult::Type::STR_HEX, "block_tx_req", /*optional=*/true, "The serialized structure of missing transaction indices, given to serving node"},
+                        {RPCResult::Type::STR_HEX, "found_transactions", /*optional=*/true, "The serialized list of found transactions to be used in finalizecompactblock"},
                     },
                 },
                 RPCExamples{
