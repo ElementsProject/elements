@@ -174,6 +174,10 @@ RPCHelpMan getpeginaddress()
     if (!wallet) return NullUniValue;
     CWallet* const pwallet = wallet.get();
 
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "This action cannot be completed during initial sync or reindexing.");
+    }
+
     LegacyScriptPubKeyMan* spk_man = pwallet->GetLegacyScriptPubKeyMan();
     if (!spk_man) {
         throw JSONRPCError(RPC_WALLET_ERROR, "This type of wallet does not support this command");
