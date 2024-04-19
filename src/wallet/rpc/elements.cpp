@@ -174,6 +174,10 @@ RPCHelpMan getpeginaddress()
     if (!wallet) return NullUniValue;
     CWallet* const pwallet = wallet.get();
 
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "This action cannot be completed during initial sync or reindexing.");
+    }
+
     LegacyScriptPubKeyMan* spk_man = pwallet->GetLegacyScriptPubKeyMan();
     if (!spk_man) {
         throw JSONRPCError(RPC_WALLET_ERROR, "This type of wallet does not support this command");
@@ -361,18 +365,11 @@ RPCHelpMan initpegoutwallet()
     }
 
     // Three acceptable descriptors:
-    bool is_liquid = Params().NetworkIDString() == "liquidv1";
     if (bitcoin_desc.substr(0, 8) ==  "sh(wpkh("
             && bitcoin_desc.substr(bitcoin_desc.size()-2, 2) == "))") {
-        if(is_liquid) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor is not supported by Liquid; try pkh(<xpub>) or <xpub>.");
-        }
         xpub_str = bitcoin_desc.substr(8, bitcoin_desc.size()-2);
     } else if (bitcoin_desc.substr(0, 5) ==  "wpkh("
             && bitcoin_desc.substr(bitcoin_desc.size()-1, 1) == ")") {
-        if(is_liquid) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor is not supported by Liquid; try pkh(<xpub>) or <xpub>.");
-        }
         xpub_str = bitcoin_desc.substr(5, bitcoin_desc.size()-1);
     } else if (bitcoin_desc.substr(0, 4) == "pkh("
             && bitcoin_desc.substr(bitcoin_desc.size()-1, 1) == ")") {
