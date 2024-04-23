@@ -1272,6 +1272,7 @@ static RPCHelpMan decodepsbt()
                                 {RPCResult::Type::STR_HEX, "explicit_asset", /*optional=*/true, "The explicit asset for this input"},
                                 {RPCResult::Type::STR_HEX, "asset_proof", /*optional=*/true, "The explicit asset proof for this input"},
                                 {RPCResult::Type::BOOL, "blinded_issuance", /*optional=*/true, "Whether the issuance should be blinded prior to signing"},
+                                {RPCResult::Type::STR_HEX, "asset_blinder", /*optional=*/true, "The asset blinding factor for this input"},
                                 {RPCResult::Type::OBJ_DYN, "ripemd160_preimages", /*optional=*/ true, "",
                                 {
                                     {RPCResult::Type::STR, "hash", "The hash and preimage that corresponds to it."},
@@ -1342,6 +1343,7 @@ static RPCHelpMan decodepsbt()
                                 {RPCResult::Type::STR_HEX, "blinding_pubkey", "The blinding pubkey for the output"},
                                 {RPCResult::Type::STR_HEX, "blind_value_proof", "Explicit value rangeproof that proves the value commitment matches the value"},
                                 {RPCResult::Type::STR_HEX, "blind_asset_proof", "Assert surjection proof that proves the assert commitment matches the asset"},
+                                {RPCResult::Type::STR_HEX, "asset_blinder", /*optional=*/true, "The asset blinding factor for the output"},
                                 {RPCResult::Type::STR, "status", "information about how the output has been blinded, if available"},
                                 {RPCResult::Type::OBJ_DYN, "unknown", /*optional=*/true, "The unknown global fields",
                                 {
@@ -1687,6 +1689,10 @@ static RPCHelpMan decodepsbt()
             in.pushKV("blinded_issuance", *input.m_blinded_issuance);
         }
 
+        if (input.m_asset_blinding_factor.has_value()) {
+            in.pushKV("asset_blinder", input.m_asset_blinding_factor.value().GetHex());
+        }
+
         switch (VerifyBlindProofs(input)) {
         case BlindProofResult::OK:
             // all good
@@ -1862,6 +1868,11 @@ static RPCHelpMan decodepsbt()
         // Blind asset proof
         if (!output.m_blind_asset_proof.empty()) {
             out.pushKV("blind_asset_proof", HexStr(output.m_blind_asset_proof));
+        }
+
+        // Asset blinding factor
+        if (output.m_asset_blinding_factor.has_value()) {
+            out.pushKV("asset_blinder", output.m_asset_blinding_factor.value().GetHex());
         }
 
         switch (VerifyBlindProofs(output)) {
