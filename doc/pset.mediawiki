@@ -305,6 +305,16 @@ The currently defined elements per-input proprietary types are as follows:
 |
 | 0
 | 2
+|-
+| Asset Blinding Factor
+| <tt>PSBT_ELEMENTS_IN_ASSET_BLINDING_FACTOR = 0x16</tt>
+| None
+| No key data
+| <tt><256 bit uint></tt>
+| The 32 byte asset blinding factor for the input being spent.
+|
+| 0
+| 2
 |}
 
 The currently defined elements per-output proprietary types are as follows:
@@ -408,13 +418,24 @@ The currently defined elements per-output proprietary types are as follows:
 | An explicit value rangeproof that proves that the value commitment in <tt>PSBT_ELEMENTS_OUT_VALUE_COMMITMENT</tt> matches the explicit value in <tt>PSBT_OUT_VALUE</tt>. If provided, <tt>PSBT_ELEMENTS_OUT_VALUE_COMMITMENT</tt> must be provided too.
 |
 | 0
-| 2|-
+| 2
+|-
 | Blind Asset Proof
 | <tt>PSBT_ELEMENTS_OUT_BLIND_ASSET_PROOF = 0x0a</tt>
 | None
 | No key data
 | <tt><proof></tt>
 | An asset surjection proof with this output's asset as the only asset in the input set in order to prove that the asset commitment in <tt>PSBT_ELEMENTS_OUT_ASSET_COMMITMENT</tt> matches the explicit asset in <tt>PSBT_ELEMENTS_OUT_ASSET</tt>. If provided, <tt>PSBT_ELEMENTS_OUT_ASSET_COMMITMENT</tt> must be provided too.
+|
+| 0
+| 2
+|-
+| Asset Blinding Factor
+| <tt>PSBT_ELEMENTS_OUT_ASSET_BLINDING_FACTOR = 0x0b</tt>
+| None
+| No key data
+| <tt><256 bit uint></tt>
+| The 32 byte asset blinding factor of this output.
 |
 | 0
 | 2
