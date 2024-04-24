@@ -38,12 +38,14 @@ class TweakFedpegTest(BitcoinTestFramework):
     def run_test(self):
         # Test that OP_TRUE mainchain_addr/claim_script never changes
         assert_equal(self.nodes[0].getsidechaininfo()["fedpegscript"], OP_TRUE_SCRIPT)
+        self.generate(self.nodes[0], 1, sync_fun=self.no_op) # just to get node out of ibd
         pegin_addr = self.nodes[0].getpeginaddress()
         for _ in range(5):
             assert_equal(pegin_addr["mainchain_address"], self.nodes[0].getpeginaddress()["mainchain_address"])
             assert_equal(self.nodes[0].tweakfedpegscript(pegin_addr["claim_script"])["script"], OP_TRUE_SCRIPT)
 
         # Test that OP_CMS has all keys change and matches elements-0.14 example
+        self.generate(self.nodes[1], 1, sync_fun=self.no_op)
         pegin_addr = self.nodes[1].getpeginaddress()
         assert_equal(self.nodes[1].getsidechaininfo()["fedpegscript"], OP_CMS_SCRIPT)
         nontweak_decoded = self.nodes[1].decodescript(OP_CMS_SCRIPT)["asm"]
@@ -61,6 +63,7 @@ class TweakFedpegTest(BitcoinTestFramework):
                 "522102f5bc6bc407187d06854005c366b84b411534757f4503587cf335645a620f896a2102fd90164e4e7d53417e4eacfa3f86fd39fe40594791758739e8af31eeea4e79c552ae")
 
         # Test Liquid-style fedpegscript with CSV emergency keys(which don't get tweaked!)
+        self.generate(self.nodes[2], 1, sync_fun=self.no_op)
         pegin_addr = self.nodes[2].getpeginaddress()
         assert_equal(self.nodes[2].getsidechaininfo()["fedpegscript"], LIQUID_SCRIPT)
         nontweak_decoded = self.nodes[2].decodescript(LIQUID_SCRIPT)["asm"]
@@ -86,7 +89,7 @@ class TweakFedpegTest(BitcoinTestFramework):
         # Advance to dynamic federations activation, which has pubkeys
         # after OP_ELSE get tweaked except the exact liquidv1 template to
         # maintain compatibility
-        self.generate(self.nodes[2], 433, sync_fun=self.no_op)
+        self.generate(self.nodes[2], 432, sync_fun=self.no_op)
         assert_equal(self.nodes[2].getdeploymentinfo()['deployments']['dynafed']['bip9']['status'], 'active')
         assert_equal(self.nodes[2].tweakfedpegscript(claim_script)["script"], liquid_tweaked)
 
