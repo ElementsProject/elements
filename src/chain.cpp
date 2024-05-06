@@ -72,7 +72,10 @@ void CBlockIndex::untrim() {
 
 const CBlockIndex *CBlockIndex::untrim_to(CBlockIndex *pindexNew) const
 {
-    return m_pcontext->chainman->m_blockman.m_block_tree_db->RegenerateFullIndex(this, pindexNew);
+    if (m_pcontext) {
+        return m_pcontext->chainman->m_blockman.m_block_tree_db->RegenerateFullIndex(this, pindexNew);
+    }
+    return nullptr;
 }
 
 const CBlockIndex *CChain::FindFork(const CBlockIndex *pindex) const {
