@@ -15,7 +15,7 @@
 namespace {
 
 struct TestBlockAndIndex {
-    const std::unique_ptr<const TestingSetup> testing_setup{MakeNoLogFileContext<const TestingSetup>(CBaseChainParams::MAIN)};
+    std::unique_ptr<TestingSetup> testing_setup{MakeNoLogFileContext<TestingSetup>(CBaseChainParams::MAIN)};
     CBlock block{};
     uint256 blockHash{};
     CBlockIndex blockindex{};
@@ -28,6 +28,7 @@ struct TestBlockAndIndex {
 
         stream >> block;
 
+        CBlockIndex::SetNodeContext(&(testing_setup->m_node));
         blockHash = block.GetHash();
         blockindex.phashBlock = &blockHash;
         blockindex.nBits = 403014710;
