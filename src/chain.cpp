@@ -56,7 +56,8 @@ CBlockLocator CChain::GetLocator(const CBlockIndex *pindex) const {
     return CBlockLocator(vHave);
 }
 
-void CBlockIndex::untrim() {
+void CBlockIndex::untrim() EXCLUSIVE_LOCKS_REQUIRED(::cs_main){
+    AssertLockHeld(::cs_main);
     if (!trimmed())
         return;
     CBlockIndex tmp;
@@ -70,12 +71,10 @@ void CBlockIndex::untrim() {
     m_pcontext->chainman->m_blockman.m_dirty_blockindex.insert(this);
 }
 
-const CBlockIndex *CBlockIndex::untrim_to(CBlockIndex *pindexNew) const
+const CBlockIndex *CBlockIndex::untrim_to(CBlockIndex *pindexNew) const EXCLUSIVE_LOCKS_REQUIRED(::cs_main)
 {
-    if (m_pcontext) {
-        return m_pcontext->chainman->m_blockman.m_block_tree_db->RegenerateFullIndex(this, pindexNew);
-    }
-    return nullptr;
+    AssertLockHeld(::cs_main);
+    return m_pcontext->chainman->m_blockman.m_block_tree_db->RegenerateFullIndex(this, pindexNew);
 }
 
 const CBlockIndex *CChain::FindFork(const CBlockIndex *pindex) const {

@@ -2717,13 +2717,14 @@ static void UpdateTipLog(
         !warning_messages.empty() ? strprintf(" warning='%s'", warning_messages) : "");
 }
 
-void ForceUntrimHeader(const CBlockIndex *pindex_)
+void ForceUntrimHeader(const CBlockIndex *pindex_) EXCLUSIVE_LOCKS_REQUIRED(::cs_main)
 {
+    AssertLockHeld(cs_main);
+
     assert(pindex_);
     if (!pindex_->trimmed()) {
         return;
     }
-    AssertLockHeld(cs_main);
     CBlockIndex *pindex=const_cast<CBlockIndex*>(pindex_);
     pindex->untrim();
 }

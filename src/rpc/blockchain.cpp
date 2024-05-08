@@ -199,7 +199,11 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
     AssertLockNotHeld(cs_main); // For performance reasons
 
     CBlockIndex tmpBlockIndexFull;
-    const CBlockIndex* blockindex=blockindex_->untrim_to(&tmpBlockIndexFull);
+    const CBlockIndex* blockindex;
+    {
+        LOCK(cs_main);
+        blockindex = blockindex_->untrim_to(&tmpBlockIndexFull);
+    }
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("hash", blockindex->GetBlockHash().GetHex());
@@ -1020,6 +1024,7 @@ static RPCHelpMan getblockheader()
 
     if (!fVerbose)
     {
+        LOCK(cs_main);
         CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
         CBlockIndex tmpBlockIndexFull;
         const CBlockIndex* pblockindexfull=pblockindex->untrim_to(&tmpBlockIndexFull);

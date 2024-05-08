@@ -232,6 +232,7 @@ static bool rest_headers(const std::any& context,
     case RetFormat::BINARY: {
         CDataStream ssHeader(SER_NETWORK, PROTOCOL_VERSION);
         for (const CBlockIndex *pindex : headers) {
+            LOCK(cs_main);
             CBlockIndex tmpBlockIndexFull;
             const CBlockIndex* pindexfull=pindex->untrim_to(&tmpBlockIndexFull);
             ssHeader << pindexfull->GetBlockHeader();
@@ -246,6 +247,7 @@ static bool rest_headers(const std::any& context,
     case RetFormat::HEX: {
         CDataStream ssHeader(SER_NETWORK, PROTOCOL_VERSION);
         for (const CBlockIndex *pindex : headers) {
+            LOCK(cs_main);
             CBlockIndex tmpBlockIndexFull;
             const CBlockIndex* pindexfull=pindex->untrim_to(&tmpBlockIndexFull);
             ssHeader << pindexfull->GetBlockHeader();

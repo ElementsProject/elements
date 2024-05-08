@@ -333,15 +333,14 @@ bool CBlockTreeDB::WritePAKList(const std::vector<std::vector<unsigned char> >& 
 
 const CBlockIndex *CBlockTreeDB::RegenerateFullIndex(const CBlockIndex *pindexTrimmed, CBlockIndex *pindexNew) const
 {
+    LOCK(cs_main);
+
     if(!pindexTrimmed->trimmed()) {
         return pindexTrimmed;
     }
     CBlockHeader tmp;
     bool BlockRead = false;
     {
-        // At this point we can either be locked or unlocked depending on where we're being called
-        // but cs_main is a RecursiveMutex, so it doesn't matter
-        LOCK(cs_main);
         // In unpruned nodes, same data could be read from blocks using ReadBlockFromDisk, but that turned out to
         // be about 6x slower than reading from the index
         std::pair<uint8_t, uint256> key(DB_BLOCK_INDEX, pindexTrimmed->GetBlockHash());
