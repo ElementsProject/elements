@@ -2587,7 +2587,10 @@ bool CChainState::FlushStateToDisk(
                     (*it)->set_stored();
                 }
 
-                int trim_height =  pindexBestHeader ? pindexBestHeader->nHeight - node::nMustKeepFullHeaders : 0;
+                int trim_height = 0;
+                if (pindexBestHeader && (uint64_t)pindexBestHeader->nHeight > node::nMustKeepFullHeaders) { // check first, to prevent underflow
+                    trim_height = pindexBestHeader->nHeight - node::nMustKeepFullHeaders;
+                }
                 if (node::fTrimHeaders && trim_height > 0 && !ShutdownRequested()) {
                     static int nMinTrimHeight{0};
                     LogPrintf("Flushing block index, trimming headers, setTrimmableBlockIndex.size(): %d\n", setTrimmableBlockIndex.size());
