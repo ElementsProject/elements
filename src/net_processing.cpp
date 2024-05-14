@@ -4964,7 +4964,9 @@ bool PeerManagerImpl::SendMessages(CNode* pto)
                         auto txid = txinfo.tx->GetHash();
                         auto wtxid = txinfo.tx->GetWitnessHash();
                         // Peer told you to not send transactions at that feerate? Don't bother sending it.
-                        if (txinfo.fee < filterrate.GetFee(txinfo.vsize)) {
+                        // ELEMENTS: use the discounted vsize here so that discounted CTs are relayed.
+                        // discountvsize only differs from vsize if accept_discount_ct is true.
+                        if (txinfo.fee < filterrate.GetFee(txinfo.discountvsize)) {
                             continue;
                         }
                         if (pto->m_tx_relay->pfilter && !pto->m_tx_relay->pfilter->IsRelevantAndUpdate(*txinfo.tx)) continue;

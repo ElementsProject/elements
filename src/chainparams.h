@@ -135,6 +135,8 @@ public:
     const std::string& ParentBlech32HRP() const { return parent_blech32_hrp; }
     bool GetEnforcePak() const { return enforce_pak; }
     bool GetMultiDataPermitted() const { return multi_data_permitted; }
+    bool GetAcceptDiscountCT() const { return accept_discount_ct; }
+    bool GetCreateDiscountCT() const { return create_discount_ct; }
 
 protected:
     CChainParams() {}
@@ -167,6 +169,8 @@ protected:
     std::string parent_blech32_hrp;
     bool enforce_pak;
     bool multi_data_permitted;
+    bool accept_discount_ct;
+    bool create_discount_ct;
 };
 
 /**
