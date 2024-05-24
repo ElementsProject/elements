@@ -49,6 +49,7 @@ class WalletGroupTest(BitcoinTestFramework):
 
         # For each node, send 0.2 coins back to 0;
         # - node[1] should pick one 0.5 UTXO and leave the rest
+        # ELEMENTS: since SRD was added, node[1] sometimes picks a 1.0 UTXO
         # - node[2] should pick one (1.0 + 0.5) UTXO group corresponding to a
         #   given address, and leave the rest
         self.log.info("Test sending transactions picks one UTXO group and leaves the rest")
@@ -60,13 +61,13 @@ class WalletGroupTest(BitcoinTestFramework):
         # one output should be 0.2, the other should be ~0.3
         v = [vout["value"] for vout in tx1["vout"] if vout["scriptPubKey"]["type"] != "fee"]
         v.sort()
-        # JAMES/BYRON DELETE ME
-        #print(self.nodes[1].listunspent())
-        print("vin amount = {}".format(self.nodes[0].gettxout(tx1["vin"][0]["txid"], tx1["vin"][0]["vout"], True)["value"]))
-        print("vout amounts = {}".format(v))
-        # END JAMES?BYRON
         assert_approx(v[0], vexp=0.2, vspan=0.0001)
-        assert_approx(v[1], vexp=0.3, vspan=0.0001)
+        # ELEMENTS
+        try:
+            assert_approx(v[1], vexp=0.3, vspan=0.0001)
+        except AssertionError:
+            assert_approx(v[1], vexp=0.8, vspan=0.0001)
+
 
         txid2 = self.nodes[2].sendtoaddress(self.nodes[0].getnewaddress(), 0.2)
         tx2 = self.nodes[2].getrawtransaction(txid2, True)
@@ -114,10 +115,10 @@ class WalletGroupTest(BitcoinTestFramework):
         assert_equal(input_addrs[0], input_addrs[1])
         # Node 2 enforces avoidpartialspends so needs no checking here
 
-        tx4_ungrouped_fee = 2820
-        tx4_grouped_fee = 4160
-        tx5_6_ungrouped_fee = 5520
-        tx5_6_grouped_fee = 8240
+        tx4_ungrouped_fee = 5140
+        tx4_grouped_fee = 6520
+        tx5_6_ungrouped_fee = 7880
+        tx5_6_grouped_fee = 10620
 
         self.log.info("Test wallet option maxapsfee")
         addr_aps = self.nodes[3].getnewaddress()
