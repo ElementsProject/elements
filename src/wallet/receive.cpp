@@ -52,16 +52,35 @@ bool AllInputsMine(const CWallet& wallet, const CTransaction& tx, const isminefi
 }
 
 CAmountMap OutputGetCredit(const CWallet& wallet, const CTransaction& tx, const size_t out_index, const isminefilter& filter) {
-    CAmountMap nCredit;
-    if (wallet.IsMine(tx.vout[out_index]) & filter) {
-        CWalletTx wtx(MakeTransactionRef(std::move(tx)), TxStateInactive{});
-        CAmount credit = std::max<CAmount>(0, wtx.GetOutputValueOut(wallet, out_index));
-        if (!MoneyRange(credit))
-            throw std::runtime_error(std::string(__func__) + ": value out of range");
+    std::map<uint256, CWalletTx>::const_iterator mi = wallet.mapWallet.find(tx.GetHash());
+    if (mi != wallet.mapWallet.end())
+    {
+        const CWalletTx& wtx = (*mi).second;
+        if (out_index < wtx.tx->vout.size() && wallet.IsMine(wtx.tx->vout[out_index]) & filter) {
+            CAmountMap amounts;
+            amounts[wtx.GetOutputAsset(wallet, out_index)] = std::max<CAmount>(0, wtx.GetOutputValueOut(wallet, out_index));
+            return amounts;
+        }
+    }
+    return CAmountMap();
+}
 
-        nCredit[wtx.GetOutputAsset(wallet, out_index)] += credit;
-        if (!MoneyRange(nCredit))
-            throw std::runtime_error(std::string(__func__) + ": value out of range");
+CAmountMap TxGetCredit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter) {
+    CAmountMap nCredit;
+    {
+        LOCK(wallet.cs_wallet);
+
+        for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i) {
+            if (wallet.IsMine(wtx.tx->vout[i]) & filter) {
+                CAmount credit = std::max<CAmount>(0, wtx.GetOutputValueOut(wallet, i));
+                if (!MoneyRange(credit))
+                    throw std::runtime_error(std::string(__func__) + ": value out of range");
+
+                nCredit[wtx.GetOutputAsset(wallet, i)] += credit;
+                if (!MoneyRange(nCredit))
+                    throw std::runtime_error(std::string(__func__) + ": value out of range");
+            }
+        }
     }
     return nCredit;
 }
@@ -126,7 +145,7 @@ static CAmountMap GetCachableAmount(const CWallet& wallet, const CWalletTx& wtx,
 {
     auto& amount = wtx.m_amounts[type];
     if (recalculate || !amount.m_cached[filter]) {
-        amount.Set(filter, type == CWalletTx::DEBIT ? wallet.GetDebit(*wtx.tx, filter) : TxGetCredit(wallet, *wtx.tx, filter));
+        amount.Set(filter, type == CWalletTx::DEBIT ? wallet.GetDebit(*wtx.tx, filter) : TxGetCredit(wallet, wtx, filter));
         wtx.m_is_cache_empty = false;
     }
     return amount.m_value[filter];
@@ -147,26 +166,6 @@ CAmountMap CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, const 
         credit += GetCachableAmount(wallet, wtx, CWalletTx::CREDIT, ISMINE_WATCH_ONLY);
     }
     return credit;
-}
-
-CAmountMap TxGetCredit(const CWallet& wallet, const CTransaction& tx, const isminefilter& filter)
-{
-    {
-        LOCK(wallet.cs_wallet);
-        std::map<uint256, CWalletTx>::const_iterator mi = wallet.mapWallet.find(tx.GetHash());
-        if (mi != wallet.mapWallet.end())
-        {
-            const CWalletTx& wtx = (*mi).second;
-            for (size_t i = 0; i < wtx.tx->vout.size(); ++i) {
-                if (wallet.IsMine(wtx.tx->vout[i]) & filter) {
-                    CAmountMap amounts;
-                    amounts[wtx.GetOutputAsset(wallet, i)] = std::max<CAmount>(0, wtx.GetOutputValueOut(wallet, i));
-                    return amounts;
-                }
-            }
-        }
-    }
-    return CAmountMap();
 }
 
 CAmountMap CachedTxGetDebit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter)

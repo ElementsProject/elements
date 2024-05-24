@@ -359,8 +359,7 @@ BOOST_FIXTURE_TEST_CASE(coin_mark_dirty_immature_credit, TestChain100Setup)
     // credit amount is calculated.
     wtx.MarkDirty(wallet);
     AddKey(wallet, coinbaseKey);
-    // ELEMENTS: FIXME failing
-    // BOOST_CHECK_EQUAL(CachedTxGetImmatureCredit(wallet, wtx)[CAsset()], 50*COIN);
+    BOOST_CHECK_EQUAL(CachedTxGetImmatureCredit(wallet, wtx)[CAsset()], 50*COIN);
 }
 
 static int64_t AddTx(ChainstateManager& chainman, CWallet& wallet, uint32_t lockTime, int64_t mockTime, int64_t blockTime)
