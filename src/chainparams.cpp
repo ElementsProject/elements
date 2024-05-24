@@ -844,7 +844,7 @@ protected:
         // Determines type of genesis block
         consensus.genesis_style = args.GetArg("-con_genesis_style", "elements");
 
-        // Block signing encumberance script, default of 51 aka OP_TRUE
+        // Block signing encumbrance script, default of 51 aka OP_TRUE
         std::vector<unsigned char> sign_bytes = ParseHex(args.GetArg("-signblockscript", default_signblockscript));
         consensus.signblockscript = CScript(sign_bytes.begin(), sign_bytes.end());
         consensus.max_block_signature_size = args.GetIntArg("-con_max_block_sig_size", consensus.max_block_signature_size);
