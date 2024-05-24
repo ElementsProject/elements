@@ -185,6 +185,9 @@ BASE_SCRIPTS = [
     'wallet_avoidreuse.py --descriptors',
     'mempool_reorg.py',
     'mempool_persist.py',
+    # ELEMENTS: discounted Confidential Transactions
+    'feature_discount_ct.py',
+    'feature_discount_ct_ordering.py',
     'wallet_multiwallet.py --legacy-wallet',
     'wallet_multiwallet.py --descriptors',
     'wallet_multiwallet.py --usecli',
