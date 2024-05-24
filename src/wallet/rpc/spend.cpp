@@ -1500,7 +1500,7 @@ RPCHelpMan sendall()
                 throw JSONRPCError(RPC_WALLET_ERROR, "Fee estimation failed. Fallbackfee is disabled. Wait a few blocks or enable -fallbackfee.");
             }
 
-            CMutableTransaction rawTx{ConstructTransaction(options["inputs"], recipient_key_value_pairs, options["locktime"], rbf)};
+            CMutableTransaction rawTx{ConstructTransaction(options["inputs"], recipient_key_value_pairs, options["locktime"], rbf, pwallet->chain().getTip(), nullptr, true, true)};
             LOCK(pwallet->cs_wallet);
             std::vector<COutput> all_the_utxos;
 
@@ -1517,18 +1517,18 @@ RPCHelpMan sendall()
                     if (!tx || pwallet->IsMine(tx->tx->vout[input.prevout.n]) != (coin_control.fAllowWatchOnly ? ISMINE_ALL : ISMINE_SPENDABLE)) {
                         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Input not found. UTXO (%s:%d) is not part of wallet.", input.prevout.hash.ToString(), input.prevout.n));
                     }
-                    total_input_value += tx->tx->vout[input.prevout.n].nValue;
+                    total_input_value += tx->tx->vout[input.prevout.n].nValue.GetAmount(); // ELEMENTS FIXME: is the unblinded value always available since it's in our wallet?
                 }
             } else {
                 AvailableCoins(*pwallet, all_the_utxos, &coin_control, /*nMinimumAmount=*/0);
                 for (const COutput& output : all_the_utxos) {
                     CHECK_NONFATAL(output.input_bytes > 0);
-                    if (send_max && fee_rate.GetFee(output.input_bytes) > output.txout.nValue) {
+                    if (send_max && fee_rate.GetFee(output.input_bytes) > output.txout.nValue.GetAmount()) { // ELEMENTS FIXME: is the unblinded value always available since it's in our wallet?
                         continue;
                     }
                     CTxIn input(output.outpoint.hash, output.outpoint.n, CScript(), rbf ? MAX_BIP125_RBF_SEQUENCE : CTxIn::SEQUENCE_FINAL);
                     rawTx.vin.push_back(input);
-                    total_input_value += output.txout.nValue;
+                    total_input_value += output.txout.nValue.GetAmount(); // ELEMENTS FIXME: is the unblinded value always available since it's in our wallet?
                 }
             }
 
@@ -1547,7 +1547,7 @@ RPCHelpMan sendall()
 
             CAmount output_amounts_claimed{0};
             for (CTxOut out : rawTx.vout) {
-                output_amounts_claimed += out.nValue;
+                output_amounts_claimed += out.nValue.GetAmount(); // ELEMENTS FIXME: is the unblinded value always available since it's in our wallet?
             }
 
             if (output_amounts_claimed > total_input_value) {
@@ -1569,7 +1569,7 @@ RPCHelpMan sendall()
                 if (addresses_without_amount.count(addr) > 0) {
                     out.nValue = per_output_without_amount;
                     if (!gave_remaining_to_first) {
-                        out.nValue += remainder % addresses_without_amount.size();
+                        out.nValue.SetToAmount(out.nValue.GetAmount() + CAmount(remainder % addresses_without_amount.size())); // ELEMENTS FIXME: is it fine to call GetAmount() here? Is the unblinded value always available since it's in our wallet?
                         gave_remaining_to_first = true;
                     }
                     if (IsDust(out, pwallet->chain().relayDustFee())) {
@@ -1583,6 +1583,12 @@ RPCHelpMan sendall()
                     }
                 }
             }
+
+            // ELEMENTS: add explicit fee output
+            CTxOut feeOutput;
+            feeOutput.nValue = fee_from_size;
+            feeOutput.scriptPubKey = CScript(); // Empty scriptPubKey represents fee
+            rawTx.vout.push_back(feeOutput);
 
             const bool lock_unspents{options.exists("lock_unspents") ? options["lock_unspents"].get_bool() : false};
             if (lock_unspents) {

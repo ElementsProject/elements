@@ -19,9 +19,9 @@ def cleanup(func):
         try:
             func(self)
         finally:
-            if 0 < self.wallet.getbalances()["mine"]["trusted"]:
+            if 0 < self.wallet.getbalances()["mine"]["trusted"]['bitcoin']:
                 self.wallet.sendall([self.remainder_target])
-            assert_equal(0, self.wallet.getbalances()["mine"]["trusted"]) # wallet is empty
+            assert_equal(0, self.wallet.getbalances()["mine"]["trusted"]['bitcoin']) # wallet is empty
     return wrapper
 
 class SendallTest(BitcoinTestFramework):
@@ -36,17 +36,21 @@ class SendallTest(BitcoinTestFramework):
 
     def assert_balance_swept_completely(self, tx, balance):
         output_sum = sum([o["value"] for o in tx["decoded"]["vout"]])
-        assert_equal(output_sum, balance + tx["fee"])
-        assert_equal(0, self.wallet.getbalances()["mine"]["trusted"]) # wallet is empty
+        assert_equal(output_sum, balance + tx["fee"]['bitcoin'])
+        assert_equal(0, self.wallet.getbalances()["mine"]["trusted"]["bitcoin"]) # wallet is empty
 
     def assert_tx_has_output(self, tx, addr, value=None):
         for output in tx["decoded"]["vout"]:
+            if output["scriptPubKey"]["type"] == 'fee':
+                # ELEMENTS: explicit fee output
+                continue
             if addr == output["scriptPubKey"]["address"] and value is None or value == output["value"]:
                 return
         raise AssertionError("Output to {} not present or wrong amount".format(addr))
 
     def assert_tx_has_outputs(self, tx, expected_outputs):
-        assert_equal(len(expected_outputs), len(tx["decoded"]["vout"]))
+        assert_equal(len(expected_outputs) + 1, len(tx["decoded"]["vout"])) # ELEMENTS: add 1 for explicit fee output
+
         for eo in expected_outputs:
             self.assert_tx_has_output(tx, eo["address"], eo["value"])
 
@@ -54,18 +58,24 @@ class SendallTest(BitcoinTestFramework):
         for a in amounts:
             self.def_wallet.sendtoaddress(self.wallet.getnewaddress(), a)
         self.generate(self.nodes[0], 1)
-        assert_greater_than(self.wallet.getbalances()["mine"]["trusted"], 0)
-        return self.wallet.getbalances()["mine"]["trusted"]
+        assert_greater_than(self.wallet.getbalances()["mine"]["trusted"]['bitcoin'], 0)
+        return self.wallet.getbalances()["mine"]["trusted"]['bitcoin']
 
     # Helper schema for success cases
     def test_sendall_success(self, sendall_args, remaining_balance = 0):
         sendall_tx_receipt = self.wallet.sendall(sendall_args)
         self.generate(self.nodes[0], 1)
         # wallet has remaining balance (usually empty)
-        assert_equal(remaining_balance, self.wallet.getbalances()["mine"]["trusted"])
+        assert_equal(remaining_balance, self.wallet.getbalances()["mine"]["trusted"]['bitcoin'])
 
         assert_equal(sendall_tx_receipt["complete"], True)
         return self.wallet.gettransaction(txid = sendall_tx_receipt["txid"], verbose = True)
+
+    def get_fee_from_wallet_tx(self, tx_from_wallet):
+        for out in tx_from_wallet["vout"]:
+            if out["scriptPubKey"]["type"] == "fee":
+                return out["value"]
+        raise Exception("Unable find fee in tranaction: ", tx_from_wallet)
 
     @cleanup
     def gen_and_clean(self):
@@ -74,7 +84,7 @@ class SendallTest(BitcoinTestFramework):
     def test_cleanup(self):
         self.log.info("Test that cleanup wrapper empties wallet")
         self.gen_and_clean()
-        assert_equal(0, self.wallet.getbalances()["mine"]["trusted"]) # wallet is empty
+        assert_equal(0, self.wallet.getbalances()["mine"]["trusted"]['bitcoin']) # wallet is empty
 
     # Actual tests
     @cleanup
@@ -82,10 +92,12 @@ class SendallTest(BitcoinTestFramework):
         self.log.info("Testing basic sendall case without specific amounts")
         pre_sendall_balance = self.add_utxos([10,11])
         tx_from_wallet = self.test_sendall_success(sendall_args = [self.remainder_target])
+        fee = self.get_fee_from_wallet_tx(tx_from_wallet["decoded"])
 
         self.assert_tx_has_outputs(tx = tx_from_wallet,
             expected_outputs = [
-                { "address": self.remainder_target, "value": pre_sendall_balance + tx_from_wallet["fee"] } # fee is neg
+                # ELEMENT: fee in bitcoin is negative, so add it. fee in element is positive, so subtract it
+                { "address": self.remainder_target, "value": pre_sendall_balance - fee }
             ]
         )
         self.assert_balance_swept_completely(tx_from_wallet, pre_sendall_balance)
@@ -95,8 +107,9 @@ class SendallTest(BitcoinTestFramework):
         self.log.info("Testing sendall where two recipients have unspecified amount")
         pre_sendall_balance = self.add_utxos([1, 2, 3, 15])
         tx_from_wallet = self.test_sendall_success([self.remainder_target, self.split_target])
+        fee = self.get_fee_from_wallet_tx(tx_from_wallet["decoded"])
 
-        half = (pre_sendall_balance + tx_from_wallet["fee"]) / 2
+        half = (pre_sendall_balance - fee) / 2
         self.assert_tx_has_outputs(tx_from_wallet,
             expected_outputs = [
                 { "address": self.split_target, "value": half },
@@ -110,11 +123,12 @@ class SendallTest(BitcoinTestFramework):
         self.log.info("Testing sendall in combination with paying specified amount to recipient")
         pre_sendall_balance = self.add_utxos([8, 13])
         tx_from_wallet = self.test_sendall_success([{self.recipient: 5}, self.remainder_target])
+        fee = self.get_fee_from_wallet_tx(tx_from_wallet["decoded"])
 
         self.assert_tx_has_outputs(tx_from_wallet,
             expected_outputs = [
                 { "address": self.recipient, "value": 5 },
-                { "address": self.remainder_target, "value": pre_sendall_balance - 5 + tx_from_wallet["fee"] }
+                { "address": self.remainder_target, "value": pre_sendall_balance - 5 - fee }
             ]
         )
         self.assert_balance_swept_completely(tx_from_wallet, pre_sendall_balance)
@@ -150,7 +164,7 @@ class SendallTest(BitcoinTestFramework):
 
         expected_tx = self.wallet.sendall(recipients=[{self.recipient: 5}, self.remainder_target], options={"add_to_wallet": False})
         tx = self.wallet.decoderawtransaction(expected_tx['hex'])
-        fee = 21 - sum([o["value"] for o in tx["vout"]])
+        fee = self.get_fee_from_wallet_tx(tx)
 
         assert_raises_rpc_error(-6, "Assigned more value to outputs than available funds.", self.wallet.sendall,
                 [{self.recipient: pre_sendall_balance + 1}, self.remainder_target])
@@ -170,10 +184,11 @@ class SendallTest(BitcoinTestFramework):
         self.nodes[0].createwallet("dustwallet")
         dust_wallet = self.nodes[0].get_wallet_rpc("dustwallet")
 
-        self.def_wallet.sendtoaddress(dust_wallet.getnewaddress(), 0.00000400)
-        self.def_wallet.sendtoaddress(dust_wallet.getnewaddress(), 0.00000300)
+        # ELEMENTS: remove a 0 from numbers (i.e. multiply by 10), because dust threshold is higher
+        self.def_wallet.sendtoaddress(dust_wallet.getnewaddress(), 0.0000400)
+        self.def_wallet.sendtoaddress(dust_wallet.getnewaddress(), 0.0000300)
         self.generate(self.nodes[0], 1)
-        assert_greater_than(dust_wallet.getbalances()["mine"]["trusted"], 0)
+        assert_greater_than(dust_wallet.getbalances()["mine"]["trusted"]["bitcoin"], 0)
 
         assert_raises_rpc_error(-6, "Total value of UTXO pool too low to pay for transaction."
                 + " Try using lower feerate or excluding uneconomic UTXOs with 'send_max' option.",
@@ -184,15 +199,16 @@ class SendallTest(BitcoinTestFramework):
     @cleanup
     def sendall_with_send_max(self):
         self.log.info("Check that `send_max` option causes negative value UTXOs to be left behind")
-        self.add_utxos([0.00000400, 0.00000300, 1])
+        self.add_utxos([0.0000400, 0.0000300, 1]) # ELEMENTS: remove a 0 from numbers (i.e. multiply by 10), because dust threshold is higher
 
         # sendall with send_max
         sendall_tx_receipt = self.wallet.sendall(recipients=[self.remainder_target], fee_rate=300, options={"send_max": True})
         tx_from_wallet = self.wallet.gettransaction(txid = sendall_tx_receipt["txid"], verbose = True)
+        fee = self.get_fee_from_wallet_tx(tx_from_wallet["decoded"])
 
         assert_equal(len(tx_from_wallet["decoded"]["vin"]), 1)
-        self.assert_tx_has_outputs(tx_from_wallet, [{"address": self.remainder_target, "value": 1 + tx_from_wallet["fee"]}])
-        assert_equal(self.wallet.getbalances()["mine"]["trusted"], Decimal("0.00000700"))
+        self.assert_tx_has_outputs(tx_from_wallet, [{"address": self.remainder_target, "value": 1 - fee}])
+        assert_equal(self.wallet.getbalances()["mine"]["trusted"]["bitcoin"], Decimal("0.0000700"))
 
         self.def_wallet.sendtoaddress(self.wallet.getnewaddress(), 1)
         self.generate(self.nodes[0], 1)
@@ -206,13 +222,13 @@ class SendallTest(BitcoinTestFramework):
         sendall_tx_receipt = self.wallet.sendall(recipients=[self.remainder_target], options={"inputs": [utxo]})
         tx_from_wallet = self.wallet.gettransaction(txid = sendall_tx_receipt["txid"], verbose = True)
         assert_equal(len(tx_from_wallet["decoded"]["vin"]), 1)
-        assert_equal(len(tx_from_wallet["decoded"]["vout"]), 1)
+        assert_equal(len(tx_from_wallet["decoded"]["vout"]), 1 + 1) # ELEMENTS: add 1 for explicit fee output
         assert_equal(tx_from_wallet["decoded"]["vin"][0]["txid"], utxo["txid"])
         assert_equal(tx_from_wallet["decoded"]["vin"][0]["vout"], utxo["vout"])
         self.assert_tx_has_output(tx_from_wallet, self.remainder_target)
 
         self.generate(self.nodes[0], 1)
-        assert_greater_than(self.wallet.getbalances()["mine"]["trusted"], 0)
+        assert_greater_than(self.wallet.getbalances()["mine"]["trusted"]["bitcoin"], 0)
 
     @cleanup
     def sendall_fails_on_missing_input(self):
