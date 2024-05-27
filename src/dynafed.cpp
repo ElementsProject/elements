@@ -2,6 +2,7 @@
 #include <dynafed.h>
 #include <hash.h>
 #include <validation.h>
+#include <node/context.h>
 
 bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consensus::Params& consensus, DynaFedParamEntry& winning_entry)
 {
@@ -16,7 +17,7 @@ bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consens
     for (int32_t height = next_height - 1; height >= (int32_t)(next_height - consensus.dynamic_epoch_length); --height) {
         const CBlockIndex* p_epoch_walk = pindexPrev->GetAncestor(height);
         assert(p_epoch_walk);
-        {
+        if (node::fTrimHeaders) {
             LOCK(cs_main);
             ForceUntrimHeader(p_epoch_walk);
         }
@@ -65,7 +66,7 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
     // may be pre-dynafed params
     const CBlockIndex* p_epoch_start = pindexPrev->GetAncestor(epoch_start_height);
     assert(p_epoch_start);
-    {
+    if (node::fTrimHeaders) {
         LOCK(cs_main);
         ForceUntrimHeader(p_epoch_start);
     }
@@ -102,7 +103,7 @@ DynaFedParamEntry ComputeNextBlockCurrentParameters(const CBlockIndex* pindexPre
 {
     assert(pindexPrev);
 
-    {
+    if (node::fTrimHeaders) {
         LOCK(cs_main);
         ForceUntrimHeader(pindexPrev);
     }

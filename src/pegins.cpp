@@ -489,7 +489,7 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
             break;
         }
 
-        {
+        if (node::fTrimHeaders) {
             LOCK(cs_main);
             ForceUntrimHeader(p_epoch_start);
         }
