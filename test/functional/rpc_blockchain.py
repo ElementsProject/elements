@@ -123,6 +123,7 @@ class BlockchainTest(BitcoinTestFramework):
             'pruned',
             'size_on_disk',
             'time',
+            'trim_headers',
             'verificationprogress',
             'warnings',
         ]

@@ -1741,6 +1741,7 @@ RPCHelpMan getblockchaininfo()
     }
     obj.pushKV("size_on_disk", chainman.m_blockman.CalculateCurrentUsage());
     obj.pushKV("pruned",                node::fPruneMode);
+    obj.pushKV("trim_headers",          node::fTrimHeaders); // ELEMENTS
     if (g_signed_blocks) {
         if (!DeploymentActiveAfter(tip, chainparams.GetConsensus(), Consensus::DEPLOYMENT_DYNA_FED)) {
             CScript sign_block_script = chainparams.GetConsensus().signblockscript;

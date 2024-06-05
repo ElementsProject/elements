@@ -187,6 +187,10 @@ class TrimHeadersTest(BitcoinTestFramework):
         self.mine_blocks(101, False)
         self.sync_all()
         self.check_height(expected_height, all=True)
+        # check the new field in getblockchaininfo
+        assert not self.nodes[0].getblockchaininfo()["trim_headers"]
+        assert self.nodes[1].getblockchaininfo()["trim_headers"]
+        assert self.nodes[2].getblockchaininfo()["trim_headers"]
 
         self.log.info("Shut down trimmed nodes")
         self.stop_node(1)
@@ -201,7 +205,6 @@ class TrimHeadersTest(BitcoinTestFramework):
         tip = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         header = self.nodes[0].getblockheader(tip)
         block = self.nodes[0].getblock(tip)
-        info = self.nodes[0].getblockchaininfo()
 
         assert 'signblock_witness_asm' in header
         assert 'signblock_witness_hex' in header
