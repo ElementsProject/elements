@@ -2568,38 +2568,53 @@ bool CChainState::FlushStateToDisk(
                 m_blockman.FlushBlockFile();
             }
 
+            std::set<CBlockIndex*> setTrimmableBlockIndex(m_blockman.m_dirty_blockindex);
             // Then update all block file information (which may refer to block and undo files).
             {
                 LOG_TIME_MILLIS_WITH_CATEGORY("write block index to disk", BCLog::BENCH);
 
+                if (node::fTrimHeaders) {
+                    for (std::set<CBlockIndex*>::iterator it = setTrimmableBlockIndex.begin(); it != setTrimmableBlockIndex.end(); it++) {
+                        (*it)->untrim();
+                    }
+                }
                 if (!m_blockman.WriteBlockIndexDB()) {
                     return AbortNode(state, "Failed to write to block index database");
                 }
 
-                if (node::fTrimHeaders) {
-                    std::set<CBlockIndex*> setTrimmableBlockIndex(m_blockman.m_dirty_blockindex);
+                // This should be done inside WriteBatchSync, but CBlockIndex is const there
+                for (std::set<CBlockIndex*>::iterator it = setTrimmableBlockIndex.begin(); it != setTrimmableBlockIndex.end(); it++) {
+                    (*it)->set_stored();
+                }
+
+                int trim_height = 0;
+                if (pindexBestHeader && (uint64_t)pindexBestHeader->nHeight > node::nMustKeepFullHeaders) { // check first, to prevent underflow
+                    trim_height = pindexBestHeader->nHeight - node::nMustKeepFullHeaders;
+                }
+                if (node::fTrimHeaders && trim_height > 0 && !ShutdownRequested()) {
+                    static int nMinTrimHeight{0};
                     LogPrintf("Flushing block index, trimming headers, setTrimmableBlockIndex.size(): %d\n", setTrimmableBlockIndex.size());
-                    int trim_height = m_chain.Height() - node::nMustKeepFullHeaders;
-                    int min_height = std::numeric_limits<int>::max();
-                    CBlockIndex* min_index = nullptr;
                     for (std::set<CBlockIndex*>::iterator it = setTrimmableBlockIndex.begin(); it != setTrimmableBlockIndex.end(); it++) {
                         (*it)->assert_untrimmed();
                         if ((*it)->nHeight < trim_height) {
                             (*it)->trim();
-                            if ((*it)->nHeight < min_height) {
-                                min_height = (*it)->nHeight;
-                                min_index = *it;
-                            }
                         }
                     }
-
+                    CBlockIndex* min_index = pindexBestHeader->GetAncestor(trim_height-1);
                     // Handle any remaining untrimmed blocks that were too recent for trimming last time we flushed.
                     if (min_index) {
-                        min_index = min_index->pprev;
-                        while (min_index && !min_index->trimmed()) {
-                            min_index->trim();
+                        int nMaxTrimHeightRound = std::max(nMinTrimHeight, min_index->nHeight + 1);
+                        while (min_index && min_index->nHeight >= nMinTrimHeight) {
+                            if (!min_index->trimmed()) {
+                                // there may be gaps due to untrimmed blocks, we need to check them all
+                                if (!min_index->trim()) {
+                                    // Header could not be trimmed, we'll need to try again next round
+                                    nMaxTrimHeightRound = min_index->nHeight;
+                                }
+                            }
                             min_index = min_index->pprev;
                         }
+                        nMinTrimHeight = nMaxTrimHeightRound;
                     }
                 }
             }
@@ -2702,6 +2717,18 @@ static void UpdateTipLog(
         !warning_messages.empty() ? strprintf(" warning='%s'", warning_messages) : "");
 }
 
+void ForceUntrimHeader(const CBlockIndex *pindex_) EXCLUSIVE_LOCKS_REQUIRED(::cs_main)
+{
+    AssertLockHeld(cs_main);
+
+    assert(pindex_);
+    if (!pindex_->trimmed()) {
+        return;
+    }
+    CBlockIndex *pindex=const_cast<CBlockIndex*>(pindex_);
+    pindex->untrim();
+}
+
 void CChainState::UpdateTip(const CBlockIndex* pindexNew)
 {
     AssertLockHeld(::cs_main);
@@ -2747,11 +2774,13 @@ void CChainState::UpdateTip(const CBlockIndex* pindexNew)
     }
     UpdateTipLog(coins_tip, pindexNew, m_params, __func__, "", warning_messages.original);
 
+    ForceUntrimHeader(pindexNew);
     // Do some logging if dynafed parameters changed.
     if (pindexNew->pprev && !pindexNew->dynafed_params().IsNull()) {
         int height = pindexNew->nHeight;
         uint256 hash = pindexNew->GetBlockHash();
         uint256 root = pindexNew->dynafed_params().m_current.CalculateRoot();
+        ForceUntrimHeader(pindexNew->pprev);
         if (pindexNew->pprev->dynafed_params().IsNull()) {
             LogPrintf("Dynafed activated in block %d:%s: %s\n", height, hash.GetHex(), root.GetHex());
         } else if (root != pindexNew->pprev->dynafed_params().m_current.CalculateRoot()) {

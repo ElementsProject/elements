@@ -5,6 +5,11 @@
 
 #include <chain.h>
 #include <util/time.h>
+#include <validation.h>
+#include <node/context.h>
+
+
+node::NodeContext *CBlockIndex::m_pcontext;
 
 std::string CBlockFileInfo::ToString() const
 {
@@ -49,6 +54,27 @@ CBlockLocator CChain::GetLocator(const CBlockIndex *pindex) const {
     }
 
     return CBlockLocator(vHave);
+}
+
+void CBlockIndex::untrim() EXCLUSIVE_LOCKS_REQUIRED(::cs_main){
+    AssertLockHeld(::cs_main);
+    if (!trimmed())
+        return;
+    CBlockIndex tmp;
+    const CBlockIndex *pindexfull = untrim_to(&tmp);
+    assert(pindexfull!=this);
+    m_trimmed = false;
+    set_stored();
+    proof = pindexfull->proof;
+    m_dynafed_params = pindexfull->m_dynafed_params;
+    m_signblock_witness = pindexfull->m_signblock_witness;
+    m_pcontext->chainman->m_blockman.m_dirty_blockindex.insert(this);
+}
+
+const CBlockIndex *CBlockIndex::untrim_to(CBlockIndex *pindexNew) const EXCLUSIVE_LOCKS_REQUIRED(::cs_main)
+{
+    AssertLockHeld(::cs_main);
+    return m_pcontext->chainman->m_blockman.m_block_tree_db->RegenerateFullIndex(this, pindexNew);
 }
 
 const CBlockIndex *CChain::FindFork(const CBlockIndex *pindex) const {

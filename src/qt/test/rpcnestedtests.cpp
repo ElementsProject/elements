@@ -48,6 +48,7 @@ void RPCNestedTests::rpcNestedTests()
 
     TestingSetup test;
     m_node.setContext(&test.m_node);
+    CBlockIndex::SetNodeContext(&test.m_node);
 
     if (RPCIsInWarmup(nullptr)) SetRPCWarmupFinished();
 
