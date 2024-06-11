@@ -323,6 +323,8 @@ def default_witness_taproot(ctx):
         suffix_annex = [annex]
     if get(ctx, "leaf") is None:
         return get(ctx, "inputs_keypath") + suffix_annex
+    elif get(ctx, "leafversion") == LEAF_VERSION_TAPSIMPLICITY:
+        return [bytes(get(ctx, "simplicity_witness")), bytes(get(ctx, "simplicity_program")), bytes(get(ctx, "script_taproot")), get(ctx, "controlblock")] + suffix_annex
     else:
         return get(ctx, "inputs") + [bytes(get(ctx, "script_taproot")), get(ctx, "controlblock")] + suffix_annex
 
@@ -391,6 +393,10 @@ DEFAULT_CONTEXT = {
     "tapleaf": default_tapleaf,
     # The script to push, and include in the sighash, for a taproot script path spend.
     "script_taproot": default_script_taproot,
+    # The simplicity program for a taproot simplicity spend.
+    "simplicity_program": [],
+    # The simplicity witness data for a simplicity program.
+    "simplicity_witness": [],
     # The internal pubkey for a taproot script path spend (32 bytes).
     "pubkey_internal": default_pubkey_internal,
     # The negation flag of the internal pubkey for a taproot script path spend.
@@ -638,6 +644,8 @@ ERR_UNDECODABLE = {"err_msg": "Opcode missing or not understood"}
 ERR_NO_SUCCESS = {"err_msg": "Script evaluated without error but finished with a false/empty top stack element"}
 ERR_EMPTY_WITNESS = {"err_msg": "Witness program was passed an empty witness"}
 ERR_CHECKSIGVERIFY = {"err_msg": "Script failed an OP_CHECKSIGVERIFY operation"}
+ERR_SIMPLICITY_BITSTREAM_EOF = {"err_msg": "Unexpected end of bitstream"}
+ERR_SIMPLICITY_BITSTREAM_ILLEGAL_PADDING = {"err_msg": "Illegal padding in final byte of program"}
 
 VALID_SIGHASHES_ECDSA = [
     SIGHASH_ALL,
@@ -1161,6 +1169,13 @@ def spenders_taproot_active():
         ]
         tap = taproot_construct(pubs[0], scripts)
         add_spender(spenders, "alwaysvalid/notsuccessx", tap=tap, leaf="op_success", inputs=[], standard=False, failure={"leaf": "normal"}) # err_msg differs based on opcode
+
+    # == Simplicity tests ==
+
+    tap = taproot_construct(pubs[0], [("simplicity_iden", bytes.fromhex("dbfefcfc7796acfc86b435c1f81ed8a165dab2649dc48b0f35f832647868fb5e"), LEAF_VERSION_TAPSIMPLICITY)])
+    add_spender(spenders, "simplicity/empty_program", tap=tap, leaf="simplicity_iden", simplicity_program=bytes.fromhex("20"), failure={"simplicity_program": b''}, **ERR_SIMPLICITY_BITSTREAM_EOF)
+    # tempoarily removed because random bit errors will cause differt sorts of Simplicity errors.
+    # add_spender(spenders, "simplicity/iden", tap=tap, leaf="simplicity_iden", simplicity_program=bytes.fromhex("20"), failure={"simplicity_program": bitflipper(bytes.fromhex("20"))}, **ERR_SIMPLICITY_BITSTREAM_ILLEGAL_PADDING)
 
     # == Legacy tests ==
 
