@@ -85,6 +85,7 @@ static constexpr uint8_t PSBT_ELEMENTS_IN_VALUE_PROOF = 0x12;
 static constexpr uint8_t PSBT_ELEMENTS_IN_EXPLICIT_ASSET = 0x13;
 static constexpr uint8_t PSBT_ELEMENTS_IN_ASSET_PROOF = 0x14;
 static constexpr uint8_t PSBT_ELEMENTS_IN_BLINDED_ISSUANCE = 0x15;
+static constexpr uint8_t PSBT_ELEMENTS_IN_ASSET_BLINDING_FACTOR = 0x16;
 
 // Output types
 static constexpr uint8_t PSBT_OUT_REDEEMSCRIPT = 0x00;
@@ -104,6 +105,7 @@ static constexpr uint8_t PSBT_ELEMENTS_OUT_ECDH_PUBKEY = 0x07;
 static constexpr uint8_t PSBT_ELEMENTS_OUT_BLINDER_INDEX = 0x08;
 static constexpr uint8_t PSBT_ELEMENTS_OUT_BLIND_VALUE_PROOF = 0x09;
 static constexpr uint8_t PSBT_ELEMENTS_OUT_BLIND_ASSET_PROOF = 0x0a;
+static constexpr uint8_t PSBT_ELEMENTS_OUT_ASSET_BLINDING_FACTOR = 0x0b;
 
 // Proprietary type identifier string
 static const std::vector<unsigned char> PSBT_ELEMENTS_ID = {'p', 's', 'e', 't'};
@@ -280,6 +282,7 @@ struct PSBTInput
     std::vector<unsigned char> m_value_proof;
     uint256 m_explicit_asset;
     std::vector<unsigned char> m_asset_proof;
+    std::optional<uint256> m_asset_blinding_factor{std::nullopt};
 
     bool IsNull() const;
     void FillSignatureData(SignatureData& sigdata) const;
@@ -542,6 +545,12 @@ struct PSBTInput
             if (m_blinded_issuance.has_value()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_BLINDED_ISSUANCE));
                 SerializeToVector(s, *m_blinded_issuance);
+            }
+
+            // Asset blinding factor
+            if (m_asset_blinding_factor.has_value()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ASSET_BLINDING_FACTOR));
+                SerializeToVector(s, m_asset_blinding_factor.value());
             }
         }
 
@@ -1096,6 +1105,18 @@ struct PSBTInput
                                 m_blinded_issuance = b;
                                 break;
                             }
+                            case PSBT_ELEMENTS_IN_ASSET_BLINDING_FACTOR:
+                            {
+                                if (m_asset_blinding_factor.has_value()) {
+                                    throw std::ios_base::failure("Duplicate Key, input asset blinding factor is already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input asset blinding factor is more than one byte type");
+                                }
+                                uint256 u;
+                                UnserializeFromVector(s, u);
+                                m_asset_blinding_factor = u;
+                                break;
+                            }
                             default:
                             {
                                 known = false;
@@ -1185,6 +1206,7 @@ struct PSBTOutput
     std::optional<uint32_t> m_blinder_index{std::nullopt};
     std::vector<unsigned char> m_blind_value_proof;
     std::vector<unsigned char> m_blind_asset_proof;
+    std::optional<uint256> m_asset_blinding_factor{std::nullopt};
 
     bool IsNull() const;
     void FillSignatureData(SignatureData& sigdata) const;
@@ -1281,6 +1303,12 @@ struct PSBTOutput
             if (!m_blind_asset_proof.empty()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_BLIND_ASSET_PROOF));
                 s << m_blind_asset_proof;
+            }
+
+            // Asset blinding factor
+            if (m_asset_blinding_factor.has_value()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_ASSET_BLINDING_FACTOR));
+                SerializeToVector(s, m_asset_blinding_factor.value());
             }
         }
 
@@ -1486,6 +1514,18 @@ struct PSBTOutput
                                     throw std::ios_base::failure("Output blind asset proof key is more than one byte type");
                                 }
                                 s >> m_blind_asset_proof;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_OUT_ASSET_BLINDING_FACTOR:
+                            {
+                                if (m_asset_blinding_factor.has_value()) {
+                                    throw std::ios_base::failure("Duplicate Key, output asset blinding factor is already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Output asset blinding factor is more than one byte type");
+                                }
+                                uint256 u;
+                                UnserializeFromVector(s, u);
+                                m_asset_blinding_factor = u;
                                 break;
                             }
                             default:
