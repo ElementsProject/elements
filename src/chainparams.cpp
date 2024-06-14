@@ -223,6 +223,8 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
+        accept_discount_ct = false;
+        create_discount_ct = false;
         consensus.has_parent_chain = false;
         g_signed_blocks = false;
         g_con_elementsmode = false;
@@ -361,6 +363,8 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
+        accept_discount_ct = false;
+        create_discount_ct = false;
         consensus.has_parent_chain = false;
         g_signed_blocks = false;
         g_con_elementsmode = false;
@@ -517,6 +521,8 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
+        accept_discount_ct = false;
+        create_discount_ct = false;
         consensus.has_parent_chain = false;
         g_signed_blocks = false; // lol
         g_con_elementsmode = false;
@@ -610,6 +616,8 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
+        accept_discount_ct = false;
+        create_discount_ct = false;
         consensus.has_parent_chain = false;
         g_signed_blocks = false;
         g_con_elementsmode = false;
@@ -887,6 +895,8 @@ protected:
         const CScript default_script(CScript() << OP_TRUE);
         consensus.fedpegScript = StrHexToScriptWithDefault(args.GetArg("-fedpegscript", ""), default_script);
         consensus.start_p2wsh_script = args.GetIntArg("-con_start_p2wsh_script", consensus.start_p2wsh_script);
+        create_discount_ct = args.GetBoolArg("-creatediscountct", false);
+        accept_discount_ct = args.GetBoolArg("-acceptdiscountct", create_discount_ct);
 
         // Calculate pegged Bitcoin asset
         std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
@@ -1023,7 +1033,7 @@ public:
  */
 class CLiquidV1Params : public CChainParams {
 public:
-    CLiquidV1Params()
+    explicit CLiquidV1Params(const ArgsManager& args)
     {
 
         strNetworkID = "liquidv1";
@@ -1118,6 +1128,8 @@ public:
         enforce_pak = true;
 
         multi_data_permitted = true;
+        create_discount_ct = args.GetBoolArg("-creatediscountct", false);
+        accept_discount_ct = args.GetBoolArg("-acceptdiscountct", false);
 
         parentGenesisBlockHash = uint256S("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f");
         const bool parent_genesis_is_null = parentGenesisBlockHash == uint256();
@@ -1261,7 +1273,7 @@ public:
  */
 class CLiquidV1TestParams : public CLiquidV1Params {
 public:
-    explicit CLiquidV1TestParams(const ArgsManager& args)
+    explicit CLiquidV1TestParams(const ArgsManager& args) : CLiquidV1Params(args)
     {
         // Our goal here is to override ONLY the things from liquidv1 that make no sense for a test chain / which are pointless and burdensome to require people to override manually.
 
@@ -1466,6 +1478,8 @@ public:
         enforce_pak = args.GetBoolArg("-enforce_pak", enforce_pak);
 
         multi_data_permitted = args.GetBoolArg("-multi_data_permitted", multi_data_permitted);
+        create_discount_ct = args.GetBoolArg("-creatediscountct", create_discount_ct);
+        accept_discount_ct = args.GetBoolArg("-acceptdiscountct", accept_discount_ct || create_discount_ct);
 
         if (args.IsArgSet("-parentgenesisblockhash")) {
             parentGenesisBlockHash = uint256S(args.GetArg("-parentgenesisblockhash", ""));
@@ -1557,7 +1571,7 @@ std::unique_ptr<const CChainParams> CreateChainParams(const ArgsManager& args, c
     } else if (chain == CBaseChainParams::REGTEST) {
         return std::unique_ptr<CChainParams>(new CRegTestParams(args));
     } else if (chain == CBaseChainParams::LIQUID1) {
-        return std::unique_ptr<CChainParams>(new CLiquidV1Params());
+        return std::unique_ptr<CChainParams>(new CLiquidV1Params(args));
     } else if (chain == CBaseChainParams::LIQUID1TEST) {
         return std::unique_ptr<CChainParams>(new CLiquidV1TestParams(args));
     } else if (chain == CBaseChainParams::LIQUIDTESTNET) {

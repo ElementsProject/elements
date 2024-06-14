@@ -3319,12 +3319,13 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
         for (; pindex; pindex = m_chainman.ActiveChain().Next(pindex))
         {
             if (pindex->trimmed()) {
-                // For simplicity, if any of the headers they're asking for are trimmed,
-                //   just drop the request.
-                LogPrint(BCLog::NET, "%s: ignoring getheaders from peer=%i which would return at least one trimmed header\n", __func__, pfrom.GetId());
-                return;
+                // Header is trimmed, reload from disk before sending
+                CBlockIndex tmpBlockIndexFull;
+                const CBlockIndex* pindexfull = pindex->untrim_to(&tmpBlockIndexFull);
+                vHeaders.push_back(pindexfull->GetBlockHeader());
+            } else {
+                vHeaders.push_back(pindex->GetBlockHeader());
             }
-            vHeaders.push_back(pindex->GetBlockHeader());
             if (--nLimit <= 0 || pindex->GetBlockHash() == hashStop)
                 break;
         }
@@ -4980,7 +4981,9 @@ bool PeerManagerImpl::SendMessages(CNode* pto)
                         auto txid = txinfo.tx->GetHash();
                         auto wtxid = txinfo.tx->GetWitnessHash();
                         // Peer told you to not send transactions at that feerate? Don't bother sending it.
-                        if (txinfo.fee < filterrate.GetFee(txinfo.vsize)) {
+                        // ELEMENTS: use the discounted vsize here so that discounted CTs are relayed.
+                        // discountvsize only differs from vsize if accept_discount_ct is true.
+                        if (txinfo.fee < filterrate.GetFee(txinfo.discountvsize)) {
                             continue;
                         }
                         if (pto->m_tx_relay->pfilter && !pto->m_tx_relay->pfilter->IsRelevantAndUpdate(*txinfo.tx)) continue;
