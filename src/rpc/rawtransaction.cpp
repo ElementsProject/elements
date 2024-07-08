@@ -43,6 +43,7 @@
 #include <util/rbf.h>
 #include <util/strencodings.h>
 #include <util/string.h>
+#include <util/vector.h>
 #include <validation.h>
 #include <validationinterface.h>
 #include <confidential_validation.h>
@@ -86,6 +87,79 @@ static void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& 
                 entry.pushKV("confirmations", 0);
         }
     }
+}
+
+static std::vector<RPCResult> DecodeTxDoc(const std::string& txid_field_doc)
+{
+    return {
+        // When updating this documentation, update `getrawtransaction` in the same way.
+        {RPCResult::Type::STR_HEX, "txid", "The transaction id"},
+        {RPCResult::Type::STR_HEX, "hash", "The transaction hash (differs from txid for witness transactions)"},
+        {RPCResult::Type::OBJ, "fee", "The fee specified in the transaction", {}, /*skip_type_check=*/true}, // Elements: this is an object
+        {RPCResult::Type::NUM, "size", "The serialized transaction size"},
+        {RPCResult::Type::NUM, "vsize", "The virtual transaction size (differs from size for witness transactions)"},
+        {RPCResult::Type::NUM, "weight", "The transaction's weight (between vsize*4-3 and vsize*4)"},
+        {RPCResult::Type::STR_HEX, "withash", /*optional=*/true, "The hash of the witness"}, // ELEMENTS FIXME: is this optional?
+        {RPCResult::Type::STR_HEX, "wtxid", /*optional=*/true, "The hash of the witness"}, // ELEMENTS FIXME: is this correct?
+        {RPCResult::Type::NUM, "version", "The version"},
+        {RPCResult::Type::NUM_TIME, "locktime", "The lock time"},
+        {RPCResult::Type::ARR, "vin", "",
+        {
+            {RPCResult::Type::OBJ, "", "",
+            {
+                {RPCResult::Type::STR_HEX, "coinbase", /*optional=*/true, "The coinbase value (only if coinbase transaction)"},
+                {RPCResult::Type::STR_HEX, "txid", /*optional=*/true, "The transaction id (if not coinbase transaction)"},
+                {RPCResult::Type::NUM, "vout", /*optional=*/true, "The output number (if not coinbase transaction)"},
+                {RPCResult::Type::OBJ, "scriptSig", /*optional=*/true, "The script (if not coinbase transaction)",
+                {
+                    {RPCResult::Type::STR, "asm", "asm"},
+                    {RPCResult::Type::STR_HEX, "hex", "hex"},
+                }},
+                {RPCResult::Type::ARR, "txinwitness", /*optional=*/true, "",
+                {
+                    {RPCResult::Type::STR_HEX, "hex", "hex-encoded witness data (if any)"},
+                }},
+                {RPCResult::Type::NUM, "sequence", "The script sequence number"},
+                {RPCResult::Type::BOOL, "is_pegin", "Is this input a pegin"},
+                {RPCResult::Type::ARR, "pegin_witness", /*optional=*/true, "",
+                {
+                    {RPCResult::Type::STR_HEX, "", "hex-encoded witness data (if any)"},
+                }},
+            }},
+        }},
+        {RPCResult::Type::ARR, "vout", "",
+        {
+            {RPCResult::Type::OBJ, "", "",
+            {
+                {RPCResult::Type::STR_AMOUNT, "value", /*optional=*/true, "The value in " + CURRENCY_UNIT + " if known"}, // ELEMENTS: present if not confidential
+                {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "Asset type for issuance if known"},
+                {RPCResult::Type::STR_HEX, "assetcommitment", /*optional=*/true, "Commitment for the asset"},
+                {RPCResult::Type::STR_HEX, "commitmentnonce", "The commitment nonce"},
+                {RPCResult::Type::BOOL, "commitmentnonce_fully_valid", "Whether the commitment nonce is fully valid"}, // ELEMENTS: FIXME (this is a pretty bad explanation)
+                {RPCResult::Type::NUM, "ct-bits", /*optional=*/true, "The mantissa of the range proof"},
+                {RPCResult::Type::NUM, "ct-exponent", /*optional=*/true, "The exponent of the range proof"},
+                {RPCResult::Type::NUM, "n", "index"},
+                {RPCResult::Type::STR_HEX, "surjectionproof", /*optional=*/true, "The surjection proof for the output"},
+                {RPCResult::Type::NUM, "value-maximum", /*optional=*/true, "The maximum value in the range of the confidential output"},
+                {RPCResult::Type::NUM, "value-minimum", /*optional=*/true, "The minimum value in the range of the confidential output"},
+                {RPCResult::Type::STR_HEX, "valuecommitment", /*optional=*/true, "The commitment for the range proof"}, // ELEMENTS FIXME: is this correct?
+                {RPCResult::Type::OBJ, "scriptPubKey", "",
+                {
+                    {RPCResult::Type::STR, "asm", "the asm"},
+                    {RPCResult::Type::STR, "desc", "Inferred descriptor for the output"},
+                    {RPCResult::Type::STR_HEX, "hex", "the hex"},
+                    {RPCResult::Type::STR, "pegout_address", /*optional=*/true, "(only pegout)"},
+                    {RPCResult::Type::STR, "pegout_asm", /*optional=*/true, "(only pegout) pegout scriptpubkey (asm)"},
+                    {RPCResult::Type::STR_HEX, "pegout_hex", /*optional=*/true, "(only pegout) pegout scriptpubkey (hex)"},
+                    {RPCResult::Type::STR_HEX, "pegout_chain", /*optional=*/true, "(only pegout) Hash of genesis block of parent chain"},
+                    {RPCResult::Type::STR_HEX, "pegout_desc", /*optional=*/true, ""}, // ELEMENTS FIXME: what is thiss field for?
+                    {RPCResult::Type::STR, "pegout_type", /*optional=*/true, "(only pegout) The pegout type, eg 'pubkeyhash'"},
+                    {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
+                    {RPCResult::Type::STR, "address", /*optional=*/true, "The Bitcoin address (only if a well-defined address exists)"},
+                }},
+            }},
+        }},
+    };
 }
 
 static std::vector<RPCArg> CreateTxDoc()
@@ -148,7 +222,7 @@ static RPCHelpMan getrawtransaction()
 {
     return RPCHelpMan{
                 "getrawtransaction",
-                "\nReturn the raw transaction data.\n"
+                "Return the raw transaction data.\n"
 
                 "\nBy default, this call only returns a transaction if it is in the mempool. If -txindex is enabled\n"
                 "and no blockhash argument is passed, it will return the transaction if it is in the mempool or any block.\n"
@@ -157,7 +231,7 @@ static RPCHelpMan getrawtransaction()
                 "\nHint: Use gettransaction for wallet transactions.\n"
 
                 "\nIf verbose is 'true', returns an Object with information about 'txid'.\n"
-                "If verbose is 'false' or omitted, returns a string that is serialized, hex-encoded data for 'txid'.\n",
+                "If verbose is 'false' or omitted, returns a string that is serialized, hex-encoded data for 'txid'.",
                 {
                     {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
                     {"verbose", RPCArg::Type::BOOL, RPCArg::Default{false}, "If false, return a string, otherwise return a json object"},
@@ -168,75 +242,18 @@ static RPCHelpMan getrawtransaction()
                          RPCResult::Type::STR, "data", "The serialized, hex-encoded data for 'txid'"
                      },
                      RPCResult{"if verbose is set to true",
-                         // When updating this documentation, update `decoderawtransaction` in the same way.
                          RPCResult::Type::OBJ, "", "",
+                         Cat<std::vector<RPCResult>>(
                          {
                              {RPCResult::Type::BOOL, "in_active_chain", /*optional=*/true, "Whether specified block is in the active chain or not (only present with explicit \"blockhash\" argument)"},
-                             {RPCResult::Type::STR_HEX, "hex", "The serialized, hex-encoded data for 'txid'"},
-                             {RPCResult::Type::STR_HEX, "txid", "The transaction id (same as provided)"},
-                             {RPCResult::Type::STR_HEX, "hash", "The transaction hash (differs from txid for witness transactions)"},
-                             {RPCResult::Type::STR_HEX, "wtxid", ""}, // ELEMENTS FIXME: what is this field?
-                             {RPCResult::Type::STR_HEX, "withash", "The hash of the witness"}, // ELEMENTS FIXME: is this optional?
-                             {RPCResult::Type::NUM, "size", "The serialized transaction size"},
-                             {RPCResult::Type::NUM, "vsize", "The virtual transaction size (differs from size for witness transactions)"},
-                             {RPCResult::Type::NUM, "weight", "The transaction's weight (between vsize*4-3 and vsize*4)"},
-                             {RPCResult::Type::NUM, "version", "The version"},
-                             {RPCResult::Type::NUM_TIME, "locktime", "The lock time"},
-                             {RPCResult::Type::ARR, "vin", "",
-                             {
-                                 {RPCResult::Type::OBJ, "", "",
-                                 {
-                                     {RPCResult::Type::STR_HEX, "coinbase", /*optional=*/true, "The coinbase value (only if coinbase transaction)"},
-                                     {RPCResult::Type::STR_HEX, "txid", /*optional=*/true, "The transaction id (if not coinbase transaction)"},
-                                     {RPCResult::Type::NUM, "vout", /*optional=*/true, "The output number (if not coinbase transaction)"},
-                                     {RPCResult::Type::OBJ, "scriptSig", /*optional=*/true, "The script (if not coinbase transaction)",
-                                     {
-                                         {RPCResult::Type::STR, "asm", "asm"},
-                                         {RPCResult::Type::STR_HEX, "hex", "hex"},
-                                     }},
-                                     {RPCResult::Type::ARR, "txinwitness", /*optional=*/true, "",
-                                     {
-                                        {RPCResult::Type::STR_HEX, "hex", "hex-encoded witness data (if any)"},
-                                     }},
-                                     {RPCResult::Type::BOOL, "is_pegin", /*optional=*/true, "Is this transaction a pegin"},
-                                     {RPCResult::Type::NUM, "sequence", "The script sequence number"},
-                                 }},
-                             }},
-                             {RPCResult::Type::ARR, "vout", "",
-                             {
-                                 {RPCResult::Type::OBJ, "", "",
-                                 {
-                                     {RPCResult::Type::STR_AMOUNT, "value", "The value in " + CURRENCY_UNIT},
-                                     {RPCResult::Type::STR_HEX, "asset", "The assetId being transacted"},
-                                     {RPCResult::Type::STR_HEX, "commitmentnonce", "The commitment nonce"},
-                                     {RPCResult::Type::BOOL, "commitmentnonce_fully_valid", "Whether the commitment nonce is fully valid"}, // ELEMENTS: FIXME (this is a pretty bad explanation)
-                                     {RPCResult::Type::NUM, "n", "index"},
-                                     {RPCResult::Type::OBJ, "scriptPubKey", "",
-                                     {
-                                         {RPCResult::Type::STR, "asm", "the asm"},
-                                         {RPCResult::Type::STR, "desc", "Inferred descriptor for the output"},
-                                         {RPCResult::Type::STR_HEX, "hex", "the hex"},
-                                         {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
-                                         {RPCResult::Type::STR, "address", /*optional=*/true, "The Bitcoin address (only if a well-defined address exists)"},
-                                         {RPCResult::Type::STR_HEX, "pegout_chain", /*optional=*/true, "(only pegout) Hash of genesis block of parent chain"},
-                                         {RPCResult::Type::STR_HEX, "pegout_desc", /*optional=*/true, ""}, // ELEMENTS FIXME: what is this field for?
-                                         {RPCResult::Type::STR, "pegout_asm", /*optional=*/true, "(only pegout) pegout scriptpubkey (asm)"},
-                                         {RPCResult::Type::STR_HEX, "pegout_hex", /*optional=*/true, "(only pegout) pegout scriptpubkey (hex)"},
-                                         {RPCResult::Type::STR, "pegout_type", /*optional=*/true, "(only pegout) The pegout type, eg 'pubkeyhash'"},
-                                         {RPCResult::Type::STR, "pegout_address", /*optional=*/true, "(only pegout)"},
-                                         {RPCResult::Type::ARR, "pegout_addresses", /*optional=*/ true, "(DEPRECATED, returned only if config option -deprecatedrpc=addresses is passed)",
-                                         {
-                                             {RPCResult::Type::STR, "address", ""},
-                                         }},
-                                     }},
-                                 }},
-                             }},
                              {RPCResult::Type::STR_HEX, "blockhash", /*optional=*/true, "the block hash"},
                              {RPCResult::Type::NUM, "confirmations", /*optional=*/true, "The confirmations"},
                              {RPCResult::Type::NUM_TIME, "blocktime", /*optional=*/true, "The block time expressed in " + UNIX_EPOCH_TIME},
                              {RPCResult::Type::NUM, "time", /*optional=*/true, "Same as \"blocktime\""},
                              {RPCResult::Type::OBJ, "fee", "The fee supplied for the transaction.", {}, /*skip_type_check=*/true}, // ELEMENTS: this is an object (assetId and value), but in bitcoin this is a STR_AMOUNT
-                        }
+                             {RPCResult::Type::STR_HEX, "hex", "The serialized, hex-encoded data for 'txid'"},
+                         },
+                         DecodeTxDoc(/*txid_field_doc=*/"The transaction id (same as provided)")),
                     },
                 },
                 RPCExamples{
@@ -359,7 +376,7 @@ static RPCHelpMan createrawtransaction()
 static RPCHelpMan decoderawtransaction()
 {
     return RPCHelpMan{"decoderawtransaction",
-                "\nReturn a JSON object representing the serialized, hex-encoded transaction.\n",
+                "Return a JSON object representing the serialized, hex-encoded transaction.",
                 {
                     {"hexstring", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction hex string"},
                     {"iswitness", RPCArg::Type::BOOL, RPCArg::DefaultHint{"depends on heuristic tests"}, "Whether the transaction hex is a serialized witness transaction.\n"
@@ -372,75 +389,7 @@ static RPCHelpMan decoderawtransaction()
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
-                    {
-                        // When updating this documentation, update `getrawtransaction` in the same way.
-                        {RPCResult::Type::STR_HEX, "txid", "The transaction id"},
-                        {RPCResult::Type::STR_HEX, "hash", "The transaction hash (differs from txid for witness transactions)"},
-                        {RPCResult::Type::OBJ, "fee", "The fee specified in the transaction", {}, /*skip_type_check=*/true}, // Elements: this is an object
-                        {RPCResult::Type::NUM, "size", "The serialized transaction size"},
-                        {RPCResult::Type::NUM, "vsize", "The virtual transaction size (differs from size for witness transactions)"},
-                        {RPCResult::Type::NUM, "weight", "The transaction's weight (between vsize*4-3 and vsize*4)"},
-                        {RPCResult::Type::STR_HEX, "withash", /*optional=*/true, "The hash of the witness"}, // ELEMENTS FIXME: is this optional?
-                        {RPCResult::Type::STR_HEX, "wtxid", /*optional=*/true, "The hash of the witness"}, // ELEMENTS FIXME: is this correct?
-                        {RPCResult::Type::NUM, "version", "The version"},
-                        {RPCResult::Type::NUM_TIME, "locktime", "The lock time"},
-                        {RPCResult::Type::ARR, "vin", "",
-                        {
-                            {RPCResult::Type::OBJ, "", "",
-                            {
-                                {RPCResult::Type::STR_HEX, "coinbase", /*optional=*/true, "The coinbase value (only if coinbase transaction)"},
-                                {RPCResult::Type::STR_HEX, "txid", /*optional=*/true, "The transaction id (if not coinbase transaction)"},
-                                {RPCResult::Type::NUM, "vout", /*optional=*/true, "The output number (if not coinbase transaction)"},
-                                {RPCResult::Type::OBJ, "scriptSig", /*optional=*/true, "The script (if not coinbase transaction)",
-                                {
-                                    {RPCResult::Type::STR, "asm", "asm"},
-                                    {RPCResult::Type::STR_HEX, "hex", "hex"},
-                                }},
-                                {RPCResult::Type::ARR, "txinwitness", /*optional=*/true, "",
-                                {
-                                    {RPCResult::Type::STR_HEX, "hex", "hex-encoded witness data (if any)"},
-                                }},
-                                {RPCResult::Type::NUM, "sequence", "The script sequence number"},
-                                {RPCResult::Type::BOOL, "is_pegin", "Is this input a pegin"},
-                                {RPCResult::Type::ARR, "pegin_witness", /*optional=*/true, "",
-                                {
-                                    {RPCResult::Type::STR_HEX, "", "hex-encoded witness data (if any)"},
-                                }},
-                            }},
-                        }},
-                        {RPCResult::Type::ARR, "vout", "",
-                        {
-                            {RPCResult::Type::OBJ, "", "",
-                            {
-                                {RPCResult::Type::STR_AMOUNT, "value", /*optional=*/true, "The value in " + CURRENCY_UNIT + " if known"}, // ELEMENTS: present if not confidential
-                                {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "Asset type for issuance if known"},
-                                {RPCResult::Type::STR_HEX, "assetcommitment", /*optional=*/true, "Commitment for the asset"},
-                                {RPCResult::Type::STR_HEX, "commitmentnonce", "The commitment nonce"},
-                                {RPCResult::Type::BOOL, "commitmentnonce_fully_valid", "Whether the commitment nonce is fully valid"}, // ELEMENTS: FIXME (this is a pretty bad explanation)
-                                {RPCResult::Type::NUM, "ct-bits", /*optional=*/true, "The mantissa of the range proof"},
-                                {RPCResult::Type::NUM, "ct-exponent", /*optional=*/true, "The exponent of the range proof"},
-                                {RPCResult::Type::NUM, "n", "index"},
-                                {RPCResult::Type::STR_HEX, "surjectionproof", /*optional=*/true, "The surjection proof for the output"},
-                                {RPCResult::Type::NUM, "value-maximum", /*optional=*/true, "The maximum value in the range of the confidential output"},
-                                {RPCResult::Type::NUM, "value-minimum", /*optional=*/true, "The minimum value in the range of the confidential output"},
-                                {RPCResult::Type::STR_HEX, "valuecommitment", /*optional=*/true, "The commitment for the range proof"}, // ELEMENTS FIXME: is this correct?
-                                {RPCResult::Type::OBJ, "scriptPubKey", "",
-                                {
-                                    {RPCResult::Type::STR, "asm", "the asm"},
-                                    {RPCResult::Type::STR, "desc", "Inferred descriptor for the output"},
-                                    {RPCResult::Type::STR_HEX, "hex", "the hex"},
-                                    {RPCResult::Type::STR, "pegout_address", /*optional=*/true, "(only pegout)"},
-                                    {RPCResult::Type::STR, "pegout_asm", /*optional=*/true, "(only pegout) pegout scriptpubkey (asm)"},
-                                    {RPCResult::Type::STR_HEX, "pegout_hex", /*optional=*/true, "(only pegout) pegout scriptpubkey (hex)"},
-                                    {RPCResult::Type::STR_HEX, "pegout_chain", /*optional=*/true, "(only pegout) Hash of genesis block of parent chain"},
-                                    {RPCResult::Type::STR_HEX, "pegout_desc", /*optional=*/true, ""}, // ELEMENTS FIXME: what is thiss field for?
-                                    {RPCResult::Type::STR, "pegout_type", /*optional=*/true, "(only pegout) The pegout type, eg 'pubkeyhash'"},
-                                    {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
-                                    {RPCResult::Type::STR, "address", /*optional=*/true, "The Bitcoin address (only if a well-defined address exists)"},
-                                }},
-                            }},
-                        }},
-                    }
+                    DecodeTxDoc(/*txid_field_doc=*/"The transaction id"),
                 },
                 RPCExamples{
                     HelpExampleCli("decoderawtransaction", "\"hexstring\"")
