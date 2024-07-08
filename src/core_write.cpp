@@ -24,6 +24,10 @@
 
 #include <secp256k1_rangeproof.h>
 
+#include <map>
+#include <string>
+#include <vector>
+
 static secp256k1_context* secp256k1_blind_context = NULL;
 
 class RPCRawTransaction_ECC_Init {
@@ -181,27 +185,24 @@ UniValue EncodeHexScriptWitness(const CScriptWitness& witness)
     return witness_hex;
 }
 
-void ScriptToUniv(const CScript& script, UniValue& out)
-{
-    ScriptPubKeyToUniv(script, out, /* include_hex */ true, /* include_address */ false);
-}
-
 // ELEMENTS:
-static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool include_hex, bool include_addresses, bool is_parent_chain)
+static void SidechainScriptPubKeyToJSON(const CScript& script, UniValue& out, bool include_hex, bool include_addresses, bool is_parent_chain)
 {
     const std::string prefix = is_parent_chain ? "pegout_" : "";
     CTxDestination address;
 
-    out.pushKV(prefix + "asm", ScriptToAsmStr(scriptPubKey));
+    out.pushKV(prefix + "asm", ScriptToAsmStr(script));
     if (include_addresses) {
-        out.pushKV(prefix + "desc", InferDescriptor(scriptPubKey, DUMMY_SIGNING_PROVIDER)->ToString());
+        out.pushKV(prefix + "desc", InferDescriptor(script, DUMMY_SIGNING_PROVIDER)->ToString());
     }
-    if (include_hex) out.pushKV(prefix + "hex", HexStr(scriptPubKey));
+    if (include_hex) {
+        out.pushKV(prefix + "hex", HexStr(script));
+    }
 
     std::vector<std::vector<unsigned char>> solns;
-    const TxoutType type{Solver(scriptPubKey, solns)};
+    const TxoutType type{Solver(script, solns)};
 
-    if (include_addresses && ExtractDestination(scriptPubKey, address) && type != TxoutType::PUBKEY) {
+    if (include_addresses && ExtractDestination(script, address) && type != TxoutType::PUBKEY) {
         if (is_parent_chain) {
             out.pushKV(prefix + "address", EncodeParentDestination(address));
         } else {
@@ -211,22 +212,19 @@ static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& o
     out.pushKV(prefix + "type", GetTxnOutputType(type));
 }
 
-// TODO: from v23 ("addresses" and "reqSigs" deprecated) this method should be refactored to remove the `include_addresses` option
-// this method can also be combined with `ScriptToUniv` as they will overlap
-void ScriptPubKeyToUniv(const CScript& scriptPubKey,
-                        UniValue& out, bool fIncludeHex, bool include_addresses)
+void ScriptToUniv(const CScript& script, UniValue& out, bool include_hex, bool include_addresses)
 {
-    SidechainScriptPubKeyToJSON(scriptPubKey, out, fIncludeHex, include_addresses, false);
+    SidechainScriptPubKeyToJSON(script, out, include_hex, include_addresses, false);
 
     uint256 pegout_chain;
     CScript pegout_scriptpubkey;
-    if (scriptPubKey.IsPegoutScript(pegout_chain, pegout_scriptpubkey)) {
+    if (script.IsPegoutScript(pegout_chain, pegout_scriptpubkey)) {
         out.pushKV("pegout_chain", pegout_chain.GetHex());
-        SidechainScriptPubKeyToJSON(pegout_scriptpubkey, out, fIncludeHex, include_addresses, true);
+        SidechainScriptPubKeyToJSON(pegout_scriptpubkey, out, include_hex, include_addresses, true);
     }
 }
 
-void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags, const CTxUndo* txundo, TxVerbosity verbosity)
+void TxToUniv(const CTransaction& tx, const uint256& block_hash, UniValue& entry, bool include_hex, int serialize_flags, const CTxUndo* txundo, TxVerbosity verbosity)
 {
     entry.pushKV("txid", tx.GetHash().GetHex());
     entry.pushKV("hash", tx.GetWitnessHash().GetHex());
@@ -271,7 +269,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
 
             if (verbosity == TxVerbosity::SHOW_DETAILS_AND_PREVOUT) {
                 UniValue o_script_pub_key(UniValue::VOBJ);
-                ScriptPubKeyToUniv(prev_txout.scriptPubKey, o_script_pub_key, /*include_hex=*/ true);
+                ScriptToUniv(prev_txout.scriptPubKey, /*out=*/o_script_pub_key, /*include_hex=*/true, /*include_address=*/true);
 
                 UniValue p(UniValue::VOBJ);
                 p.pushKV("generated", bool(prev_coin.fCoinBase));
@@ -397,7 +395,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         out.pushKV("n", (int64_t)i);
 
         UniValue o(UniValue::VOBJ);
-        ScriptPubKeyToUniv(txout.scriptPubKey, o, true);
+        ScriptToUniv(txout.scriptPubKey, /*out=*/o, /*include_hex=*/true, /*include_address=*/true);
         out.pushKV("scriptPubKey", o);
         vout.push_back(out);
     }
@@ -416,8 +414,9 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         entry.pushKV("fee", fee_obj);
     }
 
-    if (!hashBlock.IsNull())
-        entry.pushKV("blockhash", hashBlock.GetHex());
+    if (!block_hash.IsNull()) {
+        entry.pushKV("blockhash", block_hash.GetHex());
+    }
 
     if (include_hex) {
         entry.pushKV("hex", EncodeHexTx(tx, serialize_flags)); // The hex-encoded transaction. Used the name "hex" to be consistent with the verbose output of "getrawtransaction".
