@@ -67,8 +67,8 @@ public:
     // ELEMENTS:
     bool IsPeginSpent(const std::pair<uint256, COutPoint> &outpoint) const override;
 
-    //! Attempt to update from an older database format. Returns whether an error occurred.
-    bool Upgrade();
+    //! Whether an unsupported database format is used.
+    bool NeedsUpgrade();
     size_t EstimateSize() const override;
 
     //! Dynamically alter the underlying leveldb cache size.
