@@ -168,6 +168,7 @@ static RPCHelpMan getrawtransaction()
                          RPCResult::Type::STR, "data", "The serialized, hex-encoded data for 'txid'"
                      },
                      RPCResult{"if verbose is set to true",
+                         // When updating this documentation, update `decoderawtransaction` in the same way.
                          RPCResult::Type::OBJ, "", "",
                          {
                              {RPCResult::Type::BOOL, "in_active_chain", /*optional=*/true, "Whether specified block is in the active chain or not (only present with explicit \"blockhash\" argument)"},
@@ -185,26 +186,27 @@ static RPCHelpMan getrawtransaction()
                              {
                                  {RPCResult::Type::OBJ, "", "",
                                  {
-                                     {RPCResult::Type::STR_HEX, "txid", "The transaction id"},
-                                     {RPCResult::Type::NUM, "vout", "The output number"},
-                                     {RPCResult::Type::OBJ, "scriptSig", "The script",
+                                     {RPCResult::Type::STR_HEX, "coinbase", /*optional=*/true, "The coinbase value (only if coinbase transaction)"},
+                                     {RPCResult::Type::STR_HEX, "txid", /*optional=*/true, "The transaction id (if not coinbase transaction)"},
+                                     {RPCResult::Type::NUM, "vout", /*optional=*/true, "The output number (if not coinbase transaction)"},
+                                     {RPCResult::Type::OBJ, "scriptSig", /*optional=*/true, "The script (if not coinbase transaction)",
                                      {
                                          {RPCResult::Type::STR, "asm", "asm"},
                                          {RPCResult::Type::STR_HEX, "hex", "hex"},
                                      }},
-                                     {RPCResult::Type::NUM, "sequence", "The script sequence number"},
                                      {RPCResult::Type::ARR, "txinwitness", /*optional=*/true, "",
                                      {
                                         {RPCResult::Type::STR_HEX, "hex", "hex-encoded witness data (if any)"},
                                      }},
                                      {RPCResult::Type::BOOL, "is_pegin", /*optional=*/true, "Is this transaction a pegin"},
+                                     {RPCResult::Type::NUM, "sequence", "The script sequence number"},
                                  }},
                              }},
                              {RPCResult::Type::ARR, "vout", "",
                              {
                                  {RPCResult::Type::OBJ, "", "",
                                  {
-                                     {RPCResult::Type::NUM, "value", "The value in " + CURRENCY_UNIT},
+                                     {RPCResult::Type::STR_AMOUNT, "value", "The value in " + CURRENCY_UNIT},
                                      {RPCResult::Type::STR_HEX, "asset", "The assetId being transacted"},
                                      {RPCResult::Type::STR_HEX, "commitmentnonce", "The commitment nonce"},
                                      {RPCResult::Type::BOOL, "commitmentnonce_fully_valid", "Whether the commitment nonce is fully valid"}, // ELEMENTS: FIXME (this is a pretty bad explanation)
@@ -213,7 +215,7 @@ static RPCHelpMan getrawtransaction()
                                      {
                                          {RPCResult::Type::STR, "asm", "the asm"},
                                          {RPCResult::Type::STR, "desc", "Inferred descriptor for the output"},
-                                         {RPCResult::Type::STR, "hex", "the hex"},
+                                         {RPCResult::Type::STR_HEX, "hex", "the hex"},
                                          {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
                                          {RPCResult::Type::STR, "address", /*optional=*/true, "The Bitcoin address (only if a well-defined address exists)"},
                                          {RPCResult::Type::STR_HEX, "pegout_chain", /*optional=*/true, "(only pegout) Hash of genesis block of parent chain"},
@@ -371,12 +373,13 @@ static RPCHelpMan decoderawtransaction()
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
                     {
+                        // When updating this documentation, update `getrawtransaction` in the same way.
                         {RPCResult::Type::STR_HEX, "txid", "The transaction id"},
                         {RPCResult::Type::STR_HEX, "hash", "The transaction hash (differs from txid for witness transactions)"},
                         {RPCResult::Type::OBJ, "fee", "The fee specified in the transaction", {}, /*skip_type_check=*/true}, // Elements: this is an object
-                        {RPCResult::Type::NUM, "size", "The transaction size"},
+                        {RPCResult::Type::NUM, "size", "The serialized transaction size"},
                         {RPCResult::Type::NUM, "vsize", "The virtual transaction size (differs from size for witness transactions)"},
-                        {RPCResult::Type::NUM, "weight", "The transaction's weight (between vsize*4 - 3 and vsize*4)"},
+                        {RPCResult::Type::NUM, "weight", "The transaction's weight (between vsize*4-3 and vsize*4)"},
                         {RPCResult::Type::STR_HEX, "withash", /*optional=*/true, "The hash of the witness"}, // ELEMENTS FIXME: is this optional?
                         {RPCResult::Type::STR_HEX, "wtxid", /*optional=*/true, "The hash of the witness"}, // ELEMENTS FIXME: is this correct?
                         {RPCResult::Type::NUM, "version", "The version"},
@@ -385,10 +388,10 @@ static RPCHelpMan decoderawtransaction()
                         {
                             {RPCResult::Type::OBJ, "", "",
                             {
-                                {RPCResult::Type::STR_HEX, "coinbase", /*optional=*/true, ""},
-                                {RPCResult::Type::STR_HEX, "txid", /*optional=*/true, "The transaction id"},
-                                {RPCResult::Type::NUM, "vout", /*optional=*/true, "The output number"},
-                                {RPCResult::Type::OBJ, "scriptSig", /*optional=*/true, "The script",
+                                {RPCResult::Type::STR_HEX, "coinbase", /*optional=*/true, "The coinbase value (only if coinbase transaction)"},
+                                {RPCResult::Type::STR_HEX, "txid", /*optional=*/true, "The transaction id (if not coinbase transaction)"},
+                                {RPCResult::Type::NUM, "vout", /*optional=*/true, "The output number (if not coinbase transaction)"},
+                                {RPCResult::Type::OBJ, "scriptSig", /*optional=*/true, "The script (if not coinbase transaction)",
                                 {
                                     {RPCResult::Type::STR, "asm", "asm"},
                                     {RPCResult::Type::STR_HEX, "hex", "hex"},
@@ -409,7 +412,7 @@ static RPCHelpMan decoderawtransaction()
                         {
                             {RPCResult::Type::OBJ, "", "",
                             {
-                                {RPCResult::Type::NUM, "value", /*optional=*/true, "The value in " + CURRENCY_UNIT + " if known"}, // ELEMENTS: present if not confidential
+                                {RPCResult::Type::STR_AMOUNT, "value", /*optional=*/true, "The value in " + CURRENCY_UNIT + " if known"}, // ELEMENTS: present if not confidential
                                 {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "Asset type for issuance if known"},
                                 {RPCResult::Type::STR_HEX, "assetcommitment", /*optional=*/true, "Commitment for the asset"},
                                 {RPCResult::Type::STR_HEX, "commitmentnonce", "The commitment nonce"},
