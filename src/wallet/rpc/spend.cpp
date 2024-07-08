@@ -123,7 +123,7 @@ static UniValue FinishTransaction(const std::shared_ptr<CWallet> pwallet, const 
         CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
         result.pushKV("txid", tx->GetHash().GetHex());
         if (add_to_wallet && !psbt_opt_in) {
-            pwallet->CommitTransaction(tx, {}, /*orderForm*/ {});
+            pwallet->CommitTransaction(tx, {}, /*orderForm=*/{});
         } else {
             result.pushKV("hex", hex);
         }
@@ -214,7 +214,7 @@ static void SetFeeEstimateMode(const CWallet& wallet, CCoinControl& cc, const Un
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot specify both estimate_mode and fee_rate");
         }
         // Fee rates in sat/vB cannot represent more than 3 significant digits.
-        cc.m_feerate = CFeeRate{AmountFromValue(fee_rate, /* decimals */ 3)};
+        cc.m_feerate = CFeeRate{AmountFromValue(fee_rate, /*decimals=*/3)};
         if (override_min_fee) cc.fOverrideFeeRate = true;
         // Default RBF to true for explicit fee_rate, if unset.
         if (!cc.m_signal_bip125_rbf) cc.m_signal_bip125_rbf = true;
@@ -325,7 +325,7 @@ RPCHelpMan sendtoaddress()
         ignore_blind_fail = request.params[10].get_bool();
     }
 
-    SetFeeEstimateMode(*pwallet, coin_control, /* conf_target */ request.params[6], /* estimate_mode */ request.params[7], /* fee_rate */ request.params[11], /* override_min_fee */ false);
+    SetFeeEstimateMode(*pwallet, coin_control, /*conf_target=*/request.params[6], /*estimate_mode=*/request.params[7], /*fee_rate=*/request.params[11], /*override_min_fee=*/false);
 
     EnsureWalletIsUnlocked(*pwallet);
 
@@ -436,7 +436,7 @@ RPCHelpMan sendmany()
         coin_control.m_signal_bip125_rbf = request.params[5].get_bool();
     }
 
-    SetFeeEstimateMode(*pwallet, coin_control, /* conf_target */ request.params[6], /* estimate_mode */ request.params[7], /* fee_rate */ request.params[10], /* override_min_fee */ false);
+    SetFeeEstimateMode(*pwallet, coin_control, /*conf_target=*/request.params[6], /*estimate_mode=*/request.params[7], /*fee_rate=*/request.params[10], /*override_min_fee=*/false);
 
     UniValue assets;
     if (!request.params[8].isNull()) {
@@ -952,7 +952,7 @@ RPCHelpMan fundrawtransaction()
     CCoinControl coin_control;
     // Automatically select (additional) coins. Can be overridden by options.add_inputs.
     coin_control.m_add_inputs = true;
-    FundTransaction(*pwallet, tx, fee, change_position, request.params[1], coin_control, request.params[3], /* override_min_fee */ true);
+    FundTransaction(*pwallet, tx, fee, change_position, request.params[1], coin_control, request.params[3], /*override_min_fee=*/true);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("hex", EncodeHexTx(CTransaction(tx)));
@@ -1160,7 +1160,7 @@ static RPCHelpMan bumpfee_helper(std::string method_name)
         if (options.exists("replaceable")) {
             coin_control.m_signal_bip125_rbf = options["replaceable"].get_bool();
         }
-        SetFeeEstimateMode(*pwallet, coin_control, conf_target, options["estimate_mode"], options["fee_rate"], /* override_min_fee */ false);
+        SetFeeEstimateMode(*pwallet, coin_control, conf_target, options["estimate_mode"], options["fee_rate"], /*override_min_fee=*/false);
     }
 
     // Make sure the results are valid at least up to the most recent block
@@ -1362,7 +1362,7 @@ RPCHelpMan send()
                 solving_data = options["solving_data"].get_obj();
             }
             SetOptionsInputWeights(options["inputs"], options);
-            FundTransaction(*pwallet, rawTx, fee, change_position, options, coin_control, /* solving_data */ solving_data, /* override_min_fee */ false);
+            FundTransaction(*pwallet, rawTx, fee, change_position, options, coin_control, /*solving_data=*/solving_data, /*override_min_fee=*/false);
 
             return FinishTransaction(pwallet, options, rawTx);
         }
@@ -1910,7 +1910,7 @@ RPCHelpMan walletcreatefundedpsbt()
         }
     }
     SetOptionsInputWeights(request.params[0], options);
-    FundTransaction(wallet, rawTx, fee, change_position, options, coin_control, /* solving_data */ request.params[5], /* override_min_fee */ true);
+    FundTransaction(wallet, rawTx, fee, change_position, options, coin_control, /*solving_data=*/request.params[5], /*override_min_fee=*/true);
     // Find an input that is ours
     unsigned int blinder_index = 0;
     {

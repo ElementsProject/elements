@@ -679,7 +679,7 @@ bool SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, 
         CTxIn& txin = mtx.vin[i];
         auto coin = coins.find(txin.prevout);
         if (coin == coins.end() || coin->second.IsSpent()) {
-            txdata.Init(txConst, /* spent_outputs */ {}, /* force */ true);
+            txdata.Init(txConst, /*spent_outputs=*/{}, /*force=*/true);
             break;
         } else {
             spent_outputs.emplace_back(coin->second.out.nAsset, coin->second.out.nValue, coin->second.out.scriptPubKey);

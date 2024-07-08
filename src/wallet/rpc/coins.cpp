@@ -133,7 +133,7 @@ RPCHelpMan getreceivedbyaddress()
         asset = request.params[2].get_str();
     }
 
-    return AmountMapToUniv(GetReceived(*pwallet, request.params, /* by_label */ false), asset);
+    return AmountMapToUniv(GetReceived(*pwallet, request.params, /*by_label=*/false), asset);
 },
     };
 }
@@ -185,7 +185,7 @@ RPCHelpMan getreceivedbylabel()
         asset = request.params[2].get_str();
     }
 
-    return AmountMapToUniv(GetReceived(*pwallet, request.params, /* by_label */ true), asset);
+    return AmountMapToUniv(GetReceived(*pwallet, request.params, /*by_label=*/true), asset);
 },
     };
 }
