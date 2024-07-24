@@ -579,6 +579,10 @@ RPCConsole::RPCConsole(interfaces::Node& node, const PlatformStyle *_platformSty
     clear();
 
     GUIUtil::handleCloseWindowShortcut(this);
+#if defined(Q_OS_MAC) && defined(__aarch64__)
+    // MacOS default is apparently 0x80000, too small for MacOS arm; use linux-like size instead
+    thread.setStackSize(0x800000);
+#endif
 }
 
 RPCConsole::~RPCConsole()
