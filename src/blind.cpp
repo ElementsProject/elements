@@ -283,7 +283,7 @@ void CreateValueCommitment(CConfidentialValue& conf_value, secp256k1_pedersen_co
     assert(conf_value.IsValid());
 }
 
-int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<CAsset >& input_assets, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& out_val_blind_factors, std::vector<uint256 >& out_asset_blind_factors, const std::vector<CPubKey>& output_pubkeys, const std::vector<CKey>& issuance_blinding_privkey, const std::vector<CKey>& token_blinding_privkey, CMutableTransaction& tx, std::vector<std::vector<unsigned char> >* auxiliary_generators)
+BlindInfo BlindTransaction(std::vector<uint256>& input_value_blinding_factors, const std::vector<uint256>& input_asset_blinding_factors, const std::vector<CAsset>& input_assets, const std::vector<CAmount>& input_amounts, std::vector<uint256>& out_val_blind_factors, std::vector<uint256>& out_asset_blind_factors, const std::vector<CPubKey>& output_pubkeys, const std::vector<CKey>& issuance_blinding_privkey, const std::vector<CKey>& token_blinding_privkey, CMutableTransaction& tx, std::vector<std::vector<unsigned char>>* auxiliary_generators)
 {
     // Sanity check input data and output_pubkey size, clear other output data
     assert(tx.vout.size() >= output_pubkeys.size());
@@ -304,8 +304,8 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
     value_blindptrs.reserve(tx.vout.size() + tx.vin.size());
     asset_blindptrs.reserve(tx.vout.size() + tx.vin.size());
 
-    int ret;
-    int num_blind_attempts = 0, num_issuance_blind_attempts = 0, num_blinded = 0;
+    int num_blind_attempts = 0, num_issuance_blind_attempts = 0;
+    uint16_t num_blinded = 0;
 
     //Surjection proof prep
 
@@ -337,18 +337,16 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
             // If non-empty generator exists, parse
             if (auxiliary_generators) {
                 // Parse generator here
-                ret = secp256k1_generator_parse(secp256k1_blind_context, &target_asset_generators[totalTargets], &(*auxiliary_generators)[i][0]);
-                if (ret != 1) {
-                    return -1;
+                if (secp256k1_generator_parse(secp256k1_blind_context, &target_asset_generators[totalTargets], &(*auxiliary_generators)[i][0]) != 1) {
+                    return BlindInfo { BlindStatus::ERR_GENERATOR_PARSE , num_blinded };
                 }
             } else {
-                return -1;
+                return BlindInfo { BlindStatus::ERR_NO_AUX_GENERATORS, num_blinded };
             }
         } else {
-            ret = secp256k1_generator_generate_blinded(secp256k1_blind_context, &target_asset_generators[totalTargets], input_assets[i].begin(), input_asset_blinding_factors[i].begin());
-            if (ret != 1) {
+            if (secp256k1_generator_generate_blinded(secp256k1_blind_context, &target_asset_generators[totalTargets], input_assets[i].begin(), input_asset_blinding_factors[i].begin()) != 1) {
                 // Possibly invalid blinding factor provided by user.
-                return -1;
+                return BlindInfo { BlindStatus::ERR_FAIL_BLINDED_GENERATOR, num_blinded };
             }
         }
         memcpy(&surjection_targets[totalTargets], input_assets[i].begin(), 32);
@@ -362,7 +360,7 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
         CAsset token;
         if (!issuance.IsNull()) {
             if (issuance.nAmount.IsCommitment() || issuance.nInflationKeys.IsCommitment()) {
-                return -1;
+                return BlindInfo { BlindStatus::ERR_ISSUANCE_INVALID, num_blinded };
             }
             // New Issuance
             if (issuance.assetBlindingNonce.IsNull()) {
@@ -376,7 +374,7 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
 
             if (!issuance.nAmount.IsNull()) {
                 memcpy(&surjection_targets[totalTargets], asset.begin(), 32);
-                ret = secp256k1_generator_generate(secp256k1_blind_context, &target_asset_generators[totalTargets], asset.begin());
+                int ret = secp256k1_generator_generate(secp256k1_blind_context, &target_asset_generators[totalTargets], asset.begin());
                 assert(ret != 0);
                 // Issuance asset cannot be blinded by definition
                 target_asset_blinders.push_back(uint256());
@@ -385,7 +383,7 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
             if (!issuance.nInflationKeys.IsNull()) {
                 assert(!token.IsNull());
                 memcpy(&surjection_targets[totalTargets], token.begin(), 32);
-                ret = secp256k1_generator_generate(secp256k1_blind_context, &target_asset_generators[totalTargets], token.begin());
+                int ret = secp256k1_generator_generate(secp256k1_blind_context, &target_asset_generators[totalTargets], token.begin());
                 assert(ret != 0);
                 // Issuance asset cannot be blinded by definition
                 target_asset_blinders.push_back(uint256());
@@ -398,9 +396,8 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
         // Process any additional targets from auxiliary_generators
         // we know nothing about it other than the generator itself
         for (size_t i = tx.vin.size(); i < auxiliary_generators->size(); i++) {
-            ret = secp256k1_generator_parse(secp256k1_blind_context, &target_asset_generators[totalTargets], &(*auxiliary_generators)[i][0]);
-            if (ret != 1) {
-                return -1;
+            if (secp256k1_generator_parse(secp256k1_blind_context, &target_asset_generators[totalTargets], &(*auxiliary_generators)[i][0]) != 1) {
+                return BlindInfo { BlindStatus::ERR_GENERATOR_PARSE, num_blinded };
             }
             memset(&surjection_targets[totalTargets], 0, 32);
             target_asset_blinders.push_back(uint256());
@@ -426,7 +423,7 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
         if (!input_value_blinding_factors[nIn].IsNull() || !input_asset_blinding_factors[nIn].IsNull()) {
             if (input_amounts[nIn] < 0) {
-                return -1;
+                return BlindInfo { BlindStatus::ERR_NEGATIVE_INPUT_AMOUNT , num_blinded };
             }
             value_blindptrs.push_back(input_value_blinding_factors[nIn].begin());
             asset_blindptrs.push_back(input_asset_blinding_factors[nIn].begin());
@@ -442,14 +439,14 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
                 if(issuance.nAmount.IsExplicit() && tx.witness.vtxinwit[nIn].vchIssuanceAmountRangeproof.empty()) {
                     num_to_blind++;
                 } else {
-                    return -1;
+                    return BlindInfo { BlindStatus::ERR_ISSUANCE_INVALID, num_blinded };
                 }
             }
             if (token_blinding_privkey.size() > nIn && token_blinding_privkey[nIn].IsValid()) {
                 if(issuance.nInflationKeys.IsExplicit() && tx.witness.vtxinwit[nIn].vchInflationKeysRangeproof.empty()) {
                     num_to_blind++;
                 } else {
-                    return -1;
+                    return BlindInfo { BlindStatus::ERR_ISSUANCE_INVALID, num_blinded };
                 }
             }
         }
@@ -458,18 +455,21 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
     for (size_t nOut = 0; nOut < output_pubkeys.size(); nOut++) {
         if (output_pubkeys[nOut].IsValid()) {
             // Keys must be valid and outputs completely unblinded or else call fails
+            bool is_fee = tx.vout[nOut].IsFee();
             if (!output_pubkeys[nOut].IsFullyValid() ||
                 (!tx.vout[nOut].nValue.IsExplicit() || !tx.vout[nOut].nAsset.IsExplicit()) ||
                    (txoutwitsize > nOut && !tx.witness.vtxoutwit[nOut].IsNull())
-                        || tx.vout[nOut].IsFee()) {
-                return -1;
+                        || is_fee) {
+                auto status = BlindStatus::ERR_PUBKEY_INVALID_OR_OUTPUTS_BLINDED;
+                if (is_fee) status = BlindStatus::ERR_OUTPUT_IS_FEE;
+                return BlindInfo { status, num_blinded };
             }
             num_to_blind++;
          }
     }
 
 
-    //Running total of newly blinded outputs
+    // Running total of newly blinded outputs
     static const unsigned char diff_zero[32] = {0};
     assert(num_to_blind <= 10000); // More than 10k outputs? Stop spamming.
     unsigned char blind[10000][32];
@@ -514,16 +514,16 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
                 }
 
                 // Fill out the value blinders and blank asset blinder
-                GetStrongRandBytes(&blind[num_blind_attempts-1][0], 32);
+                GetStrongRandBytes(&blind[num_blind_attempts - 1][0], 32);
                 // Issuances are not asset-blinded
-                memset(&asset_blind[num_blind_attempts-1][0], 0, 32);
-                value_blindptrs.push_back(&blind[num_blind_attempts-1][0]);
-                asset_blindptrs.push_back(&asset_blind[num_blind_attempts-1][0]);
+                memset(&asset_blind[num_blind_attempts - 1][0], 0, 32);
+                value_blindptrs.push_back(&blind[num_blind_attempts - 1][0]);
+                asset_blindptrs.push_back(&asset_blind[num_blind_attempts - 1][0]);
 
                 if (num_blind_attempts == num_to_blind) {
                     // All outputs we own are unblinded, we don't support this type of blinding
                     // though it is possible. No privacy gained here, incompatible with secp api
-                    return num_blinded;
+                    return BlindInfo { BlindStatus::ERR_ALL_OUTPUTS_OWNED_UNBLINDED, num_blinded };
                 }
 
                 if (tx.witness.vtxinwit.size() <= nIn) {
@@ -579,14 +579,13 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
                 // Adversary would need to create all input blinds
                 // therefore would already know all your summed output amount anyways.
                 if (num_blind_attempts == 1 && num_known_input_blinds == 0) {
-                    return num_blinded;
+                    return BlindInfo { BlindStatus::ERR_SINGLE_ATTEMPT_WITH_NO_INPUT_BLINDS, num_blinded };
                 }
 
                 // Generate value we intend to insert
-                ret = secp256k1_pedersen_blind_generator_blind_sum(secp256k1_blind_context, &blinded_amounts[0], &asset_blindptrs[0], &value_blindptrs[0], num_blind_attempts + num_known_input_blinds, num_issuance_blind_attempts + num_known_input_blinds);
-                if (!ret) {
+                if (!secp256k1_pedersen_blind_generator_blind_sum(secp256k1_blind_context, &blinded_amounts[0], &asset_blindptrs[0], &value_blindptrs[0], num_blind_attempts + num_known_input_blinds, num_issuance_blind_attempts + num_known_input_blinds)) {
                     // Possibly invalid blinding factor provided by user.
-                    return -1;
+                    return BlindInfo { BlindStatus::ERR_BLINDING_KEY_INVALID, num_blinded };
                 }
 
                 // Resulting blinding factor can sometimes be 0
@@ -598,7 +597,7 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
                 // abort and not blind and the math adds up.
                 // Count as success(to signal caller that nothing wrong) and return early
                 if (memcmp(diff_zero, &blind[num_blind_attempts-1][0], 32) == 0) {
-                    return ++num_blinded;
+                    return BlindInfo { BlindStatus::SUCCESS, ++num_blinded };
                 }
             }
 
@@ -630,7 +629,7 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
         }
     }
 
-    return num_blinded;
+    return BlindInfo { BlindStatus::SUCCESS, num_blinded };
 }
 
 void RawFillBlinds(CMutableTransaction& tx, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CPubKey>& output_pubkeys) {
@@ -652,4 +651,36 @@ void RawFillBlinds(CMutableTransaction& tx, std::vector<uint256>& output_value_b
     }
     assert(output_pubkeys.size() == tx.vout.size());
     // We cannot unwind issuance inputs because there is no nonce placeholder for pubkeys
+}
+
+std::string BlindStatusString(const BlindStatus status)
+{
+    switch (status)
+    {
+        case BlindStatus::SUCCESS:
+            return "All outputs successfully blinded.";
+        case BlindStatus::ERR_GENERATOR_PARSE:
+            return "Failed to parse the auxiliary generator.";
+        case BlindStatus::ERR_NO_AUX_GENERATORS:
+            return "Missing expected auxiliary generator.";
+        case BlindStatus::ERR_FAIL_BLINDED_GENERATOR:
+            return "Failed to generate a blinded generator for the curve.";
+        case BlindStatus::ERR_ISSUANCE_INVALID:
+            return "Issuance outputs are invalid. Either they are already blinded, or they had existing range proofs.";
+        case BlindStatus::ERR_NEGATIVE_INPUT_AMOUNT:
+            return "Given input amount is invalid as it is negative.";
+        case BlindStatus::ERR_PUBKEY_INVALID_OR_OUTPUTS_BLINDED:
+            return "Given PubKey is either invalid or the outputs were already blinded.";
+        case BlindStatus::ERR_OUTPUT_IS_FEE:
+            return "Fee outputs must be explicit.";
+        case BlindStatus::ERR_ALL_OUTPUTS_OWNED_UNBLINDED:
+            return "All outputs we own are unblinded. This type of blinding is not supported.";
+        case BlindStatus::ERR_BLINDING_KEY_INVALID:
+            return "A blinding factor or generator blind are invalid. Retry with different values.";
+        case BlindStatus::ERR_SINGLE_ATTEMPT_WITH_NO_INPUT_BLINDS:
+            return "Number of known input blinds is 0 and number of blind attempts is 1.";
+        default:
+            break;
+    }
+    return "unknown error";
 }
