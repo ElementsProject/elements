@@ -896,7 +896,7 @@ protected:
         consensus.fedpegScript = StrHexToScriptWithDefault(args.GetArg("-fedpegscript", ""), default_script);
         consensus.start_p2wsh_script = args.GetIntArg("-con_start_p2wsh_script", consensus.start_p2wsh_script);
         create_discount_ct = args.GetBoolArg("-creatediscountct", false);
-        accept_discount_ct = args.GetBoolArg("-acceptdiscountct", create_discount_ct);
+        accept_discount_ct = args.GetBoolArg("-acceptdiscountct", false) || create_discount_ct;
 
         // Calculate pegged Bitcoin asset
         std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
@@ -1129,7 +1129,7 @@ public:
 
         multi_data_permitted = true;
         create_discount_ct = args.GetBoolArg("-creatediscountct", false);
-        accept_discount_ct = args.GetBoolArg("-acceptdiscountct", false);
+        accept_discount_ct = args.GetBoolArg("-acceptdiscountct", false) || create_discount_ct;
 
         parentGenesisBlockHash = uint256S("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f");
         const bool parent_genesis_is_null = parentGenesisBlockHash == uint256();
@@ -1479,7 +1479,7 @@ public:
 
         multi_data_permitted = args.GetBoolArg("-multi_data_permitted", multi_data_permitted);
         create_discount_ct = args.GetBoolArg("-creatediscountct", create_discount_ct);
-        accept_discount_ct = args.GetBoolArg("-acceptdiscountct", accept_discount_ct || create_discount_ct);
+        accept_discount_ct = args.GetBoolArg("-acceptdiscountct", accept_discount_ct) || create_discount_ct;
 
         if (args.IsArgSet("-parentgenesisblockhash")) {
             parentGenesisBlockHash = uint256S(args.GetArg("-parentgenesisblockhash", ""));

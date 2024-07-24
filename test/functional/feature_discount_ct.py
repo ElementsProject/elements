@@ -26,7 +26,8 @@ class CTTest(BitcoinTestFramework):
             # node 1 accepts but does not create discounted CTs
             args + ["-acceptdiscountct=1", "-creatediscountct=0"],
             # node 2 both accepts and creates discounted CTs
-            args + ["-acceptdiscountct=1", "-creatediscountct=1"],
+            # check that 'create' overrides 'accept'
+            args + ["-acceptdiscountct=0", "-creatediscountct=1"],
         ]
 
     def skip_test_if_missing_module(self):
