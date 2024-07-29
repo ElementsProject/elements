@@ -103,7 +103,7 @@ class MiningTest(BitcoinTestFramework):
         witness_root = CBlock.get_merkle_root([ser_uint256(0),
                                                ser_uint256(txid)])
         script = get_witness_script(witness_root, 0)
-        assert_equal(script.hex(), "6a24aa21a9ed3160175963f85aa4d48b96b0b1c16eb02693d2ee908f73391e78a73747722e72") # ELEMENTS: use `script` to placate linter
+        assert_equal(script.hex(), "6a24aa21a9ed6e1779becc5d94c2a6ff5407450f666e3b76e75786ec61feee3c8a21a9aef6ad") # ELEMENTS: use `script` to placate linter
 
         # ELEMENTS: The following assertion fails because
         # (1) Elements appears to use a different merkle tree computation than Bitcoin here
