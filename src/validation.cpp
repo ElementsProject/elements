@@ -929,6 +929,7 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
     // disconnected blocks and transactions in a package. Package transactions will be checked using
     // package feerate later.
     // ELEMENTS: accept discounted fees for Confidential Transactions only, if enabled.
+    int64_t package_size = Params().GetAcceptDiscountCT() ? GetDiscountVirtualTransactionSize(tx) : ws.m_vsize;
     if (!bypass_limits && !args.m_package_feerates && !CheckFeeRate(package_size, ws.m_modified_fees, state)) return false;
 
     ws.m_iters_conflicting = m_pool.GetIterSet(ws.m_conflicts);
