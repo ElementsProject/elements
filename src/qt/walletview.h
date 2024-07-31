@@ -6,6 +6,7 @@
 #define BITCOIN_QT_WALLETVIEW_H
 
 #include <consensus/amount.h>
+#include <qt/bitcoinunits.h>
 
 #include <QStackedWidget>
 

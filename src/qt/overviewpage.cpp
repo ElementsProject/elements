@@ -36,9 +36,9 @@ class TxViewDelegate : public QAbstractItemDelegate
 {
     Q_OBJECT
 public:
-    explicit TxViewDelegate(const PlatformStyle *_platformStyle, QObject *parent=nullptr):
-        QAbstractItemDelegate(parent), unit(BitcoinUnits::BTC),
-        platformStyle(_platformStyle)
+    explicit TxViewDelegate(const PlatformStyle* _platformStyle, QObject* parent = nullptr)
+        : QAbstractItemDelegate(parent), unit(BitcoinUnit::BTC),
+          platformStyle(_platformStyle)
     {
         connect(this, &TxViewDelegate::width_changed, this, &TxViewDelegate::sizeHintChanged);
     }
@@ -123,7 +123,7 @@ public:
         return {DECORATION_SIZE + 8 + minimum_text_width, DECORATION_SIZE};
     }
 
-    int unit;
+    BitcoinUnit unit;
 
 Q_SIGNALS:
     //! An intermediate signal for emitting from the `paint() const` member function.
@@ -195,30 +195,30 @@ OverviewPage::~OverviewPage()
 
 void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
 {
-    int unit = walletModel->getOptionsModel()->getDisplayUnit();
+    BitcoinUnit unit = walletModel->getOptionsModel()->getDisplayUnit();
     m_balances = balances;
 
     if (walletModel->wallet().isLegacy()) {
         if (walletModel->wallet().privateKeysDisabled()) {
-            ui->labelBalance->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
-            ui->labelUnconfirmed->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
-            ui->labelImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
-            ui->labelTotal->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance + balances.unconfirmed_watch_only_balance + balances.immature_watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelBalance->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelUnconfirmed->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_watch_only_balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_watch_only_balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelTotal->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance + balances.unconfirmed_watch_only_balance + balances.immature_watch_only_balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
         } else {
-            ui->labelBalance->setText(GUIUtil::formatMultiAssetAmount(balances.balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
-            ui->labelUnconfirmed->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
-            ui->labelImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
-            ui->labelTotal->setText(GUIUtil::formatMultiAssetAmount(balances.balance + balances.unconfirmed_balance + balances.immature_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
-            ui->labelWatchAvailable->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
-            ui->labelWatchPending->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
-            ui->labelWatchImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
-            ui->labelWatchTotal->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance + balances.unconfirmed_watch_only_balance + balances.immature_watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelBalance->setText(GUIUtil::formatMultiAssetAmount(balances.balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelUnconfirmed->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelTotal->setText(GUIUtil::formatMultiAssetAmount(balances.balance + balances.unconfirmed_balance + balances.immature_balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelWatchAvailable->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelWatchPending->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_watch_only_balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelWatchImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_watch_only_balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelWatchTotal->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance + balances.unconfirmed_watch_only_balance + balances.immature_watch_only_balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
         }
     } else {
-        ui->labelBalance->setText(GUIUtil::formatMultiAssetAmount(balances.balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
-        ui->labelUnconfirmed->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
-        ui->labelImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
-        ui->labelTotal->setText(GUIUtil::formatMultiAssetAmount(balances.balance + balances.unconfirmed_balance + balances.immature_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+        ui->labelBalance->setText(GUIUtil::formatMultiAssetAmount(balances.balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+        ui->labelUnconfirmed->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+        ui->labelImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+        ui->labelTotal->setText(GUIUtil::formatMultiAssetAmount(balances.balance + balances.unconfirmed_balance + balances.immature_balance, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
     }
     // only show immature (newly mined) balance if it's non-zero, so as not to complicate things
     // for the non-mining users

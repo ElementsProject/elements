@@ -217,13 +217,13 @@ namespace GUIUtil
     QString PathToQString(const fs::path &path);
 
     /* Format an amount of assets in a user-friendly style */
-    QString formatAssetAmount(const CAsset&, const CAmount&, int bitcoin_unit, BitcoinUnits::SeparatorStyle, bool include_asset_name = true);
+    QString formatAssetAmount(const CAsset&, const CAmount&, std::optional<BitcoinUnit> bitcoin_unit, BitcoinUnits::SeparatorStyle, bool include_asset_name = true);
 
     /* Format one or more asset+amounts in a user-friendly style */
-    QString formatMultiAssetAmount(const CAmountMap&, int bitcoin_unit, BitcoinUnits::SeparatorStyle, QString line_separator);
+    QString formatMultiAssetAmount(const CAmountMap&, std::optional<BitcoinUnit> bitcoin_unit, BitcoinUnits::SeparatorStyle, QString line_separator);
 
     /* Parse an amount of a given asset from text */
-    bool parseAssetAmount(const CAsset&, const QString& text, int bitcoin_unit, CAmount *val_out);
+    bool parseAssetAmount(const CAsset&, const QString& text, BitcoinUnit bitcoin_unit, CAmount *val_out);
 
     /** Convert enum Network to QString */
     QString NetworkToQString(Network net);

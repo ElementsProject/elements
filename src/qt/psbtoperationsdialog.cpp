@@ -176,13 +176,13 @@ std::string PSBTOperationsDialog::renderTransaction(const PartiallySignedTransac
 {
     QString tx_description = "";
     CAmount totalAmount = 0;
-    int unit = m_client_model->getOptionsModel()->getDisplayUnit();
+    BitcoinUnit unit = m_client_model->getOptionsModel()->getDisplayUnit();
     for (const PSBTOutput& out : psbtx.outputs) {
         CTxDestination address;
         ExtractDestination(*out.script, address);
         totalAmount += *out.amount;
         tx_description.append(tr(" * Sends %1 to %2")
-            .arg(GUIUtil::formatAssetAmount(CAsset(out.m_asset), *out.amount, unit, BitcoinUnits::SeparatorStyle::ALWAYS))
+            .arg(GUIUtil::formatAssetAmount(CAsset(out.m_asset), *out.amount, std::make_optional(unit), BitcoinUnits::SeparatorStyle::ALWAYS))
             .arg(QString::fromStdString(EncodeDestination(address))));
         tx_description.append("<br>");
     }
@@ -195,7 +195,7 @@ std::string PSBTOperationsDialog::renderTransaction(const PartiallySignedTransac
     } else {
         // FIXME: should we display non-bitcoin fees?
         tx_description.append(tr("Pays transaction fee: "));
-        tx_description.append(BitcoinUnits::formatWithUnit(BitcoinUnits::BTC, *analysis.fee));
+        tx_description.append(BitcoinUnits::formatWithUnit(BitcoinUnit::BTC, *analysis.fee));
 
         // add total amount in all subdivision units
         tx_description.append("<hr />");

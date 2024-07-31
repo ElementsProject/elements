@@ -73,6 +73,7 @@
 #include <chrono>
 #include <exception>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -185,8 +186,7 @@ bool parseBitcoinURI(const QUrl &uri, SendCoinsRecipient *out)
         {
             if(!i->second.isEmpty())
             {
-                if(!BitcoinUnits::parse(BitcoinUnits::BTC, i->second, &rv.amount))
-                {
+                if (!BitcoinUnits::parse(BitcoinUnit::BTC, i->second, &rv.amount)) {
                     return false;
                 }
             }
@@ -218,7 +218,7 @@ QString formatBitcoinURI(const SendCoinsRecipient &info)
 
     if (info.amount)
     {
-        ret += QString("?amount=%1").arg(BitcoinUnits::format(BitcoinUnits::BTC, info.amount, false, BitcoinUnits::SeparatorStyle::NEVER));
+        ret += QString("?amount=%1").arg(BitcoinUnits::format(BitcoinUnit::BTC, info.amount, false, BitcoinUnits::SeparatorStyle::NEVER));
         paramCount++;
     }
 
@@ -728,13 +728,20 @@ QString ConnectionTypeToQString(ConnectionType conn_type, bool prepend_direction
     assert(false);
 }
 
-QString formatAssetAmount(const CAsset& asset, const CAmount& amount, const int bitcoin_unit, BitcoinUnits::SeparatorStyle separators, bool include_asset_name)
+QString formatAssetAmount(const CAsset& asset, const CAmount& amount, std::optional<BitcoinUnit> bitcoin_unit, BitcoinUnits::SeparatorStyle separators, bool include_asset_name)
 {
+
+    if (!bitcoin_unit.has_value()) {
+
+    }
     if (asset == Params().GetConsensus().pegged_asset) {
+        if (!bitcoin_unit.has_value()) {
+            return QString(); // Refuse to format invalid unit
+        }
         if (include_asset_name) {
-            return BitcoinUnits::formatWithUnit(bitcoin_unit, amount, false, separators);
+            return BitcoinUnits::formatWithUnit(bitcoin_unit.value(), amount, false, separators);
         } else {
-            return BitcoinUnits::format(bitcoin_unit, amount, false, separators);
+            return BitcoinUnits::format(bitcoin_unit.value(), amount, false, separators);
         }
     }
 
@@ -754,10 +761,10 @@ QString formatAssetAmount(const CAsset& asset, const CAmount& amount, const int 
     return str;
 }
 
-QString formatMultiAssetAmount(const CAmountMap& amountmap, const int bitcoin_unit, BitcoinUnits::SeparatorStyle separators, QString line_separator)
+QString formatMultiAssetAmount(const CAmountMap& amountmap, const  std::optional<BitcoinUnit> bitcoin_unit, BitcoinUnits::SeparatorStyle separators, QString line_separator)
 {
     QStringList ret;
-    if (bitcoin_unit >= 0) {
+    if (bitcoin_unit.has_value()) {
         ret << formatAssetAmount(Params().GetConsensus().pegged_asset, amountmap.count(Params().GetConsensus().pegged_asset) ? amountmap.at(Params().GetConsensus().pegged_asset) : 0, bitcoin_unit, separators);
     }
     for (const auto& assetamount : amountmap) {
@@ -774,13 +781,13 @@ QString formatMultiAssetAmount(const CAmountMap& amountmap, const int bitcoin_un
     return ret.join(line_separator);
 }
 
-bool parseAssetAmount(const CAsset& asset, const QString& text, const int bitcoin_unit, CAmount *val_out)
+bool parseAssetAmount(const CAsset& asset, const QString& text, const BitcoinUnit bitcoin_unit, CAmount *val_out)
 {
     if (asset == Params().GetConsensus().pegged_asset) {
         return BitcoinUnits::parse(bitcoin_unit, text, val_out);
     }
 
-    return BitcoinUnits::parse(BitcoinUnits::BTC, text, val_out);
+    return BitcoinUnits::parse(BitcoinUnit::BTC, text, val_out);
 }
 
 QString formatDurationStr(std::chrono::seconds dur)

@@ -5,6 +5,7 @@
 #include <qt/transactiontablemodel.h>
 
 #include <qt/addresstablemodel.h>
+#include <qt/bitcoinunits.h>
 #include <qt/clientmodel.h>
 #include <qt/guiconstants.h>
 #include <qt/guiutil.h>
@@ -235,7 +236,7 @@ public:
         return nullptr;
     }
 
-    QString describe(interfaces::Node& node, interfaces::Wallet& wallet, TransactionRecord *rec, int unit)
+    QString describe(interfaces::Node& node, interfaces::Wallet& wallet, TransactionRecord* rec, BitcoinUnit unit)
     {
         return TransactionDesc::toHTML(node, wallet, rec, unit);
     }
@@ -459,7 +460,7 @@ QVariant TransactionTableModel::addressColor(const TransactionRecord *wtx) const
 
 QString TransactionTableModel::formatTxAmount(const TransactionRecord *wtx, bool showUnconfirmed, BitcoinUnits::SeparatorStyle separators) const
 {
-    QString str = GUIUtil::formatAssetAmount(wtx->asset, wtx->amount, walletModel->getOptionsModel()->getDisplayUnit(), separators);
+    QString str = GUIUtil::formatAssetAmount(wtx->asset, wtx->amount, std::make_optional(walletModel->getOptionsModel()->getDisplayUnit()), separators);
     if(showUnconfirmed)
     {
         if(!wtx->status.countsForBalance)

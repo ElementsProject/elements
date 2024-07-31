@@ -306,12 +306,12 @@ bool SendCoinsDialog::PrepareSendText(QString& question_string, QString& informa
     }
 
     CAmount txFee = m_current_transaction->getTransactionFee();
-    int bitcoin_unit = model->getOptionsModel()->getDisplayUnit();
+    BitcoinUnit bitcoin_unit = model->getOptionsModel()->getDisplayUnit();
     QStringList formatted;
     for (const SendAssetsRecipient &rcp : m_current_transaction->getRecipients())
     {
         // generate amount string with wallet name in case of multiwallet
-        QString amount = GUIUtil::formatAssetAmount(rcp.asset, rcp.asset_amount, bitcoin_unit, BitcoinUnits::SeparatorStyle::STANDARD, true);
+        QString amount = GUIUtil::formatAssetAmount(rcp.asset, rcp.asset_amount, std::make_optional(bitcoin_unit), BitcoinUnits::SeparatorStyle::STANDARD, true);
         if (model->isMultiwallet()) {
             amount.append(tr(" from wallet '%1'").arg(GUIUtil::HtmlEscape(model->getWalletName())));
         }
@@ -385,8 +385,7 @@ bool SendCoinsDialog::PrepareSendText(QString& question_string, QString& informa
     CAmountMap totalAmount = m_current_transaction->getTotalTransactionAmount();
     totalAmount[Params().GetConsensus().pegged_asset] += txFee;
     QStringList alternativeUnits;
-    for (const BitcoinUnits::Unit u : BitcoinUnits::availableUnits())
-    {
+    for (const BitcoinUnit u : BitcoinUnits::availableUnits()) {
         if(u != model->getOptionsModel()->getDisplayUnit())
             alternativeUnits.append(BitcoinUnits::formatHtmlWithUnit(u, totalAmount[Params().GetConsensus().pegged_asset]));
     }
@@ -396,7 +395,7 @@ bool SendCoinsDialog::PrepareSendText(QString& question_string, QString& informa
         .arg(alternativeUnits.join(" " + tr("or") + " ")));
     totalAmount.erase(Params().GetConsensus().pegged_asset);
     if (!!totalAmount) {
-        question_string.append(" " + tr("and") + "<br />" + GUIUtil::formatMultiAssetAmount(totalAmount, -1 /*bitcoin unit, hide*/, BitcoinUnits::SeparatorStyle::STANDARD, ";<br />"));
+        question_string.append(" " + tr("and") + "<br />" + GUIUtil::formatMultiAssetAmount(totalAmount, std::nullopt /*bitcoin unit, hide*/, BitcoinUnits::SeparatorStyle::STANDARD, ";<br />"));
     }
 
     if (formatted.size() > 1) {
@@ -423,7 +422,7 @@ void SendCoinsDialog::presentPSBT(PartiallySignedTransaction& psbtx)
     msgBox.setDefaultButton(QMessageBox::Discard);
     switch (msgBox.exec()) {
     case QMessageBox::Save: {
-        int bitcoin_unit = model->getOptionsModel()->getDisplayUnit();
+        BitcoinUnit bitcoin_unit = model->getOptionsModel()->getDisplayUnit();
         QString selectedFilter;
         QString fileNameSuggestion = "";
         bool first = true;
@@ -432,7 +431,7 @@ void SendCoinsDialog::presentPSBT(PartiallySignedTransaction& psbtx)
                 fileNameSuggestion.append(" - ");
             }
             QString labelOrAddress = rcp.label.isEmpty() ? rcp.address : rcp.label;
-            QString amount = GUIUtil::formatAssetAmount(rcp.asset, rcp.asset_amount, bitcoin_unit, BitcoinUnits::SeparatorStyle::STANDARD, true);
+            QString amount = GUIUtil::formatAssetAmount(rcp.asset, rcp.asset_amount, std::make_optional(bitcoin_unit), BitcoinUnits::SeparatorStyle::STANDARD, true);
             fileNameSuggestion.append(labelOrAddress + "-" + amount);
             first = false;
         }
