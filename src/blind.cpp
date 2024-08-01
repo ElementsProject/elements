@@ -194,7 +194,7 @@ bool SurjectOutput(CTxOutWitness& txoutwit, const std::vector<secp256k1_fixed_as
     // 1 to 3 targets
     size_t nInputsToSelect = std::min(MAX_SURJECTION_TARGETS, surjection_targets.size());
     unsigned char randseed[32];
-    GetStrongRandBytes(randseed, 32);
+    GetStrongRandBytes(randseed);
     size_t input_index;
     secp256k1_surjectionproof proof;
     secp256k1_fixed_asset_tag tag;
@@ -514,7 +514,7 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
                 }
 
                 // Fill out the value blinders and blank asset blinder
-                GetStrongRandBytes(&blind[num_blind_attempts-1][0], 32);
+                GetStrongRandBytes(Span<unsigned char>(&blind[num_blind_attempts-1][0], 32));
                 // Issuances are not asset-blinded
                 memset(&asset_blind[num_blind_attempts-1][0], 0, 32);
                 value_blindptrs.push_back(&blind[num_blind_attempts-1][0]);
@@ -563,8 +563,8 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
             asset = out.nAsset.GetAsset();
             blinded_amounts.push_back(conf_value.GetAmount());
 
-            GetStrongRandBytes(&blind[num_blind_attempts-1][0], 32);
-            GetStrongRandBytes(&asset_blind[num_blind_attempts-1][0], 32);
+            GetStrongRandBytes(Span<unsigned char>(&blind[num_blind_attempts-1][0], 32));
+            GetStrongRandBytes(Span<unsigned char>(&asset_blind[num_blind_attempts-1][0], 32));
             value_blindptrs.push_back(&blind[num_blind_attempts-1][0]);
             asset_blindptrs.push_back(&asset_blind[num_blind_attempts-1][0]);
 
