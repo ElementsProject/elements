@@ -2996,38 +2996,35 @@ static RPCHelpMan updatepsbtpegin()
 // END ELEMENTS
 //
 
-void RegisterRawTransactionRPCCommands(CRPCTable &t)
+void RegisterRawTransactionRPCCommands(CRPCTable& t)
 {
-// clang-format off
-static const CRPCCommand commands[] =
-{ //  category              actor (function)            argNames
-  //  --------------------- ------------------------        -----------------------     ----------
-    { "rawtransactions",    &getrawtransaction,           },
-    { "rawtransactions",    &createrawtransaction,        },
-    { "rawtransactions",    &decoderawtransaction,        },
-    { "rawtransactions",    &decodescript,                },
-    { "rawtransactions",    &combinerawtransaction,       },
-    { "rawtransactions",    &signrawtransactionwithkey,   },
-    { "rawtransactions",    &decodepsbt,                  },
-    { "rawtransactions",    &combinepsbt,                 },
-    { "rawtransactions",    &finalizepsbt,                },
-    { "rawtransactions",    &createpsbt,                  },
-    { "rawtransactions",    &converttopsbt,               },
-    { "rawtransactions",    &utxoupdatepsbt,              },
-    { "rawtransactions",    &parsepsbt,                   },
-#if 0
-    { "rawtransactions",    &joinpsbts,                   },
-#endif
-    { "rawtransactions",    &analyzepsbt,                 },
+    static const CRPCCommand commands[] =
+    {
+        {"rawtransactions", &getrawtransaction},
+        {"rawtransactions", &createrawtransaction},
+        {"rawtransactions", &decoderawtransaction},
+        {"rawtransactions", &decodescript},
+        {"rawtransactions", &combinerawtransaction},
+        {"rawtransactions", &signrawtransactionwithkey},
+        {"rawtransactions", &decodepsbt},
+        {"rawtransactions", &combinepsbt},
+        {"rawtransactions", &finalizepsbt},
+        {"rawtransactions", &createpsbt},
+        {"rawtransactions", &converttopsbt},
+        {"rawtransactions", &utxoupdatepsbt},
+        {"rawtransactions", &parsepsbt},
+    #if 0
+        {"rawtransactions", &joinpsbts},
+    #endif
+        {"rawtransactions", &analyzepsbt},
 
-    // ELEMENTS
-    { "rawtransactions",    &rawissueasset,               },
-    { "rawtransactions",    &rawreissueasset,             },
-    { "rawtransactions",    &rawblindrawtransaction,      },
-    { "rawtransactions",    &calculateasset,              },
-    { "rawtransactions",    &updatepsbtpegin,             },
-};
-// clang-format on
+        // ELEMENTS
+        {"rawtransactions", &rawissueasset},
+        {"rawtransactions", &rawreissueasset},
+        {"rawtransactions", &rawblindrawtransaction},
+        {"rawtransactions", &calculateasset},
+        {"rawtransactions", &updatepsbtpegin},
+    };
     for (const auto& c : commands) {
         t.appendCommand(c.name, &c);
     }

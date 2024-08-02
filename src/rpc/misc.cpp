@@ -1078,40 +1078,36 @@ static RPCHelpMan createblindedaddress()
 // END ELEMENTS CALLS
 //
 
-void RegisterMiscRPCCommands(CRPCTable &t)
+void RegisterMiscRPCCommands(CRPCTable& t)
 {
-// clang-format off
+    static const CRPCCommand commands[] =
+    {
+        {"control", &getmemoryinfo},
+        {"control", &logging},
+        {"util", &validateaddress},
+        {"util", &createmultisig},
+        {"util", &deriveaddresses},
+        {"util", &getdescriptorinfo},
+        {"util", &verifymessage},
+        {"util", &signmessagewithprivkey},
+        {"util", &getindexinfo},
 
-static const CRPCCommand commands[] =
-{ //  category              actor (function)
-  //  --------------------- ------------------------  -----------------------  ----------
-    { "control",            &getmemoryinfo,           },
-    { "control",            &logging,                 },
-    { "util",               &validateaddress,         },
-    { "util",               &createmultisig,          },
-    { "util",               &deriveaddresses,         },
-    { "util",               &getdescriptorinfo,       },
-    { "util",               &verifymessage,           },
-    { "util",               &signmessagewithprivkey,  },
-    { "util",               &getindexinfo,            },
-    // ELEMENTS:
-    { "util",               &getpakinfo,              },
-    { "util",               &tweakfedpegscript,       },
-    { "util",               &createblindedaddress,    },
-    { "util",               &dumpassetlabels,         },
-    { "hidden",             &calcfastmerkleroot,      },
-
-    /* Not shown in help */
-    { "hidden",             &setmocktime,             },
-    { "hidden",             &mockscheduler,           },
-    { "hidden",             &echo,                    },
-    { "hidden",             &echojson,                },
-    { "hidden",             &echoipc,                 },
+        {"hidden", &setmocktime},
+        {"hidden", &mockscheduler},
+        {"hidden", &echo},
+        {"hidden", &echojson},
+        {"hidden", &echoipc},
 #if defined(USE_SYSCALL_SANDBOX)
-    { "hidden",             &invokedisallowedsyscall, },
+        {"hidden", &invokedisallowedsyscall},
 #endif // USE_SYSCALL_SANDBOX
-};
-// clang-format on
+
+        // ELEMENTS:
+        {"util", &getpakinfo},
+        {"util", &tweakfedpegscript},
+        {"util", &createblindedaddress},
+        {"util", &dumpassetlabels},
+        {"hidden", &calcfastmerkleroot},
+    };
     for (const auto& c : commands) {
         t.appendCommand(c.name, &c);
     }

@@ -1779,38 +1779,33 @@ static RPCHelpMan testproposedblock()
 // END ELEMENTS
 //
 
-void RegisterMiningRPCCommands(CRPCTable &t)
+void RegisterMiningRPCCommands(CRPCTable& t)
 {
-// clang-format off
+    static const CRPCCommand commands[] =
+    {
+        {"mining", &getnetworkhashps},
+        {"mining", &getmininginfo},
+        {"mining", &prioritisetransaction},
+        {"mining", &getblocktemplate},
+        {"generating", &combineblocksigs},
+        {"mining", &submitheader},
+        {"generating", &getnewblockhex},
+        {"generating", &getcompactsketch},
+        {"generating", &consumecompactsketch},
+        {"generating", &consumegetblocktxn},
+        {"generating", &finalizecompactblock},
+        {"mining", &testproposedblock},
 
-static const CRPCCommand commands[] =
-{ //  category              actor (function)
-  //  --------------------- ------------------------
-    { "mining",             &getnetworkhashps,         },
-    { "mining",             &getmininginfo,            },
-    { "mining",             &prioritisetransaction,    },
-    { "mining",             &getblocktemplate,         },
-    { "generating",         &combineblocksigs,         },
-    { "mining",             &submitheader,             },
-    { "generating",         &getnewblockhex,           },
-    { "generating",         &getcompactsketch,         },
-    { "generating",         &consumecompactsketch,     },
-    { "generating",         &consumegetblocktxn,       },
-    { "generating",         &finalizecompactblock,     },
-    { "mining",             &testproposedblock,        },
+        {"mining", &submitblock},
 
-    { "mining",             &submitblock,              },
+        {"util", &estimatesmartfee},
 
-    { "hidden",              &generatetoaddress,       },
-    { "hidden",              &generatetodescriptor,    },
-    { "hidden",              &generateblock,           },
-
-    { "util",                &estimatesmartfee,        },
-
-    { "hidden",              &estimaterawfee,          },
-    { "hidden",              &generate,                },
-};
-// clang-format on
+        {"hidden", &estimaterawfee},
+        {"hidden", &generate},
+        {"hidden", &generatetoaddress},
+        {"hidden", &generatetodescriptor},
+        {"hidden", &generateblock},
+    };
     for (const auto& c : commands) {
         t.appendCommand(c.name, &c);
     }

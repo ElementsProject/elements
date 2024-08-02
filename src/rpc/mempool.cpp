@@ -682,8 +682,6 @@ static RPCHelpMan savemempool()
 void RegisterMempoolRPCCommands(CRPCTable& t)
 {
     static const CRPCCommand commands[]{
-        // category     actor (function)
-        // --------     ----------------
         {"rawtransactions", &sendrawtransaction},
         {"rawtransactions", &testmempoolaccept},
         {"blockchain", &getmempoolancestors},
