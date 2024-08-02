@@ -106,7 +106,7 @@ static const size_t TOTAL_TRIES = 100000;
 std::optional<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& selection_target, const CAmount& cost_of_change)
 {
     CAmountMap map_target{{ ::policyAsset, selection_target}};
-    SelectionResult result(map_target);
+    SelectionResult result(map_target, SelectionAlgorithm::BNB);
     CAmount curr_value = 0;
     std::vector<size_t> curr_selection; // selected utxo indexes
 
@@ -210,7 +210,7 @@ std::optional<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_poo
 std::optional<SelectionResult> SelectCoinsSRD(const std::vector<OutputGroup>& utxo_pool, CAmount target_value, FastRandomContext& rng)
 {
     CAmountMap map_target{{ ::policyAsset, target_value}};
-    SelectionResult result(map_target);
+    SelectionResult result(map_target, SelectionAlgorithm::SRD);
 
     std::vector<size_t> indexes;
     indexes.resize(utxo_pool.size());
@@ -293,7 +293,7 @@ static void ApproximateBestSubset(FastRandomContext& insecure_rand, const std::v
 std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, const CAmountMap& mapTargetValue,
                                               CAmount change_target, FastRandomContext& rng)
 {
-    SelectionResult result(mapTargetValue);
+    SelectionResult result(mapTargetValue, SelectionAlgorithm::KNAPSACK);
 
     std::vector<OutputGroup> inner_groups;
     // ELEMENTS: this is not used
@@ -404,7 +404,7 @@ std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, 
                                               CAmount change_target, FastRandomContext& rng, const CAsset& asset)
 {
     CAmountMap map_target{{ asset, nTargetValue }};
-    SelectionResult result(map_target);
+    SelectionResult result(map_target, SelectionAlgorithm::KNAPSACK);
 
     // List of values less than target
     std::optional<OutputGroup> lowest_larger;
@@ -676,5 +676,18 @@ bool SelectionResult::operator<(SelectionResult other) const
 std::string COutput::ToString() const
 {
     return strprintf("COutput(%s, %d, %d) [%s] [%s]", outpoint.hash.ToString(), outpoint.n, depth, FormatMoney(value), asset.GetHex());
+}
+
+std::string GetAlgorithmName(const SelectionAlgorithm algo)
+{
+    switch (algo)
+    {
+    case SelectionAlgorithm::BNB: return "bnb";
+    case SelectionAlgorithm::KNAPSACK: return "knapsack";
+    case SelectionAlgorithm::SRD: return "srd";
+    case SelectionAlgorithm::MANUAL: return "manual";
+    // No default case to allow for compiler to warn
+    }
+    assert(false);
 }
 } // namespace wallet

@@ -14,6 +14,7 @@
 #include <util/fees.h>
 #include <util/moneystr.h>
 #include <util/rbf.h>
+#include <util/trace.h>
 #include <util/translation.h>
 #include <wallet/coincontrol.h>
 #include <wallet/fees.h>
@@ -581,9 +582,10 @@ std::optional<SelectionResult> SelectCoins(const CWallet& wallet, const std::vec
              */
             preset_inputs.Insert(out, /*ancestors=*/ 0, /*descendants=*/ 0, /*positive_only=*/ false);
         }
-        SelectionResult result(mapTargetValue);
+        SelectionResult result(mapTargetValue, SelectionAlgorithm::MANUAL);
         result.AddInput(preset_inputs);
         if (result.GetSelectedValue() < mapTargetValue) return std::nullopt;
+        result.ComputeAndSetWaste(coin_selection_params.m_cost_of_change);
         return result;
     }
 
@@ -706,7 +708,7 @@ std::optional<SelectionResult> SelectCoins(const CWallet& wallet, const std::vec
     // permissive CoinEligibilityFilter.
     std::optional<SelectionResult> res = [&] {
         // Pre-selected inputs already cover the target amount.
-        if (value_to_select <= CAmountMap{}) return std::make_optional(SelectionResult(mapTargetValue));
+        if (value_to_select <= CAmountMap{}) return std::make_optional(SelectionResult(mapTargetValue, SelectionAlgorithm::MANUAL));
 
         // If possible, fund the transaction with confirmed UTXOs only. Prefer at least six
         // confirmations on outputs received from other wallets and only spend confirmed change.
@@ -761,6 +763,9 @@ std::optional<SelectionResult> SelectCoins(const CWallet& wallet, const std::vec
     // add preset inputs to the total value selected
     // Add preset inputs to result
     res->AddInput(preset_inputs);
+    if (res->m_algo == SelectionAlgorithm::MANUAL) {
+        res->ComputeAndSetWaste(coin_selection_params.m_cost_of_change);
+    }
 
     return res;
 }
@@ -1240,6 +1245,7 @@ static bool CreateTransactionInternal(
         error = _("Insufficient funds");
         return false;
     }
+    TRACE5(coin_selection, selected_coins, wallet.GetName().c_str(), GetAlgorithmName(result->m_algo).c_str(), result->m_target, result->GetWaste(), result->GetSelectedValue());
 
     // If all of our inputs are explicit, we don't need a blinded dummy
     if (may_need_blinded_dummy) {
@@ -1793,8 +1799,10 @@ bool CreateTransaction(
     int nChangePosIn = nChangePosInOut;
     Assert(!tx); // tx is an out-param. TODO change the return type from bool to tx (or nullptr)
     bool res = CreateTransactionInternal(wallet, vecSend, tx, nFeeRet, nChangePosInOut, error, coin_control, fee_calc_out, sign, blind_details, issuance_details);
+    TRACE4(coin_selection, normal_create_tx_internal, wallet.GetName().c_str(), res, nFeeRet, nChangePosInOut);
     // try with avoidpartialspends unless it's enabled already
     if (res && nFeeRet > 0 /* 0 means non-functional fee rate estimation */ && wallet.m_max_aps_fee > -1 && !coin_control.m_avoid_partial_spends) {
+        TRACE1(coin_selection, attempting_aps_create_tx, wallet.GetName().c_str());
         CCoinControl tmp_cc = coin_control;
         tmp_cc.m_avoid_partial_spends = true;
         CAmount nFeeRet2;
@@ -1807,6 +1815,7 @@ bool CreateTransaction(
             // if fee of this alternative one is within the range of the max fee, we use this one
             const bool use_aps = nFeeRet2 <= nFeeRet + wallet.m_max_aps_fee;
             wallet.WalletLogPrintf("Fee non-grouped = %lld, grouped = %lld, using %s\n", nFeeRet, nFeeRet2, use_aps ? "grouped" : "non-grouped");
+            TRACE5(coin_selection, aps_create_tx_internal, wallet.GetName().c_str(), use_aps, res, nFeeRet2, nChangePosInOut2);
             if (use_aps) {
                 tx = tx2;
                 nFeeRet = nFeeRet2;
