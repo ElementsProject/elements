@@ -6,6 +6,7 @@
 #define BITCOIN_UTIL_STRING_H
 
 #include <attributes.h>
+#include <util/spanparsing.h>
 
 #include <algorithm>
 #include <array>
@@ -15,6 +16,11 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+
+[[nodiscard]] inline std::vector<std::string> SplitString(std::string_view str, char sep)
+{
+    return spanparsing::Split<std::string>(str, sep);
+}
 
 [[nodiscard]] inline std::string TrimString(const std::string& str, const std::string& pattern = " \f\n\r\t\v")
 {

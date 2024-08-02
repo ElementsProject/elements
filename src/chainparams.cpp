@@ -12,13 +12,12 @@
 #include <issuance.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
+#include <util/string.h>
 #include <util/system.h>
 #include <crypto/sha256.h>
 
 #include <assert.h>
 
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
 static CScript StrHexToScriptWithDefault(std::string strScript, const CScript defaultScript)
 {
     CScript returnScript;
@@ -95,8 +94,7 @@ static void UpdateElementsActivationParametersFromArgs(Consensus::Params& consen
 
     std::map<std::string,int> map_deployments;
     for (const std::string& strDeployment : args.GetArgs("-evbparams")) {
-        std::vector<std::string> vDeploymentParams;
-        boost::split(vDeploymentParams, strDeployment, boost::is_any_of(":"));
+        std::vector<std::string> vDeploymentParams = SplitString(strDeployment, ':');
         if (vDeploymentParams.size() != 5) {
             throw std::runtime_error("ElementsVersion bits parameters malformed, expecting deployment:start:end:period:threshold");
         }
@@ -734,8 +732,7 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
     if (!args.IsArgSet("-vbparams")) return;
 
     for (const std::string& strDeployment : args.GetArgs("-vbparams")) {
-        std::vector<std::string> vDeploymentParams;
-        boost::split(vDeploymentParams, strDeployment, boost::is_any_of(":"));
+        std::vector<std::string> vDeploymentParams = SplitString(strDeployment, ':');
         if (vDeploymentParams.size() < 3 || 4 < vDeploymentParams.size()) {
             throw std::runtime_error("Version bits parameters malformed, expecting deployment:start:end[:min_activation_height]");
         }
