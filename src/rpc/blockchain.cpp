@@ -1357,29 +1357,29 @@ RPCHelpMan getblockchaininfo()
     CChainState& active_chainstate = chainman.ActiveChainstate();
 
     const CChainParams& chainparams = Params();
-    const CBlockIndex* tip = CHECK_NONFATAL(active_chainstate.m_chain.Tip());
-    CHECK_NONFATAL(tip);
-    const int height = tip->nHeight;
+    const CBlockIndex& tip{*CHECK_NONFATAL(active_chainstate.m_chain.Tip())};
+    CHECK_NONFATAL(&tip);
+    const int height{tip.nHeight};
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("chain", chainparams.NetworkIDString());
     obj.pushKV("blocks", height);
     obj.pushKV("headers", chainman.m_best_header ? chainman.m_best_header->nHeight : -1);
-    obj.pushKV("bestblockhash", tip->GetBlockHash().GetHex());
+    obj.pushKV("bestblockhash", tip.GetBlockHash().GetHex());
     if (!g_signed_blocks) {
-        obj.pushKV("difficulty", (double)GetDifficulty(tip));
+        obj.pushKV("difficulty", GetDifficulty(&tip));
     }
-    obj.pushKV("time", (int64_t)tip->nTime);
-    obj.pushKV("mediantime", (int64_t)tip->GetMedianTimePast());
-    obj.pushKV("verificationprogress", GuessVerificationProgress(tip, Params().GetConsensus().nPowTargetSpacing));
+    obj.pushKV("time", int64_t{tip.nTime});
+    obj.pushKV("mediantime", tip.GetMedianTimePast());
+    obj.pushKV("verificationprogress", GuessVerificationProgress(&tip, Params().GetConsensus().nPowTargetSpacing));
     obj.pushKV("initialblockdownload", active_chainstate.IsInitialBlockDownload());
     if (!g_signed_blocks) {
-        obj.pushKV("chainwork", tip->nChainWork.GetHex());
+        obj.pushKV("chainwork", tip.nChainWork.GetHex());
     }
     obj.pushKV("size_on_disk", chainman.m_blockman.CalculateCurrentUsage());
     obj.pushKV("pruned", node::fPruneMode);
     if (g_signed_blocks) {
-        if (!DeploymentActiveAfter(tip, chainparams.GetConsensus(), Consensus::DEPLOYMENT_DYNA_FED)) {
+        if (!DeploymentActiveAfter(&tip, chainparams.GetConsensus(), Consensus::DEPLOYMENT_DYNA_FED)) {
             CScript sign_block_script = chainparams.GetConsensus().signblockscript;
             obj.pushKV("current_signblock_asm", ScriptToAsmStr(sign_block_script));
             obj.pushKV("current_signblock_hex", HexStr(sign_block_script));
@@ -1390,7 +1390,7 @@ RPCHelpMan getblockchaininfo()
             }
             obj.pushKV("extension_space", arr);
         } else {
-            const DynaFedParamEntry entry = ComputeNextBlockFullCurrentParameters(tip, chainparams.GetConsensus());
+            const DynaFedParamEntry entry = ComputeNextBlockFullCurrentParameters(&tip, chainparams.GetConsensus());
             obj.pushKV("current_params_root", entry.CalculateRoot().GetHex());
             obj.pushKV("current_signblock_asm", ScriptToAsmStr(entry.m_signblockscript));
             obj.pushKV("current_signblock_hex", HexStr(entry.m_signblockscript));
@@ -1404,13 +1404,12 @@ RPCHelpMan getblockchaininfo()
             obj.pushKV("extension_space", arr);
             obj.pushKV("epoch_length", (uint64_t)chainparams.GetConsensus().dynamic_epoch_length);
             obj.pushKV("total_valid_epochs", (uint64_t)chainparams.GetConsensus().total_valid_epochs);
-            obj.pushKV("epoch_age", (uint64_t)(tip->nHeight % chainparams.GetConsensus().dynamic_epoch_length));
+            obj.pushKV("epoch_age", (uint64_t)(tip.nHeight % chainparams.GetConsensus().dynamic_epoch_length));
         }
     }
 
     if (node::fPruneMode) {
-        const CBlockIndex* block = CHECK_NONFATAL(tip);
-        obj.pushKV("pruneheight", node::GetFirstStoredBlock(block)->nHeight);
+        obj.pushKV("pruneheight", node::GetFirstStoredBlock(&tip)->nHeight);
 
         // if 0, execution bypasses the whole if block.
         bool automatic_pruning{args.GetIntArg("-prune", 0) != 1};
@@ -1422,7 +1421,7 @@ RPCHelpMan getblockchaininfo()
 
     if (IsDeprecatedRPCEnabled("softforks")) {
         const Consensus::Params& consensusParams = Params().GetConsensus();
-        obj.pushKV("softforks", DeploymentInfo(tip, consensusParams));
+        obj.pushKV("softforks", DeploymentInfo(&tip, consensusParams));
     }
 
     obj.pushKV("warnings", GetWarnings(false).original);
