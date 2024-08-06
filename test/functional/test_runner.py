@@ -83,6 +83,7 @@ EXTENDED_SCRIPTS = [
 #    'feature_pruning.py', ELEMENTS: this is broken
     'feature_dbcrash.py',
     'feature_fee_estimation.py',
+    'feature_index_prune.py',
 ]
 
 BASE_SCRIPTS = [
@@ -373,7 +374,6 @@ BASE_SCRIPTS = [
     'feature_help.py',
     'feature_shutdown.py',
     'p2p_ibd_txrelay.py',
-    'feature_blockfilterindex_prune.py'
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
 ]
