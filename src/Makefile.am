@@ -400,6 +400,7 @@ libbitcoin_node_a_SOURCES = \
   primitives/pak.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
+  rpc/fees.cpp \
   rpc/mempool.cpp \
   rpc/mining.cpp \
   rpc/misc.cpp \
