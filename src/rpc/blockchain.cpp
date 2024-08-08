@@ -884,8 +884,9 @@ static RPCHelpMan pruneblockchain()
     CChain& active_chain = active_chainstate.m_chain;
 
     int heightParam = request.params[0].get_int();
-    if (heightParam < 0)
+    if (heightParam < 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative block height.");
+    }
 
     // Height value more than a billion is too high to be a block height, and
     // too low to be a block time (corresponds to timestamp from Sep 2001).
@@ -910,8 +911,8 @@ static RPCHelpMan pruneblockchain()
     }
 
     PruneBlockFilesManual(active_chainstate, height);
-    const CBlockIndex* block = CHECK_NONFATAL(active_chain.Tip());
-    const CBlockIndex* last_block = node::GetFirstStoredBlock(block);
+    const CBlockIndex& block{*CHECK_NONFATAL(active_chain.Tip())};
+    const CBlockIndex* last_block{active_chainstate.m_blockman.GetFirstStoredBlock(block)};
 
     return static_cast<uint64_t>(last_block->nHeight);
 },
@@ -1369,7 +1370,7 @@ RPCHelpMan getblockchaininfo()
     if (!g_signed_blocks) {
         obj.pushKV("difficulty", GetDifficulty(&tip));
     }
-    obj.pushKV("time", int64_t{tip.nTime});
+    obj.pushKV("time", tip.GetBlockTime());
     obj.pushKV("mediantime", tip.GetMedianTimePast());
     obj.pushKV("verificationprogress", GuessVerificationProgress(&tip, Params().GetConsensus().nPowTargetSpacing));
     obj.pushKV("initialblockdownload", active_chainstate.IsInitialBlockDownload());
@@ -1409,7 +1410,7 @@ RPCHelpMan getblockchaininfo()
     }
 
     if (node::fPruneMode) {
-        obj.pushKV("pruneheight", node::GetFirstStoredBlock(&tip)->nHeight);
+        obj.pushKV("pruneheight", chainman.m_blockman.GetFirstStoredBlock(tip)->nHeight);
 
         // if 0, execution bypasses the whole if block.
         bool automatic_pruning{args.GetIntArg("-prune", 0) != 1};
