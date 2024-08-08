@@ -518,7 +518,7 @@ fs::path static StartupShortcutPath()
         return GetSpecialFolderPath(CSIDL_STARTUP) / "Liquid.lnk";
     if (chain == CBaseChainParams::TESTNET) // Remove this special case when CBaseChainParams::TESTNET = "testnet4"
         return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin (testnet).lnk";
-    return GetSpecialFolderPath(CSIDL_STARTUP) / strprintf("Elements (%s).lnk", chain);
+    return GetSpecialFolderPath(CSIDL_STARTUP) / fs::u8path(strprintf("Elements (%s).lnk", chain));
 }
 
 bool GetStartOnSystemStartup()
@@ -601,7 +601,7 @@ fs::path static GetAutostartFilePath()
         return GetAutostartDir() / "bitcoin.desktop";
     if (chain == CBaseChainParams::LIQUID1)
         return GetAutostartDir() / "liquid.desktop";
-    return GetAutostartDir() / strprintf("elements-%s.desktop", chain);
+    return GetAutostartDir() / fs::u8path(strprintf("elements-%s.desktop", chain));
 }
 
 bool GetStartOnSystemStartup()
