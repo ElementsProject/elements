@@ -14,12 +14,18 @@
 #include <locale>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <cstdint>
 
 [[nodiscard]] inline std::vector<std::string> SplitString(std::string_view str, char sep)
 {
     return spanparsing::Split<std::string>(str, sep);
+}
+
+[[nodiscard]] inline std::vector<std::string> SplitString(std::string_view str, std::string_view separators)
+{
+    return spanparsing::Split<std::string>(str, separators);
 }
 
 [[nodiscard]] inline std::string_view TrimStringView(std::string_view str, std::string_view pattern = " \f\n\r\t\v")
