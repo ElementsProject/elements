@@ -61,11 +61,10 @@
 #include <dynafed.h>
 
 #include <algorithm>
+#include <deque>
 #include <numeric>
 #include <optional>
 #include <string>
-
-#include <boost/algorithm/string/replace.hpp>
 
 using node::BLOCKFILE_CHUNK_SIZE;
 using node::BlockManager;
@@ -1670,7 +1669,7 @@ static void AlertNotify(const std::string& strMessage)
     std::string singleQuote("'");
     std::string safeStatus = SanitizeString(strMessage);
     safeStatus = singleQuote+safeStatus+singleQuote;
-    boost::replace_all(strCmd, "%s", safeStatus);
+    ReplaceAll(strCmd, "%s", safeStatus);
 
     std::thread t(runCommand, strCmd);
     t.detach(); // thread runs free
