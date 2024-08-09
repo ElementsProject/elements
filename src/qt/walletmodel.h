@@ -78,16 +78,16 @@ public:
         Unlocked      // wallet->IsCrypted() && !wallet->IsLocked()
     };
 
-    OptionsModel *getOptionsModel();
-    AddressTableModel *getAddressTableModel();
-    TransactionTableModel *getTransactionTableModel();
-    RecentRequestsTableModel *getRecentRequestsTableModel();
+    OptionsModel* getOptionsModel() const;
+    AddressTableModel* getAddressTableModel() const;
+    TransactionTableModel* getTransactionTableModel() const;
+    RecentRequestsTableModel* getRecentRequestsTableModel() const;
 
     std::set<CAsset> getAssetTypes() const;
     EncryptionStatus getEncryptionStatus() const;
 
     // Check address for validity
-    bool validateAddress(const QString &address);
+    bool validateAddress(const QString& address) const;
 
     // Return status record for SendCoins, contains error id + information
     struct SendCoinsReturn
@@ -139,7 +139,7 @@ public:
     UnlockContext requestUnlock();
 
     bool bumpFee(uint256 hash, uint256& new_hash);
-    bool displayAddress(std::string sAddress);
+    bool displayAddress(std::string sAddress) const;
 
     static bool isWalletEnabled();
 
@@ -151,9 +151,7 @@ public:
     QString getWalletName() const;
     QString getDisplayName() const;
 
-    bool isMultiwallet();
-
-    AddressTableModel* getAddressTableModel() const { return addressTableModel; }
+    bool isMultiwallet() const;
 
     void refresh(bool pk_hash_only = false);
 
