@@ -211,7 +211,7 @@ RPCHelpMan getpeginaddress()
     CTxDestination mainchain_dest(WitnessV0ScriptHash(calculate_contract(fedpegscripts.front().second, dest_script)));
     // P2SH-wrapped is the only valid choice for non-dynafed chains but still an
     // option for dynafed-enabled ones as well
-    if (!DeploymentActiveAfter(pwallet->chain().getTip(), Params().GetConsensus(), Consensus::DEPLOYMENT_DYNA_FED) ||
+    if (!DeploymentActiveAfter(pwallet->chain().getTip(), ChainstateManager(Params()), Consensus::DEPLOYMENT_DYNA_FED) ||
                 fedpegscripts.front().first.IsPayToScriptHash()) {
         mainchain_dest = ScriptHash(GetScriptForDestination(mainchain_dest));
     }

@@ -64,7 +64,7 @@ void RegenerateCommitments(CBlock& block, ChainstateManager& chainman)
     block.vtx.at(0) = MakeTransactionRef(tx);
 
     const CBlockIndex* prev_block = WITH_LOCK(::cs_main, return chainman.m_blockman.LookupBlockIndex(block.hashPrevBlock));
-    GenerateCoinbaseCommitment(block, prev_block, Params().GetConsensus());
+    chainman.GenerateCoinbaseCommitment(block, prev_block);
 
     block.hashMerkleRoot = BlockMerkleRoot(block);
 }
@@ -141,7 +141,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
 
-    pblock->nVersion = g_versionbitscache.ComputeBlockVersion(pindexPrev, chainparams.GetConsensus());
+    pblock->nVersion = m_chainstate.m_chainman.m_versionbitscache.ComputeBlockVersion(pindexPrev, chainparams.GetConsensus());
     // -regtest only: allow overriding block.nVersion with
     // -blockversion=N to test forking scenarios
     if (chainparams.MineBlocksOnDemand()) {
@@ -152,7 +152,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     m_lock_time_cutoff = pindexPrev->GetMedianTimePast();
 
     // ELEMENTS:
-    if (DeploymentActiveAfter(pindexPrev, chainparams.GetConsensus(), Consensus::DEPLOYMENT_DYNA_FED)) {
+    if (DeploymentActiveAfter(pindexPrev, m_chainstate.m_chainman, Consensus::DEPLOYMENT_DYNA_FED)) {
         const DynaFedParamEntry current_params = ComputeNextBlockCurrentParameters(m_chainstate.m_chain.Tip(), chainparams.GetConsensus());
         const DynaFedParams block_params(current_params, proposed_entry ? *proposed_entry : DynaFedParamEntry());
         pblock->m_dynafed_params = block_params;
@@ -204,7 +204,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         }
     }
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
-    pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
+    pblocktemplate->vchCoinbaseCommitment = m_chainstate.m_chainman.GenerateCoinbaseCommitment(*pblock, pindexPrev);
     pblocktemplate->vTxFees[0] = -nFees;
 
     LogPrintf("CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);

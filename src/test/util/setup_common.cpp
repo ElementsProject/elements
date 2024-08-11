@@ -175,6 +175,8 @@ BasicTestingSetup::~BasicTestingSetup()
 ChainTestingSetup::ChainTestingSetup(const std::string& chainName, const std::string& fedpegscript, const std::vector<const char*>& extra_args)
     : BasicTestingSetup(chainName, fedpegscript, extra_args)
 {
+    const CChainParams& chainparams = Params();
+
     // We have to run a scheduler thread to prevent ActivateBestChain
     // from blocking due to queue overrun.
     m_node.scheduler = std::make_unique<CScheduler>();
@@ -186,7 +188,7 @@ ChainTestingSetup::ChainTestingSetup(const std::string& chainName, const std::st
 
     m_cache_sizes = CalculateCacheSizes(m_args);
 
-    m_node.chainman = std::make_unique<ChainstateManager>();
+    m_node.chainman = std::make_unique<ChainstateManager>(chainparams);
     m_node.chainman->m_blockman.m_block_tree_db = std::make_unique<CBlockTreeDB>(m_cache_sizes.block_tree_db, true);
 
     // Start script-checking threads. Set g_parallel_script_checks to true so they are used.
@@ -322,10 +324,9 @@ CBlock TestChain100Setup::CreateAndProcessBlock(
         chainstate = &Assert(m_node.chainman)->ActiveChainstate();
     }
 
-    const CChainParams& chainparams = Params();
     const CBlock block = this->CreateBlock(txns, scriptPubKey, *chainstate);
     std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(block);
-    Assert(m_node.chainman)->ProcessNewBlock(chainparams, shared_pblock, true, nullptr);
+    Assert(m_node.chainman)->ProcessNewBlock(shared_pblock, true, nullptr);
 
     return block;
 }
