@@ -1373,20 +1373,22 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
     }
 
     CAmount nFeeRequired;
-    int nChangePosRet = -1;
+    constexpr int RANDOM_CHANGE_POSITION = -1;
     bilingual_str error;
     FeeCalculation fee_calc_out;
     CCoinControl dummy_control;
     BlindDetails blind_details;
-    CTransactionRef tx_ref;
-    if (!CreateTransaction(*pwallet, vecSend, tx_ref, nFeeRequired, nChangePosRet, error, dummy_control, fee_calc_out, true, &blind_details, issuance_details)) {
+    std::optional<CreatedTransactionResult> txr = CreateTransaction(*pwallet, vecSend, RANDOM_CHANGE_POSITION,
+                error, dummy_control, fee_calc_out, true, &blind_details, issuance_details);
+    if (!txr) {
         throw JSONRPCError(RPC_WALLET_ERROR, error.original);
     }
+    nFeeRequired = txr->fee;
 
     mapValue_t map_value;
-    pwallet->CommitTransaction(tx_ref, std::move(map_value), {} /* orderForm */, &blind_details);
+    pwallet->CommitTransaction(txr->tx, std::move(map_value), {} /* orderForm */, &blind_details);
 
-    return tx_ref;
+    return txr->tx;
 }
 
 RPCHelpMan issueasset()
@@ -1486,6 +1488,7 @@ RPCHelpMan issueasset()
     ret.pushKV("token", token.GetHex());
     return ret;
 },
+
     };
 }
 
