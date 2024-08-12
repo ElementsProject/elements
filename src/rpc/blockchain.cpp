@@ -1335,7 +1335,7 @@ RPCHelpMan getblockchaininfo()
                 }},
                 {RPCResult::Type::STR_HEX, "current_fedpeg_program", /*optional=*/true, "Current dynafed fedpeg program"},
                 {RPCResult::Type::STR_HEX, "current_fedpeg_script", /*optional=*/true, "Current dynafed fedpeg script"},
-                {RPCResult::Type::NUM, "pruneheight", /*optional=*/true, "lowest-height complete block stored (only present if pruning is enabled)"},
+                {RPCResult::Type::NUM, "pruneheight", /*optional=*/true, "height of the last block pruned, plus one (only present if pruning is enabled)"},
                 {RPCResult::Type::BOOL, "automatic_pruning", /*optional=*/true, "whether automatic pruning is enabled (only present if pruning is enabled)"},
                 {RPCResult::Type::NUM, "prune_target_size", /*optional=*/true, "the target size used by pruning (only present if automatic pruning is enabled)"},
                 {RPCResult::Type::OBJ_DYN, "softforks", /*optional=*/true, "(DEPRECATED, returned only if config option -deprecatedrpc=softforks is passed) status of softforks",
