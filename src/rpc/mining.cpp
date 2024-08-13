@@ -1322,7 +1322,7 @@ static RPCHelpMan getcompactsketch()
     CDataStream ssBlock(block_bytes, SER_NETWORK, PROTOCOL_VERSION);
     ssBlock >> block;
 
-    CBlockHeaderAndShortTxIDs cmpctblock(block, true);
+    CBlockHeaderAndShortTxIDs cmpctblock(block);
 
     CDataStream ssCompactBlock(SER_NETWORK, PROTOCOL_VERSION);
     ssCompactBlock << cmpctblock;
