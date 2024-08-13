@@ -120,6 +120,6 @@ AppTests::HandleCallback::~HandleCallback()
     assert(it != callbacks.end());
     callbacks.erase(it);
     if (callbacks.empty()) {
-        m_app_tests.m_app.quit();
+        m_app_tests.m_app.exit(0);
     }
 }
