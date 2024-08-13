@@ -155,8 +155,8 @@ static RPCHelpMan createmultisig()
             + HelpExampleRpc("createmultisig", "2, [\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\",\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"]")
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
-    int required = request.params[0].get_int();
+        {
+            int required = request.params[0].getInt<int>();
 
     // Get the public keys
     const UniValue& keys = request.params[1].get_array();
