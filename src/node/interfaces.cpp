@@ -733,7 +733,7 @@ public:
     bool testBlockValidity(BlockValidationState& state, const CChainParams& chainparams, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW, bool fCheckMerkleRoot) override {
         LOCK(::cs_main);
         Assert(m_node.chainman);
-        return TestBlockValidity(state, chainparams, m_node.chainman->ActiveChainstate(), block, pindexPrev, fCheckPOW, fCheckMerkleRoot);
+        return TestBlockValidity(state, chainparams, m_node.chainman->ActiveChainstate(), block, pindexPrev, GetAdjustedTime, fCheckPOW, fCheckMerkleRoot);
     }
 // end ELEMENTS
     NodeContext& m_node;

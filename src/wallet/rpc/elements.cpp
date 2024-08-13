@@ -15,6 +15,7 @@
 #include <script/generic.hpp>
 #include <script/pegins.h>
 #include <secp256k1.h>
+#include <timedata.h>
 #include <wallet/coincontrol.h>
 #include <wallet/fees.h>
 #include <wallet/rpc/util.h>
@@ -211,7 +212,7 @@ RPCHelpMan getpeginaddress()
     CTxDestination mainchain_dest(WitnessV0ScriptHash(calculate_contract(fedpegscripts.front().second, dest_script)));
     // P2SH-wrapped is the only valid choice for non-dynafed chains but still an
     // option for dynafed-enabled ones as well
-    if (!DeploymentActiveAfter(pwallet->chain().getTip(), ChainstateManager(Params()), Consensus::DEPLOYMENT_DYNA_FED) ||
+    if (!DeploymentActiveAfter(pwallet->chain().getTip(), ChainstateManager({Params(), GetAdjustedTime}), Consensus::DEPLOYMENT_DYNA_FED) ||
                 fedpegscripts.front().first.IsPayToScriptHash()) {
         mainchain_dest = ScriptHash(GetScriptForDestination(mainchain_dest));
     }
