@@ -347,8 +347,7 @@ public:
     std::map<uint160, CHDChain> m_hd_chains;
     bool tx_corrupt{false};
 
-    CWalletScanState() {
-    }
+    CWalletScanState() = default;
 };
 
 static bool

@@ -65,7 +65,7 @@ struct TxLessThan
 struct TransactionNotification
 {
 public:
-    TransactionNotification() {}
+    TransactionNotification() = default;
     TransactionNotification(uint256 _hash, ChangeType _status, bool _showTransaction):
         hash(_hash), status(_status), showTransaction(_showTransaction) {}
 
