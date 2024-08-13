@@ -50,14 +50,6 @@ static CAmountMap GetReceived(const CWallet& wallet, const UniValue& params, boo
 
     const bool include_immature_coinbase{params[3].isNull() ? false : params[3].get_bool()};
 
-    // Excluding coinbase outputs is deprecated
-    // It can be enabled by setting deprecatedrpc=exclude_coinbase
-    const bool include_coinbase{!wallet.chain().rpcEnableDeprecated("exclude_coinbase")};
-
-    if (include_immature_coinbase && !include_coinbase) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "include_immature_coinbase is incompatible with deprecated exclude_coinbase");
-    }
-
     // Tally
     CAmountMap amounts;
     for (auto& pairWtx : wallet.mapWallet) {
@@ -65,7 +57,7 @@ static CAmountMap GetReceived(const CWallet& wallet, const UniValue& params, boo
         int depth{wallet.GetTxDepthInMainChain(wtx)};
         if (depth < min_depth
             // Coinbase with less than 1 confirmation is no longer in the main chain
-            || (wtx.IsCoinBase() && (depth < 1 || !include_coinbase))
+            || (wtx.IsCoinBase() && (depth < 1))
             || (wallet.IsTxImmatureCoinBase(wtx) && !include_immature_coinbase))
         {
             continue;
