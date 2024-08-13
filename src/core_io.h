@@ -7,7 +7,6 @@
 
 #include <asset.h>
 #include <consensus/amount.h>
-#include <attributes.h>
 
 #include <string>
 #include <vector>

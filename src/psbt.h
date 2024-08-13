@@ -5,7 +5,6 @@
 #ifndef BITCOIN_PSBT_H
 #define BITCOIN_PSBT_H
 
-#include <attributes.h>
 #include <chainparams.h>
 #include <node/transaction.h>
 #include <pegins.h>
