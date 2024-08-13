@@ -75,8 +75,8 @@ BlockAssembler::Options::Options()
     nBlockMaxWeight = DEFAULT_BLOCK_MAX_WEIGHT;
 }
 
-BlockAssembler::BlockAssembler(CChainState& chainstate, const CTxMemPool& mempool, const CChainParams& params, const Options& options)
-    : chainparams(params),
+BlockAssembler::BlockAssembler(CChainState& chainstate, const CTxMemPool& mempool, const Options& options)
+    : chainparams{chainstate.m_chainman.GetParams()},
       m_mempool(mempool),
       m_chainstate(chainstate)
 {
@@ -100,8 +100,8 @@ static BlockAssembler::Options DefaultOptions()
     return options;
 }
 
-BlockAssembler::BlockAssembler(CChainState& chainstate, const CTxMemPool& mempool, const CChainParams& params)
-    : BlockAssembler(chainstate, mempool, params, DefaultOptions()) {}
+BlockAssembler::BlockAssembler(CChainState& chainstate, const CTxMemPool& mempool)
+    : BlockAssembler(chainstate, mempool, DefaultOptions()) {}
 
 void BlockAssembler::resetBlock()
 {
