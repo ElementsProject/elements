@@ -27,21 +27,17 @@ CAmountMap TxGetChange(const CWallet& wallet, const CWalletTx& wtx);
 CAmountMap GetCredit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 CAmountMap GetChange(const CWallet& wallet, const CWalletTx& wtx) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 
-CAmountMap CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter);
+CAmountMap CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter)
+    EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 //! filter decides which addresses will count towards the debit
 CAmountMap CachedTxGetDebit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter);
-// TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
-// annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The
-// annotation "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid
-// having to resolve the issue of member access into incomplete type CWallet.
 CAmountMap CachedTxGetChange(const CWallet& wallet, const CWalletTx& wtx) NO_THREAD_SAFETY_ANALYSIS;
 CAmountMap CachedTxGetImmatureCredit(const CWallet& wallet, const CWalletTx& wtx, bool fUseCache = true);
+    EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 CAmountMap CachedTxGetImmatureWatchOnlyCredit(const CWallet& wallet, const CWalletTx& wtx, const bool fUseCache = true);
-// TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
-// annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The
-// annotation "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid
-// having to resolve the issue of member access into incomplete type CWallet.
-CAmountMap CachedTxGetAvailableCredit(const CWallet& wallet, const CWalletTx& wtx, bool fUseCache = true, const isminefilter& filter = ISMINE_SPENDABLE) NO_THREAD_SAFETY_ANALYSIS;
+    EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
+CAmountMap CachedTxGetAvailableCredit(const CWallet& wallet, const CWalletTx& wtx, bool fUseCache = true, const isminefilter& filter = ISMINE_SPENDABLE);
+    EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 struct COutputEntry
 {
     CTxDestination destination;
