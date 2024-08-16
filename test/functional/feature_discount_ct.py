@@ -19,6 +19,9 @@ class CTTest(BitcoinTestFramework):
             "-con_connect_genesis_outputs=1",
             "-initialfreecoins=2100000000000000",
             "-txindex=1",
+            "-minrelaytxfee=0.00000100",
+            "-blockmintxfee=0.00000100",
+            "-fallbackfee=0.00000100",
         ]
         self.extra_args = [
             # node 0 does not accept nor create discounted CTs
@@ -150,6 +153,33 @@ class CTTest(BitcoinTestFramework):
             assert_equal(decoded['vsize'], 2575)
             assert_equal(decoded['discountvsize'], 410)
 
+        # node0 only has vsize
+        tx = node0.getrawtransaction(txid, True)
+        assert_equal(tx['vsize'], 2575)
+
+        # check liquidv1 min feerate
+        feerate = 0.1
+        self.log.info(f"Send confidential (discounted) tx to node 1 at {feerate} sats/vb")
+        addr = node1.getnewaddress()
+        info = node1.getaddressinfo(addr)
+        txid = node2.sendtoaddress(info['confidential'], 1.0, "", "", False, None, None, None, None, None, None, feerate)
+        self.sync_mempools([node1, node2])
+        assert_equal(node0.getrawmempool(), [])
+        self.generate(node2, 1, sync_fun=self.sync_blocks)
+        for node in [node2, node1]:
+            tx = node.gettransaction(txid, True, True)
+            assert_equal(tx["confirmations"], 1)
+            decoded = tx['decoded']
+            vin = decoded['vin']
+            vout = decoded['vout']
+            assert_equal(len(vin), 2)
+            assert_equal(len(vout), 3)
+            if 'bitcoin' in decoded['fee']:
+                assert_equal(decoded['fee']['bitcoin'], Decimal('-0.00000041'))
+            else:
+                assert_equal(decoded['fee'][bitcoin], Decimal('0.00000041'))
+            assert_equal(decoded['vsize'], 2575)
+            assert_equal(decoded['discountvsize'], 410)
         # node0 only has vsize
         tx = node0.getrawtransaction(txid, True)
         assert_equal(tx['vsize'], 2575)
