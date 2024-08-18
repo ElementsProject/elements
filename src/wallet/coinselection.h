@@ -31,6 +31,14 @@ class CWalletTx;
 
 /** A UTXO under consideration for use in funding a new transaction. */
 struct COutput {
+private:
+    /** The output's value minus fees required to spend it.*/
+    std::optional<CAmount> effective_value;
+
+    /** The fee required to spend this output at the transaction's target feerate. */
+    std::optional<CAmount> fee;
+
+public:
     /** The outpoint identifying this UTXO */
     COutPoint outpoint;
 
@@ -66,12 +74,6 @@ struct COutput {
     /** Whether the transaction containing this output is sent from the owning wallet */
     bool from_me;
 
-    /** The output's value minus fees required to spend it. Initialized as the output's absolute value. */
-    CAmount effective_value;
-
-    /** The fee required to spend this output at the transaction's target feerate. */
-    CAmount fee{0};
-
     /** The fee required to spend this output at the consolidation feerate. */
     CAmount long_term_fee{0};
 
@@ -87,16 +89,28 @@ struct COutput {
     uint256 bf_asset;
 
     // ELEMENTS: the implementation logic for this constructor is inside of coinselection.cpp, since it is more detailed than bitcoin's version
-    COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me);
+    COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me, const std::optional<CFeeRate> feerate = std::nullopt);
 
     // ELEMENTS: use this constructor to set the value and asset info (when wallet and wtx are available).
-    COutput(const CWallet& wallet, const CWalletTx& wtx, const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me);
+    COutput(const CWallet& wallet, const CWalletTx& wtx, const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me, const CAmount fees);
 
     std::string ToString() const;
 
     bool operator<(const COutput& rhs) const
     {
         return outpoint < rhs.outpoint;
+    }
+
+    CAmount GetFee() const
+    {
+        assert(fee.has_value());
+        return fee.value();
+    }
+
+    CAmount GetEffectiveValue() const
+    {
+        assert(effective_value.has_value());
+        return effective_value.value();
     }
 };
 

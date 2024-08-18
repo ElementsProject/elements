@@ -1519,7 +1519,7 @@ RPCHelpMan sendall()
                     total_input_value += tx->tx->vout[input.prevout.n].nValue.GetAmount(); // ELEMENTS FIXME: is the unblinded value always available since it's in our wallet?
                 }
             } else {
-                AvailableCoins(*pwallet, all_the_utxos, &coin_control, /*nMinimumAmount=*/0);
+                AvailableCoins(*pwallet, all_the_utxos, &coin_control, fee_rate, /*nMinimumAmount=*/0);
                 for (const COutput& output : all_the_utxos) {
                     CHECK_NONFATAL(output.input_bytes > 0);
                     if (send_max && fee_rate.GetFee(output.input_bytes) > output.txout.nValue.GetAmount()) { // ELEMENTS FIXME: is the unblinded value always available since it's in our wallet?

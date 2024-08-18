@@ -19,7 +19,7 @@ namespace wallet {
 
 // ELEMENTS COutput constructors are here, bitcoin ones are in coinselection.h
 
-COutput::COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me)
+COutput::COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me, const std::optional<CFeeRate> feerate    )
     : outpoint{outpoint},
       txout{txout},
       depth{depth},
@@ -30,16 +30,29 @@ COutput::COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int 
       time{time},
       from_me{from_me}
 {
+    // ELEMENTS FIXME: is this whole block correct?
+    // See: https://github.com/bitcoin/bitcoin/pull/25083/files#diff-38f1a8db124a979cb6dd76ce263f7aae0053d6967ee909e6356115fa0402dc8cR80
+    if (feerate) {
+        fee = input_bytes < 0 ? 0 : feerate.value().GetFee(input_bytes);
+    } else {
+        fee = 0; // ELEMENTS FIXME: is this correct?
+    }
+
     if (txout.nValue.IsExplicit()) {
-        effective_value = txout.nValue.GetAmount();
+        //effective_value = txout.nValue.GetAmount();
         value = txout.nValue.GetAmount();
         asset = txout.nAsset.GetAsset();
+    }
+
+    if (feerate && txout.nValue.IsExplicit()) {
+        // ELEMENTS: "effective value" only comes from the policy asset
+        effective_value = value * (asset == ::policyAsset) - fee.value();
     } else {
         effective_value = 0;
     }
 }
 
-COutput::COutput(const CWallet& wallet, const CWalletTx& wtx, const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me)
+COutput::COutput(const CWallet& wallet, const CWalletTx& wtx, const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me, const CAmount fees)
     : outpoint{outpoint},
       txout{txout},
       depth{depth},
@@ -53,7 +66,11 @@ COutput::COutput(const CWallet& wallet, const CWalletTx& wtx, const COutPoint& o
       value{wtx.GetOutputValueOut(wallet, outpoint.n)},
       asset{wtx.GetOutputAsset(wallet, outpoint.n)},
       bf_value{wtx.GetOutputAmountBlindingFactor(wallet, outpoint.n)},
-      bf_asset{wtx.GetOutputAssetBlindingFactor(wallet, outpoint.n)} { }
+      bf_asset{wtx.GetOutputAssetBlindingFactor(wallet, outpoint.n)} {
+        // if input_bytes is unknown, then fees should be 0, if input_bytes is known, then the fees should be a positive integer or 0 (input_bytes known and fees = 0 only happens in the tests)
+        assert((input_bytes < 0 && fees == 0) || (input_bytes > 0 && fees >= 0));
+        fee = fees;
+    }
 
 // Descending order comparator
 struct {
@@ -342,7 +359,7 @@ std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, 
         if (auto inner_result = KnapsackSolver(inner_groups, it->second, change_target, rng, it->first)) {
             auto set = inner_result->GetInputSet();
             for (const COutput& ic : set) {
-                non_policy_effective_value += ic.effective_value;
+                non_policy_effective_value += ic.GetEffectiveValue();
             }
             result.AddInput(inner_result.value());
         } else {
@@ -483,25 +500,18 @@ std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, 
  ******************************************************************************/
 
 void OutputGroup::Insert(const COutput& output, size_t ancestors, size_t descendants, bool positive_only) {
-    // Compute the effective value first
-    const CAmount coin_fee = output.input_bytes < 0 ? 0 : m_effective_feerate.GetFee(output.input_bytes);
-    // ELEMENTS: "effective value" only comes from the policy asset
-    const CAmount ev = output.value * (output.asset == ::policyAsset) - coin_fee;
-
     // Filter for positive only here before adding the coin
-    if (positive_only && ev <= 0) return;
+    if (positive_only && output.GetEffectiveValue() <= 0) return;
 
     m_outputs.push_back(output);
     COutput& coin = m_outputs.back();
 
-    coin.fee = coin_fee;
-    fee += coin.fee;
+    fee += coin.GetFee();
 
     coin.long_term_fee = coin.input_bytes < 0 ? 0 : m_long_term_feerate.GetFee(coin.input_bytes);
     long_term_fee += coin.long_term_fee;
 
-    coin.effective_value = ev;
-    effective_value += coin.effective_value;
+    effective_value += coin.GetEffectiveValue();
 
     m_from_me &= coin.from_me;
     m_value += coin.value;
@@ -541,8 +551,8 @@ CAmount GetSelectionWaste(const std::set<COutput>& inputs, CAmount change_cost, 
     CAmount waste = 0;
     CAmount selected_effective_value = 0;
     for (const COutput& coin : inputs) {
-        waste += coin.fee - coin.long_term_fee;
-        selected_effective_value += use_effective_value ? coin.effective_value : coin.value;
+        waste += coin.GetFee() - coin.long_term_fee;
+        selected_effective_value += use_effective_value ? coin.GetEffectiveValue() : coin.value;
     }
 
     if (change_cost) {
@@ -591,8 +601,8 @@ CAmount GetSelectionWaste(const std::set<COutput>& inputs, CAmount change_cost, 
         auto target = target_map.at(asset);
 
         for (const COutput& coin : coinset) {
-            waste += coin.fee - coin.long_term_fee;
-            selected_effective_value += use_effective_value ? coin.effective_value : coin.value;
+            waste += coin.GetFee() - coin.long_term_fee;
+            selected_effective_value += use_effective_value ? coin.GetEffectiveValue() : coin.value;
         }
 
         if (change_cost) {
