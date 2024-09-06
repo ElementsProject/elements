@@ -80,7 +80,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         tx.vout[1].nValue.setToAmount(int(0.7 * COIN)) # ELEMENTS: fee
         tx.vout[2].nValue.setToAmount(int(49 * COIN))
         raw_tx_in_block = tx.serialize().hex()
-        txid_in_block = self.wallet.sendrawtransaction(from_node=node, tx_hex=raw_tx_in_block, maxfeerate=0)
+        txid_in_block = self.wallet.sendrawtransaction(from_node=node, tx_hex=raw_tx_in_block)
         self.generate(node, 1)
         self.mempool_size = 0
         self.check_mempool_result(
@@ -179,7 +179,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         tx.vout[0].nValue.setToAmount(int(0.1 * COIN))
         tx.vout[1].nValue.setToAmount(txid_0_out + txid_1_out - int(0.1 * COIN))
         raw_tx_spend_both = tx.serialize().hex()
-        txid_spend_both = self.wallet.sendrawtransaction(from_node=node, tx_hex=raw_tx_spend_both, maxfeerate=0)
+        txid_spend_both = self.wallet.sendrawtransaction(from_node=node, tx_hex=raw_tx_spend_both)
         self.generate(node, 1)
         self.mempool_size = 0
         # Now see if we can add the coins back to the utxo set by sending the exact txs again
