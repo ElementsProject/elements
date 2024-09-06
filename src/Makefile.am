@@ -181,6 +181,7 @@ BITCOIN_CORE_H = \
   interfaces/wallet.h \
   issuance.h \
   kernel/chainstatemanager_opts.h \
+  kernel/coinstats.h \
   key.h \
   key_io.h \
   logging.h \
@@ -201,7 +202,6 @@ BITCOIN_CORE_H = \
   node/caches.h \
   node/chainstate.h \
   node/coin.h \
-  node/coinstats.h \
   node/context.h \
   node/miner.h \
   node/minisketchwrapper.h \
@@ -375,6 +375,7 @@ libbitcoin_node_a_SOURCES = \
   index/coinstatsindex.cpp \
   index/txindex.cpp \
   init.cpp \
+  kernel/coinstats.cpp \
   mainchainrpc.cpp \
   mapport.cpp \
   net.cpp \
@@ -384,7 +385,6 @@ libbitcoin_node_a_SOURCES = \
   node/caches.cpp \
   node/chainstate.cpp \
   node/coin.cpp \
-  node/coinstats.cpp \
   node/context.cpp \
   node/interfaces.cpp \
   node/miner.cpp \
@@ -929,7 +929,6 @@ endif
 libbitcoinkernel_la_SOURCES = \
   kernel/bitcoinkernel.cpp \
   arith_uint256.cpp \
-  blockfilter.cpp \
   chain.cpp \
   chainparamsbase.cpp \
   chainparams.cpp \
@@ -947,15 +946,12 @@ libbitcoinkernel_la_SOURCES = \
   flatfile.cpp \
   fs.cpp \
   hash.cpp \
-  index/base.cpp \
-  index/blockfilterindex.cpp \
-  index/coinstatsindex.cpp \
   init/common.cpp \
+  kernel/coinstats.cpp \
   key.cpp \
   logging.cpp \
   node/blockstorage.cpp \
   node/chainstate.cpp \
-  node/coinstats.cpp \
   node/ui_interface.cpp \
   policy/feerate.cpp \
   policy/fees.cpp \
