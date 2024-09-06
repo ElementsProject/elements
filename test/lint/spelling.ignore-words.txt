@@ -16,6 +16,7 @@ inflight
 keypair
 mor
 mut
+nd
 nin
 ser
 siz
