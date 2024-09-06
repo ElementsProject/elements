@@ -46,7 +46,7 @@ static void add_coin(const CAmount& nValue, int nInput, std::vector<COutput>& se
     tx.vout[nInput].nValue = nValue;
     tx.nLockTime = nextLockTime++;        // so all transactions get different hashes
     CWalletTx wtx(MakeTransactionRef(tx), TxStateInactive{});
-    set.emplace_back(testWallet, wtx, COutPoint(tx.GetHash(), nInput), tx.vout.at(nInput), /*depth=*/ 1, /*input_bytes=*/ -1, /*spendable=*/ true, /*solvable=*/ true, /*safe=*/ true, /*time=*/ 0, /*from_me=*/ false, /*fees=*/ 0);
+    set.emplace_back(testWallet, wtx, COutPoint(tx.GetHash(), nInput), tx.vout.at(nInput), /*depth=*/ 1, /*input_bytes=*/ -1, /*spendable=*/ true, /*solvable=*/ true, /*safe=*/ true, /*time=*/ 0, /*from_me=*/ false);
 }
 
 static void add_coin(const CAmount& nValue, int nInput, SelectionResult& result)
@@ -56,7 +56,7 @@ static void add_coin(const CAmount& nValue, int nInput, SelectionResult& result)
     tx.vout[nInput].nValue = nValue;
     tx.nLockTime = nextLockTime++;        // so all transactions get different hashes
     CWalletTx wtx(MakeTransactionRef(tx), TxStateInactive{});
-    COutput output(testWallet, wtx, COutPoint(tx.GetHash(), nInput), tx.vout.at(nInput), /*depth=*/ 1, /*input_bytes=*/ -1, /*spendable=*/ true, /*solvable=*/ true, /*safe=*/ true, /*time=*/ 0, /*from_me=*/ false, /*fees=*/ 0);
+    COutput output(testWallet, wtx, COutPoint(tx.GetHash(), nInput), tx.vout.at(nInput), /*depth=*/ 1, /*input_bytes=*/ -1, /*spendable=*/ true, /*solvable=*/ true, /*safe=*/ true, /*time=*/ 0, /*from_me=*/ false);
     OutputGroup group;
     group.Insert(output, /*ancestors=*/ 0, /*descendants=*/ 0, /*positive_only=*/ true);
     result.AddInput(group);
@@ -69,7 +69,8 @@ static void add_coin(const CAmount& nValue, int nInput, CoinSet& set, CAmount fe
     tx.vout[nInput].nValue = nValue;
     tx.nLockTime = nextLockTime++;        // so all transactions get different hashes
     CWalletTx wtx(MakeTransactionRef(tx), TxStateInactive{});
-    COutput coin(testWallet, wtx, COutPoint(tx.GetHash(), nInput), tx.vout.at(nInput), /*depth=*/ 1, /*input_bytes=*/ -1, /*spendable=*/ true, /*solvable=*/ true, /*safe=*/ true, /*time=*/ 0, /*from_me=*/ false, /*fees*/ 0);
+    // ELEMENTS FIXME: input_bytes size of 1000 seems to work (I picked it arbitrarily), but bitcoin has 148
+    COutput coin(testWallet, wtx, COutPoint(tx.GetHash(), nInput), tx.vout.at(nInput), /*depth=*/ 1, /*input_bytes=*/ 1000, /*spendable=*/ true, /*solvable=*/ true, /*safe=*/ true, /*time=*/ 0, /*from_me=*/ false, CFeeRate(fee));
     coin.long_term_fee = long_term_fee;
     set.insert(coin);
 }
@@ -812,6 +813,7 @@ BOOST_AUTO_TEST_CASE(waste_test)
     add_coin(1 * COIN, 1, selection, fee, fee - fee_diff);
     add_coin(2 * COIN, 2, selection, fee, fee - fee_diff);
     const CAmount waste1 = GetSelectionWaste(selection, change_cost, target);
+
     BOOST_CHECK_EQUAL(fee_diff * 2 + change_cost, waste1);
     selection.clear();
 
@@ -908,11 +910,11 @@ BOOST_AUTO_TEST_CASE(effective_value_test)
     // standard case, pass fees in constructor
     const CAmount fees = 148;
     CWalletTx wtx(MakeTransactionRef(tx), TxStateInactive{});
-    COutput output4(testWallet, wtx, COutPoint(tx.GetHash(), nInput), tx.vout.at(nInput), /*depth=*/ 1, input_bytes, /*spendable=*/ true, /*solvable=*/ true, /*safe=*/ true, /*time=*/ 0, /*from_me=*/ false, fees);
+    COutput output4(COutPoint(tx.GetHash(), nInput), tx.vout.at(nInput), /*depth=*/ 1, input_bytes, /*spendable=*/ true, /*solvable=*/ true, /*safe=*/ true, /*time=*/ 0, /*from_me=*/ false, fees);
     BOOST_CHECK_EQUAL(output4.GetEffectiveValue(), expected_ev1);
 
     // input bytes unknown (input_bytes = -1), pass fees in constructor
-    COutput output5(testWallet, wtx, COutPoint(tx.GetHash(), nInput), tx.vout.at(nInput), /*depth=*/ 1, /*input_bytes=*/ -1, /*spendable=*/ true, /*solvable=*/ true, /*safe=*/ true, /*time=*/ 0, /*from_me=*/ false, /*fees=*/ 0);
+    COutput output5(COutPoint(tx.GetHash(), nInput), tx.vout.at(nInput), /*depth=*/ 1, /*input_bytes=*/ -1, /*spendable=*/ true, /*solvable=*/ true, /*safe=*/ true, /*time=*/ 0, /*from_me=*/ false, /*fees=*/ 0);
     BOOST_CHECK_EQUAL(output5.GetEffectiveValue(), nValue); // The effective value should be equal to the absolute value if input_bytes is -1
 }
 

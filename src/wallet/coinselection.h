@@ -90,8 +90,10 @@ public:
 
     // ELEMENTS: the implementation logic for this constructor is inside of coinselection.cpp, since it is more detailed than bitcoin's version
     COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me, const std::optional<CFeeRate> feerate = std::nullopt);
+    COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me, const CAmount fees);
 
     // ELEMENTS: use this constructor to set the value and asset info (when wallet and wtx are available).
+    COutput(const CWallet& wallet, const CWalletTx& wtx, const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me, const std::optional<CFeeRate> feerate = std::nullopt);
     COutput(const CWallet& wallet, const CWalletTx& wtx, const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me, const CAmount fees);
 
     std::string ToString() const;

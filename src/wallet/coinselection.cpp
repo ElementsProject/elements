@@ -19,7 +19,7 @@ namespace wallet {
 
 // ELEMENTS COutput constructors are here, bitcoin ones are in coinselection.h
 
-COutput::COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me, const std::optional<CFeeRate> feerate    )
+COutput::COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me, const std::optional<CFeeRate> feerate)
     : outpoint{outpoint},
       txout{txout},
       depth{depth},
@@ -39,18 +39,72 @@ COutput::COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int 
     }
 
     if (txout.nValue.IsExplicit()) {
-        //effective_value = txout.nValue.GetAmount();
         value = txout.nValue.GetAmount();
         asset = txout.nAsset.GetAsset();
-    }
 
-    if (feerate && txout.nValue.IsExplicit()) {
         // ELEMENTS: "effective value" only comes from the policy asset
+        //effective_value = txout.nValue.GetAmount();
         effective_value = value * (asset == ::policyAsset) - fee.value();
     } else {
         effective_value = 0;
     }
 }
+
+COutput::COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me, const CAmount fees)
+    : outpoint{outpoint},
+      txout{txout},
+      depth{depth},
+      input_bytes{input_bytes},
+      spendable{spendable},
+      solvable{solvable},
+      safe{safe},
+      time{time},
+      from_me{from_me}
+{
+    assert((input_bytes < 0 && fees == 0) || (input_bytes > 0 && fees >= 0));
+    fee = fees;
+
+    if (txout.nValue.IsExplicit()) {
+        value = txout.nValue.GetAmount();
+        asset = txout.nAsset.GetAsset();
+
+        effective_value = value * (asset == ::policyAsset) - fee.value();
+        //effective_value = txout.nValue.GetAmount();
+    } else {
+        effective_value = 0;
+    }
+}
+
+COutput::COutput(const CWallet& wallet, const CWalletTx& wtx, const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me, const std::optional<CFeeRate> feerate)
+    : outpoint{outpoint},
+      txout{txout},
+      depth{depth},
+      input_bytes{input_bytes},
+      spendable{spendable},
+      solvable{solvable},
+      safe{safe},
+      time{time},
+      from_me{from_me},
+      //effective_value{wtx.GetOutputValueOut(wallet, outpoint.n)}, ELEMENTS FIXME: is this needed?
+      value{wtx.GetOutputValueOut(wallet, outpoint.n)},
+      asset{wtx.GetOutputAsset(wallet, outpoint.n)},
+      bf_value{wtx.GetOutputAmountBlindingFactor(wallet, outpoint.n)},
+      bf_asset{wtx.GetOutputAssetBlindingFactor(wallet, outpoint.n)} {
+
+        if (feerate) {
+            fee = input_bytes < 0 ? 0 : feerate.value().GetFee(input_bytes);
+        } else {
+            fee = 0; // ELEMENTS FIXME: is this correct?
+        }
+
+        CAmount output_value = wtx.GetOutputValueOut(wallet, outpoint.n);
+        if (output_value != -1) {
+            // ELEMENTS: "effective value" only comes from the policy asset
+            effective_value = output_value * (asset == ::policyAsset) - fee.value();
+        } else {
+            effective_value = 0;
+        }
+    }
 
 COutput::COutput(const CWallet& wallet, const CWalletTx& wtx, const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool spendable, bool solvable, bool safe, int64_t time, bool from_me, const CAmount fees)
     : outpoint{outpoint},
@@ -62,14 +116,14 @@ COutput::COutput(const CWallet& wallet, const CWalletTx& wtx, const COutPoint& o
       safe{safe},
       time{time},
       from_me{from_me},
-      effective_value{wtx.GetOutputValueOut(wallet, outpoint.n)},
+      //effective_value{wtx.GetOutputValueOut(wallet, outpoint.n)}, ELEMENTS FIXME: is this needed?
       value{wtx.GetOutputValueOut(wallet, outpoint.n)},
       asset{wtx.GetOutputAsset(wallet, outpoint.n)},
       bf_value{wtx.GetOutputAmountBlindingFactor(wallet, outpoint.n)},
       bf_asset{wtx.GetOutputAssetBlindingFactor(wallet, outpoint.n)} {
-        // if input_bytes is unknown, then fees should be 0, if input_bytes is known, then the fees should be a positive integer or 0 (input_bytes known and fees = 0 only happens in the tests)
         assert((input_bytes < 0 && fees == 0) || (input_bytes > 0 && fees >= 0));
         fee = fees;
+        effective_value = wtx.GetOutputValueOut(wallet, outpoint.n) - fee.value();
     }
 
 // Descending order comparator
