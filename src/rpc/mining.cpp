@@ -1108,7 +1108,7 @@ static RPCHelpMan getnewblockhex()
 {
     ChainstateManager& chainman = EnsureAnyChainman(request.context);
 
-    int required_wait = !request.params[0].isNull() ? request.params[0].get_int() : 0;
+    int required_wait = !request.params[0].isNull() ? request.params[0].getInt<int>() : 0;
     if (required_wait < 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "min_tx_age must be non-negative.");
     }
@@ -1129,7 +1129,7 @@ static RPCHelpMan getnewblockhex()
         std::vector<unsigned char> signblock_bytes = ParseHex(sbs_str);
         proposed.m_signblockscript = CScript(signblock_bytes.begin(), signblock_bytes.end());
 
-        int max_sbs_wit = prop["max_block_witness"].get_int();
+        int max_sbs_wit = prop["max_block_witness"].getInt<int>();
         if (max_sbs_wit < 0) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "max_block_witness must be non-negative");
         }

@@ -335,7 +335,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 out.nAsset = CAsset(ParseHashO(output, name_));
             } else if (name_ == "blinder_index") {
                 // For PSET
-                psbt_out.m_blinder_index = find_value(output, name_).get_int();
+                psbt_out.m_blinder_index = find_value(output, name_).getInt<int>();
             } else {
                 CTxDestination destination = DecodeDestination(name_);
                 if (!IsValidDestination(destination)) {

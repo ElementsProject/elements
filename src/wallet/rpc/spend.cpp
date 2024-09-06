@@ -1860,7 +1860,7 @@ RPCHelpMan walletcreatefundedpsbt()
     // Make a blank psbt
     uint32_t psbt_version = 2;
     if (!request.params[6].isNull()) {
-        psbt_version = request.params[6].get_int();
+        psbt_version = request.params[6].getInt<int>();
     }
     if (psbt_version != 2) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "The PSBT version can only be 2");

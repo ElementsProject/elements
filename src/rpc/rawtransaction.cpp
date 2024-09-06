@@ -1770,7 +1770,7 @@ static RPCHelpMan createpsbt()
     // Make a blank psbt
     uint32_t psbt_version = 2;
     if (!request.params[4].isNull()) {
-        psbt_version = request.params[4].get_int();
+        psbt_version = request.params[4].getInt<int>();
     }
     if (psbt_version != 2) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "The PSBT version can only be 2");
@@ -2818,7 +2818,7 @@ static RPCHelpMan rawreissueasset()
         int input_index = -1;
         const UniValue& input_index_o = issuance_o["input_index"];
         if (input_index_o.isNum()) {
-            input_index = input_index_o.get_int();
+            input_index = input_index_o.getInt<int>();
             if (input_index < 0) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Input index must be non-negative.");
             } else if ((size_t) input_index >= mtx.vin.size()) {
@@ -2866,7 +2866,7 @@ static RPCHelpMan calculateasset()
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VNUM, UniValue::VSTR, UniValue::VBOOL}, true);
 
     uint256 txid = ParseHashV(request.params[0], "txid");
-    uint32_t vout = request.params[1].get_int();
+    uint32_t vout = request.params[1].getInt<int>();
 
     uint256 asset_entropy;
     if (!request.params[2].isNull()) {
@@ -2926,7 +2926,7 @@ static RPCHelpMan updatepsbtpegin()
     }
 
     // Get the input to update
-    int input_index = request.params[1].get_int();
+    int input_index = request.params[1].getInt<int>();
     PSBTInput& input = psbtx.inputs[input_index];
 
     // Peg-in value

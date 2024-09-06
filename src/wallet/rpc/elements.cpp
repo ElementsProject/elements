@@ -322,7 +322,7 @@ RPCHelpMan initpegoutwallet()
     // Parse offline counter
     int counter = 0;
     if (request.params.size() > 1) {
-        counter = request.params[1].get_int();
+        counter = request.params[1].getInt<int>();
         if (counter < 0 || counter > 1000000000) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "bip32_counter must be between 0 and 1,000,000,000, inclusive.");
         }

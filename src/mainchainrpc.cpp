@@ -170,7 +170,7 @@ bool IsConfirmedBitcoinBlock(const uint256& hash, const int nMinConfirmationDept
         }
 
         UniValue confirmations = find_value(result.get_obj(), "confirmations");
-        if (!confirmations.isNum() || confirmations.get_int64() < nMinConfirmationDepth) {
+        if (!confirmations.isNum() || confirmations.getInt<int64_t>() < nMinConfirmationDepth) {
             LogPrintf("Insufficient confirmations (got %s, need at least %d).\n", confirmations.write(), nMinConfirmationDepth);
             return false;
         }
@@ -178,7 +178,7 @@ bool IsConfirmedBitcoinBlock(const uint256& hash, const int nMinConfirmationDept
         // Only perform extra test if nbTxs has been provided (non-zero).
         if (nbTxs != 0) {
             UniValue nTx = find_value(result.get_obj(), "nTx");
-            if (!nTx.isNum() || nTx.get_int64() != nbTxs) {
+            if (!nTx.isNum() || nTx.getInt<int64_t>() != nbTxs) {
                 LogPrintf("ERROR: Invalid number of transactions in merkle block for %s (got %s, need exactly %d)\n",
                         hash.GetHex(), nTx.write(), nbTxs);
                 return false;

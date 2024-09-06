@@ -1208,7 +1208,7 @@ bool MainchainRPCCheck()
             if (!error.isNull()) {
                 // On the first call, it's possible to node is still in
                 // warmup; in that case, just wait and retry.
-                if (error["code"].get_int() == RPC_IN_WARMUP) {
+                if (error["code"].getInt<int>() == RPC_IN_WARMUP) {
                     UninterruptibleSleep(std::chrono::milliseconds{1000});
                     continue;
                 }
@@ -1219,7 +1219,7 @@ bool MainchainRPCCheck()
             }
             UniValue result = reply["result"];
             if (!result.isObject() || !result.get_obj()["version"].isNum() ||
-                    result.get_obj()["version"].get_int() < MIN_MAINCHAIN_NODE_VERSION) {
+                    result.get_obj()["version"].getInt<int>() < MIN_MAINCHAIN_NODE_VERSION) {
                 LogPrintf("ERROR: Parent chain daemon too old; need Bitcoin Core version 0.16.3 or newer.\n");
                 return false;
             }

@@ -2135,7 +2135,7 @@ RPCHelpMan importissuanceblindingkey()
     if (!request.params[1].isNum()) {
         throw JSONRPCError(RPC_TYPE_ERROR, "vin must be an integer");
     }
-    vindex = request.params[1].get_int();
+    vindex = request.params[1].getInt<int>();
 
     if (!request.params[2].isStr() || !IsHex(request.params[2].get_str()) || request.params[2].get_str().size() != 64) {
         throw JSONRPCError(RPC_TYPE_ERROR, "blinding key must be a hex string of length 64");
@@ -2280,7 +2280,7 @@ RPCHelpMan dumpissuanceblindingkey()
     if (!request.params[1].isNum()) {
         throw JSONRPCError(RPC_TYPE_ERROR, "vin must be an integer");
     }
-    vindex = request.params[1].get_int();
+    vindex = request.params[1].getInt<int>();
 
     // Process as issuance key dump
     for (std::map<uint256, CWalletTx>::const_iterator it = pwallet->mapWallet.begin(); it != pwallet->mapWallet.end(); ++it) {
