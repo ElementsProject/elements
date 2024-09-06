@@ -67,8 +67,7 @@ public:
         AmountWithFeeExceedsBalance,
         DuplicateAddress,
         TransactionCreationFailed, // Error returned when wallet is still locked
-        AbsurdFee,
-        PaymentRequestExpired
+        AbsurdFee
     };
 
     enum EncryptionStatus
