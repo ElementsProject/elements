@@ -7,15 +7,27 @@
 
 #include <policy/policy.h>
 
-#include <consensus/validation.h>
 #include <coins.h>
+#include <consensus/amount.h>
+#include <consensus/consensus.h>
+#include <consensus/validation.h>
+#include <policy/feerate.h>
 #include <primitives/pak.h>
+#include <primitives/transaction.h>
+#include <script/interpreter.h>
 #include <script/pegins.h>
+#include <script/script.h>
+#include <script/standard.h>
+#include <serialize.h>
 #include <span.h>
 #include <chainparams.h> // Peg-out enforcement
 
 // ELEMENTS:
 CAsset policyAsset;
+
+#include <algorithm>
+#include <cstddef>
+#include <vector>
 
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
 {
