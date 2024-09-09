@@ -129,6 +129,7 @@ struct update_for_parent_inclusion
     {
         e.nModFeesWithAncestors -= iter->GetFee();
         e.nSizeWithAncestors -= iter->GetTxSize();
+        e.discountSizeWithAncestors -= iter->GetDiscountTxSize();
         e.nSigOpCostWithAncestors -= iter->GetSigOpCost();
     }
 
