@@ -9,6 +9,7 @@
 #include <asset.h>
 #include <clientversion.h>
 #include <coins.h>
+#include <compat.h>
 #include <consensus/amount.h>
 #include <consensus/consensus.h>
 #include <core_io.h>
@@ -897,7 +898,7 @@ static int CommandLineRawTx(int argc, char* argv[])
     return nRet;
 }
 
-int main(int argc, char* argv[])
+MAIN_FUNCTION
 {
     SetupEnvironment();
 
