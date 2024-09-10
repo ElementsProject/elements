@@ -23,9 +23,9 @@
 #include <logging/timer.h>
 #include <mainchainrpc.h>
 #include <node/blockstorage.h>
-#include <node/ui_interface.h>
-#include <pegins.h>
+#include <node/interface_ui.h>
 #include <node/utxo_snapshot.h>
+#include <pegins.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <policy/settings.h>

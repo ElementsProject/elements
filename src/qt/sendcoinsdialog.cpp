@@ -21,7 +21,7 @@
 #include <chainparams.h>
 #include <interfaces/node.h>
 #include <key_io.h>
-#include <node/ui_interface.h>
+#include <node/interface_ui.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <txmempool.h>
