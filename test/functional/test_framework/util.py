@@ -578,23 +578,30 @@ def gen_return_txouts():
 
 # Create a spend of each passed-in utxo, splicing in "txouts" to each raw
 # transaction to make it large.  See gen_return_txouts() above.
-def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
-    addr = node.getnewaddress()
+def create_lots_of_big_transactions(mini_wallet, node, fee, tx_batch_size, txouts, utxos=None):
+    from .messages import COIN
+    fee_sats = int(fee * COIN)
     txids = []
-    from .messages import tx_from_hex
-    for _ in range(num):
-        t = utxos.pop()
-        inputs = [{"txid": t["txid"], "vout": t["vout"]}]
-        change = t['amount'] - fee
-        outputs = [{addr: satoshi_round(change)}, {"fee": fee}]
-        rawtx = node.createrawtransaction(inputs, outputs)
-        tx = tx_from_hex(rawtx)
-        for txout in txouts:
-            tx.vout.append(txout)
-        newtx = tx.serialize().hex()
-        signresult = node.signrawtransactionwithwallet(newtx, None, "NONE")
-        txid = node.sendrawtransaction(signresult["hex"], 0)
-        txids.append(txid)
+    use_internal_utxos = utxos is None
+    for _ in range(tx_batch_size):
+        tx = mini_wallet.create_self_transfer(
+                from_node=node,
+                utxo_to_spend=None if use_internal_utxos else utxos.pop(),
+                fee_rate=0,
+                mempool_valid=False)['tx']
+
+        # ELEMENTS: create_self_trasfer adds a fee output at the end of the transaction
+        # Since we passed in a fee_rate of 0, we must manually set it
+        assert(tx.vout[1].is_fee())
+        tx.vout[0].nValue.setToAmount(tx.vout[0].nValue.getAmount() - fee_sats)
+        tx.vout[1].nValue.setToAmount(fee_sats)
+
+        tx.vout.extend(txouts)
+
+        res = node.testmempoolaccept([tx.serialize().hex()])[0]
+        assert_equal(res['fees']['base'], fee)
+        txids.append(node.sendrawtransaction(tx.serialize().hex()))
+
     return txids
 
 
@@ -602,14 +609,8 @@ def mine_large_block(test_framework, mini_wallet, node):
     # generate a 66k transaction,
     # and 14 of them is close to the 1MB block limit
     txouts = gen_return_txouts()
-    from .messages import COIN
-    fee = 100 * int(node.getnetworkinfo()["relayfee"] * COIN)
-    for _ in range(14):
-        tx = mini_wallet.create_self_transfer(from_node=node, fee_rate=0, mempool_valid=False)['tx']
-        tx.vout[0].nValue.setToAmount(tx.vout[0].nValue.getAmount() - fee)
-        tx.vout[1].nValue.setToAmount(fee) # ELEMENTS
-        tx.vout.extend(txouts)
-        mini_wallet.sendrawtransaction(from_node=node, tx_hex=tx.serialize().hex())
+    fee = 100 * node.getnetworkinfo()["relayfee"]
+    create_lots_of_big_transactions(mini_wallet, node, fee, 14, txouts)
     test_framework.generate(node, 1)
 
 

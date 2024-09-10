@@ -58,7 +58,8 @@ class MempoolPackagesTest(BitcoinTestFramework):
         # ...even if it chains on to two parent transactions with one in the chain.
         assert_raises_rpc_error(-26, "too-long-mempool-chain, too many descendants", self.chain_tx, [chain[0], second_chain])
         # ...especially if its > 40k weight
-        assert_raises_rpc_error(-26, "bad-txns-in-ne-out, value in != value out", self.chain_tx, [chain[0]], num_outputs=350)
+        # ELEMENTS: on bitcoin this following error is 'bad-txns-in-ne-out, value in != value out'
+        assert_raises_rpc_error(-26, "too-long-mempool-chain, too many descendants", self.chain_tx, [chain[0]], num_outputs=350)
         # But not if it chains directly off the first transaction
         replacable_tx = self.wallet.send_self_transfer_multi(from_node=self.nodes[0], utxos_to_spend=[chain[0]])['tx']
         # and the second chain should work just fine

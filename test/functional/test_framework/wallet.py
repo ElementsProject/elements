@@ -255,8 +255,12 @@ class MiniWallet:
         for o in tx.vout:
             o.nValue = CTxOutValue(outputs_value_total // num_outputs)
 
+        # ELEMENTS: we may have a remainder from the floor division above, so explicitly
+        # add it to the fee output
+        extra_output_value = outputs_value_total % num_outputs
+
         # ELEMENTS: add fee output as final output
-        fee = inputs_value_total - outputs_value_total
+        fee = inputs_value_total - outputs_value_total + extra_output_value
         assert(fee >= 0)
         tx.vout.append(CTxOut(nValue=CTxOutValue(fee)))
 
