@@ -19,6 +19,7 @@ class CTTest(BitcoinTestFramework):
             "-con_connect_genesis_outputs=1",
             "-initialfreecoins=2100000000000000",
             "-txindex=1",
+            "-blindedaddresses=1",
             "-minrelaytxfee=0.00000100",
             "-blockmintxfee=0.00000100",
             "-fallbackfee=0.00000100",
@@ -184,6 +185,62 @@ class CTTest(BitcoinTestFramework):
         tx = node0.getrawtransaction(txid, True)
         assert_equal(tx['vsize'], 2575)
 
+        # check transaction package
+        self.log.info("Create discounted package")
+        addr = node1.getnewaddress()
+        addr2 = node1.getnewaddress()
+        utxo = node1.listunspent()[0]
+        fee = Decimal('0.00000035')
+        inputs = [{"txid": utxo["txid"], "vout": utxo["vout"]}]
+        change = Decimal('0.00001000')
+        amount = utxo["amount"] - change - fee
+        outputs = [
+            {addr: amount},
+            {addr2: change},
+            {"fee": fee}
+        ]
+        raw = node1.createrawtransaction(inputs, outputs)
+        blind = node1.blindrawtransaction(raw, False)
+        signed = node1.signrawtransactionwithwallet(blind)
+        assert_equal(signed["complete"], True)
+        test = node1.testmempoolaccept([signed['hex']])
+        assert_equal(test[0]["allowed"], True)
+        txid = node1.sendrawtransaction(signed['hex'])
+        tx = node1.gettransaction(txid, True, True)
+        assert_equal(tx['decoded']['discountvsize'], 341)
+
+        for i in range(24):
+            self.log.info(f"Add package descendant {i+1}")
+            addr = node1.getnewaddress()
+            addr2 = node1.getnewaddress()
+            fee = Decimal('0.00000035')
+            change = Decimal('0.00001000')
+            inputs = [{"txid": txid, "vout": 0}]
+            amount -= change + fee
+            outputs = [
+                {addr: amount},
+                {addr2: change},
+                {"fee": fee}
+            ]
+            raw = node1.createrawtransaction(inputs, outputs)
+            blind = node1.blindrawtransaction(raw, False)
+            signed = node1.signrawtransactionwithwallet(blind)
+            assert_equal(signed["complete"], True)
+            hex = signed["hex"]
+            test = node1.testmempoolaccept([hex])
+            assert_equal(test[0]["allowed"], True)
+            txid = node1.sendrawtransaction(hex)
+            tx = node1.gettransaction(txid, True, True)
+            assert_equal(tx['decoded']['discountvsize'], 341)
+            assert_equal(len(node1.getrawmempool()), i + 2)
+
+        assert_equal(len(node1.getrawmempool()), 25)
+        self.log.info("Mine the package")
+        self.generate(node1, 1, sync_fun=self.sync_blocks)
+        assert_equal(len(node1.getrawmempool()), 0)
+        tx = node1.gettransaction(txid, True, True)
+        assert_equal(tx["confirmations"], 1)
+        self.log.info("Success")
 
 if __name__ == '__main__':
     CTTest().main()
