@@ -782,31 +782,6 @@ void FundTransaction(CWallet& wallet, CMutableTransaction& tx, CAmount& fee_out,
         setSubtractFeeFromOutputs.insert(pos);
     }
 
-    // Check any existing inputs for peg-in data and add to external txouts if so
-    // Fetch specified UTXOs from the UTXO set to get the scriptPubKeys and values of the outputs being selected
-    // and to match with the given solving_data. Only used for non-wallet outputs.
-    const auto& fedpegscripts = GetValidFedpegScripts(wallet.chain().getTip(), Params().GetConsensus(), true /* nextblock_validation */);
-    std::map<COutPoint, Coin> coins;
-    for (unsigned int i = 0; i < tx.vin.size(); ++i ) {
-        const CTxIn& txin = tx.vin[i];
-        coins[txin.prevout]; // Create empty map entry keyed by prevout.
-        if (txin.m_is_pegin) {
-            std::string err;
-            if (tx.witness.vtxinwit.size() != tx.vin.size() || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, false)) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Transaction contains invalid peg-in input: %s", err));
-            }
-            CScriptWitness& pegin_witness = tx.witness.vtxinwit[i].m_pegin_witness;
-            CTxOut txout = GetPeginOutputFromWitness(pegin_witness);
-            coinControl.SelectExternal(txin.prevout, txout);
-        }
-    }
-    wallet.chain().findCoins(coins);
-    for (const auto& coin : coins) {
-        if (!coin.second.out.IsNull()) {
-            coinControl.SelectExternal(coin.first, coin.second.out);
-        }
-    }
-
     bilingual_str error;
 
     if (!FundTransaction(wallet, tx, fee_out, change_position, error, lockUnspents, setSubtractFeeFromOutputs, coinControl)) {

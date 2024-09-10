@@ -9,6 +9,7 @@
 #include <issuance.h> // ELEMENTS: for GenerateAssetEntropy and others
 #include <policy/policy.h>
 #include <rpc/util.h>  // for GetDestinationBlindingKey and IsBlindDestination
+#include <script/pegins.h>
 #include <script/signingprovider.h>
 #include <util/check.h>
 #include <util/fees.h>
@@ -1856,13 +1857,39 @@ bool FundTransaction(CWallet& wallet, CMutableTransaction& tx, CAmount& nFeeRet,
 
     coinControl.fAllowOtherInputs = true;
 
-    for (const CTxIn& txin : tx.vin) {
-        coinControl.Select(txin.prevout);
-    }
-
     // Acquire the locks to prevent races to the new locked unspents between the
     // CreateTransaction call and LockCoin calls (when lockUnspents is true).
     LOCK(wallet.cs_wallet);
+
+    // Check any existing inputs for peg-in data and add to external txouts if so
+    // Fetch specified UTXOs from the UTXO set to get the scriptPubKeys and values of the outputs being selected
+    // and to match with the given solving_data. Only used for non-wallet outputs.
+    const auto& fedpegscripts = GetValidFedpegScripts(wallet.chain().getTip(), Params().GetConsensus(), true /* nextblock_validation */);
+    std::map<COutPoint, Coin> coins;
+    for (unsigned int i = 0; i < tx.vin.size(); ++i ) {
+        const CTxIn& txin = tx.vin[i];
+        coins[txin.prevout]; // Create empty map entry keyed by prevout.
+        if (txin.m_is_pegin) {
+            std::string err;
+            if (tx.witness.vtxinwit.size() != tx.vin.size() || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, false)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Transaction contains invalid peg-in input: %s", err));
+            }
+            CScriptWitness& pegin_witness = tx.witness.vtxinwit[i].m_pegin_witness;
+            CTxOut txout = GetPeginOutputFromWitness(pegin_witness);
+            coinControl.SelectExternal(txin.prevout, txout);
+        }
+    }
+    wallet.chain().findCoins(coins);
+
+    for (const CTxIn& txin : tx.vin) {
+        // if it's not in the wallet and corresponding UTXO is found than select as external output
+        const auto& outPoint = txin.prevout;
+        if (wallet.mapWallet.find(outPoint.hash) == wallet.mapWallet.end() && !coins[outPoint].out.IsNull()) {
+            coinControl.SelectExternal(outPoint, coins[outPoint].out);
+        } else {
+            coinControl.Select(outPoint);
+        }
+    }
 
     FeeCalculation fee_calc_out;
     auto blind_details = g_con_elementsmode ? std::make_unique<BlindDetails>() : nullptr;
