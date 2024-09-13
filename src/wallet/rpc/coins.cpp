@@ -395,11 +395,11 @@ RPCHelpMan lockunspent()
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout index out of bounds");
         }
 
-        if (pwallet->IsSpent(outpt.hash, outpt.n)) {
+        if (pwallet->IsSpent(outpt)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected unspent output");
         }
 
-        const bool is_locked = pwallet->IsLockedCoin(outpt.hash, outpt.n);
+        const bool is_locked = pwallet->IsLockedCoin(outpt);
 
         if (fUnlock && !is_locked) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected locked output");
@@ -708,7 +708,7 @@ RPCHelpMan listunspent()
         cctl.m_max_depth = nMaxDepth;
         cctl.m_include_unsafe_inputs = include_unsafe;
         LOCK(pwallet->cs_wallet);
-        AvailableCoinsListUnspent(*pwallet, vecOutputs, &cctl, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount, asset_filter.IsNull() ? nullptr : &asset_filter);
+        vecOutputs = AvailableCoinsListUnspent(*pwallet, &cctl, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount, asset_filter.IsNull() ? nullptr : &asset_filter).coins;
     }
 
     LOCK(pwallet->cs_wallet);
@@ -720,7 +720,7 @@ RPCHelpMan listunspent()
         const CTxOut& tx_out = out.txout;
         const CScript& scriptPubKey = out.txout.scriptPubKey;
         bool fValidAddress = ExtractDestination(scriptPubKey, address);
-        bool reused = avoid_reuse && pwallet->IsSpentKey(out.outpoint.hash, out.outpoint.n);
+        bool reused = avoid_reuse && pwallet->IsSpentKey(scriptPubKey);
 
         if (destinations.size() && (!fValidAddress || !destinations.count(address)))
             continue;

@@ -180,12 +180,19 @@ TxSize CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *walle
     return TxSize{vsize, weight};
 }
 
-void AvailableCoins(const CWallet& wallet, std::vector<COutput> &vCoins, const CCoinControl *coinControl, std::optional<CFeeRate> feerate, const CAmount &nMinimumAmount, const CAmount &nMaximumAmount, const CAmount &nMinimumSumAmount, const uint64_t nMaximumCount, const CAsset* asset_filter) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
+CoinsResult AvailableCoins(const CWallet& wallet,
+                           const CCoinControl *coinControl,
+                           std::optional<CFeeRate> feerate,
+                           const CAmount &nMinimumAmount,
+                           const CAmount &nMaximumAmount,
+                           const CAmount &nMinimumSumAmount,
+                           const uint64_t nMaximumCount,
+                           const CAsset* asset_filter,
+                           bool only_spendable) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
 {
     AssertLockHeld(wallet.cs_wallet);
 
-    vCoins.clear();
-    CAmount nTotal = 0;
+    CoinsResult result;
     // Either the WALLET_FLAG_AVOID_REUSE flag is not set (in which case we always allow), or we default to avoiding, and only in the case where
     // a coin control object is provided, and has the avoid address reuse flag set to false, do we allow already used addresses
     bool allow_used_addresses = !wallet.IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE) || (coinControl && !coinControl->m_avoid_address_reuse);
@@ -255,9 +262,11 @@ void AvailableCoins(const CWallet& wallet, std::vector<COutput> &vCoins, const C
         bool tx_from_me = CachedTxIsFromMe(wallet, wtx, ISMINE_ALL);
 
         for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
-            // Only consider selected coins if add_inputs is false
-            if (coinControl && !coinControl->m_add_inputs && !coinControl->IsSelected(COutPoint(entry.first, i))) {
+            const CTxOut& output = wtx.tx->vout[i];
+            const COutPoint outpoint(wtxid, i);
 
+            // Only consider selected coins if add_inputs is false
+            if (coinControl && !coinControl->m_add_inputs && !coinControl->IsSelected(outpoint)) {
                 continue;
             }
 
@@ -271,72 +280,71 @@ void AvailableCoins(const CWallet& wallet, std::vector<COutput> &vCoins, const C
             if (outValue < nMinimumAmount || outValue > nMaximumAmount)
                 continue;
 
-            if (coinControl && coinControl->HasSelected() && !coinControl->fAllowOtherInputs && !coinControl->IsSelected(COutPoint(entry.first, i)))
+            if (coinControl && coinControl->HasSelected() && !coinControl->fAllowOtherInputs && !coinControl->IsSelected(outpoint))
                 continue;
 
-            if (wallet.IsLockedCoin(entry.first, i))
+            if (wallet.IsLockedCoin(outpoint))
                 continue;
 
-            if (wallet.IsSpent(wtxid, i))
+            if (wallet.IsSpent(outpoint))
                 continue;
 
-            isminetype mine = wallet.IsMine(wtx.tx->vout[i]);
+            isminetype mine = wallet.IsMine(output);
 
             if (mine == ISMINE_NO) {
                 continue;
             }
 
-            if (!allow_used_addresses && wallet.IsSpentKey(wtxid, i)) {
+            if (!allow_used_addresses && wallet.IsSpentKey(output.scriptPubKey)) {
                 continue;
             }
 
-            std::unique_ptr<SigningProvider> provider = wallet.GetSolvingProvider(wtx.tx->vout[i].scriptPubKey);
+            std::unique_ptr<SigningProvider> provider = wallet.GetSolvingProvider(output.scriptPubKey);
 
-            bool solvable = provider ? IsSolvable(*provider, wtx.tx->vout[i].scriptPubKey) : false;
+            bool solvable = provider ? IsSolvable(*provider, output.scriptPubKey) : false;
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
-            int input_bytes = GetTxSpendSize(wallet, wtx, i, (coinControl && coinControl->fAllowWatchOnly));
 
-            vCoins.emplace_back(wallet, wtx, COutPoint(wtx.GetHash(), i), wtx.tx->vout.at(i), nDepth, input_bytes, spendable, solvable, safeTx, wtx.GetTxTime(), tx_from_me, feerate);
+            // Filter by spendable outputs only
+            if (!spendable && only_spendable) continue;
+
+            int input_bytes = GetTxSpendSize(wallet, wtx, i, (coinControl && coinControl->fAllowWatchOnly));
+            result.coins.emplace_back(wallet, wtx, outpoint, output, nDepth, input_bytes, spendable, solvable, safeTx, wtx.GetTxTime(), tx_from_me, feerate);
+            result.total_amount[asset] += outValue;
 
             // Checks the sum amount of all UTXO's.
             if (nMinimumSumAmount != MAX_MONEY) {
-                nTotal += outValue;
-
-                if (nTotal >= nMinimumSumAmount) {
-                    return;
+                if (result.total_amount[asset] >= nMinimumSumAmount) {
+                    return result; // ELEMENTS FIXME: is this the right time to return? We are not done tallying all results for the other assets
                 }
             }
 
             // Checks the maximum number of UTXO's.
-            if (nMaximumCount > 0 && vCoins.size() >= nMaximumCount) {
-                return;
+            if (nMaximumCount > 0 && result.coins.size() >= nMaximumCount) {
+                return result;
             }
         }
     }
+
+    return result;
 }
 
-void AvailableCoinsListUnspent(const CWallet& wallet, std::vector<COutput>& vCoins, const CCoinControl* coinControl, const CAmount& nMinimumAmount, const CAmount& nMaximumAmount, const CAmount& nMinimumSumAmount, const uint64_t nMaximumCount, const CAsset*s)
+CoinsResult AvailableCoinsListUnspent(const CWallet& wallet, const CCoinControl* coinControl, const CAmount& nMinimumAmount, const CAmount& nMaximumAmount, const CAmount& nMinimumSumAmount, const uint64_t nMaximumCount, const CAsset*s)
 {
-    AvailableCoins(wallet, vCoins, coinControl, /*feerate=*/ std::nullopt, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount);
+    return AvailableCoins(wallet, coinControl, /*feerate=*/ std::nullopt, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount, s, /*only_spendable=*/false);
 }
 
 CAmountMap GetAvailableBalance(const CWallet& wallet, const CCoinControl* coinControl)
 {
     LOCK(wallet.cs_wallet);
-
-    CAmountMap balance;
-    std::vector<COutput> vCoins;
-    AvailableCoinsListUnspent(wallet, vCoins, coinControl);
-    for (const COutput& out : vCoins) {
-        if (out.spendable) {
-            CAmount amt = out.value;
-            if (amt < 0) {
-                continue;
-            }
-            balance[out.asset] += amt;
-        }
-    }
-    return balance;
+    return AvailableCoins(wallet,
+                          coinControl,
+                          std::nullopt, /*feerate=*/
+                          1,            /*nMinimumAmount*/
+                          MAX_MONEY,    /*nMaximumAmount*/
+                          MAX_MONEY,    /*nMinimumSumAmount*/
+                          0,            /*nMaximumCount*/
+                          nullptr // ELEMENTS: is this correct? Should I pass in an asset filter?
+                          ).total_amount;
 }
 
 const CTxOut& FindNonChangeParentOutput(const CWallet& wallet, const CTransaction& tx, int output) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
@@ -368,12 +376,19 @@ std::map<CTxDestination, std::vector<COutput>> ListCoins(const CWallet& wallet) 
     AssertLockHeld(wallet.cs_wallet);
 
     std::map<CTxDestination, std::vector<COutput>> result;
-    std::vector<COutput> availableCoins;
 
-    AvailableCoinsListUnspent(wallet, availableCoins);
+    CoinsResult coins_result = AvailableCoinsListUnspent(wallet);
 
-    for (const COutput& coin : availableCoins) {
+    for (const COutput& coin : coins_result.coins) {
         CTxDestination address;
+
+        // Retrieve the transaction from the wallet
+        const CWalletTx* wtx = wallet.GetWalletTx(coin.outpoint.hash);
+        if (wtx == nullptr) {
+            // Skip this coin if the transaction is not found in the wallet
+            continue;
+        }
+
         if ((coin.spendable || (wallet.IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS) && coin.solvable)) &&
             ExtractDestination(FindNonChangeParentOutput(wallet, coin.outpoint).scriptPubKey, address)) {
             result[address].emplace_back(std::move(coin));
@@ -1244,10 +1259,18 @@ static std::optional<CreatedTransactionResult> CreateTransactionInternal(
     map_selection_target[policyAsset] += not_input_fees;
 
     // Get available coins
-    std::vector<COutput> vAvailableCoins;
-    AvailableCoins(wallet, vAvailableCoins, &coin_control, coin_selection_params.m_effective_feerate, 1, MAX_MONEY, MAX_MONEY, 0);
+    auto res_available_coins = AvailableCoins(wallet,
+                                              &coin_control,
+                                              coin_selection_params.m_effective_feerate,
+                                              1,            /*nMinimumAmount*/
+                                              MAX_MONEY,    /*nMaximumAmount*/
+                                              MAX_MONEY,    /*nMinimumSumAmount*/
+                                              0,            /*nMaximumCount*/
+                                              nullptr // ELEMENTS: is this correct? Should I pass in an asset filter?
+                                              );
+
     // Choose coins to use
-    std::optional<SelectionResult> result = SelectCoins(wallet, vAvailableCoins, /*nTargetValue=*/map_selection_target, coin_control, coin_selection_params);
+    std::optional<SelectionResult> result = SelectCoins(wallet, res_available_coins.coins, /*nTargetValue=*/map_selection_target, coin_control, coin_selection_params);
     if (!result) {
         error = _("Insufficient funds");
         return std::nullopt;
