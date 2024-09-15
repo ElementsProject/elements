@@ -336,15 +336,14 @@ CoinsResult AvailableCoinsListUnspent(const CWallet& wallet, const CCoinControl*
 CAmountMap GetAvailableBalance(const CWallet& wallet, const CCoinControl* coinControl)
 {
     LOCK(wallet.cs_wallet);
-    return AvailableCoins(wallet,
-                          coinControl,
-                          std::nullopt, /*feerate=*/
-                          1,            /*nMinimumAmount*/
-                          MAX_MONEY,    /*nMaximumAmount*/
-                          MAX_MONEY,    /*nMinimumSumAmount*/
-                          0,            /*nMaximumCount*/
-                          nullptr // ELEMENTS: is this correct? Should I pass in an asset filter?
-                          ).total_amount;
+    return AvailableCoins(wallet, coinControl,
+            /*feerate=*/ std::nullopt,
+            /*nMinimumAmount=*/ 1,
+            /*nMaximumAmount=*/ MAX_MONEY,
+            /*nMinimumSumAmount=*/ MAX_MONEY,
+            /*nMaximumCount=*/ 0,
+            nullptr // ELEMENTS: is this correct? Should I pass in an asset filter?
+    ).total_amount;
 }
 
 const CTxOut& FindNonChangeParentOutput(const CWallet& wallet, const CTransaction& tx, int output) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
