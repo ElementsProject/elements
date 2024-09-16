@@ -554,9 +554,8 @@ def create_lots_of_big_transactions(mini_wallet, node, fee, tx_batch_size, txout
     use_internal_utxos = utxos is None
     for _ in range(tx_batch_size):
         tx = mini_wallet.create_self_transfer(
-                from_node=node,
-                utxo_to_spend=None if use_internal_utxos else utxos.pop(),
-                fee_rate=0)['tx']
+            utxo_to_spend=None if use_internal_utxos else utxos.pop(),
+            fee_rate=0)['tx']
 
         # ELEMENTS: create_self_trasfer adds a fee output at the end of the transaction
         # Since we passed in a fee_rate of 0, we must manually set it

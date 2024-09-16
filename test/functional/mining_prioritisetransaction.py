@@ -212,7 +212,7 @@ class PrioritiseTransactionTest(BitcoinTestFramework):
                 assert x not in mempool
 
         # Create a free transaction.  Should be rejected.
-        tx_res = self.wallet.create_self_transfer(from_node=self.nodes[0], fee_rate=0)
+        tx_res = self.wallet.create_self_transfer(fee_rate=0)
 
         # ELEMENTS: create_self_trasfer adds a fee output at the end of the transaction
         # ELEMENTS: cannot have a 0 fee output (unlike bitcoin), so we need to set it

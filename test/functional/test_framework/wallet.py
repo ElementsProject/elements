@@ -181,10 +181,10 @@ class MiniWallet:
             self._utxos = []
         return utxos
 
-    def send_self_transfer(self, **kwargs):
+    def send_self_transfer(self, *, from_node, **kwargs):
         """Create and send a tx with the specified fee_rate. Fee may be exact or at most one satoshi higher than needed."""
         tx = self.create_self_transfer(**kwargs)
-        self.sendrawtransaction(from_node=kwargs['from_node'], tx_hex=tx['hex'])
+        self.sendrawtransaction(from_node=from_node, tx_hex=tx['hex'])
         return tx
 
     def send_to(self, *, from_node, scriptPubKey, amount, fee=1000):
@@ -199,7 +199,7 @@ class MiniWallet:
 
         Returns a tuple (txid, n) referring to the created external utxo outpoint.
         """
-        tx = self.create_self_transfer(from_node=from_node, fee_rate=0)['tx']
+        tx = self.create_self_transfer(fee_rate=0)['tx']
         assert_greater_than_or_equal(tx.vout[0].nValue.getAmount(), amount + fee)
         tx.vout[0].nValue.setToAmount(tx.vout[0].nValue.getAmount() - (amount + fee))  # change output -> MiniWallet
         tx.vout[1].nValue.setToAmount(fee) # ELEMENTS explicitly set fee output value
@@ -207,7 +207,7 @@ class MiniWallet:
         txid = self.sendrawtransaction(from_node=from_node, tx_hex=tx.serialize().hex())
         return txid, 2
 
-    def send_self_transfer_multi(self, **kwargs):
+    def send_self_transfer_multi(self, *, from_node, **kwargs):
         """
         Create and send a transaction that spends the given UTXOs and creates a
         certain number of outputs with equal amounts.
@@ -219,7 +219,7 @@ class MiniWallet:
             - list of newly created UTXOs, ordered by vout index
         """
         tx = self.create_self_transfer_multi(**kwargs)
-        txid = self.sendrawtransaction(from_node=kwargs['from_node'], tx_hex=tx.serialize().hex())
+        txid = self.sendrawtransaction(from_node=from_node, tx_hex=tx.serialize().hex())
 
         # ELEMENTS: the fee output is not a new UTXO.
         #           We manually set the final utxo to be the fee output (see: create_self_transfer_multi).
@@ -229,11 +229,13 @@ class MiniWallet:
                 'txid': txid, 'hex': tx.serialize().hex(), 'tx': tx}
 
     def create_self_transfer_multi(
-            self, *, from_node,
-            utxos_to_spend: Optional[List[dict]] = None,
-            num_outputs=1,
-            sequence=0,
-            fee_per_output=1000):
+        self,
+        *,
+        utxos_to_spend: Optional[List[dict]] = None,
+        num_outputs=1,
+        sequence=0,
+        fee_per_output=1000,
+    ):
         """
         Create and return a transaction that spends the given UTXOs and creates a
         certain number of outputs with equal amounts.
@@ -241,7 +243,7 @@ class MiniWallet:
         utxos_to_spend = utxos_to_spend or [self.get_utxo()]
         # create simple tx template (1 input, 1 output)
         tx = self.create_self_transfer(
-            fee_rate=0, from_node=from_node,
+            fee_rate=0,
             utxo_to_spend=utxos_to_spend[0], sequence=sequence)["tx"]
 
         # duplicate inputs, witnesses and outputs
@@ -271,9 +273,8 @@ class MiniWallet:
 
         return tx
 
-    def create_self_transfer(self, *, fee_rate=Decimal("0.003"), from_node=None, utxo_to_spend=None, locktime=0, sequence=0):
+    def create_self_transfer(self, *, fee_rate=Decimal("0.003"), utxo_to_spend=None, locktime=0, sequence=0):
         """Create and return a tx with the specified fee_rate. Fee may be exact or at most one satoshi higher than needed."""
-        from_node = from_node or self._test_node
         utxo_to_spend = utxo_to_spend or self.get_utxo()
         if self._mode in (MiniWalletMode.RAW_OP_TRUE, MiniWalletMode.ADDRESS_OP_TRUE):
             vsize = Decimal(185)  # anyone-can-spend
