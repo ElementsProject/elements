@@ -38,6 +38,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libbitcoin_wallet_tool", "l
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libsecp256k1", "libsecp256k1\libsecp256k1.vcxproj", "{BB493552-3B8C-4A8C-BF69-A6E7A51D2EA6}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libelementssimplicity", "libelementssimplicity\libelementssimplicity.vcxproj", "{ABAE25F0-D700-46E1-9EF6-5D6DDFCF8B26}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libleveldb", "libleveldb\libleveldb.vcxproj", "{18430FEF-6B61-4C53-B396-718E02850F1B}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libbitcoin_qt", "libbitcoin_qt\libbitcoin_qt.vcxproj", "{2B4ABFF8-D1FD-4845-88C9-1F3C0A6512BF}"
@@ -128,6 +130,10 @@ Global
         {BB493552-3B8C-4A8C-BF69-A6E7A51D2EA6}.Debug|x64.Build.0 = Debug|x64
         {BB493552-3B8C-4A8C-BF69-A6E7A51D2EA6}.Release|x64.ActiveCfg = Release|x64
         {BB493552-3B8C-4A8C-BF69-A6E7A51D2EA6}.Release|x64.Build.0 = Release|x64
+        {ABAE25F0-D700-46E1-9EF6-5D6DDFCF8B26}.Debug|x64.ActiveCfg = Debug|x64
+        {ABAE25F0-D700-46E1-9EF6-5D6DDFCF8B26}.Debug|x64.Build.0 = Debug|x64
+        {ABAE25F0-D700-46E1-9EF6-5D6DDFCF8B26}.Release|x64.ActiveCfg = Release|x64
+        {ABAE25F0-D700-46E1-9EF6-5D6DDFCF8B26}.Release|x64.Build.0 = Release|x64
         {18430FEF-6B61-4C53-B396-718E02850F1B}.Debug|x64.ActiveCfg = Debug|x64
         {18430FEF-6B61-4C53-B396-718E02850F1B}.Debug|x64.Build.0 = Debug|x64
         {18430FEF-6B61-4C53-B396-718E02850F1B}.Release|x64.ActiveCfg = Release|x64

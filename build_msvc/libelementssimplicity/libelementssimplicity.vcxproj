@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\common.init.vcxproj" />
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{ABAE25F0-D700-46E1-9EF6-5D6DDFCF8B26}</ProjectGuid>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\simplicity\bitstream.c" />
+    <ClCompile Include="..\..\src\simplicity\cmr.c" />
+    <ClCompile Include="..\..\src\simplicity\dag.c" />
+    <ClCompile Include="..\..\src\simplicity\deserialize.c" />
+    <ClCompile Include="..\..\src\simplicity\eval.c" />
+    <ClCompile Include="..\..\src\simplicity\frame.c" />
+    <ClCompile Include="..\..\src\simplicity\jets-secp256k1.c" />
+    <ClCompile Include="..\..\src\simplicity\jets.c" />
+    <ClCompile Include="..\..\src\simplicity\rsort.c" />
+    <ClCompile Include="..\..\src\simplicity\sha256.c" />
+    <ClCompile Include="..\..\src\simplicity\type.c" />
+    <ClCompile Include="..\..\src\simplicity\typeInference.c" />
+    <ClCompile Include="..\..\src\simplicity\primitive\elements\env.c" />
+    <ClCompile Include="..\..\src\simplicity\primitive\elements\exec.c" />
+    <ClCompile Include="..\..\src\simplicity\primitive\elements\elementsJets.c" />
+    <ClCompile Include="..\..\src\simplicity\primitive\elements\ops.c" />
+    <ClCompile Include="..\..\src\simplicity\primitive\elements\primitive.c" />
+  </ItemGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <DisableSpecificWarnings>4090;4146;4244;4715</DisableSpecificWarnings>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Import Project="..\common.vcxproj" />
+</Project>
