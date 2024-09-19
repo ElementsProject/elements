@@ -14,6 +14,7 @@
 #include <deploymentinfo.h>
 #include <deploymentstatus.h>
 #include <key_io.h>
+#include <mempool_args.h>
 #include <net.h>
 #include <node/context.h>
 #include <node/miner.h>
@@ -1492,7 +1493,7 @@ static RPCHelpMan finalizecompactblock()
     found.insert(found.end(), transactions.txn.begin(), transactions.txn.end());
 
     // Now construct the final block! (use dummy mempool here, otherwise reconstruction may fail)
-    CTxMemPool dummy_pool;
+    CTxMemPool dummy_pool{CTxMemPool::Options()}; // ELEMENTS FIXME: are the default options okay here?
     PartiallyDownloadedBlock partialBlock(&dummy_pool);
 
     // "Extra" list is really our combined list that will be put into place using InitData
