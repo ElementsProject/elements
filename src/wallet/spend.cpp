@@ -1160,10 +1160,11 @@ static std::optional<CreatedTransactionResult> CreateTransactionInternal(
 
     // vouts to the payees
     if (!coin_selection_params.m_subtract_fee_outputs) {
-        coin_selection_params.tx_noinputs_size = 11; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 output count, 1 witness overhead (dummy, flag, stack size)
+        coin_selection_params.tx_noinputs_size = 10; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 witness overhead (dummy, flag, stack size)
         if (g_con_elementsmode) {
             coin_selection_params.tx_noinputs_size += 46; // fee output: 9 bytes value, 1 byte scriptPubKey, 33 bytes asset, 1 byte nonce, 1 byte each for null rangeproof/surjectionproof
         }
+        coin_selection_params.tx_noinputs_size += GetSizeOfCompactSize(vecSend.size()); // bytes for output count
     }
     // ELEMENTS: If we have blinded inputs but no blinded outputs (which, since the wallet
     //  makes an effort to not produce change, is a common case) then we need to add a
