@@ -1250,7 +1250,7 @@ class PSBTTest(BitcoinTestFramework):
         self.generate(self.nodes[0], 1)
         self.nodes[0].importprivkey(privkey)
 
-        psbt = watchonly.sendall([wallet.getnewaddress()])["psbt"]
+        psbt = watchonly.walletcreatefundedpsbt([], [{wallet.getnewaddress(): watchonly.getbalance()['bitcoin']}], None, {"subtractFeeFromOutputs": [0]})['psbt']
         psbt = self.nodes[0].walletprocesspsbt(psbt)["psbt"]
         self.nodes[0].sendrawtransaction(self.nodes[0].finalizepsbt(psbt)["hex"])
 
@@ -1268,7 +1268,7 @@ class PSBTTest(BitcoinTestFramework):
             self.generate(self.nodes[0], 1)
             self.nodes[0].importdescriptors([{"desc": descsum_create("tr({})".format(privkey)), "timestamp":"now"}])
 
-            psbt = watchonly.sendall([wallet.getnewaddress()])["psbt"]
+            psbt = watchonly.walletcreatefundedpsbt([], [{wallet.getnewaddress(): watchonly.getbalance()['bitcoin']}], None, {"subtractFeeFromOutputs": [0]})['psbt']
             psbt = self.nodes[0].walletprocesspsbt(psbt)["psbt"]
             self.nodes[0].sendrawtransaction(self.nodes[0].finalizepsbt(psbt)["hex"])
 
