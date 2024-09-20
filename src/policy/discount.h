@@ -12,9 +12,9 @@
 #include <version.h>
 
 /**
- * Calculate a smaller virtual size for discounted Confidential Transactions.
+ * Calculate a smaller weight for discounted Confidential Transactions.
  */
-static inline int64_t GetDiscountVirtualTransactionSize(const CTransaction& tx, int64_t nSigOpCost = 0, unsigned int bytes_per_sig_op = 0)
+static inline int64_t GetDiscountTransactionWeight(const CTransaction& tx, int64_t nSigOpCost = 0, unsigned int bytes_per_sig_op = 0)
 {
     int64_t size_bytes = ::GetSerializeSize(tx, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR - 1) + ::GetSerializeSize(tx, PROTOCOL_VERSION);
     int64_t sigop_bytes = nSigOpCost * bytes_per_sig_op;
@@ -40,8 +40,15 @@ static inline int64_t GetDiscountVirtualTransactionSize(const CTransaction& tx, 
         }
     }
     assert(weight > 0);
+    return weight;
+}
 
-    size_t discountvsize = (weight + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR;
+/**
+ * Calculate a smaller virtual size for discounted Confidential Transactions.
+ */
+static inline int64_t GetDiscountVirtualTransactionSize(const CTransaction& tx, int64_t nSigOpCost = 0, unsigned int bytes_per_sig_op = 0)
+{
+    size_t discountvsize = (GetDiscountTransactionWeight(tx, nSigOpCost, bytes_per_sig_op) + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR;
 
     assert(discountvsize > 0);
     return discountvsize;

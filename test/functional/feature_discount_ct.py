@@ -79,8 +79,10 @@ class CTTest(BitcoinTestFramework):
         assert_equal(len(vout), 3)
         assert_equal(tx['fee']['bitcoin'], Decimal('-0.00000326'))
         assert_equal(decoded['vsize'], 326)
+        assert_equal(decoded['weight'], 1302)
         self.generate(node0, 1)
         tx = node1.getrawtransaction(txid, True)
+        assert_equal(tx['discountweight'], 1302)
         assert_equal(tx['discountvsize'], 326)
 
         self.log.info("Send confidential tx to node 0")
@@ -95,8 +97,10 @@ class CTTest(BitcoinTestFramework):
         assert_equal(len(vout), 3)
         assert_equal(tx['fee']['bitcoin'], Decimal('-0.00002575'))
         assert_equal(decoded['vsize'], 2575)
+        assert_equal(decoded['weight'], 10300)
         self.generate(node0, 1)
         tx = node1.getrawtransaction(txid, True)
+        assert_equal(tx['discountweight'], 1638)
         assert_equal(tx['discountvsize'], 410) # node1 has discountvsize
 
         self.log.info("Send explicit tx to node 1")
@@ -111,8 +115,10 @@ class CTTest(BitcoinTestFramework):
         assert_equal(len(vout), 3)
         assert_equal(tx['fee']['bitcoin'], Decimal('-0.00000326'))
         assert_equal(decoded['vsize'], 326)
+        assert_equal(decoded['weight'], 1302)
         self.generate(node0, 1)
         tx = node1.getrawtransaction(txid, True)
+        assert_equal(tx['discountweight'], 1302)
         assert_equal(tx['discountvsize'], 326)
 
         self.log.info("Send confidential (undiscounted) tx to node 1")
@@ -127,8 +133,10 @@ class CTTest(BitcoinTestFramework):
         assert_equal(len(vout), 3)
         assert_equal(tx['fee']['bitcoin'], Decimal('-0.00002575'))
         assert_equal(decoded['vsize'], 2575)
+        assert_equal(decoded['weight'], 10300)
         self.generate(node0, 1)
         tx = node1.getrawtransaction(txid, True)
+        assert_equal(tx['discountweight'], 1638)
         assert_equal(tx['discountvsize'], 410) # node1 has discountvsize
 
         self.log.info("Send confidential (discounted) tx to node 1")
@@ -152,6 +160,8 @@ class CTTest(BitcoinTestFramework):
             else:
                 assert_equal(decoded['fee'][bitcoin], Decimal('0.00000410'))
             assert_equal(decoded['vsize'], 2575)
+            assert_equal(decoded['weight'], 10300)
+            assert_equal(decoded['discountweight'], 1638)
             assert_equal(decoded['discountvsize'], 410)
 
         # node0 only has vsize
@@ -180,7 +190,9 @@ class CTTest(BitcoinTestFramework):
             else:
                 assert_equal(decoded['fee'][bitcoin], Decimal('0.00000041'))
             assert_equal(decoded['vsize'], 2575)
+            assert_equal(decoded['weight'], 10300)
             assert_equal(decoded['discountvsize'], 410)
+            assert_equal(decoded['discountweight'], 1638)
         # node0 only has vsize
         tx = node0.getrawtransaction(txid, True)
         assert_equal(tx['vsize'], 2575)
