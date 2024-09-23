@@ -188,15 +188,22 @@ static const CBlockIndex* ParseHashOrHeight(const UniValue& param, ChainstateMan
     }
 }
 
-UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex)
+UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex_)
 {
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
 
+    CBlockIndex tmpBlockIndexFull;
+    const CBlockIndex* blockindex;
+    {
+        LOCK(cs_main);
+        blockindex = blockindex_->untrim_to(&tmpBlockIndexFull);
+    }
+
     UniValue result(UniValue::VOBJ);
     result.pushKV("hash", blockindex->GetBlockHash().GetHex());
     const CBlockIndex* pnext;
-    int confirmations = ComputeNextBlockAndDepth(tip, blockindex, pnext);
+    int confirmations = ComputeNextBlockAndDepth(tip, blockindex_, pnext);
     result.pushKV("confirmations", confirmations);
     result.pushKV("height", blockindex->nHeight);
     result.pushKV("version", blockindex->nVersion);
@@ -233,7 +240,7 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
         }
     }
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
-    if (blockindex->pprev)
+    if (blockindex_->pprev)
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
     if (pnext)
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
@@ -638,7 +645,7 @@ static RPCHelpMan getblockheader()
     if (!request.params[1].isNull())
         fVerbose = request.params[1].get_bool();
 
-    const CBlockIndex* pblockindex;
+    CBlockIndex* pblockindex;
     const CBlockIndex* tip;
     {
         ChainstateManager& chainman = EnsureAnyChainman(request.context);
@@ -653,14 +660,11 @@ static RPCHelpMan getblockheader()
 
     if (!fVerbose)
     {
+        LOCK(cs_main);
         CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
-        if (pblockindex->trimmed()) {
-            CBlockHeader tmp;
-            node::ReadBlockHeaderFromDisk(tmp, pblockindex, Params().GetConsensus());
-            ssBlock << tmp;
-        } else {
-            ssBlock << pblockindex->GetBlockHeader();
-        }
+        CBlockIndex tmpBlockIndexFull;
+        const CBlockIndex* pblockindexfull=pblockindex->untrim_to(&tmpBlockIndexFull);
+        ssBlock << pblockindexfull->GetBlockHeader();
         std::string strHex = HexStr(ssBlock);
         return strHex;
     }
@@ -1399,6 +1403,7 @@ RPCHelpMan getblockchaininfo()
     }
     obj.pushKV("size_on_disk", chainman.m_blockman.CalculateCurrentUsage());
     obj.pushKV("pruned", node::fPruneMode);
+    obj.pushKV("trim_headers", node::fTrimHeaders); // ELEMENTS
     if (g_signed_blocks) {
         if (!DeploymentActiveAfter(&tip, chainman, Consensus::DEPLOYMENT_DYNA_FED)) {
             CScript sign_block_script = chainparams.GetConsensus().signblockscript;

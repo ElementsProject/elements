@@ -26,6 +26,8 @@
 // ELEMENTS
 //
 
+#include <validation.h>
+
 namespace {
 static secp256k1_context* secp256k1_ctx_validation;
 
@@ -487,6 +489,10 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
             break;
         }
 
+        if (node::fTrimHeaders) {
+            LOCK(cs_main);
+            ForceUntrimHeader(p_epoch_start);
+        }
         if (!p_epoch_start->dynafed_params().IsNull()) {
             fedpegscripts.push_back(std::make_pair(p_epoch_start->dynafed_params().m_current.m_fedpeg_program, p_epoch_start->dynafed_params().m_current.m_fedpegscript));
         } else {

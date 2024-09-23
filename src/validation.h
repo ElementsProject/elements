@@ -1031,4 +1031,5 @@ bool LoadMempool(CTxMemPool& pool, CChainState& active_chainstate, FopenFn mocka
  */
 const AssumeutxoData* ExpectedAssumeutxo(const int height, const CChainParams& params);
 
+void ForceUntrimHeader(const CBlockIndex *pindex_);
 #endif // BITCOIN_VALIDATION_H
