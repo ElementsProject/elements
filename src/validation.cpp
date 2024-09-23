@@ -2650,8 +2650,8 @@ bool CChainState::FlushStateToDisk(
                 }
 
                 int trim_height = 0;
-                if (pindexBestHeader && (uint64_t)pindexBestHeader->nHeight > node::nMustKeepFullHeaders) { // check first, to prevent underflow
-                    trim_height = pindexBestHeader->nHeight - node::nMustKeepFullHeaders;
+                if (m_chainman.m_best_header && (uint64_t)m_chainman.m_best_header->nHeight > node::nMustKeepFullHeaders) { // check first, to prevent underflow
+                    trim_height = m_chainman.m_best_header->nHeight - node::nMustKeepFullHeaders;
                 }
                 if (node::fTrimHeaders && trim_height > 0 && !ShutdownRequested()) {
                     static int nMinTrimHeight{0};
@@ -2662,7 +2662,7 @@ bool CChainState::FlushStateToDisk(
                             (*it)->trim();
                         }
                     }
-                    CBlockIndex* min_index = pindexBestHeader->GetAncestor(trim_height-1);
+                    CBlockIndex* min_index = m_chainman.m_best_header->GetAncestor(trim_height-1);
                     // Handle any remaining untrimmed blocks that were too recent for trimming last time we flushed.
                     if (min_index) {
                         int nMaxTrimHeightRound = std::max(nMinTrimHeight, min_index->nHeight + 1);
@@ -4610,7 +4610,7 @@ bool ChainstateManager::LoadBlockIndex()
     // Load block index from databases
     bool needs_init = fReindex;
     if (!fReindex) {
-        bool ret = m_blockman.LoadBlockIndexDB(GetConsensus());
+        bool ret = m_blockman.LoadBlockIndexDB(*this, GetConsensus());
         if (!ret) return false;
 
         std::vector<CBlockIndex*> vSortedByHeight{m_blockman.GetAllBlockIndices()};

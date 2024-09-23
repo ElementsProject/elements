@@ -257,7 +257,7 @@ CBlockIndex* BlockManager::InsertBlockIndex(const uint256& hash)
     return pindex;
 }
 
-bool BlockManager::LoadBlockIndex(const Consensus::Params& consensus_params)
+bool BlockManager::LoadBlockIndex(ChainstateManager& chainman, const Consensus::Params& consensus_params)
 {
     int trim_below_height = 0;
     if (fTrimHeaders) {
@@ -302,8 +302,8 @@ bool BlockManager::LoadBlockIndex(const Consensus::Params& consensus_params)
         }
     }
 
-    if (pindexBestHeader) {
-        ForceUntrimHeader(pindexBestHeader);
+    if (chainman.m_best_header) {
+        ForceUntrimHeader(chainman.m_best_header);
     }
     return true;
 }
@@ -329,9 +329,9 @@ bool BlockManager::WriteBlockIndexDB()
     return true;
 }
 
-bool BlockManager::LoadBlockIndexDB(const Consensus::Params& consensus_params)
+bool BlockManager::LoadBlockIndexDB(ChainstateManager& chainman, const Consensus::Params& consensus_params)
 {
-    if (!LoadBlockIndex(consensus_params)) {
+    if (!LoadBlockIndex(chainman, consensus_params)) {
         return false;
     }
 
