@@ -21,7 +21,6 @@ static inline int64_t GetDiscountTransactionWeight(const CTransaction& tx, int64
 
     int64_t weight = std::max(size_bytes, sigop_bytes);
 
-    // for each confidential output
     for (size_t i = 0; i < tx.vout.size(); ++i) {
         const CTxOut& output = tx.vout[i];
         if (i < tx.witness.vtxoutwit.size()) {
@@ -32,11 +31,13 @@ static inline int64_t GetDiscountTransactionWeight(const CTransaction& tx, int64
         }
         if (output.nValue.IsCommitment()) {
             // subtract the weight difference of amount commitment (33) vs explicit amount (9)
-            weight -= (33 - 9);
+            // weighted as part of the base transaction
+            weight -= (33 - 9) * WITNESS_SCALE_FACTOR;
         }
         if (output.nNonce.IsCommitment()) {
             // subtract the weight difference of nonce commitment (33) vs no nonce (1)
-            weight -= 32;
+            // weighted as part of the base transaction
+            weight -= 32 * WITNESS_SCALE_FACTOR;
         }
     }
     assert(weight > 0);
