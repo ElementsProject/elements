@@ -12,16 +12,15 @@
 #include <version.h>
 
 /**
- * Calculate a smaller virtual size for discounted Confidential Transactions.
+ * Calculate a smaller weight for discounted Confidential Transactions.
  */
-static inline int64_t GetDiscountVirtualTransactionSize(const CTransaction& tx, int64_t nSigOpCost = 0, unsigned int bytes_per_sig_op = 0)
+static inline int64_t GetDiscountTransactionWeight(const CTransaction& tx, int64_t nSigOpCost = 0, unsigned int bytes_per_sig_op = 0)
 {
     int64_t size_bytes = ::GetSerializeSize(tx, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR - 1) + ::GetSerializeSize(tx, PROTOCOL_VERSION);
     int64_t sigop_bytes = nSigOpCost * bytes_per_sig_op;
 
     int64_t weight = std::max(size_bytes, sigop_bytes);
 
-    // for each confidential output
     for (size_t i = 0; i < tx.vout.size(); ++i) {
         const CTxOut& output = tx.vout[i];
         if (i < tx.witness.vtxoutwit.size()) {
@@ -32,16 +31,25 @@ static inline int64_t GetDiscountVirtualTransactionSize(const CTransaction& tx, 
         }
         if (output.nValue.IsCommitment()) {
             // subtract the weight difference of amount commitment (33) vs explicit amount (9)
-            weight -= (33 - 9);
+            // weighted as part of the base transaction
+            weight -= (33 - 9) * WITNESS_SCALE_FACTOR;
         }
         if (output.nNonce.IsCommitment()) {
             // subtract the weight difference of nonce commitment (33) vs no nonce (1)
-            weight -= 32;
+            // weighted as part of the base transaction
+            weight -= 32 * WITNESS_SCALE_FACTOR;
         }
     }
     assert(weight > 0);
+    return weight;
+}
 
-    size_t discountvsize = (weight + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR;
+/**
+ * Calculate a smaller virtual size for discounted Confidential Transactions.
+ */
+static inline int64_t GetDiscountVirtualTransactionSize(const CTransaction& tx, int64_t nSigOpCost = 0, unsigned int bytes_per_sig_op = 0)
+{
+    size_t discountvsize = (GetDiscountTransactionWeight(tx, nSigOpCost, bytes_per_sig_op) + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR;
 
     assert(discountvsize > 0);
     return discountvsize;
