@@ -1302,6 +1302,10 @@ class TaprootTest(BitcoinTestFramework):
             self.wallet_names = [None, self.default_wallet_name]
         else:
             self.extra_args[0].append("-vbparams=taproot:1:1")
+            # ELEMENTS: both nodes have Simplicity active. We activate one with evbparams
+            # and the other with vbparams to check that both work.
+            self.extra_args[0].append("-vbparams=simplicity:-1:1")
+            self.extra_args[1].append("-evbparams=simplicity:-1:::")
 
     def setup_nodes(self):
         self.add_nodes(self.num_nodes, self.extra_args, versions=[
