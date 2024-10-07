@@ -1034,6 +1034,10 @@ public:
         base58Prefixes[BLINDED_ADDRESS] = std::vector<unsigned char>(1, 23);
         base58Prefixes[SECRET_KEY]      = std::vector<unsigned char>(1, base58Prefixes[SECRET_KEY][0]);
 
+        // turn on Simplicity unconditionally on Liquid Testnet
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+
         // disable automatic dynafed
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = 0;
 
