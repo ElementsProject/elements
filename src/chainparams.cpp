@@ -630,6 +630,8 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].min_activation_height = 0; // No activation delay
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nPeriod = 128; // test ability to change from default
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nThreshold = 128;
 
         consensus.nMinimumChainWork = uint256{};
         consensus.defaultAssumeValid = uint256{};
@@ -1290,6 +1292,8 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].min_activation_height = 0; // No activation delay
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nPeriod = 10080; // one week...
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nThreshold = 10080; // ...of 100% signalling
 
         // Activated from block 1,000,000.
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
