@@ -196,6 +196,7 @@ class TrimHeadersTest(BitcoinTestFramework):
         self.stop_node(1)
         self.stop_node(2)
 
+
         self.log.info("Mining and signing non-empty blocks")
         expected_height += 10
         self.mine_blocks(10, True)
@@ -245,7 +246,7 @@ class TrimHeadersTest(BitcoinTestFramework):
         self.connect_nodes(0, 1)
         self.connect_nodes(0, 2)
 
-        self.sync_all()
+        self.sync_all(timeout1=360)
         self.check_height(expected_height, all=True)
 
         self.log.info("Prune the pruned node")

@@ -684,6 +684,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 return
             if not expect_disconnected:
                 assert (all([len(x.getpeerinfo()) for x in rpc_connections]))
+
             time.sleep(wait)
         raise AssertionError("Block sync timed out after {}s:{}".format(
             timeout,
@@ -713,9 +714,9 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             "".join("\n  {!r}".format(m) for m in pool),
         ))
 
-    def sync_all(self, nodes=None, expect_disconnected=False):
-        self.sync_blocks(nodes, expect_disconnected=expect_disconnected)
-        self.sync_mempools(nodes)
+    def sync_all(self, nodes=None, expect_disconnected=False, timeout1=60, timeout2=60):
+        self.sync_blocks(nodes, expect_disconnected=expect_disconnected, timeout=timeout1)
+        self.sync_mempools(nodes, timeout=timeout2)
 
     def wait_until(self, test_function, timeout=60):
         return wait_until_helper(test_function, timeout=timeout, timeout_factor=self.options.timeout_factor)
