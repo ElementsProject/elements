@@ -4,8 +4,8 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test BIP 34, 65, 66, CSV activation at block 0"""
 
-from test_framework.blocktools import create_coinbase, create_block, create_transaction
-from test_framework.messages import msg_block
+from test_framework.blocktools import create_coinbase, create_block
+from test_framework.messages import msg_block, tx_from_hex
 from test_framework.p2p import P2PInterface
 from test_framework.script import (
     CScript,
@@ -24,6 +24,29 @@ class BlockV4Test(BitcoinTestFramework):
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
+
+    def create_transaction(self, txid, addr, *, amount, fee, locktime=0):
+        """ Return signed transaction spending the first output of the input txid.
+        """
+
+        psbt = self.nodes[0].createpsbt(
+            inputs=[{"txid": txid, "vout": 0}],
+            outputs=[{addr: amount}, {"fee": fee}],
+            locktime=locktime
+        )
+
+        for sign in [False, True]:
+            for w in self.nodes[0].listwallets():
+                wrpc = self.nodes[0].get_wallet_rpc(w)
+                psbt = wrpc.walletprocesspsbt(psbt, sign)["psbt"]
+
+        final_psbt = self.nodes[0].finalizepsbt(psbt)
+        assert final_psbt["complete"], "Transaction not complete"
+
+        raw_tx = final_psbt['hex']
+        tx = tx_from_hex(raw_tx)
+
+        return tx
 
     def run_test(self):
 
@@ -66,8 +89,8 @@ class BlockV4Test(BitcoinTestFramework):
         block.nVersion = 4
 
         # Create a CLTV transaction
-        spendtx = create_transaction(self.nodes[0], spendable_coinbase_txid,
-                self.nodeaddress, amount=1.0, fee=coinbase_value-1, locktime=1)
+        spendtx = self.create_transaction(txid=spendable_coinbase_txid,
+                addr=self.nodeaddress, amount=1.0, fee=coinbase_value-1, locktime=1)
         spendtx.nLockTime = 1
         spendtx.vin[0].scriptSig = CScript([OP_TRUE, OP_CHECKLOCKTIMEVERIFY, OP_DROP] + list(CScript(spendtx.vin[0].scriptSig)))
         spendtx.rehash()
