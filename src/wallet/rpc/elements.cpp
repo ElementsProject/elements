@@ -851,7 +851,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
 
     // Estimate fee for transaction, decrement fee output(including witness data)
     unsigned int nBytes = GetVirtualTransactionSize(CTransaction(mtx)) +
-        (1+1+72+1+33/WITNESS_SCALE_FACTOR);
+        (1+1+72+1+33)/WITNESS_SCALE_FACTOR;
     CCoinControl coin_control;
     FeeCalculation feeCalc;
     CAmount nFeeNeeded = GetMinimumFee(*pwallet, nBytes, coin_control, &feeCalc);
