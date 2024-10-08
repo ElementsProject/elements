@@ -425,15 +425,23 @@ void BlockAssembler::addPackageTxs(const CTxMemPool& mempool, int& nPackagesSele
         uint64_t packageSize = iter->GetSizeWithAncestors();
         CAmount packageFees = iter->GetModFeesWithAncestors();
         int64_t packageSigOpsCost = iter->GetSigOpCostWithAncestors();
+        uint64_t discountSize = iter->GetDiscountSizeWithAncestors();
         if (fUsingModified) {
             packageSize = modit->nSizeWithAncestors;
             packageFees = modit->nModFeesWithAncestors;
             packageSigOpsCost = modit->nSigOpCostWithAncestors;
+            discountSize = modit->discountSizeWithAncestors;
         }
 
         if (packageFees < blockMinFeeRate.GetFee(packageSize)) {
-            // Everything else we might consider has a lower fee rate
-            return;
+            if (Params().GetAcceptDiscountCT()) {
+                if (packageFees < blockMinFeeRate.GetFee(discountSize)) {
+                    return;
+                }
+            } else {
+                // Everything else we might consider has a lower fee rate
+                return;
+            }
         }
 
         if (!TestPackage(packageSize, packageSigOpsCost)) {
