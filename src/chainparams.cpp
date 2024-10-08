@@ -894,8 +894,8 @@ protected:
         const CScript default_script(CScript() << OP_TRUE);
         consensus.fedpegScript = StrHexToScriptWithDefault(args.GetArg("-fedpegscript", ""), default_script);
         consensus.start_p2wsh_script = args.GetIntArg("-con_start_p2wsh_script", consensus.start_p2wsh_script);
-        create_discount_ct = args.GetBoolArg("-creatediscountct", false);
-        accept_discount_ct = args.GetBoolArg("-acceptdiscountct", false) || create_discount_ct;
+        create_discount_ct = args.GetBoolArg("-creatediscountct", create_discount_ct);
+        accept_discount_ct = args.GetBoolArg("-acceptdiscountct", accept_discount_ct) || create_discount_ct;
 
         // Calculate pegged Bitcoin asset
         std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
@@ -973,6 +973,8 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].min_activation_height = 0; // No activation delay
 
+        create_discount_ct = false;
+        accept_discount_ct = false;
         UpdateFromArgs(args);
         SetGenesisBlock();
         consensus.hashGenesisBlock = genesis.GetHash();
@@ -1016,6 +1018,8 @@ public:
 
         default_magic_str = "410EDD62";
         default_signblockscript = "51210217e403ddb181872c32a0cd468c710040b2f53d8cac69f18dad07985ee37e9a7151ae";
+        create_discount_ct = false;
+        accept_discount_ct = true;
         UpdateFromArgs(args);
         multi_data_permitted = true;
         SetGenesisBlock();
