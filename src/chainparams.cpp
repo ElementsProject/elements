@@ -627,9 +627,11 @@ public:
 
         // Simplicity
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].bit = 24;
-        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].min_activation_height = 0; // No activation delay
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nPeriod = 128; // test ability to change from default
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nThreshold = 128;
 
         consensus.nMinimumChainWork = uint256{};
         consensus.defaultAssumeValid = uint256{};
@@ -1034,6 +1036,10 @@ public:
         base58Prefixes[BLINDED_ADDRESS] = std::vector<unsigned char>(1, 23);
         base58Prefixes[SECRET_KEY]      = std::vector<unsigned char>(1, base58Prefixes[SECRET_KEY][0]);
 
+        // turn on Simplicity unconditionally on Liquid Testnet
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+
         // disable automatic dynafed
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = 0;
 
@@ -1286,6 +1292,8 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].min_activation_height = 0; // No activation delay
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nPeriod = 10080; // one week...
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nThreshold = 10080; // ...of 100% signalling
 
         // Activated from block 1,000,000.
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
