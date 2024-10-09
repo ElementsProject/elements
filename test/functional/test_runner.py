@@ -84,6 +84,7 @@ EXTENDED_SCRIPTS = [
     'feature_dbcrash.py',
     'feature_fee_estimation.py',
     'feature_index_prune.py',
+    'feature_trim_headers.py',
 ]
 
 BASE_SCRIPTS = [
@@ -113,7 +114,6 @@ BASE_SCRIPTS = [
     'rpc_getnewblockhex.py',
     'wallet_elements_regression_1172.py --legacy-wallet',
     'wallet_elements_regression_1259.py --legacy-wallet',
-    'feature_trim_headers.py',
     # Longest test should go first, to favor running tests in parallel
     'wallet_hd.py --legacy-wallet',
     'wallet_hd.py --descriptors',
