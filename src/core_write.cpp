@@ -237,11 +237,12 @@ void TxToUniv(const CTransaction& tx, const uint256& block_hash, UniValue& entry
     entry.pushKV("version", static_cast<int64_t>(static_cast<uint32_t>(tx.nVersion)));
     entry.pushKV("size", (int)::GetSerializeSize(tx, PROTOCOL_VERSION));
     entry.pushKV("vsize", (GetTransactionWeight(tx) + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR);
+    entry.pushKV("weight", GetTransactionWeight(tx));
     // ELEMENTS: add discountvsize
     if (Params().GetAcceptDiscountCT()) {
         entry.pushKV("discountvsize", GetDiscountVirtualTransactionSize(tx));
+        entry.pushKV("discountweight", GetDiscountTransactionWeight(tx));
     }
-    entry.pushKV("weight", GetTransactionWeight(tx));
     entry.pushKV("locktime", (int64_t)tx.nLockTime);
 
     UniValue vin{UniValue::VARR};
