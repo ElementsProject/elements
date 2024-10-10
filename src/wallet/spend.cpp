@@ -513,6 +513,12 @@ std::optional<SelectionResult> AttemptSelection(const CWallet& wallet, const CAm
         // ELEMENTS:
         CAsset asset = mapTargetValue.begin()->first;
         CAmount nTargetValue = mapTargetValue.begin()->second;
+        CAmount target_with_change = nTargetValue;
+        // While nTargetValue includes the transaction fees for non-input things, it does not include the fee for creating a change output.
+        // So we need to include that for KnapsackSolver and SRD as well, as we are expecting to create a change output.
+        if (!coin_selection_params.m_subtract_fee_outputs) {
+            target_with_change += coin_selection_params.m_change_fee;
+        }
         // Get output groups that only contain this asset.
         std::vector<OutputGroup> asset_groups;
         for (OutputGroup g : positive_groups) {
@@ -538,7 +544,7 @@ std::optional<SelectionResult> AttemptSelection(const CWallet& wallet, const CAm
         // barely meets the target. Just use the lower bound change target instead of the randomly
         // generated one, since SRD will result in a random change amount anyway; avoid making the
         // target needlessly large.
-        const CAmount srd_target = nTargetValue + coin_selection_params.m_change_fee + CHANGE_LOWER;
+        const CAmount srd_target = target_with_change + CHANGE_LOWER;
         if (auto srd_result{SelectCoinsSRD(positive_groups, srd_target, coin_selection_params.rng_fast)}) {
             srd_result->ComputeAndSetWaste(coin_selection_params.m_cost_of_change);
             results.push_back(*srd_result);
@@ -554,8 +560,13 @@ std::optional<SelectionResult> AttemptSelection(const CWallet& wallet, const CAm
         mapTargetValue_copy[::policyAsset] += coin_selection_params.m_change_fee;
     }
 
-    if (auto knapsack_result{KnapsackSolver(all_groups, mapTargetValue_copy,
-                                            coin_selection_params.m_min_change_target, coin_selection_params.rng_fast)}) {
+    CAmountMap map_target_with_change = mapTargetValue;
+    // While nTargetValue includes the transaction fees for non-input things, it does not include the fee for creating a change output.
+    // So we need to include that for KnapsackSolver and SRD as well, as we are expecting to create a change output.
+    if (!coin_selection_params.m_subtract_fee_outputs) {
+        map_target_with_change[::policyAsset] += coin_selection_params.m_change_fee;
+    }
+    if (auto knapsack_result{KnapsackSolver(all_groups, map_target_with_change, coin_selection_params.m_min_change_target, coin_selection_params.rng_fast)}) {
          knapsack_result->ComputeAndSetWaste(coin_selection_params.m_cost_of_change);
          results.push_back(*knapsack_result);
     }
