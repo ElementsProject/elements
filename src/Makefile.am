@@ -146,6 +146,7 @@ BITCOIN_CORE_H = \
   compat/endian.h \
   compressor.h \
   confidential_validation.h \
+  node/connection_types.h \
   consensus/consensus.h \
   consensus/tx_check.h \
   consensus/tx_verify.h \
@@ -156,6 +157,7 @@ BITCOIN_CORE_H = \
   deploymentinfo.h \
   deploymentstatus.h \
   dynafed.h \
+  node/eviction.h \
   external_signer.h \
   flatfile.h \
   fs.h \
@@ -392,7 +394,9 @@ libbitcoin_node_a_SOURCES = \
   node/caches.cpp \
   node/chainstate.cpp \
   node/coin.cpp \
+  node/connection_types.cpp \
   node/context.cpp \
+  node/eviction.cpp \
   node/interfaces.cpp \
   node/miner.cpp \
   node/minisketchwrapper.cpp \
