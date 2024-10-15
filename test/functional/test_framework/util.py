@@ -539,21 +539,12 @@ def gen_return_txouts():
 # Create a spend of each passed-in utxo, splicing in "txouts" to each raw
 # transaction to make it large.  See gen_return_txouts() above.
 def create_lots_of_big_transactions(mini_wallet, node, fee, tx_batch_size, txouts, utxos=None):
-    from .messages import COIN
-    fee_sats = int(fee * COIN)
     txids = []
     use_internal_utxos = utxos is None
     for _ in range(tx_batch_size):
         tx = mini_wallet.create_self_transfer(
             utxo_to_spend=None if use_internal_utxos else utxos.pop(),
-            fee_rate=0)['tx']
-
-        # ELEMENTS: create_self_trasfer adds a fee output at the end of the transaction
-        # Since we passed in a fee_rate of 0, we must manually set it
-        assert(tx.vout[1].is_fee())
-        tx.vout[0].nValue.setToAmount(tx.vout[0].nValue.getAmount() - fee_sats)
-        tx.vout[1].nValue.setToAmount(fee_sats)
-
+            fee=fee)['tx']
         tx.vout.extend(txouts)
 
         res = node.testmempoolaccept([tx.serialize().hex()])[0]
