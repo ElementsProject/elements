@@ -33,17 +33,33 @@ from test_framework.wallet import (
     getnewdestination,
 )
 
+import time # ELEMENTS
 
 class SignRawTransactionWithKeyTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
+        elements_args =  ["-blindedaddresses=1", "-initialfreecoins=2100000000000000", "-con_connect_genesis_outputs=1", "-anyonecanspendaremine=1", "-txindex=1"]
+        prefix_args = ["-pubkeyprefix=111", "-scriptprefix=196", "-secretprefix=239", "-extpubkeyprefix=043587CF", "-extprvkeyprefix=04358394" ]
+        combined_args = prefix_args + elements_args
+        self.extra_args = [combined_args, combined_args]
+
+    def setup_network(self):
+        self.setup_nodes()
+        self.connect_nodes(0, 1)
+        self.sync_all()
 
     def send_to_address(self, addr, amount):
         input = {"txid": self.nodes[0].getblock(self.block_hash[self.blk_idx])["tx"][0], "vout": 0}
-        output = {addr: amount}
+
+        # ELEMENTS: explicitly add a fee output
+        input_amount = self.nodes[0].gettxout(input["txid"], input["vout"])["value"]
+        output_amount = Decimal(str(amount))
+        fee = input_amount - output_amount
+
+        outputs = [{addr: amount}, {'fee': fee}]
         self.blk_idx += 1
-        rawtx = self.nodes[0].createrawtransaction([input], output)
+        rawtx = self.nodes[0].createrawtransaction([input], outputs)
         txid = self.nodes[0].sendrawtransaction(self.nodes[0].signrawtransactionwithkey(rawtx, [self.nodes[0].get_deterministic_priv_key().key])["hex"], 0)
         return txid
 
@@ -134,6 +150,7 @@ class SignRawTransactionWithKeyTest(BitcoinTestFramework):
         self.nodes[0].sendrawtransaction(spending_tx_signed['hex'])
 
     def run_test(self):
+        self.nodes[0].createwallet(wallet_name="default")
         self.nodes[0].set_deterministic_priv_key('2Mysp7FKKe52eoC2JmU46irt1dt58TpCvhQ', 'cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ')
         self.nodes[0].importprivkey("cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ")
 
