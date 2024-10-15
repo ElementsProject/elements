@@ -2536,37 +2536,38 @@ bool CWallet::GetOnlinePakKey(CPubKey& online_pubkey, std::string& error)
 }
 /// end ELEMENTS
 
-bool CWallet::GetNewDestination(const OutputType type, const std::string label, CTxDestination& dest, bilingual_str& error, bool add_blinding_key)
+BResult<CTxDestination> CWallet::GetNewDestination(const OutputType type, const std::string label, bool add_blinding_key)
 {
     LOCK(cs_wallet);
-    error.clear();
-    bool result = false;
     auto spk_man = GetScriptPubKeyMan(type, false /* internal */);
-    if (spk_man) {
-        spk_man->TopUp();
-        result = spk_man->GetNewDestination(type, dest, error);
+    if (!spk_man) {
+        return strprintf(_("Error: No %s addresses available."), FormatOutputType(type));
+    }
+
+    spk_man->TopUp();
+    auto op_dest = spk_man->GetNewDestination(type);
+    if (op_dest) {
         if (add_blinding_key) {
+            auto dest = op_dest.GetObj();
             CPubKey blinding_pubkey = GetBlindingPubKey(GetScriptForDestination(dest));
             std::visit(SetBlindingPubKeyVisitor(blinding_pubkey), dest);
+            op_dest = dest;
         }
-    } else {
-        error = strprintf(_("Error: No %s addresses available."), FormatOutputType(type));
-    }
-    if (result) {
-        SetAddressBook(dest, label, "receive");
+        SetAddressBook(op_dest.GetObj(), label, "receive");
     }
 
-    return result;
+    return op_dest;
 }
 
-bool CWallet::GetNewChangeDestination(const OutputType type, CTxDestination& dest, bilingual_str& error, bool add_blinding_key)
+BResult<CTxDestination> CWallet::GetNewChangeDestination(const OutputType type, bool add_blinding_key)
 {
     LOCK(cs_wallet);
-    error.clear();
 
+    CTxDestination dest;
+    bilingual_str error;
     ReserveDestination reservedest(this, type);
     if (!reservedest.GetReservedDestination(dest, true, error)) {
-        return false;
+        return error;
     }
     if (add_blinding_key) {
         CPubKey blinding_pubkey = GetBlindingPubKey(GetScriptForDestination(dest));
@@ -2574,7 +2575,7 @@ bool CWallet::GetNewChangeDestination(const OutputType type, CTxDestination& des
     }
 
     reservedest.KeepDestination();
-    return true;
+    return dest;
 }
 
 std::optional<int64_t> CWallet::GetOldestKeyPoolTime() const

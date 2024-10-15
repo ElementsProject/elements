@@ -189,13 +189,12 @@ RPCHelpMan getpeginaddress()
     }
 
     // Use native witness destination
-    CTxDestination dest;
-    bilingual_str error;
-    if (!pwallet->GetNewDestination(OutputType::BECH32, "", dest, error)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
+    auto dest = pwallet->GetNewDestination(OutputType::BECH32, "");
+    if (!dest) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, dest.GetError().original);
     }
 
-    CScript dest_script = GetScriptForDestination(dest);
+    CScript dest_script = GetScriptForDestination(dest.GetObj());
 
     // Also add raw scripts to index to recognize later.
     spk_man->AddCScript(dest_script);
@@ -833,10 +832,9 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
         pwallet->TopUpKeyPool();
 
     // Generate a new key that is added to wallet
-    CTxDestination wpkhash;
-    bilingual_str error;
-    if (!pwallet->GetNewDestination(OutputType::BECH32, "", wpkhash, error)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
+    auto wpkhash = pwallet->GetNewDestination(OutputType::BECH32, "");
+    if (!wpkhash) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, wpkhash.GetError().original);
     }
 
     // Get value for output
@@ -846,7 +844,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     }
 
     // one wallet output and one fee output
-    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(wpkhash)));
+    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(wpkhash.GetObj())));
     mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, 0, CScript()));
 
     // Estimate fee for transaction, decrement fee output(including witness data)
@@ -1379,17 +1377,17 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
     FeeCalculation fee_calc_out;
     CCoinControl dummy_control;
     BlindDetails blind_details;
-    std::optional<CreatedTransactionResult> txr = CreateTransaction(*pwallet, vecSend, RANDOM_CHANGE_POSITION,
-                error, dummy_control, fee_calc_out, true, &blind_details, issuance_details);
+    BResult<CreatedTransactionResult> txr = CreateTransaction(*pwallet, vecSend, RANDOM_CHANGE_POSITION,
+                dummy_control, true, &blind_details, issuance_details);
     if (!txr) {
         throw JSONRPCError(RPC_WALLET_ERROR, error.original);
     }
-    nFeeRequired = txr->fee;
+    nFeeRequired = txr.GetObj().fee;
 
     mapValue_t map_value;
-    pwallet->CommitTransaction(txr->tx, std::move(map_value), {} /* orderForm */, &blind_details);
+    pwallet->CommitTransaction(txr.GetObj().tx, std::move(map_value), {} /* orderForm */, &blind_details);
 
-    return txr->tx;
+    return txr.GetObj().tx;
 }
 
 RPCHelpMan issueasset()
@@ -1449,29 +1447,35 @@ RPCHelpMan issueasset()
     // Generate a new key that is added to wallet
     bilingual_str error;
     CPubKey newKey;
-    CTxDestination asset_dest;
-    CTxDestination token_dest;
+    BResult<CTxDestination> asset_dest;
+    BResult<CTxDestination> token_dest;
+    CScript asset_script;
+    CScript token_script;
     CPubKey asset_dest_blindpub;
     CPubKey token_dest_blindpub;
 
     if (nAmount > 0) {
-        if (!pwallet->GetNewDestination(OutputType::BECH32, "", asset_dest, error)) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
+        asset_dest = pwallet->GetNewDestination(OutputType::BECH32, "");
+        if (!asset_dest) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, asset_dest.GetError().original);
         }
-        asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
+        asset_script = GetScriptForDestination(asset_dest.GetObj());
+        asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest.GetObj()));
     }
     if (nTokens > 0) {
-        if (!pwallet->GetNewDestination(OutputType::BECH32, "", token_dest, error)) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
+        token_dest = pwallet->GetNewDestination(OutputType::BECH32, "");
+        if (!token_dest) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, token_dest.GetError().original);
         }
-        token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
+        token_script = GetScriptForDestination(token_dest.GetObj());
+        token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest.GetObj()));
     }
 
     CAsset dummyasset;
     IssuanceDetails issuance_details;
     issuance_details.blind_issuance = blind_issuances;
     issuance_details.contract_hash = contract_hash;
-    CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, nTokens, &issuance_details, pwallet);
+    CTransactionRef tx_ref = SendGenerationTransaction(asset_script, asset_dest_blindpub, token_script, token_dest_blindpub, nAmount, nTokens, &issuance_details, pwallet);
 
     // Calculate asset type, assumes first vin is used for issuance
     CAsset asset;
@@ -1556,21 +1560,21 @@ RPCHelpMan reissueasset()
 
     // Add destination for the to-be-created asset
     bilingual_str error;
-    CTxDestination asset_dest;
-    if (!pwallet->GetNewDestination(OutputType::BECH32, "", asset_dest, error)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
+    auto asset_dest = pwallet->GetNewDestination(OutputType::BECH32, "");
+    if (!asset_dest) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, asset_dest.GetError().original);
     }
-    CPubKey asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
+    CPubKey asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest.GetObj()));
 
     // Add destination for tokens we are moving
-    CTxDestination token_dest;
-    if (!pwallet->GetNewDestination(OutputType::BECH32, "", token_dest, error)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
+    auto token_dest = pwallet->GetNewDestination(OutputType::BECH32, "");
+    if (!token_dest) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, token_dest.GetError().original);
     }
-    CPubKey token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
+    CPubKey token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest.GetObj()));
 
     // Attempt a send.
-    CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, -1, &issuance_details, pwallet);
+    CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest.GetObj()), asset_dest_blindpub, GetScriptForDestination(token_dest.GetObj()), token_dest_blindpub, nAmount, -1, &issuance_details, pwallet);
     CHECK_NONFATAL(!tx_ref->vin.empty());
 
     UniValue obj(UniValue::VOBJ);

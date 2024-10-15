@@ -17,6 +17,7 @@
 #include <psbt.h>
 #include <tinyformat.h>
 #include <util/message.h>
+#include <util/result.h>
 #include <util/strencodings.h>
 #include <util/string.h>
 #include <util/system.h>
@@ -47,7 +48,6 @@ using LoadWalletFn = std::function<void(std::unique_ptr<interfaces::Wallet> wall
 
 class CScript;
 enum class FeeEstimateMode;
-struct FeeCalculation;
 struct bilingual_str;
 
 namespace wallet {
@@ -737,8 +737,8 @@ public:
     void MarkDestinationsDirty(const std::set<CTxDestination>& destinations) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     bool GetOnlinePakKey(CPubKey& online_pubkey, std::string& error);
-    bool GetNewDestination(const OutputType type, const std::string label, CTxDestination& dest, bilingual_str& error, bool add_blinding_key = false);
-    bool GetNewChangeDestination(const OutputType type, CTxDestination& dest, bilingual_str& error, bool add_blinding_key = false);
+    BResult<CTxDestination> GetNewDestination(const OutputType type, const std::string label, bool add_blinding_key = false);
+    BResult<CTxDestination> GetNewChangeDestination(const OutputType type, bool add_blinding_key = false);
 
     isminetype IsMine(const CTxDestination& dest) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     isminetype IsMine(const CScript& script) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
