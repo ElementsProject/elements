@@ -11,7 +11,7 @@ import math
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.key import ECKey
 from test_framework.messages import (
-    BIP125_SEQUENCE_NUMBER,
+    MAX_BIP125_RBF_SEQUENCE,
     COIN,
     COutPoint,
     CTxIn,
@@ -91,7 +91,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         self.log.info('A transaction not in the mempool')
         fee = Decimal('0.000007')
         utxo_to_spend = self.wallet.get_utxo(txid=txid_in_block)  # use 0.3 BTC UTXO
-        tx = self.wallet.create_self_transfer(utxo_to_spend=utxo_to_spend, sequence=BIP125_SEQUENCE_NUMBER)['tx']
+        tx = self.wallet.create_self_transfer(utxo_to_spend=utxo_to_spend, sequence=MAX_BIP125_RBF_SEQUENCE)['tx']
         tx.vout[0].nValue.setToAmount(int((Decimal('0.3') - fee) * COIN))
         tx.vout[1].nValue.setToAmount(int(fee * COIN))
         raw_tx_0 = tx.serialize().hex()
@@ -134,7 +134,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         tx.vout[0].nValue.setToAmount(tx.vout[0].nValue.getAmount() - int(fee * COIN))  # Double the fee
         txid_0_out = tx.vout[0].nValue.getAmount()
         tx.vout[1].nValue.setToAmount(tx.vout[1].nValue.getAmount() + int(fee * COIN))
-        tx.vin[0].nSequence = BIP125_SEQUENCE_NUMBER + 1  # Now, opt out of RBF
+        tx.vin[0].nSequence = MAX_BIP125_RBF_SEQUENCE + 1  # Now, opt out of RBF
         raw_tx_0 = tx.serialize().hex()
         txid_0 = tx.rehash()
         self.check_mempool_result(

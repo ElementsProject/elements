@@ -17,7 +17,7 @@ from test_framework.blocktools import (
 from test_framework.key import ECKey
 from test_framework.messages import (
     COIN,
-    BIP125_SEQUENCE_NUMBER,
+    MAX_BIP125_RBF_SEQUENCE,
     CBlockHeader,
     CInv,
     COutPoint,
@@ -601,7 +601,7 @@ class SegWitTest(BitcoinTestFramework):
         tx.vout = [CTxOut(p2sh_tx.vout[0].nValue.getAmount() - 10000, script_pubkey)]
         tx.vout.append(CTxOut(8000, script_pubkey))  # Might burn this later
         tx.vout.append(CTxOut(2000)) # fee
-        tx.vin[0].nSequence = BIP125_SEQUENCE_NUMBER  # Just to have the option to bump this tx from the mempool
+        tx.vin[0].nSequence = MAX_BIP125_RBF_SEQUENCE  # Just to have the option to bump this tx from the mempool
         tx.rehash()
 
         # This is always accepted, since the mempool policy is to consider segwit as always active
