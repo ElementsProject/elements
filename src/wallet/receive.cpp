@@ -160,12 +160,10 @@ CAmountMap CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, const 
         return CAmountMap();
 
     CAmountMap credit;
-    if (filter & ISMINE_SPENDABLE) {
+    const isminefilter get_amount_filter{filter & ISMINE_ALL};
+    if (get_amount_filter) {
         // GetBalance can assume transactions in mapWallet won't change
-        credit += GetCachableAmount(wallet, wtx, CWalletTx::CREDIT, ISMINE_SPENDABLE);
-    }
-    if (filter & ISMINE_WATCH_ONLY) {
-        credit += GetCachableAmount(wallet, wtx, CWalletTx::CREDIT, ISMINE_WATCH_ONLY);
+        credit += GetCachableAmount(wallet, wtx, CWalletTx::CREDIT, get_amount_filter);
     }
     return credit;
 }
@@ -176,11 +174,9 @@ CAmountMap CachedTxGetDebit(const CWallet& wallet, const CWalletTx& wtx, const i
         return CAmountMap();
 
     CAmountMap debit;
-    if (filter & ISMINE_SPENDABLE) {
-        debit += GetCachableAmount(wallet, wtx, CWalletTx::DEBIT, ISMINE_SPENDABLE);
-    }
-    if (filter & ISMINE_WATCH_ONLY) {
-        debit += GetCachableAmount(wallet, wtx, CWalletTx::DEBIT, ISMINE_WATCH_ONLY);
+    const isminefilter get_amount_filter{filter & ISMINE_ALL};
+    if (get_amount_filter) {
+        debit += GetCachableAmount(wallet, wtx, CWalletTx::DEBIT, get_amount_filter);
     }
     return debit;
 }
