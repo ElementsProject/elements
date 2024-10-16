@@ -754,6 +754,200 @@ static RPCHelpMan signrawtransactionwithkey()
     };
 }
 
+const RPCResult decodepsbt_inputs{
+    RPCResult::Type::ARR, "inputs", "",
+    {
+        {RPCResult::Type::OBJ, "", "",
+        {
+            {RPCResult::Type::OBJ, "non_witness_utxo", /*optional=*/true, "Decoded network transaction for non-witness UTXOs",
+            {
+                {RPCResult::Type::ELISION, "",""},
+            }},
+            {RPCResult::Type::OBJ, "witness_utxo", /*optional=*/true, "Transaction output for witness UTXOs",
+            {
+                {RPCResult::Type::NUM, "amount", "The value in " + CURRENCY_UNIT},
+                {RPCResult::Type::OBJ, "scriptPubKey", "",
+                {
+                    {RPCResult::Type::STR, "asm", "The asm"},
+                    {RPCResult::Type::STR, "desc", "Inferred descriptor for the output"},
+                    {RPCResult::Type::STR_HEX, "hex", "The hex"},
+                    {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
+                    {RPCResult::Type::STR, "address", /*optional=*/true, "The Bitcoin address (only if a well-defined address exists)"},
+                }},
+            }},
+            {RPCResult::Type::OBJ_DYN, "partial_signatures", /*optional=*/true, "",
+            {
+                {RPCResult::Type::STR, "pubkey", "The public key and signature that corresponds to it."},
+            }},
+            {RPCResult::Type::STR, "sighash", /*optional=*/true, "The sighash type to be used"},
+            {RPCResult::Type::OBJ, "redeem_script", /*optional=*/true, "",
+            {
+                {RPCResult::Type::STR, "asm", "The asm"},
+                {RPCResult::Type::STR_HEX, "hex", "The hex"},
+                {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
+            }},
+            {RPCResult::Type::OBJ, "witness_script", /*optional=*/true, "",
+            {
+                {RPCResult::Type::STR, "asm", "The asm"},
+                {RPCResult::Type::STR_HEX, "hex", "The hex"},
+                {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
+            }},
+            {RPCResult::Type::ARR, "bip32_derivs", /*optional=*/true, "",
+            {
+                {RPCResult::Type::OBJ, "", "",
+                {
+                    {RPCResult::Type::STR, "pubkey", "The public key with the derivation path as the value."},
+                    {RPCResult::Type::STR, "master_fingerprint", "The fingerprint of the master key"},
+                    {RPCResult::Type::STR, "path", "The path"},
+                }},
+            }},
+            {RPCResult::Type::OBJ, "final_scriptSig", /*optional=*/true, "",
+            {
+                {RPCResult::Type::STR, "asm", "The asm"},
+                {RPCResult::Type::STR, "hex", "The hex"},
+            }},
+            {RPCResult::Type::ARR, "final_scriptwitness", /*optional=*/true, "",
+            {
+                {RPCResult::Type::STR_HEX, "", "hex-encoded witness data (if any)"},
+            }},
+            {RPCResult::Type::OBJ_DYN, "ripemd160_preimages", /*optional=*/ true, "",
+            {
+                {RPCResult::Type::STR, "hash", "The hash and preimage that corresponds to it."},
+            }},
+            {RPCResult::Type::OBJ_DYN, "sha256_preimages", /*optional=*/ true, "",
+            {
+                {RPCResult::Type::STR, "hash", "The hash and preimage that corresponds to it."},
+            }},
+            {RPCResult::Type::OBJ_DYN, "hash160_preimages", /*optional=*/ true, "",
+            {
+                {RPCResult::Type::STR, "hash", "The hash and preimage that corresponds to it."},
+            }},
+            {RPCResult::Type::OBJ_DYN, "hash256_preimages", /*optional=*/ true, "",
+            {
+                {RPCResult::Type::STR, "hash", "The hash and preimage that corresponds to it."},
+            }},
+            {RPCResult::Type::STR_HEX, "taproot_key_path_sig", /*optional=*/ true, "hex-encoded signature for the Taproot key path spend"},
+            {RPCResult::Type::ARR, "taproot_script_path_sigs", /*optional=*/ true, "",
+            {
+                {RPCResult::Type::OBJ, "signature", /*optional=*/ true, "The signature for the pubkey and leaf hash combination",
+                {
+                    {RPCResult::Type::STR, "pubkey", "The x-only pubkey for this signature"},
+                    {RPCResult::Type::STR, "leaf_hash", "The leaf hash for this signature"},
+                    {RPCResult::Type::STR, "sig", "The signature itself"},
+                }},
+            }},
+            {RPCResult::Type::ARR, "taproot_scripts", /*optional=*/ true, "",
+            {
+                {RPCResult::Type::OBJ, "", "",
+                {
+                    {RPCResult::Type::STR_HEX, "script", "A leaf script"},
+                    {RPCResult::Type::NUM, "leaf_ver", "The version number for the leaf script"},
+                    {RPCResult::Type::ARR, "control_blocks", "The control blocks for this script",
+                    {
+                        {RPCResult::Type::STR_HEX, "control_block", "A hex-encoded control block for this script"},
+                    }},
+                }},
+            }},
+            {RPCResult::Type::ARR, "taproot_bip32_derivs", /*optional=*/ true, "",
+            {
+                {RPCResult::Type::OBJ, "", "",
+                {
+                    {RPCResult::Type::STR, "pubkey", "The x-only public key this path corresponds to"},
+                    {RPCResult::Type::STR, "master_fingerprint", "The fingerprint of the master key"},
+                    {RPCResult::Type::STR, "path", "The path"},
+                    {RPCResult::Type::ARR, "leaf_hashes", "The hashes of the leaves this pubkey appears in",
+                    {
+                        {RPCResult::Type::STR_HEX, "hash", "The hash of a leaf this pubkey appears in"},
+                    }},
+                }},
+            }},
+            {RPCResult::Type::STR_HEX, "taproot_internal_key", /*optional=*/ true, "The hex-encoded Taproot x-only internal key"},
+            {RPCResult::Type::STR_HEX, "taproot_merkle_root", /*optional=*/ true, "The hex-encoded Taproot merkle root"},
+            {RPCResult::Type::OBJ_DYN, "unknown", /*optional=*/ true, "The unknown input fields",
+            {
+                {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
+            }},
+            {RPCResult::Type::ARR, "proprietary", /*optional=*/true, "The input proprietary map",
+            {
+                {RPCResult::Type::OBJ, "", "",
+                {
+                    {RPCResult::Type::STR_HEX, "identifier", "The hex string for the proprietary identifier"},
+                    {RPCResult::Type::NUM, "subtype", "The number for the subtype"},
+                    {RPCResult::Type::STR_HEX, "key", "The hex for the key"},
+                    {RPCResult::Type::STR_HEX, "value", "The hex for the value"},
+                }},
+            }},
+        }},
+    }
+};
+
+const RPCResult decodepsbt_outputs{
+    RPCResult::Type::ARR, "outputs", "",
+    {
+        {RPCResult::Type::OBJ, "", "",
+        {
+            {RPCResult::Type::OBJ, "redeem_script", /*optional=*/true, "",
+            {
+                {RPCResult::Type::STR, "asm", "The asm"},
+                {RPCResult::Type::STR_HEX, "hex", "The hex"},
+                {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
+            }},
+            {RPCResult::Type::OBJ, "witness_script", /*optional=*/true, "",
+            {
+                {RPCResult::Type::STR, "asm", "The asm"},
+                {RPCResult::Type::STR_HEX, "hex", "The hex"},
+                {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
+            }},
+            {RPCResult::Type::ARR, "bip32_derivs", /*optional=*/true, "",
+            {
+                {RPCResult::Type::OBJ, "", "",
+                {
+                    {RPCResult::Type::STR, "pubkey", "The public key this path corresponds to"},
+                    {RPCResult::Type::STR, "master_fingerprint", "The fingerprint of the master key"},
+                    {RPCResult::Type::STR, "path", "The path"},
+                }},
+            }},
+            {RPCResult::Type::STR_HEX, "taproot_internal_key", /*optional=*/ true, "The hex-encoded Taproot x-only internal key"},
+            {RPCResult::Type::ARR, "taproot_tree", /*optional=*/ true, "The tuples that make up the Taproot tree, in depth first search order",
+            {
+                {RPCResult::Type::OBJ, "tuple", /*optional=*/ true, "A single leaf script in the taproot tree",
+                {
+                    {RPCResult::Type::NUM, "depth", "The depth of this element in the tree"},
+                    {RPCResult::Type::NUM, "leaf_ver", "The version of this leaf"},
+                    {RPCResult::Type::STR, "script", "The hex-encoded script itself"},
+                }},
+            }},
+            {RPCResult::Type::ARR, "taproot_bip32_derivs", /*optional=*/ true, "",
+            {
+                {RPCResult::Type::OBJ, "", "",
+                {
+                    {RPCResult::Type::STR, "pubkey", "The x-only public key this path corresponds to"},
+                    {RPCResult::Type::STR, "master_fingerprint", "The fingerprint of the master key"},
+                    {RPCResult::Type::STR, "path", "The path"},
+                    {RPCResult::Type::ARR, "leaf_hashes", "The hashes of the leaves this pubkey appears in",
+                    {
+                        {RPCResult::Type::STR_HEX, "hash", "The hash of a leaf this pubkey appears in"},
+                    }},
+                }},
+            }},
+            {RPCResult::Type::OBJ_DYN, "unknown", /*optional=*/true, "The unknown output fields",
+            {
+                {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
+            }},
+            {RPCResult::Type::ARR, "proprietary", /*optional=*/true, "The output proprietary map",
+            {
+                {RPCResult::Type::OBJ, "", "",
+                {
+                    {RPCResult::Type::STR_HEX, "identifier", "The hex string for the proprietary identifier"},
+                    {RPCResult::Type::NUM, "subtype", "The number for the subtype"},
+                    {RPCResult::Type::STR_HEX, "key", "The hex for the key"},
+                    {RPCResult::Type::STR_HEX, "value", "The hex for the value"},
+                }},
+            }},
+        }},
+    }
+};
+
 static RPCHelpMan decodepsbt()
 {
     return RPCHelpMan{
@@ -808,238 +1002,8 @@ static RPCHelpMan decodepsbt()
                         {
                              {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
                         }},
-                        {RPCResult::Type::ARR, "inputs", "",
-                        {
-                            {RPCResult::Type::OBJ, "", "",
-                            {
-                                {RPCResult::Type::OBJ, "non_witness_utxo", /*optional=*/true, "Decoded network transaction for non-witness UTXOs",
-                                {
-                                    {RPCResult::Type::ELISION, "",""},
-                                }},
-                                {RPCResult::Type::OBJ, "witness_utxo", /*optional=*/true, "Transaction output for witness UTXOs",
-                                {
-                                    {RPCResult::Type::NUM, "amount", "The value in " + CURRENCY_UNIT},
-                                    {RPCResult::Type::OBJ, "scriptPubKey", "",
-                                    {
-                                        {RPCResult::Type::STR, "asm", "The asm"},
-                                        {RPCResult::Type::STR, "desc", "Inferred descriptor for the output"},
-                                        {RPCResult::Type::STR_HEX, "hex", "The hex"},
-                                        {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
-                                        {RPCResult::Type::STR, "address", /*optional=*/true, "The Bitcoin address (only if a well-defined address exists)"},
-                                    }},
-                                }},
-                                {RPCResult::Type::OBJ_DYN, "partial_signatures", /*optional=*/true, "",
-                                {
-                                    {RPCResult::Type::STR, "pubkey", "The public key and signature that corresponds to it."},
-                                }},
-                                {RPCResult::Type::STR, "sighash", /*optional=*/true, "The sighash type to be used"},
-                                {RPCResult::Type::OBJ, "redeem_script", /*optional=*/true, "",
-                                {
-                                    {RPCResult::Type::STR, "asm", "The asm"},
-                                    {RPCResult::Type::STR_HEX, "hex", "The hex"},
-                                    {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
-                                }},
-                                {RPCResult::Type::OBJ, "witness_script", /*optional=*/true, "",
-                                {
-                                    {RPCResult::Type::STR, "asm", "The asm"},
-                                    {RPCResult::Type::STR_HEX, "hex", "The hex"},
-                                    {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
-                                }},
-                                {RPCResult::Type::ARR, "bip32_derivs", /*optional=*/true, "",
-                                {
-                                    {RPCResult::Type::OBJ, "", "",
-                                    {
-                                        {RPCResult::Type::STR, "pubkey", "The public key with the derivation path as the value."},
-                                        {RPCResult::Type::STR, "master_fingerprint", "The fingerprint of the master key"},
-                                        {RPCResult::Type::STR, "path", "The path"},
-                                    }},
-                                }},
-                                {RPCResult::Type::OBJ, "final_scriptSig", /*optional=*/true, "",
-                                {
-                                    {RPCResult::Type::STR, "asm", "The asm"},
-                                    {RPCResult::Type::STR, "hex", "The hex"},
-                                }},
-                                {RPCResult::Type::ARR, "final_scriptwitness", /*optional=*/true, "",
-                                {
-                                    {RPCResult::Type::STR_HEX, "", "hex-encoded witness data (if any)"},
-                                }},
-                                {RPCResult::Type::STR_HEX, "previous_txid", "TXID of the transaction containing the output being spent by this input."},
-                                {RPCResult::Type::NUM, "previous_vout", "Index of the output being spent"},
-                                {RPCResult::Type::NUM, "sequence", "Sequence number for this inputs"},
-                                {RPCResult::Type::NUM, "time_locktime", "Required time-based locktime for this input"},
-                                {RPCResult::Type::NUM, "height_locktime", "Required height-based locktime for this input"},
-                                {RPCResult::Type::NUM, "issuance_value", "The explicit value of the issuance in this input in " + CURRENCY_UNIT},
-                                {RPCResult::Type::STR_HEX, "issuance_value_commitment", "The commitment of the value of the issuance in this input."},
-                                {RPCResult::Type::STR_HEX, "issuance_value_rangeproof", "The rangeproof for the value commitment of the issuance in this input."},
-                                {RPCResult::Type::STR_HEX, "blind_issuance_value_proof", "Explicit value rangeproof that proves the issuance value commitment matches the value"},
-                                {RPCResult::Type::NUM, "issuance_reissuance_amount", "The explicit amount available for the reissuance output."},
-                                {RPCResult::Type::STR_HEX, "issuance_reissuance_amount_commitment", "The commitment of the reissuance amount."},
-                                {RPCResult::Type::STR_HEX, "issuance_reissuance_amount_rangeproof", "The rangeproof for the amount commitment of the reissuance amount."},
-                                {RPCResult::Type::STR_HEX, "blind_reissuance_amount_proof", "Explicit value rangeproof that proves the reissuance value commitment matches the reissuance value"},
-                                {RPCResult::Type::STR_HEX, "issuance_blinding_nonce", "The blinding nonce for the issuance in this input."},
-                                {RPCResult::Type::STR_HEX, "issuance_asset_entropy", "The asset entropy for the issuance in this input."},
-                                {RPCResult::Type::STR_HEX, "pegin_bitcoin_tx", "The tx providing the peg-in in the format of the getrawtransaction RPC"},
-                                {RPCResult::Type::STR_HEX, "pegin_claim_script", "The claim script for the peg-in input"},
-                                {RPCResult::Type::STR_HEX, "pegin_txout_proof", "The tx providing the peg-in input"},
-                                {RPCResult::Type::STR_HEX, "pegin_genesis_hash", "The hash of the genesis block for this peg-in"},
-                                {RPCResult::Type::NUM, "pegin_value", "The value of this peg-in."},
-                                {RPCResult::Type::ARR, "pegin_witness", "",
-                                {
-                                    {RPCResult::Type::STR_HEX, "", "hex-encoded witness data (if any)"},
-                                }},
-                                {RPCResult::Type::STR_HEX, "utxo_rangeproof", "The rangeproof for the UTXO"},
-                                {RPCResult::Type::NUM, "explicit_value", /*optional=*/true, "The explicit value for this input"},
-                                {RPCResult::Type::STR_HEX, "value_proof", /*optional=*/true, "The explicit value proof for this input"},
-                                {RPCResult::Type::STR_HEX, "explicit_asset", /*optional=*/true, "The explicit asset for this input"},
-                                {RPCResult::Type::STR_HEX, "asset_proof", /*optional=*/true, "The explicit asset proof for this input"},
-                                {RPCResult::Type::BOOL, "blinded_issuance", /*optional=*/true, "Whether the issuance should be blinded prior to signing"},
-                                {RPCResult::Type::OBJ_DYN, "ripemd160_preimages", /*optional=*/ true, "",
-                                {
-                                    {RPCResult::Type::STR, "hash", "The hash and preimage that corresponds to it."},
-                                }},
-                                {RPCResult::Type::OBJ_DYN, "sha256_preimages", /*optional=*/ true, "",
-                                {
-                                    {RPCResult::Type::STR, "hash", "The hash and preimage that corresponds to it."},
-                                }},
-                                {RPCResult::Type::OBJ_DYN, "hash160_preimages", /*optional=*/ true, "",
-                                {
-                                    {RPCResult::Type::STR, "hash", "The hash and preimage that corresponds to it."},
-                                }},
-                                {RPCResult::Type::OBJ_DYN, "hash256_preimages", /*optional=*/ true, "",
-                                {
-                                    {RPCResult::Type::STR, "hash", "The hash and preimage that corresponds to it."},
-                                }},
-                                {RPCResult::Type::STR_HEX, "taproot_key_path_sig", /*optional=*/ true, "hex-encoded signature for the Taproot key path spend"},
-                                {RPCResult::Type::ARR, "taproot_script_path_sigs", /*optional=*/ true, "",
-                                {
-                                    {RPCResult::Type::OBJ, "signature", /*optional=*/ true, "The signature for the pubkey and leaf hash combination",
-                                    {
-                                        {RPCResult::Type::STR, "pubkey", "The x-only pubkey for this signature"},
-                                        {RPCResult::Type::STR, "leaf_hash", "The leaf hash for this signature"},
-                                        {RPCResult::Type::STR, "sig", "The signature itself"},
-                                    }},
-                                }},
-                                {RPCResult::Type::ARR, "taproot_scripts", /*optional=*/ true, "",
-                                {
-                                    {RPCResult::Type::OBJ, "", "",
-                                    {
-                                        {RPCResult::Type::STR_HEX, "script", "A leaf script"},
-                                        {RPCResult::Type::NUM, "leaf_ver", "The version number for the leaf script"},
-                                        {RPCResult::Type::ARR, "control_blocks", "The control blocks for this script",
-                                        {
-                                            {RPCResult::Type::STR_HEX, "control_block", "A hex-encoded control block for this script"},
-                                        }},
-                                    }},
-                                }},
-                                {RPCResult::Type::ARR, "taproot_bip32_derivs", /*optional=*/ true, "",
-                                {
-                                    {RPCResult::Type::OBJ, "", "",
-                                    {
-                                        {RPCResult::Type::STR, "pubkey", "The x-only public key this path corresponds to"},
-                                        {RPCResult::Type::STR, "master_fingerprint", "The fingerprint of the master key"},
-                                        {RPCResult::Type::STR, "path", "The path"},
-                                        {RPCResult::Type::ARR, "leaf_hashes", "The hashes of the leaves this pubkey appears in",
-                                        {
-                                            {RPCResult::Type::STR_HEX, "hash", "The hash of a leaf this pubkey appears in"},
-                                        }},
-                                    }},
-                                }},
-                                {RPCResult::Type::STR_HEX, "taproot_internal_key", /*optional=*/ true, "The hex-encoded Taproot x-only internal key"},
-                                {RPCResult::Type::STR_HEX, "taproot_merkle_root", /*optional=*/ true, "The hex-encoded Taproot merkle root"},
-                                {RPCResult::Type::OBJ_DYN, "unknown", /*optional=*/ true, "The unknown input fields",
-                                {
-                                    {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
-                                }},
-                                {RPCResult::Type::OBJ, "proprietary", /*optional=*/true, "The global proprietary map",
-                                {
-                                    {RPCResult::Type::OBJ, "", "",
-                                    {
-                                        {RPCResult::Type::STR_HEX, "identifier", "The hex string for the proprietary identifier"},
-                                        {RPCResult::Type::NUM, "subtype", "The number for the subtype"},
-                                        {RPCResult::Type::STR_HEX, "key", "The hex for the key"},
-                                        {RPCResult::Type::STR_HEX, "value", "The hex for the value"},
-                                    }},
-                                }},
-                            }},
-                        }},
-                        {RPCResult::Type::ARR, "outputs", "",
-                        {
-                            {RPCResult::Type::OBJ, "", "",
-                            {
-                                {RPCResult::Type::OBJ, "redeem_script", /*optional=*/true, "",
-                                {
-                                    {RPCResult::Type::STR, "asm", "The asm"},
-                                    {RPCResult::Type::STR_HEX, "hex", "The hex"},
-                                    {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
-                                }},
-                                {RPCResult::Type::OBJ, "witness_script", /*optional=*/true, "",
-                                {
-                                    {RPCResult::Type::STR, "asm", "The asm"},
-                                    {RPCResult::Type::STR_HEX, "hex", "The hex"},
-                                    {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
-                                }},
-                                {RPCResult::Type::ARR, "bip32_derivs", /*optional=*/true, "",
-                                {
-                                    {RPCResult::Type::OBJ, "", "",
-                                    {
-                                        {RPCResult::Type::STR, "pubkey", "The public key this path corresponds to"},
-                                        {RPCResult::Type::STR, "master_fingerprint", "The fingerprint of the master key"},
-                                        {RPCResult::Type::STR, "path", "The path"},
-                                    }},
-                                }},
-                                {RPCResult::Type::NUM, "amount", "The amount (nValue) for this output"},
-                                {RPCResult::Type::OBJ, "script", "The output script (scriptPubKey) for this output",
-                                    {{RPCResult::Type::ELISION, "", "The layout is the same as the output of scriptPubKeys in decoderawtransaction."}},
-                                },
-                                {RPCResult::Type::STR_HEX, "value_commitment", "The blinded value of the output"},
-                                {RPCResult::Type::STR_HEX, "asset_commiment", "The blinded asset id of the output"},
-                                {RPCResult::Type::STR_HEX, "asset", "The explicit asset for the output"},
-                                {RPCResult::Type::STR_HEX, "rangeproof", "The rangeproof for the output"},
-                                {RPCResult::Type::STR_HEX, "surjection_proof", "The surjection proof for the output"},
-                                {RPCResult::Type::STR_HEX, "ecdh_pubkey", "The ecdh pubkey for the output"},
-                                {RPCResult::Type::STR_HEX, "blinding_pubkey", "The blinding pubkey for the output"},
-                                {RPCResult::Type::STR_HEX, "blind_value_proof", "Explicit value rangeproof that proves the value commitment matches the value"},
-                                {RPCResult::Type::STR_HEX, "blind_asset_proof", "Assert surjection proof that proves the assert commitment matches the asset"},
-                                {RPCResult::Type::STR, "status", "information about how the output has been blinded, if available"},
-                                {RPCResult::Type::STR_HEX, "taproot_internal_key", /*optional=*/ true, "The hex-encoded Taproot x-only internal key"},
-                                {RPCResult::Type::ARR, "taproot_tree", /*optional=*/ true, "The tuples that make up the Taproot tree, in depth first search order",
-                                {
-                                    {RPCResult::Type::OBJ, "tuple", /*optional=*/ true, "A single leaf script in the taproot tree",
-                                    {
-                                        {RPCResult::Type::NUM, "depth", "The depth of this element in the tree"},
-                                        {RPCResult::Type::NUM, "leaf_ver", "The version of this leaf"},
-                                        {RPCResult::Type::STR, "script", "The hex-encoded script itself"},
-                                    }},
-                                }},
-                                {RPCResult::Type::ARR, "taproot_bip32_derivs", /*optional=*/ true, "",
-                                {
-                                    {RPCResult::Type::OBJ, "", "",
-                                    {
-                                        {RPCResult::Type::STR, "pubkey", "The x-only public key this path corresponds to"},
-                                        {RPCResult::Type::STR, "master_fingerprint", "The fingerprint of the master key"},
-                                        {RPCResult::Type::STR, "path", "The path"},
-                                        {RPCResult::Type::ARR, "leaf_hashes", "The hashes of the leaves this pubkey appears in",
-                                        {
-                                            {RPCResult::Type::STR_HEX, "hash", "The hash of a leaf this pubkey appears in"},
-                                        }},
-                                    }},
-                                }},
-                                {RPCResult::Type::OBJ_DYN, "unknown", /*optional=*/true, "The unknown output fields",
-                                {
-                                    {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
-                                }},
-                                {RPCResult::Type::OBJ, "proprietary", /*optional=*/true, "The global proprietary map",
-                                {
-                                    {RPCResult::Type::OBJ, "", "",
-                                    {
-                                        {RPCResult::Type::STR_HEX, "identifier", "The hex string for the proprietary identifier"},
-                                        {RPCResult::Type::NUM, "subtype", "The number for the subtype"},
-                                        {RPCResult::Type::STR_HEX, "key", "The hex for the key"},
-                                        {RPCResult::Type::STR_HEX, "value", "The hex for the value"},
-                                    }},
-                                }},
-                            }},
-                        }},
+                        decodepsbt_inputs,
+                        decodepsbt_outputs,
                         {RPCResult::Type::STR_AMOUNT, "fee", /*optional=*/true, "The transaction fee paid if all UTXOs slots in the PSBT have been filled."},
                     }, /*skip_type_check=*/true // ELEMENTS FIXME: go through and make the types correct in these docs, and then remove this argument. If we remove it now, every call will throw an exception
                 },
