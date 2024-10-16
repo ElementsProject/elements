@@ -1812,7 +1812,7 @@ RPCHelpMan walletcreatefundedpsbt()
         }, true
     );
 
-    UniValue options = request.params[3];
+    UniValue options{request.params[3].isNull() ? UniValue::VOBJ : request.params[3]};
 
     CAmount fee;
     int change_position;
