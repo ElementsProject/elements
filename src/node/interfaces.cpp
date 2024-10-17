@@ -776,6 +776,11 @@ public:
             notifications.transactionAddedToMempool(entry.GetSharedTx(), 0 /* mempool_sequence */);
         }
     }
+    bool hasAssumedValidChain() override
+    {
+        return Assert(m_node.chainman)->IsSnapshotActive();
+    }
+
 // ELEMENTS
     MempoolAcceptResult testPeginClaimAcceptance(const CTransactionRef tx) override {
         LOCK(::cs_main);
@@ -792,6 +797,7 @@ public:
         return TestBlockValidity(state, chainparams, m_node.chainman->ActiveChainstate(), block, pindexPrev, GetAdjustedTime, fCheckPOW, fCheckMerkleRoot);
     }
 // end ELEMENTS
+
     NodeContext& m_node;
 };
 } // namespace
