@@ -1276,7 +1276,7 @@ class PSBTTest(BitcoinTestFramework):
             addr = self.nodes[0].getnewaddress("", "bech32m")
             txid = self.nodes[0].sendtoaddress(addr, 1)
             vout = find_vout_for_address(self.nodes[0], txid, addr)
-            psbt = self.nodes[0].createpsbt([{"txid": txid, "vout": vout}], [{self.nodes[0].getnewaddress(): 0.9999}])
+            psbt = self.nodes[0].createpsbt([{"txid": txid, "vout": vout}], [{self.nodes[0].getnewaddress(): 0.9999}, {"fee": 0.0001}])
             signed = self.nodes[0].walletprocesspsbt(psbt)
             rawtx = self.nodes[0].finalizepsbt(signed["psbt"])["hex"]
             self.nodes[0].sendrawtransaction(rawtx)
