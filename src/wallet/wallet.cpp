@@ -1907,7 +1907,6 @@ bool CWallet::SignTransaction(CMutableTransaction& tx, const std::map<COutPoint,
 // ELEMENTS: split FillPSBT into FillPSBData and SignPSBT
 TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool bip32derivs, bool include_explicit) const
 {
-    const PrecomputedTransactionData txdata = PrecomputePSBTData(psbtx);
     LOCK(cs_wallet);
 
     // Get all of the previous transactions
@@ -1943,6 +1942,8 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
             }
         }
     }
+
+    const PrecomputedTransactionData txdata = PrecomputePSBTData(psbtx);
 
     // Fill in information from ScriptPubKeyMans
     // Because each ScriptPubKeyMan may be able to fill more than one input, we need to keep track of each ScriptPubKeyMan that has filled this psbt.
