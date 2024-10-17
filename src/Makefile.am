@@ -186,6 +186,7 @@ BITCOIN_CORE_H = \
   kernel/context.h \
   kernel/mempool_limits.h \
   kernel/mempool_options.h \
+  kernel/mempool_persist.h \
   key.h \
   key_io.h \
   logging.h \
@@ -208,6 +209,7 @@ BITCOIN_CORE_H = \
   node/chainstate.h \
   node/coin.h \
   node/context.h \
+  node/mempool_persist_args.h \
   node/miner.h \
   node/minisketchwrapper.h \
   node/psbt.h \
@@ -385,6 +387,7 @@ libbitcoin_node_a_SOURCES = \
   kernel/coinstats.cpp \
   mainchainrpc.cpp \
   kernel/context.cpp \
+  kernel/mempool_persist.cpp \
   mapport.cpp \
   mempool_args.cpp \
   net.cpp \
@@ -398,6 +401,7 @@ libbitcoin_node_a_SOURCES = \
   node/context.cpp \
   node/eviction.cpp \
   node/interfaces.cpp \
+  node/mempool_persist_args.cpp \
   node/miner.cpp \
   node/minisketchwrapper.cpp \
   node/psbt.cpp \
@@ -957,6 +961,7 @@ libbitcoinkernel_la_SOURCES = \
   kernel/checks.cpp \
   kernel/coinstats.cpp \
   kernel/context.cpp \
+  kernel/mempool_persist.cpp \
   key.cpp \
   logging.cpp \
   node/blockstorage.cpp \

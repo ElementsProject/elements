@@ -22,6 +22,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES = (
     "wallet/fees -> wallet/wallet -> wallet/fees",
     "wallet/wallet -> wallet/walletdb -> wallet/wallet",
     "kernel/coinstats -> validation -> kernel/coinstats",
+    "kernel/mempool_persist -> validation -> kernel/mempool_persist",
     # ELEMENTs: introduced by https://github.com/ElementsProject/elements/pull/1270
     "chain -> validation -> chain"
     "chain -> validation -> consensus/tx_verify -> chain"
