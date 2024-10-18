@@ -32,11 +32,9 @@ CAmountMap CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, const 
 //! filter decides which addresses will count towards the debit
 CAmountMap CachedTxGetDebit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter);
 CAmountMap CachedTxGetChange(const CWallet& wallet, const CWalletTx& wtx) NO_THREAD_SAFETY_ANALYSIS;
-CAmountMap CachedTxGetImmatureCredit(const CWallet& wallet, const CWalletTx& wtx, bool fUseCache = true);
+CAmountMap CachedTxGetImmatureCredit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter)
     EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
-CAmountMap CachedTxGetImmatureWatchOnlyCredit(const CWallet& wallet, const CWalletTx& wtx, const bool fUseCache = true);
-    EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
-CAmountMap CachedTxGetAvailableCredit(const CWallet& wallet, const CWalletTx& wtx, bool fUseCache = true, const isminefilter& filter = ISMINE_SPENDABLE);
+CAmountMap CachedTxGetAvailableCredit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter = ISMINE_SPENDABLE)
     EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 struct COutputEntry
 {
