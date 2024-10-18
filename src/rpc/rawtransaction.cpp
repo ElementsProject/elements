@@ -111,8 +111,8 @@ static std::vector<RPCResult> DecodeTxDoc(const std::string& txid_field_doc)
                 {RPCResult::Type::NUM, "vout", /*optional=*/true, "The output number (if not coinbase transaction)"},
                 {RPCResult::Type::OBJ, "scriptSig", /*optional=*/true, "The script (if not coinbase transaction)",
                 {
-                    {RPCResult::Type::STR, "asm", "asm"},
-                    {RPCResult::Type::STR_HEX, "hex", "hex"},
+                    {RPCResult::Type::STR, "asm", "Disassembly of the signature script"},
+                    {RPCResult::Type::STR_HEX, "hex", "The raw signature script bytes, hex-encoded"},
                 }},
                 {RPCResult::Type::ARR, "txinwitness", /*optional=*/true, "",
                 {
@@ -144,9 +144,9 @@ static std::vector<RPCResult> DecodeTxDoc(const std::string& txid_field_doc)
                 {RPCResult::Type::STR_HEX, "valuecommitment", /*optional=*/true, "The commitment for the range proof"}, // ELEMENTS FIXME: is this correct?
                 {RPCResult::Type::OBJ, "scriptPubKey", "",
                 {
-                    {RPCResult::Type::STR, "asm", "the asm"},
+                    {RPCResult::Type::STR, "asm", "Disassembly of the public key script"},
                     {RPCResult::Type::STR, "desc", "Inferred descriptor for the output"},
-                    {RPCResult::Type::STR_HEX, "hex", "the hex"},
+                    {RPCResult::Type::STR_HEX, "hex", "The raw public key script bytes, hex-encoded"},
                     {RPCResult::Type::STR, "pegout_address", /*optional=*/true, "(only pegout)"},
                     {RPCResult::Type::STR, "pegout_asm", /*optional=*/true, "(only pegout) pegout scriptpubkey (asm)"},
                     {RPCResult::Type::STR_HEX, "pegout_hex", /*optional=*/true, "(only pegout) pegout scriptpubkey (hex)"},
@@ -766,9 +766,9 @@ const RPCResult decodepsbt_inputs{
                 {RPCResult::Type::NUM, "amount", "The value in " + CURRENCY_UNIT},
                 {RPCResult::Type::OBJ, "scriptPubKey", "",
                 {
-                    {RPCResult::Type::STR, "asm", "The asm"},
+                    {RPCResult::Type::STR, "asm", "Disassembly of the public key script"},
                     {RPCResult::Type::STR, "desc", "Inferred descriptor for the output"},
-                    {RPCResult::Type::STR_HEX, "hex", "The hex"},
+                    {RPCResult::Type::STR_HEX, "hex", "The raw public key script bytes, hex-encoded"},
                     {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
                     {RPCResult::Type::STR, "address", /*optional=*/true, "The Bitcoin address (only if a well-defined address exists)"},
                 }},
@@ -780,14 +780,14 @@ const RPCResult decodepsbt_inputs{
             {RPCResult::Type::STR, "sighash", /*optional=*/true, "The sighash type to be used"},
             {RPCResult::Type::OBJ, "redeem_script", /*optional=*/true, "",
             {
-                {RPCResult::Type::STR, "asm", "The asm"},
-                {RPCResult::Type::STR_HEX, "hex", "The hex"},
+                {RPCResult::Type::STR, "asm", "Disassembly of the redeem script"},
+                {RPCResult::Type::STR_HEX, "hex", "The raw redeem script bytes, hex-encoded"},
                 {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
             }},
             {RPCResult::Type::OBJ, "witness_script", /*optional=*/true, "",
             {
-                {RPCResult::Type::STR, "asm", "The asm"},
-                {RPCResult::Type::STR_HEX, "hex", "The hex"},
+                {RPCResult::Type::STR, "asm", "Disassembly of the witness script"},
+                {RPCResult::Type::STR_HEX, "hex", "The raw witness script bytes, hex-encoded"},
                 {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
             }},
             {RPCResult::Type::ARR, "bip32_derivs", /*optional=*/true, "",
@@ -801,8 +801,8 @@ const RPCResult decodepsbt_inputs{
             }},
             {RPCResult::Type::OBJ, "final_scriptSig", /*optional=*/true, "",
             {
-                {RPCResult::Type::STR, "asm", "The asm"},
-                {RPCResult::Type::STR_HEX, "hex", "The hex"},
+                {RPCResult::Type::STR, "asm", "Disassembly of the final signature script"},
+                {RPCResult::Type::STR_HEX, "hex", "The raw final signature script bytes, hex-encoded"},
             }},
             {RPCResult::Type::ARR, "final_scriptwitness", /*optional=*/true, "",
             {
@@ -886,14 +886,14 @@ const RPCResult decodepsbt_outputs{
         {
             {RPCResult::Type::OBJ, "redeem_script", /*optional=*/true, "",
             {
-                {RPCResult::Type::STR, "asm", "The asm"},
-                {RPCResult::Type::STR_HEX, "hex", "The hex"},
+                {RPCResult::Type::STR, "asm", "Disassembly of the redeem script"},
+                {RPCResult::Type::STR_HEX, "hex", "The raw redeem script bytes, hex-encoded"},
                 {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
             }},
             {RPCResult::Type::OBJ, "witness_script", /*optional=*/true, "",
             {
-                {RPCResult::Type::STR, "asm", "The asm"},
-                {RPCResult::Type::STR_HEX, "hex", "The hex"},
+                {RPCResult::Type::STR, "asm", "Disassembly of the witness script"},
+                {RPCResult::Type::STR_HEX, "hex", "The raw witness script bytes, hex-encoded"},
                 {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
             }},
             {RPCResult::Type::ARR, "bip32_derivs", /*optional=*/true, "",
