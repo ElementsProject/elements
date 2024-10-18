@@ -219,16 +219,16 @@ bool XOnlyPubKey::CheckPayToContract(const XOnlyPubKey& base, const uint256& has
     return secp256k1_xonly_pubkey_tweak_add_check(secp256k1_context_verify, m_keydata.begin(), parity, &base_point, hash.begin());
 }
 
-static const CHashWriter HASHER_TAPTWEAK_ELEMENTS = TaggedHash("TapTweak/elements");
+static const HashWriter HASHER_TAPTWEAK_ELEMENTS = TaggedHash("TapTweak/elements");
 
 uint256 XOnlyPubKey::ComputeTapTweakHash(const uint256* merkle_root) const
 {
     if (merkle_root == nullptr) {
         // We have no scripts. The actual tweak does not matter, but follow BIP341 here to
         // allow for reproducible tweaking.
-        return (CHashWriter(HASHER_TAPTWEAK_ELEMENTS) << m_keydata).GetSHA256();
+        return (HashWriter(HASHER_TAPTWEAK_ELEMENTS) << m_keydata).GetSHA256();
     } else {
-        return (CHashWriter(HASHER_TAPTWEAK_ELEMENTS) << m_keydata << *merkle_root).GetSHA256();
+        return (HashWriter(HASHER_TAPTWEAK_ELEMENTS) << m_keydata << *merkle_root).GetSHA256();
     }
 }
 

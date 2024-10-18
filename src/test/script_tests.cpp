@@ -1835,7 +1835,7 @@ BOOST_AUTO_TEST_CASE(bip341_keypath_test_vectors)
 
             // To verify the sigmsg, hash the expected sigmsg, and compare it with the (expected) sighash.
             // ELEMENTS: FIXME
-            //BOOST_CHECK_EQUAL(HexStr((CHashWriter(HASHER_TAPSIGHASH_ELEMENTS) << Span{ParseHex(input["intermediary"]["sigMsg"].get_str())}).GetSHA256()), input["intermediary"]["sigHash"].get_str());
+            // BOOST_CHECK_EQUAL(HexStr((HashWriter{HASHER_TAPSIGHASH_ELEMENTS} << Span{ParseHex(input["intermediary"]["sigMsg"].get_str())}).GetSHA256()), input["intermediary"]["sigHash"].get_str());
         }
 
     }

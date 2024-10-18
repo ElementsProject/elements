@@ -98,7 +98,7 @@ FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
             ds >> xonlypk;
             XOnlyPubKey intkey(xonlypk);
 
-            uint256 tapleaf_hash = (CHashWriter(HASHER_TAPLEAF_ELEMENTS) << uint8_t(TAPROOT_LEAF_TAPSCRIPT) << program).GetSHA256();
+            uint256 tapleaf_hash = (HashWriter(HASHER_TAPLEAF_ELEMENTS) << uint8_t(TAPROOT_LEAF_TAPSCRIPT) << program).GetSHA256();
             auto extkey_parity = intkey.CreateTapTweak(&tapleaf_hash);
             if (!extkey_parity) {
                 return;
