@@ -113,7 +113,8 @@ class P2PPermissionsTests(BitcoinTestFramework):
                     ADDRESS_BCRT1_P2WSH_OP_TRUE: 5,
                 }, {
                     "fee": 45,
-                }]),
+                }],
+                replaceable=False),
         )
         tx.wit.vtxinwit = [CTxInWitness()]
         tx.wit.vtxinwit[0].scriptWitness.stack = [CScript([OP_TRUE])]
