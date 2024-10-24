@@ -14,9 +14,9 @@
 #include <deploymentinfo.h>
 #include <deploymentstatus.h>
 #include <key_io.h>
-#include <mempool_args.h>
 #include <net.h>
 #include <node/context.h>
+#include <node/mempool_args.h>
 #include <node/miner.h>
 #include <policy/policy.h>
 #include <pow.h>
@@ -1566,7 +1566,7 @@ static RPCHelpMan testproposedblock()
         for (auto& transaction : block.vtx) {
             if (transaction->IsCoinBase()) continue;
             std::string reason;
-            if (!IsStandardTx(*transaction, reason)) {
+            if (!IsStandardTx(*transaction, std::nullopt, DEFAULT_PERMIT_BAREMULTISIG, CFeeRate{DUST_RELAY_TX_FEE}, reason)) {
                 throw JSONRPCError(RPC_VERIFY_ERROR, "Block proposal included a non-standard transaction: " + reason);
             }
         }

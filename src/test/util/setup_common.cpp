@@ -16,12 +16,12 @@
 #include <init.h>
 #include <init/common.h>
 #include <interfaces/chain.h>
-#include <mempool_args.h>
 #include <net.h>
 #include <net_processing.h>
 #include <node/blockstorage.h>
 #include <node/chainstate.h>
 #include <node/context.h>
+#include <node/mempool_args.h>
 #include <node/miner.h>
 #include <noui.h>
 #include <policy/fees.h>
@@ -155,9 +155,6 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
     // Set policy asset for correct fee output generation
     policyAsset = CAsset();
 
-    // For unit tests, increase minrelay to "normal" 1000 sat/vkB
-    ::incrementalRelayFee = CFeeRate(1000);
-
     static bool noui_connected = false;
     if (!noui_connected) {
         noui_connect();
@@ -183,8 +180,10 @@ CTxMemPool::Options MemPoolOptionsForTest(const NodeContext& node)
         // Default to always checking mempool regardless of
         // chainparams.DefaultConsistencyChecks for tests
         .check_ratio = 1,
+        .incremental_relay_feerate = CFeeRate(1000), // ELEMENTS: For unit tests, increase minrelay to "normal" 1000 sat/vkB
     };
-    ApplyArgsManOptions(*node.args, mempool_opts);
+    const auto err{ApplyArgsManOptions(*node.args, ::Params(), mempool_opts)};
+    Assert(!err);
     return mempool_opts;
 }
 

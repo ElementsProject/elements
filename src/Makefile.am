@@ -146,7 +146,6 @@ BITCOIN_CORE_H = \
   compat/endian.h \
   compressor.h \
   confidential_validation.h \
-  node/connection_types.h \
   consensus/consensus.h \
   consensus/tx_check.h \
   consensus/tx_verify.h \
@@ -157,7 +156,6 @@ BITCOIN_CORE_H = \
   deploymentinfo.h \
   deploymentstatus.h \
   dynafed.h \
-  node/eviction.h \
   external_signer.h \
   flatfile.h \
   fs.h \
@@ -194,7 +192,6 @@ BITCOIN_CORE_H = \
   logging/timer.h \
   mainchainrpc.h \
   mapport.h \
-  mempool_args.h \
   memusage.h \
   merkleblock.h \
   net.h \
@@ -209,13 +206,16 @@ BITCOIN_CORE_H = \
   node/caches.h \
   node/chainstate.h \
   node/coin.h \
+  node/connection_types.h \
   node/context.h \
+  node/eviction.h \
+  node/interface_ui.h \
+  node/mempool_args.h \
   node/mempool_persist_args.h \
   node/miner.h \
   node/minisketchwrapper.h \
   node/psbt.h \
   node/transaction.h \
-  node/interface_ui.h \
   node/utxo_snapshot.h \
   noui.h \
   outputtype.h \
@@ -391,10 +391,9 @@ libbitcoin_node_a_SOURCES = \
   kernel/context.cpp \
   kernel/mempool_persist.cpp \
   mapport.cpp \
-  mempool_args.cpp \
   net.cpp \
-  netgroup.cpp \
   net_processing.cpp \
+  netgroup.cpp \
   node/blockstorage.cpp \
   node/caches.cpp \
   node/chainstate.cpp \
@@ -402,13 +401,14 @@ libbitcoin_node_a_SOURCES = \
   node/connection_types.cpp \
   node/context.cpp \
   node/eviction.cpp \
+  node/interface_ui.cpp \
   node/interfaces.cpp \
+  node/mempool_args.cpp \
   node/mempool_persist_args.cpp \
   node/miner.cpp \
   node/minisketchwrapper.cpp \
   node/psbt.cpp \
   node/transaction.cpp \
-  node/interface_ui.cpp \
   noui.cpp \
   pegins.cpp \
   policy/fees.cpp \
@@ -423,8 +423,8 @@ libbitcoin_node_a_SOURCES = \
   rpc/fees.cpp \
   rpc/mempool.cpp \
   rpc/mining.cpp \
-  rpc/node.cpp \
   rpc/net.cpp \
+  rpc/node.cpp \
   rpc/output_script.cpp \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
