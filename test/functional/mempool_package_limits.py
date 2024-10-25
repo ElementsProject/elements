@@ -36,10 +36,10 @@ class MempoolPackageLimitsTest(BitcoinTestFramework):
         # self.test_anc_count_limits_2()
         # self.test_anc_count_limits_bushy()
 
-        # The node will accept our (nonstandard) extra large OP_RETURN outputs
-        self.restart_node(0, extra_args=["-acceptnonstdtxn=1"])
-        # self.test_anc_size_limits()
-        # self.test_desc_size_limits()
+        # The node will accept (nonstandard) extra large OP_RETURN outputs
+        self.restart_node(0, extra_args=["-datacarriersize=100000"])
+        self.test_anc_size_limits()
+        self.test_desc_size_limits()
 
     def test_chain_limits_helper(self, mempool_count, package_count):
         node = self.nodes[0]
