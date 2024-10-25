@@ -240,7 +240,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         auto& newTx = transaction.getWtx();
         std::vector<CAmount> out_amounts;
         const auto& res = m_wallet->createTransaction(vecSend, coinControl, !wallet().privateKeysDisabled() /* sign */, nChangePosRet, nFeeRequired, blind_details);
-        newTx = res ? res.GetObj() : nullptr;
+        newTx = res ? *res : nullptr;
         transaction.setTransactionFee(nFeeRequired);
         if (fSubtractFeeFromAmount && newTx) {
             if(blind_details) {
@@ -257,7 +257,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             {
                 return SendCoinsReturn(AmountWithFeeExceedsBalance);
             }
-            Q_EMIT message(tr("Send Coins"), QString::fromStdString(res.GetError().translated),
+            Q_EMIT message(tr("Send Coins"), QString::fromStdString(util::ErrorString(res).translated),
                 CClientUIInterface::MSG_ERROR);
             return TransactionCreationFailed;
         }

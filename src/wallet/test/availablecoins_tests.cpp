@@ -33,7 +33,7 @@ public:
             constexpr int RANDOM_CHANGE_POSITION = -1;
             auto res = CreateTransaction(*wallet, {recipient}, RANDOM_CHANGE_POSITION, dummy);
             BOOST_CHECK(res);
-            tx = res.GetObj().tx;
+            tx = res->tx;
         }
         wallet->CommitTransaction(tx, {}, {});
         CMutableTransaction blocktx;
@@ -62,7 +62,7 @@ public:
 BOOST_FIXTURE_TEST_CASE(BasicOutputTypesTestBech32m, AvailableCoinsTestingSetup)
 {
     CoinsResult available_coins;
-    BResult<CTxDestination> dest;
+    util::Result<CTxDestination> dest{util::Error{}};
     LOCK(wallet->cs_wallet);
 
     // Verify our wallet has one usable coinbase UTXO before starting
@@ -81,8 +81,8 @@ BOOST_FIXTURE_TEST_CASE(BasicOutputTypesTestBech32m, AvailableCoinsTestingSetup)
 
     // Bech32m
     dest = wallet->GetNewDestination(OutputType::BECH32M, "");
-    BOOST_ASSERT(dest.HasRes());
-    AddTx(CRecipient{{GetScriptForDestination(dest.GetObj())}, 1 * COIN, CAsset(), CPubKey(), /*fSubtractFeeFromAmount=*/true});
+    BOOST_ASSERT(dest);
+    AddTx(CRecipient{{GetScriptForDestination(*dest)}, 1 * COIN, CAsset(), CPubKey(), /*fSubtractFeeFromAmount=*/true});
     available_coins = AvailableCoins(*wallet);
     BOOST_CHECK_EQUAL(available_coins.bech32m.size(), 2U);
 }
@@ -90,7 +90,7 @@ BOOST_FIXTURE_TEST_CASE(BasicOutputTypesTestBech32m, AvailableCoinsTestingSetup)
 BOOST_FIXTURE_TEST_CASE(BasicOutputTypesTestBech32, AvailableCoinsTestingSetup)
 {
     CoinsResult available_coins;
-    BResult<CTxDestination> dest;
+    util::Result<CTxDestination> dest{util::Error{}};
     LOCK(wallet->cs_wallet);
 
     available_coins = AvailableCoins(*wallet);
@@ -99,8 +99,8 @@ BOOST_FIXTURE_TEST_CASE(BasicOutputTypesTestBech32, AvailableCoinsTestingSetup)
 
     // Bech32
     dest = wallet->GetNewDestination(OutputType::BECH32, "");
-    BOOST_ASSERT(dest.HasRes());
-    AddTx(CRecipient{{GetScriptForDestination(dest.GetObj())}, 2 * COIN, CAsset(), CPubKey(), /*fSubtractFeeFromAmount=*/true});
+    BOOST_ASSERT(dest);
+    AddTx(CRecipient{{GetScriptForDestination(*dest)}, 2 * COIN, CAsset(), CPubKey(), /*fSubtractFeeFromAmount=*/true});
     available_coins = AvailableCoins(*wallet);
     BOOST_CHECK_EQUAL(available_coins.bech32.size(), 2U);
 }
@@ -108,7 +108,7 @@ BOOST_FIXTURE_TEST_CASE(BasicOutputTypesTestBech32, AvailableCoinsTestingSetup)
 BOOST_FIXTURE_TEST_CASE(BasicOutputTypesTestP2SHSegWit, AvailableCoinsTestingSetup)
 {
     CoinsResult available_coins;
-    BResult<CTxDestination> dest;
+    util::Result<CTxDestination> dest{util::Error{}};
     LOCK(wallet->cs_wallet);
 
     available_coins = AvailableCoins(*wallet);
@@ -117,7 +117,7 @@ BOOST_FIXTURE_TEST_CASE(BasicOutputTypesTestP2SHSegWit, AvailableCoinsTestingSet
 
     // P2SH-SEGWIT
     dest = wallet->GetNewDestination(OutputType::P2SH_SEGWIT, "");
-    AddTx(CRecipient{{GetScriptForDestination(dest.GetObj())}, 3 * COIN, CAsset(), CPubKey(), /*fSubtractFeeFromAmount=*/true});
+    AddTx(CRecipient{{GetScriptForDestination(*dest)}, 3 * COIN, CAsset(), CPubKey(), /*fSubtractFeeFromAmount=*/true});
     available_coins = AvailableCoins(*wallet);
     BOOST_CHECK_EQUAL(available_coins.P2SH_segwit.size(), 2U);
 }
@@ -126,7 +126,7 @@ BOOST_FIXTURE_TEST_CASE(BasicOutputTypesTestP2SHSegWit, AvailableCoinsTestingSet
 BOOST_FIXTURE_TEST_CASE(BasicOutputTypesTestLegacy, AvailableCoinsTestingSetup)
 {
     CoinsResult available_coins;
-    BResult<CTxDestination> dest;
+    util::Result<CTxDestination> dest{util::Error{}};
     LOCK(wallet->cs_wallet);
 
     available_coins = AvailableCoins(*wallet);
@@ -135,8 +135,8 @@ BOOST_FIXTURE_TEST_CASE(BasicOutputTypesTestLegacy, AvailableCoinsTestingSetup)
 
     // Legacy (P2PKH)
     dest = wallet->GetNewDestination(OutputType::LEGACY, "");
-    BOOST_ASSERT(dest.HasRes());
-    AddTx(CRecipient{{GetScriptForDestination(dest.GetObj())}, 4 * COIN, CAsset(), CPubKey(), /*fSubtractFeeFromAmount=*/true});
+    BOOST_ASSERT(dest);
+    AddTx(CRecipient{{GetScriptForDestination(*dest)}, 4 * COIN, CAsset(), CPubKey(), /*fSubtractFeeFromAmount=*/true});
     available_coins = AvailableCoins(*wallet);
     BOOST_CHECK_EQUAL(available_coins.legacy.size(), 2U);
 }

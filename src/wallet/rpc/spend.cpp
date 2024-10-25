@@ -174,14 +174,14 @@ UniValue SendMoney(CWallet& wallet, const CCoinControl &coin_control, std::vecto
     if (blind_details) blind_details->ignore_blind_failure = ignore_blind_fail;
     auto res = CreateTransaction(wallet, recipients, RANDOM_CHANGE_POSITION, coin_control, true, blind_details.get());
     if (!res) {
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, res.GetError().original);
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, util::ErrorString(res).original);
     }
-    const CTransactionRef& tx = res.GetObj().tx;
+    const CTransactionRef& tx = res->tx;
     wallet.CommitTransaction(tx, std::move(map_value), {} /* orderForm */, blind_details.get());
     if (verbose) {
         UniValue entry(UniValue::VOBJ);
         entry.pushKV("txid", tx->GetHash().GetHex());
-        entry.pushKV("fee_reason", StringForFeeReason(res.GetObj().fee_calc.reason));
+        entry.pushKV("fee_reason", StringForFeeReason(res->fee_calc.reason));
         return entry;
     }
     return tx->GetHash().GetHex();

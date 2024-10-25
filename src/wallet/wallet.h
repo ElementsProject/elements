@@ -741,8 +741,8 @@ public:
     void MarkDestinationsDirty(const std::set<CTxDestination>& destinations) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     bool GetOnlinePakKey(CPubKey& online_pubkey, std::string& error);
-    BResult<CTxDestination> GetNewDestination(const OutputType type, const std::string label, bool add_blinding_key = false);
-    BResult<CTxDestination> GetNewChangeDestination(const OutputType type, bool add_blinding_key = false);
+    util::Result<CTxDestination> GetNewDestination(const OutputType type, const std::string label, bool add_blinding_key = false);
+    util::Result<CTxDestination> GetNewChangeDestination(const OutputType type, bool add_blinding_key = false);
 
     isminetype IsMine(const CTxDestination& dest) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     isminetype IsMine(const CScript& script) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);

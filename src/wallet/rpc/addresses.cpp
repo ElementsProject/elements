@@ -72,10 +72,10 @@ RPCHelpMan getnewaddress()
 
     auto op_dest = pwallet->GetNewDestination(output_type, label, add_blinding_key);
     if (!op_dest) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, op_dest.GetError().original);
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, util::ErrorString(op_dest).original);
     }
 
-    return EncodeDestination(op_dest.GetObj());
+    return EncodeDestination(*op_dest);
 },
     };
 }
@@ -125,9 +125,9 @@ RPCHelpMan getrawchangeaddress()
     bool add_blinding_key = force_blind || gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode);
     auto op_dest = pwallet->GetNewChangeDestination(output_type, add_blinding_key);
     if (!op_dest) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, op_dest.GetError().original);
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, util::ErrorString(op_dest).original);
     }
-    return EncodeDestination(op_dest.GetObj());
+    return EncodeDestination(*op_dest);
 },
     };
 }
