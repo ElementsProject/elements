@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <mutex>
+#include <optional>
 #include <shared_mutex>
 #include <vector>
 
@@ -93,7 +94,7 @@ public:
         std::unique_lock<std::shared_mutex> lock(cs_sigcache);
         setValid.insert(entry);
     }
-    uint32_t setup_bytes(size_t n)
+    std::optional<std::pair<uint32_t, size_t>> setup_bytes(size_t n)
     {
         return setValid.setup_bytes(n);
     }
@@ -115,14 +116,15 @@ static CSignatureCache surjectionProofCache;
 
 // To be called once in AppInitMain/BasicTestingSetup to initialize the
 // signatureCache.
-void InitSignatureCache()
+bool InitSignatureCache(size_t max_size_bytes)
 {
-    // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
-    // setup_bytes creates the minimum possible cache (2 elements).
-    size_t nMaxCacheSize = std::min(std::max((int64_t)0, gArgs.GetIntArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE) / 4), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
-    size_t nElems = signatureCache.setup_bytes(nMaxCacheSize);
-    LogPrintf("Using %zu MiB out of %zu/4 requested for signature cache, able to store %zu elements\n",
-            (nElems*sizeof(uint256)) >>20, (nMaxCacheSize*2)>>20, nElems);
+    auto setup_results = signatureCache.setup_bytes(max_size_bytes);
+    if (!setup_results) return false;
+
+    const auto [num_elems, approx_size_bytes] = *setup_results;
+    LogPrintf("Using %zu MiB out of %zu MiB requested for signature cache, able to store %zu elements\n",
+              approx_size_bytes >> 20, max_size_bytes >> 20, num_elems);
+    return true;
 }
 
 bool CachingTransactionSignatureChecker::VerifyECDSASignature(const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const uint256& sighash) const
@@ -152,25 +154,25 @@ bool CachingTransactionSignatureChecker::VerifySchnorrSignature(Span<const unsig
 // ELEMENTS CACHES
 
 // To be called once in AppInit2/TestingSetup to initialize the rangeproof cache
-void InitRangeproofCache()
+bool InitRangeproofCache(size_t max_size_bytes)
 {
-    // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
-    // setup_bytes creates the minimum possible cache (2 elements).
-    size_t nMaxCacheSize = std::min(std::max((int64_t)0, gArgs.GetIntArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE) / 4), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
-    size_t nElems = rangeProofCache.setup_bytes(nMaxCacheSize);
-    LogPrintf("Using %zu MiB out of %zu/4 requested for rangeproof cache, able to store %zu elements\n",
-            (nElems*sizeof(uint256)) >>20, nMaxCacheSize>>20, nElems);
+    auto setup_results = rangeProofCache.setup_bytes(max_size_bytes);
+    if (!setup_results) return false;
+    const auto [num_elems, approx_size_bytes] = *setup_results;
+    LogPrintf("Using %zu MiB out of %zu Mib requested for rangeproof cache, able to store %zu elements\n",
+            approx_size_bytes >> 20, max_size_bytes >> 20, num_elems);
+    return true;
 }
 
 // To be called once in AppInit2/TestingSetup to initialize the surjectionrproof cache
-void InitSurjectionproofCache()
+bool InitSurjectionproofCache(size_t max_size_bytes)
 {
-    // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
-    // setup_bytes creates the minimum possible cache (2 elements).
-    size_t nMaxCacheSize = std::min(std::max((int64_t)0, gArgs.GetIntArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE) / 4), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
-    size_t nElems = surjectionProofCache.setup_bytes(nMaxCacheSize);
-    LogPrintf("Using %zu MiB out of %zu/4 requested for surjectionproof cache, able to store %zu elements\n",
-            (nElems*sizeof(uint256)) >>20, nMaxCacheSize>>20, nElems);
+    auto setup_results = surjectionProofCache.setup_bytes(max_size_bytes);
+    if (!setup_results) return false;
+    const auto [num_elems, approx_size_bytes] = *setup_results;
+    LogPrintf("Using %zu MiB out of %zu Mib requested for surjectionproof cache, able to store %zu elements\n",
+            approx_size_bytes >> 20, max_size_bytes >> 20, num_elems);
+    return true;
 }
 
 bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchValueCommitment, const std::vector<unsigned char>& vchAssetCommitment, const CScript& scriptPubKey, const secp256k1_context* secp256k1_ctx_verify_amounts) const

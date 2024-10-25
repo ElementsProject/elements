@@ -4,6 +4,8 @@
 
 #include <test/util/setup_common.h>
 
+#include <kernel/validation_cache_sizes.h>
+
 #include <addrman.h>
 #include <asset.h>
 #include <assetsdir.h>
@@ -23,6 +25,7 @@
 #include <node/context.h>
 #include <node/mempool_args.h>
 #include <node/miner.h>
+#include <node/validation_cache_args.h>
 #include <noui.h>
 #include <policy/fees.h>
 #include <policy/fees_args.h>
@@ -56,6 +59,8 @@
 #include <functional>
 #include <stdexcept>
 
+using kernel::ValidationCacheSizes;
+using node::ApplyArgsManOptions;
 using node::BlockAssembler;
 using node::CalculateCacheSizes;
 using node::LoadChainstate;
@@ -144,10 +149,14 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
     m_node.kernel = std::make_unique<kernel::Context>();
     SetupEnvironment();
     SetupNetworking();
-    InitSignatureCache();
-    InitScriptExecutionCache();
-    InitRangeproofCache();
-    InitSurjectionproofCache();
+    ValidationCacheSizes validation_cache_sizes{};
+    ApplyArgsManOptions(*m_node.args, validation_cache_sizes);
+    Assert(InitSignatureCache(validation_cache_sizes.signature_cache_bytes));
+    Assert(InitScriptExecutionCache(validation_cache_sizes.script_execution_cache_bytes));
+    // ELEMENTS
+    Assert(InitRangeproofCache(validation_cache_sizes.rangeproof_cache_bytes));
+    Assert(InitSurjectionproofCache(validation_cache_sizes.surjectionproof_execution_cache_bytes));
+
     m_node.chain = interfaces::MakeChain(m_node);
     fCheckBlockIndex = true;
 
