@@ -1215,7 +1215,7 @@ RPCHelpMan blindrawtransaction()
             continue;
         }
 
-        std::map<uint256, CWalletTx>::iterator it = pwallet->mapWallet.find(prevout.hash);
+        const auto& it = pwallet->mapWallet.find(prevout.hash);
         if (it == pwallet->mapWallet.end() || InputIsMine(*pwallet, tx.vin[nIn]) == wallet::ISMINE_NO) {
             // For inputs we don't own, input assetcommitments for the surjection must be supplied.
             if (auxiliary_generators.size() > 0) {

@@ -37,7 +37,7 @@ bool AllInputsMine(const CWallet& wallet, const CTransaction& tx, const isminefi
 }
 
 CAmountMap OutputGetCredit(const CWallet& wallet, const CTransaction& tx, const size_t out_index, const isminefilter& filter) {
-    std::map<uint256, CWalletTx>::const_iterator mi = wallet.mapWallet.find(tx.GetHash());
+    const auto& mi = wallet.mapWallet.find(tx.GetHash());
     if (mi != wallet.mapWallet.end())
     {
         const CWalletTx& wtx = (*mi).second;

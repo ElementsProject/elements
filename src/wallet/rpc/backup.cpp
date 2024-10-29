@@ -2158,8 +2158,8 @@ RPCHelpMan importissuanceblindingkey()
     key.Set(keydata.begin(), keydata.end(), true);
 
     // Process as issuance key dump
-    for (std::map<uint256, CWalletTx>::const_iterator it = pwallet->mapWallet.begin(); it != pwallet->mapWallet.end(); ++it) {
-        const CWalletTx* pcoin = &(*it).second;
+    for (const auto& entry : pwallet->mapWallet) {
+        const auto pcoin = &(entry.second);
         if (pcoin->GetHash() != txid) {
             continue;
         }
@@ -2292,8 +2292,8 @@ RPCHelpMan dumpissuanceblindingkey()
     vindex = request.params[1].getInt<int>();
 
     // Process as issuance key dump
-    for (std::map<uint256, CWalletTx>::const_iterator it = pwallet->mapWallet.begin(); it != pwallet->mapWallet.end(); ++it) {
-        const CWalletTx* pcoin = &(*it).second;
+    for (const auto& entry : pwallet->mapWallet) {
+        const auto pcoin = &(entry.second);
         if (pcoin->tx->GetHash() != txid) {
             continue;
         }
