@@ -2583,19 +2583,19 @@ util::Result<CTxDestination> CWallet::GetNewChangeDestination(const OutputType t
 {
     LOCK(cs_wallet);
 
-    CTxDestination dest;
-    bilingual_str error;
     ReserveDestination reservedest(this, type);
-    if (!reservedest.GetReservedDestination(dest, true, error)) {
-        return util::Error{error};
-    }
-    if (add_blinding_key) {
-        CPubKey blinding_pubkey = GetBlindingPubKey(GetScriptForDestination(dest));
-        reservedest.SetBlindingPubKey(blinding_pubkey, dest);
+    auto op_dest = reservedest.GetReservedDestination(true);
+    if (op_dest) {
+        reservedest.KeepDestination();
+        if (add_blinding_key) {
+            CTxDestination dest{*op_dest};
+            CPubKey blinding_pubkey = GetBlindingPubKey(GetScriptForDestination(dest));
+            std::visit(SetBlindingPubKeyVisitor(blinding_pubkey), dest);
+            return dest;
+        }
     }
 
-    reservedest.KeepDestination();
-    return dest;
+    return op_dest;
 }
 
 std::optional<int64_t> CWallet::GetOldestKeyPoolTime() const
@@ -2665,33 +2665,24 @@ std::set<std::string> CWallet::ListAddrBookLabels(const std::string& purpose) co
     return label_set;
 }
 
-bool ReserveDestination::GetReservedDestination(CTxDestination& dest, bool internal, bilingual_str& error)
+util::Result<CTxDestination> ReserveDestination::GetReservedDestination(bool internal)
 {
     m_spk_man = pwallet->GetScriptPubKeyMan(type, internal);
     if (!m_spk_man) {
-        error = strprintf(_("Error: No %s addresses available."), FormatOutputType(type));
-        return false;
+        return util::Error{strprintf(_("Error: No %s addresses available."), FormatOutputType(type))};
     }
-
 
     if (nIndex == -1)
     {
         m_spk_man->TopUp();
 
         CKeyPool keypool;
-        if (!m_spk_man->GetReservedDestination(type, internal, address, nIndex, keypool, error)) {
-            return false;
-        }
+        auto op_address = m_spk_man->GetReservedDestination(type, internal, nIndex, keypool);
+        if (!op_address) return op_address;
+        address = *op_address;
         fInternal = keypool.fInternal;
     }
-    dest = address;
-    return true;
-}
-
-void ReserveDestination::SetBlindingPubKey(const CPubKey& blinding_pubkey, CTxDestination& dest)
-{
-    std::visit(SetBlindingPubKeyVisitor(blinding_pubkey), address);
-    dest = address;
+    return address;
 }
 
 void ReserveDestination::KeepDestination()

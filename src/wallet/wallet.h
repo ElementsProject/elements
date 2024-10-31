@@ -231,9 +231,7 @@ public:
     }
 
     //! Reserve an address
-    bool GetReservedDestination(CTxDestination& pubkey, bool internal, bilingual_str& error);
-    //! Attach a blinding pubkey to a reserved address
-    void SetBlindingPubKey(const CPubKey& blinding_pubkey, CTxDestination& dest);
+    util::Result<CTxDestination> GetReservedDestination(bool internal);
     //! Return reserved address
     void ReturnDestination();
     //! Keep the address. Do not return it's key to the keypool when this object goes out of scope

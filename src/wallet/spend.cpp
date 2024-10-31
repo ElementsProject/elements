@@ -1154,13 +1154,9 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
         for (const auto& value : map_recipients_sum) {
             // Reserve a new key pair from key pool. If it fails, provide a dummy
             // destination in case we don't need change.
-            CTxDestination dest;
-            bilingual_str dest_err;
-            if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(dest, true, dest_err)) {
-                if (dest_err.empty()) {
-                    dest_err = _("Please call keypoolrefill first");
-                }
-                error = _("Transaction needs a change address, but we can't generate it.") + Untranslated(" ") + dest_err;
+            auto op_dest = reservedest[index]->GetReservedDestination(true);
+            if (index >= reservedest.size() || !op_dest) {
+                error = _("Transaction needs a change address, but we can't generate it.") + Untranslated(" ") + util::ErrorString(op_dest);
                 // ELEMENTS: We need to put a dummy destination here. Core uses an empty script
                 //  but we can't because empty scripts indicate fees (which trigger assertion
                 //  failures in `BlindTransaction`). We also set the index to -1, indicating
@@ -1168,7 +1164,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
                 //  returned by the `ReturnDestination` loop below.
                 mapScriptChange[value.first] = std::pair<int, CScript>(-1, dummy_script);
             } else {
-                mapScriptChange[value.first] = std::pair<int, CScript>(index, GetScriptForDestination(dest));
+                mapScriptChange[value.first] = std::pair<int, CScript>(index, GetScriptForDestination(*op_dest));
                 ++index;
             }
         }
@@ -1194,20 +1190,16 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
                 continue;
             }
 
-            CTxDestination dest;
-            bilingual_str dest_err;
-            if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(dest, true, dest_err)) {
-                if (dest_err.empty()) {
-                    dest_err = _("Keypool ran out, please call keypoolrefill first");
-                }
-                return util::Error{_("Transaction needs a change address, but we can't generate it.") + Untranslated(" ") + dest_err};
+            auto op_dest = reservedest[index]->GetReservedDestination(true);
+            if (index >= reservedest.size() || !op_dest) {
+                return util::Error{_("Transaction needs a change address, but we can't generate it.") + Untranslated(" ") + util::ErrorString(op_dest)};
             }
 
-            CScript scriptChange = GetScriptForDestination(dest);
+            CScript scriptChange = GetScriptForDestination(*op_dest);
             // A valid destination implies a change script (and
             // vice-versa). An empty change script will abort later, if the
             // change keypool ran out, but change is required.
-            CHECK_NONFATAL(IsValidDestination(dest) != (scriptChange == dummy_script));
+            CHECK_NONFATAL(IsValidDestination(*op_dest) != (scriptChange == dummy_script));
             mapScriptChange[asset] = std::pair<int, CScript>(index, scriptChange);
             ++index;
         }
