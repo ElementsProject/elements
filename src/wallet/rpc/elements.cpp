@@ -239,7 +239,7 @@ bool DerivePubTweak(const std::vector<uint32_t>& vPath, const CPubKey& keyMaster
         if ((vPath[i] >> 31) != 0) {
             return false;
         }
-        keyParent.Derive(keyChild, ccChild, vPath[i], ccParent, &tweak);
+        if (!keyParent.Derive(keyChild, ccChild, vPath[i], ccParent, &tweak)) return false;
         CHECK_NONFATAL(tweak.size() == 32);
         ccParent = ccChild;
         keyParent = keyChild;

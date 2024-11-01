@@ -218,7 +218,7 @@ public:
     bool Decompress();
 
     //! Derive BIP32 child pubkey.
-    bool Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc, std::vector<unsigned char>* tweak = nullptr /* ELEMENTS: vector of key tweak values that are filled out if non-null */) const;
+    [[nodiscard]] bool Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc, std::vector<unsigned char>* tweak = nullptr /* ELEMENTS: vector of key tweak values that are filled out if non-null */) const;
 
     //! Verify that when this public key is tweaked with tweak, the result is res
     bool TweakMulVerify(const CPubKey& res, const uint256& tweak) const;
@@ -334,7 +334,7 @@ struct CExtPubKey {
     void Decode(const unsigned char code[BIP32_EXTKEY_SIZE]);
     void EncodeWithVersion(unsigned char code[BIP32_EXTKEY_WITH_VERSION_SIZE]) const;
     void DecodeWithVersion(const unsigned char code[BIP32_EXTKEY_WITH_VERSION_SIZE]);
-    bool Derive(CExtPubKey& out, unsigned int nChild) const;
+    [[nodiscard]] bool Derive(CExtPubKey& out, unsigned int nChild) const;
 };
 
 /** Users of this module must hold an ECCVerifyHandle. The constructor and
