@@ -1119,7 +1119,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     // ELEMENTS FIXME: Please review the map_recipients_sum[::policyAsset] part.
     //                 In bitcoin the line just says recipients_sum (it's not a map).
     //                 I'm not sure if the policyAsset value is the right number to use.
-    coin_selection_params.m_change_target = GenerateChangeTarget(std::floor(map_recipients_sum[::policyAsset] / vecSend.size()), rng_fast);
+    coin_selection_params.m_min_change_target = GenerateChangeTarget(std::floor(map_recipients_sum[::policyAsset] / vecSend.size()), rng_fast);
 
     // Create change script that will be used if we need change
     // ELEMENTS: A map that keeps track of the change script for each asset and also
