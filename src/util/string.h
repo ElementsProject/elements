@@ -18,7 +18,7 @@
 #include <vector>
 #include <cstdint>
 
-void ReplaceAll(std::string& in_out, std::string_view search, std::string_view substitute);
+void ReplaceAll(std::string& in_out, const std::string& search, const std::string& substitute);
 
 [[nodiscard]] inline std::vector<std::string> SplitString(std::string_view str, char sep)
 {
