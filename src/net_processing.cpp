@@ -2562,9 +2562,9 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
             //   peer; it's redundant. Here we do nothing; since we don't ask the peer for
             //   more headers, it will stop sending them.
         } else {
-            if (MaybeSendGetHeaders(pfrom, m_chainman.ActiveChain().GetLocator(pindexLast), peer)) {
+            if (MaybeSendGetHeaders(pfrom, WITH_LOCK(m_chainman.GetMutex(), return m_chainman.ActiveChain().GetLocator(pindexLast)), peer)) {
                 LogPrint(BCLog::NET, "more getheaders (%d) to end to peer=%d (startheight:%d)\n",
-                        pindexLast->nHeight, pfrom.GetId(), peer.m_starting_height);
+                    pindexLast->nHeight, pfrom.GetId(), peer.m_starting_height);
             }
         }
     }
