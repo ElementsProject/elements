@@ -271,7 +271,7 @@ int ParseSighashString(const UniValue& sighash)
             {std::string("SINGLE|RANGEPROOF"), int(SIGHASH_SINGLE|SIGHASH_RANGEPROOF)},
             {std::string("SINGLE|ANYONECANPAY|RANGEPROOF"), int(SIGHASH_SINGLE|SIGHASH_ANYONECANPAY|SIGHASH_RANGEPROOF)},
         };
-        std::string strHashType = sighash.get_str();
+        const std::string& strHashType = sighash.get_str();
         const auto& it = map_sighash_values.find(strHashType);
         if (it != map_sighash_values.end()) {
             hash_type = it->second;
