@@ -10,6 +10,7 @@
 #include <optional>
 #include <uint256.h>
 
+#include <chrono>
 #include <limits>
 #include <map>
 
@@ -122,6 +123,10 @@ struct Params {
     bool fPowNoRetargeting;
     int64_t nPowTargetSpacing;
     int64_t nPowTargetTimespan;
+    std::chrono::seconds PowTargetSpacing() const
+    {
+        return std::chrono::seconds{nPowTargetSpacing};
+    }
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
     /** The best chain should have at least this much work */
     uint256 nMinimumChainWork;

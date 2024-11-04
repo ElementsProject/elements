@@ -332,7 +332,7 @@ bool TestBlockValidity(BlockValidationState& state,
                        CChainState& chainstate,
                        const CBlock& block,
                        CBlockIndex* pindexPrev,
-                       const std::function<int64_t()>& adjusted_time_callback,
+                       const std::function<NodeClock::time_point()>& adjusted_time_callback,
                        bool fCheckPOW = true,
                        bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
@@ -839,7 +839,7 @@ private:
 
     const CChainParams m_chainparams;
 
-    const std::function<int64_t()> m_adjusted_time_callback;
+    const std::function<NodeClock::time_point()> m_adjusted_time_callback;
 
     //! Internal helper for ActivateSnapshot().
     [[nodiscard]] bool PopulateAndValidateSnapshot(
