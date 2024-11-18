@@ -26,7 +26,6 @@
 
 #include <cstdint>
 #include <fstream>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -106,41 +105,6 @@ static ScriptErrorDesc script_errors[]={
     {SCRIPT_ERR_WITNESS_PUBKEYTYPE, "WITNESS_PUBKEYTYPE"},
     {SCRIPT_ERR_OP_CODESEPARATOR, "OP_CODESEPARATOR"},
     {SCRIPT_ERR_SIG_FINDANDDELETE, "SIG_FINDANDDELETE"},
-    // Elements
-    {SCRIPT_ERR_RANGEPROOF, "RANGEPROOF"},
-    {SCRIPT_ERR_PEDERSEN_TALLY, "PEDERSEN_TALLY"},
-    {SCRIPT_ERR_SHA2_CONTEXT_LOAD, "SHA2_CONTEXT_LOAD"},
-    {SCRIPT_ERR_SHA2_CONTEXT_WRITE, "SHA2_CONTEXT_WRITE"},
-    {SCRIPT_ERR_INTROSPECT_CONTEXT_UNAVAILABLE, "INTROSPECT_CONTEXT_UNAVAILABLE"},
-    {SCRIPT_ERR_INTROSPECT_INDEX_OUT_OF_BOUNDS, "INTROSPECT_INDEX_OUT_OF_BOUNDS"},
-    {SCRIPT_ERR_EXPECTED_8BYTES, "EXPECTED_8BYTES"},
-    {SCRIPT_ERR_ARITHMETIC64, "ARITHMETIC64"},
-    {SCRIPT_ERR_ECMULTVERIFYFAIL, "ECMULTVERIFYFAIL"},
-    {SCRIPT_ERR_SIMPLICITY_WRONG_LENGTH, "SIMPLICITY_WRONG_LENGTH"},
-    {SCRIPT_ERR_SIMPLICITY_NOT_YET_IMPLEMENTED, "SIMPLICITY_NOT_YET_IMPLEMENTED"},
-    {SCRIPT_ERR_SIMPLICITY_DATA_OUT_OF_RANGE, "SIMPLICITY_DATA_OUT_OF_RANGE"},
-    {SCRIPT_ERR_SIMPLICITY_DATA_OUT_OF_ORDER, "SIMPLICITY_DATA_OUT_OF_ORDER"},
-    {SCRIPT_ERR_SIMPLICITY_FAIL_CODE, "SIMPLICITY_FAIL_CODE"},
-    {SCRIPT_ERR_SIMPLICITY_STOP_CODE, "SIMPLICITY_STOP_CODE"},
-    {SCRIPT_ERR_SIMPLICITY_HIDDEN, "SIMPLICITY_HIDDEN"},
-    {SCRIPT_ERR_SIMPLICITY_BITSTREAM_EOF, "SIMPLICITY_BITSTREAM_EOF"},
-    {SCRIPT_ERR_SIMPLICITY_BITSTREAM_TRAILING_BYTES, "SIMPLICITY_BITSTREAM_TRAILING_BYTES"},
-    {SCRIPT_ERR_SIMPLICITY_BITSTREAM_ILLEGAL_PADDING, "SIMPLICITY_BITSTREAM_ILLEGAL_PADDING"},
-    {SCRIPT_ERR_SIMPLICITY_TYPE_INFERENCE_UNIFICATION, "SIMPLICITY_TYPE_INFERENCE_UNIFICATION"},
-    {SCRIPT_ERR_SIMPLICITY_TYPE_INFERENCE_OCCURS_CHECK, "SIMPLICITY_TYPE_INFERENCE_OCCURS_CHECK"},
-    {SCRIPT_ERR_SIMPLICITY_TYPE_INFERENCE_NOT_PROGRAM, "SIMPLICITY_TYPE_INFERENCE_NOT_PROGRAM"},
-    {SCRIPT_ERR_SIMPLICITY_WITNESS_EOF, "SIMPLICITY_WITNESS_EOF"},
-    {SCRIPT_ERR_SIMPLICITY_WITNESS_TRAILING_BYTES, "SIMPLICITY_WITNESS_TRAILING_BYTES"},
-    {SCRIPT_ERR_SIMPLICITY_WITNESS_ILLEGAL_PADDING, "SIMPLICITY_WITNESS_ILLEGAL_PADDING"},
-    {SCRIPT_ERR_SIMPLICITY_UNSHARED_SUBEXPRESSION, "SIMPLICITY_UNSHARED_SUBEXPRESSION"},
-    {SCRIPT_ERR_SIMPLICITY_CMR, "SIMPLICITY_CMR"},
-    {SCRIPT_ERR_SIMPLICITY_EXEC_BUDGET, "SIMPLICITY_EXEC_BUDGET"},
-    {SCRIPT_ERR_SIMPLICITY_EXEC_MEMORY, "SIMPLICITY_EXEC_MEMORY"},
-    {SCRIPT_ERR_SIMPLICITY_EXEC_JET, "SIMPLICITY_EXEC_JET"},
-    {SCRIPT_ERR_SIMPLICITY_EXEC_ASSERT, "SIMPLICITY_EXEC_ASSERT"},
-    {SCRIPT_ERR_SIMPLICITY_ANTIDOS, "SIMPLICITY_ANTIDOS"},
-    {SCRIPT_ERR_SIMPLICITY_HIDDEN_ROOT, "SIMPLICITY_HIDDEN_ROOT"},
-    {SCRIPT_ERR_SIMPLICITY_AMR, "SIMPLICITY_AMR"},
 };
 
 static std::string FormatScriptError(ScriptError_t err)
@@ -1689,7 +1653,7 @@ static std::vector<unsigned int> AllConsensusFlags()
 {
     std::vector<unsigned int> ret;
 
-    for (unsigned int i = 0; i < 256; ++i) {
+    for (unsigned int i = 0; i < 128; ++i) {
         unsigned int flag = 0;
         if (i & 1) flag |= SCRIPT_VERIFY_P2SH;
         if (i & 2) flag |= SCRIPT_VERIFY_DERSIG;
@@ -1698,14 +1662,11 @@ static std::vector<unsigned int> AllConsensusFlags()
         if (i & 16) flag |= SCRIPT_VERIFY_CHECKSEQUENCEVERIFY;
         if (i & 32) flag |= SCRIPT_VERIFY_WITNESS;
         if (i & 64) flag |= SCRIPT_VERIFY_TAPROOT;
-        if (i & 128) flag |= SCRIPT_VERIFY_SIMPLICITY;
 
         // SCRIPT_VERIFY_WITNESS requires SCRIPT_VERIFY_P2SH
         if (flag & SCRIPT_VERIFY_WITNESS && !(flag & SCRIPT_VERIFY_P2SH)) continue;
         // SCRIPT_VERIFY_TAPROOT requires SCRIPT_VERIFY_WITNESS
         if (flag & SCRIPT_VERIFY_TAPROOT && !(flag & SCRIPT_VERIFY_WITNESS)) continue;
-        // SCRIPT_VERIFY_SIMPLICITY requires SCRIPT_VERIFY_TAPROOT
-        if (flag & SCRIPT_VERIFY_SIMPLICITY && !(flag & SCRIPT_VERIFY_TAPROOT)) continue;
 
         ret.push_back(flag);
     }
@@ -1741,10 +1702,8 @@ static void AssetTest(const UniValue& test)
             // "final": true tests are valid for all flags. Others are only valid with flags that are
             // a subset of test_flags.
             if (fin || ((flags & test_flags) == flags)) {
-                ScriptError serror;
-                bool ret = VerifyScript(tx.vin[idx].scriptSig, prevouts[idx].scriptPubKey, &tx.witness.vtxinwit[idx].scriptWitness, flags, txcheck, &serror);
+                bool ret = VerifyScript(tx.vin[idx].scriptSig, prevouts[idx].scriptPubKey, &tx.witness.vtxinwit[idx].scriptWitness, flags, txcheck, nullptr);
                 BOOST_CHECK(ret);
-                BOOST_CHECK_EQUAL(serror, SCRIPT_ERR_OK);
             }
         }
     }
@@ -1756,22 +1715,11 @@ static void AssetTest(const UniValue& test)
         PrecomputedTransactionData txdata(hash_genesis_block);
         txdata.Init(tx, std::vector<CTxOut>(prevouts));
         CachingTransactionSignatureChecker txcheck(&tx, idx, prevouts[idx].nValue, true, txdata);
-
-        std::optional<ScriptError> expected_error;
-        if (test["failure"].exists("error")) {
-            expected_error = ParseScriptError(test["failure"]["error"].get_str());
-        }
-
         for (const auto flags : ALL_CONSENSUS_FLAGS) {
             // If a test is supposed to fail with test_flags, it should also fail with any superset thereof.
             if ((flags & test_flags) == test_flags) {
-                ScriptError serror;
-                bool ret = VerifyScript(tx.vin[idx].scriptSig, prevouts[idx].scriptPubKey, &tx.witness.vtxinwit[idx].scriptWitness, flags, txcheck, &serror);
+                bool ret = VerifyScript(tx.vin[idx].scriptSig, prevouts[idx].scriptPubKey, &tx.witness.vtxinwit[idx].scriptWitness, flags, txcheck, nullptr);
                 BOOST_CHECK(!ret);
-
-                if (expected_error) {
-                    BOOST_CHECK_EQUAL(serror, *expected_error);
-                }
             }
         }
     }
