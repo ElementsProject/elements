@@ -621,7 +621,7 @@ std::optional<SelectionResult> ChooseSelectionResult(const CWallet& wallet, cons
     // ELEMENTS: BnB only for policy asset?
     if (mapTargetValue.size() == 1) {
         // Note that unlike KnapsackSolver, we do not include the fee for creating a change output as BnB will not create a change output.
-        std::vector<OutputGroup> positive_groups = GroupOutputs(wallet, available_coins, coin_selection_params, eligibility_filter, true /* positive_only */);
+        std::vector<OutputGroup> positive_groups = GroupOutputs(wallet, available_coins, coin_selection_params, eligibility_filter, /*positive_only=*/true);
 
         // ELEMENTS:
         CAsset asset = mapTargetValue.begin()->first;
@@ -659,13 +659,13 @@ std::optional<SelectionResult> ChooseSelectionResult(const CWallet& wallet, cons
         // target needlessly large.
         const CAmount srd_target = target_with_change + CHANGE_LOWER;
         if (auto srd_result{SelectCoinsSRD(positive_groups, srd_target, coin_selection_params.rng_fast)}) {
-            srd_result->ComputeAndSetWaste(coin_selection_params.m_cost_of_change);
+            srd_result->ComputeAndSetWaste(coin_selection_params.min_viable_change, coin_selection_params.m_cost_of_change, coin_selection_params.m_change_fee);
             results.push_back(*srd_result);
         }
     }
 
     // The knapsack solver has some legacy behavior where it will spend dust outputs. We retain this behavior, so don't filter for positive only here.
-    std::vector<OutputGroup> all_groups = GroupOutputs(wallet, available_coins, coin_selection_params, eligibility_filter, false /* positive_only */);
+    std::vector<OutputGroup> all_groups = GroupOutputs(wallet, available_coins, coin_selection_params, eligibility_filter, /*positive_only=*/false);
     // While mapTargetValue includes the transaction fees for non-input things, it does not include the fee for creating a change output.
     // So we need to include that for KnapsackSolver as well, as we are expecting to create a change output.
     CAmountMap mapTargetValue_copy = mapTargetValue;
@@ -679,9 +679,9 @@ std::optional<SelectionResult> ChooseSelectionResult(const CWallet& wallet, cons
     if (!coin_selection_params.m_subtract_fee_outputs) {
         map_target_with_change[::policyAsset] += coin_selection_params.m_change_fee;
     }
-    if (auto knapsack_result{KnapsackSolver(all_groups, map_target_with_change, coin_selection_params.m_min_change_target, coin_selection_params.rng_fast)}) {
-         knapsack_result->ComputeAndSetWaste(coin_selection_params.m_cost_of_change);
-         results.push_back(*knapsack_result);
+    if (auto knapsack_result{KnapsackSolver(all_groups, mapTargetValue, coin_selection_params.m_min_change_target, coin_selection_params.rng_fast)}) {
+        knapsack_result->ComputeAndSetWaste(coin_selection_params.min_viable_change, coin_selection_params.m_cost_of_change, coin_selection_params.m_change_fee);
+        results.push_back(*knapsack_result);
     }
 
     if (results.size() == 0) {
@@ -775,7 +775,7 @@ std::optional<SelectionResult> SelectCoins(const CWallet& wallet, CoinsResult& a
         SelectionResult result(mapTargetValue, SelectionAlgorithm::MANUAL);
         result.AddInput(preset_inputs);
         if (result.GetSelectedValue() < mapTargetValue) return std::nullopt;
-        result.ComputeAndSetWaste(coin_selection_params.m_cost_of_change);
+        result.ComputeAndSetWaste(coin_selection_params.min_viable_change, coin_selection_params.m_cost_of_change, coin_selection_params.m_change_fee);
         return result;
     }
 
@@ -821,12 +821,23 @@ std::optional<SelectionResult> SelectCoins(const CWallet& wallet, CoinsResult& a
         }
     }
 
+    CAmountMap preselected_amounts;
+    for (const auto& output : preset_inputs.m_outputs) {
+        if (preselected_amounts.find(output.asset) != preselected_amounts.end()) {
+            preselected_amounts.emplace(output.asset, output.value);
+        } else {
+            preselected_amounts[output.asset] += output.value;
+        }
+    }
+    SelectionResult preselected(preselected_amounts, SelectionAlgorithm::MANUAL);
+    preselected.AddInput(preset_inputs);
+
     // Coin Selection attempts to select inputs from a pool of eligible UTXOs to fund the
     // transaction at a target feerate. If an attempt fails, more attempts may be made using a more
     // permissive CoinEligibilityFilter.
     std::optional<SelectionResult> res = [&] {
         // Pre-selected inputs already cover the target amount.
-        if (value_to_select <= CAmountMap{}) return std::make_optional(SelectionResult(mapTargetValue, SelectionAlgorithm::MANUAL));
+        if (value_to_select <= CAmountMap{}) return std::make_optional(SelectionResult(value_to_select, SelectionAlgorithm::MANUAL));
 
         // If possible, fund the transaction with confirmed UTXOs only. Prefer at least six
         // confirmations on outputs received from other wallets and only spend confirmed change.
@@ -881,9 +892,9 @@ std::optional<SelectionResult> SelectCoins(const CWallet& wallet, CoinsResult& a
 
     // add preset inputs to the total value selected
     // Add preset inputs to result
-    res->AddInput(preset_inputs);
-    if (res->m_algo == SelectionAlgorithm::MANUAL) {
-        res->ComputeAndSetWaste(coin_selection_params.m_cost_of_change);
+    res->Merge(preselected);
+    if (res->GetAlgo() == SelectionAlgorithm::MANUAL) {
+        res->ComputeAndSetWaste(coin_selection_params.min_viable_change, coin_selection_params.m_cost_of_change, coin_selection_params.m_change_fee);
     }
 
     return res;
@@ -1127,10 +1138,6 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
             coin_selection_params.m_subtract_fee_outputs = true;
         }
     }
-    // ELEMENTS FIXME: Please review the map_recipients_sum[::policyAsset] part.
-    //                 In bitcoin the line just says recipients_sum (it's not a map).
-    //                 I'm not sure if the policyAsset value is the right number to use.
-    coin_selection_params.m_min_change_target = GenerateChangeTarget(std::floor(map_recipients_sum[::policyAsset] / vecSend.size()), rng_fast);
 
     // Create change script that will be used if we need change
     // ELEMENTS: A map that keeps track of the change script for each asset and also
@@ -1268,6 +1275,18 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     coin_selection_params.m_change_fee = coin_selection_params.m_effective_feerate.GetFee(coin_selection_params.change_output_size);
     coin_selection_params.m_cost_of_change = coin_selection_params.m_discard_feerate.GetFee(coin_selection_params.change_spend_size) + coin_selection_params.m_change_fee;
 
+    // ELEMENTS FIXME: Please review the map_recipients_sum[::policyAsset] part.
+    //                 In bitcoin the line just says recipients_sum (it's not a map).
+    //                 I'm not sure if the policyAsset value is the right number to use.
+    coin_selection_params.m_min_change_target = GenerateChangeTarget(std::floor(map_recipients_sum[::policyAsset] / vecSend.size()), coin_selection_params.m_change_fee, rng_fast);
+
+    // The smallest change amount should be:
+    // 1. at least equal to dust threshold
+    // 2. at least 1 sat greater than fees to spend it at m_discard_feerate
+    const auto dust = GetDustThreshold(change_prototype_txout, coin_selection_params.m_discard_feerate);
+    const auto change_spend_fee = coin_selection_params.m_discard_feerate.GetFee(coin_selection_params.change_spend_size);
+    coin_selection_params.min_viable_change = std::max(change_spend_fee + 1, dust);
+
     // vouts to the payees
     if (!coin_selection_params.m_subtract_fee_outputs) {
         coin_selection_params.tx_noinputs_size = 10; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 witness overhead (dummy, flag, stack size)
@@ -1360,7 +1379,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     if (!result) {
         return util::Error{_("Insufficient funds")};
     }
-    TRACE5(coin_selection, selected_coins, wallet.GetName().c_str(), GetAlgorithmName(result->m_algo).c_str(), result->m_target, result->GetWaste(), result->GetSelectedValue());
+    TRACE5(coin_selection, selected_coins, wallet.GetName().c_str(), GetAlgorithmName(result->GetAlgo()).c_str(), result->GetTarget(), result->GetWaste(), result->GetSelectedValue());
 
     // If all of our inputs are explicit, we don't need a blinded dummy
     if (may_need_blinded_dummy) {
@@ -1688,7 +1707,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
         return util::Error{_("Could not cover fee")};
     }
 
-    // Update nFeeRet in case fee_needed changed due to dropping the change output
+    // If there is a change output and we overpay the fees then increase the change to match the fee needed
     if (fee_needed <= map_change_and_fee.at(policyAsset) - change_amount) {
         nFeeRet = map_change_and_fee.at(policyAsset) - change_amount;
     }
