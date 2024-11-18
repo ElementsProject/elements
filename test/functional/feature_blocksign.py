@@ -154,7 +154,7 @@ class BlockSignTest(BitcoinTestFramework):
             result = miner.combineblocksigs(block, sigs, self.witnessScript)
             sigs = sigs + self.nodes[i].signblock(block, self.witnessScript)
             assert_equal(result["complete"], i >= self.required_signers)
-            # submitting should have no effect pre-threshhold
+            # submitting should have no effect pre-threshold
             if i < self.required_signers:
                 miner.submitblock(result["hex"])
                 self.check_height(blockcount)
