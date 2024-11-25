@@ -1480,25 +1480,29 @@ RPCHelpMan sendall()
             if (options.exists("inputs") && options.exists("send_max")) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot combine send_max with specific inputs.");
             } else if (options.exists("inputs")) {
-                for (const CTxIn& input : rawTx.vin) {
+                for (size_t i = 0; i < rawTx.vin.size(); ++i) {
+                    const CTxIn& input = rawTx.vin[i];
                     if (pwallet->IsSpent(input.prevout)) {
                         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Input not available. UTXO (%s:%d) was already spent.", input.prevout.hash.ToString(), input.prevout.n));
                     }
-                    const CWalletTx* tx{pwallet->GetWalletTx(input.prevout.hash)};
+                    const auto wtx = pwallet->GetWalletTx(input.prevout.hash);
+                    const CWalletTx* tx{wtx};
                     if (!tx || pwallet->IsMine(tx->tx->vout[input.prevout.n]) != (coin_control.fAllowWatchOnly ? ISMINE_ALL : ISMINE_SPENDABLE)) {
                         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Input not found. UTXO (%s:%d) is not part of wallet.", input.prevout.hash.ToString(), input.prevout.n));
                     }
-                    total_input_value += tx->tx->vout[input.prevout.n].nValue.GetAmount(); // ELEMENTS FIXME: is the unblinded value always available since it's in our wallet?
+                    total_input_value += wtx->GetOutputValueOut(*pwallet, i);
                 }
             } else {
-                for (const COutput& output : AvailableCoins(*pwallet, &coin_control, fee_rate, /*nMinimumAmount=*/0).All()) {
+                const auto& outputs = AvailableCoins(*pwallet, &coin_control, fee_rate, /*nMinimumAmount=*/0).All();
+                for (size_t i = 0; i < outputs.size(); ++i) {
+                    const COutput& output = outputs[i];
                     CHECK_NONFATAL(output.input_bytes > 0);
-                    if (send_max && fee_rate.GetFee(output.input_bytes) > output.txout.nValue.GetAmount()) { // ELEMENTS FIXME: is the unblinded value always available since it's in our wallet?
+                    if (send_max && fee_rate.GetFee(output.input_bytes) > output.value) {
                         continue;
                     }
                     CTxIn input(output.outpoint.hash, output.outpoint.n, CScript(), rbf ? MAX_BIP125_RBF_SEQUENCE : CTxIn::SEQUENCE_FINAL);
                     rawTx.vin.push_back(input);
-                    total_input_value += output.txout.nValue.GetAmount(); // ELEMENTS FIXME: is the unblinded value always available since it's in our wallet?
+                    total_input_value += output.value;
                 }
             }
 

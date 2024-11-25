@@ -161,7 +161,7 @@ class WalletGroupTest(BitcoinTestFramework):
         assert_equal(3, len(tx6["vout"])) # ELEMENTS: plus fee
 
         # Empty out node2's wallet
-        self.nodes[2].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=self.nodes[2].getbalance()['bitcoin'], subtractfeefromamount=True)
+        self.nodes[2].sendall(recipients=[self.nodes[0].getnewaddress()])
         self.sync_all()
         self.generate(self.nodes[0], 1)
 

@@ -96,7 +96,7 @@ class SendallTest(BitcoinTestFramework):
 
         self.assert_tx_has_outputs(tx = tx_from_wallet,
             expected_outputs = [
-                # ELEMENT: fee in bitcoin is negative, so add it. fee in element is positive, so subtract it
+                # ELEMENTS: fee in bitcoin is negative, so add it. fee in element is positive, so subtract it
                 { "address": self.remainder_target, "value": pre_sendall_balance - fee }
             ]
         )

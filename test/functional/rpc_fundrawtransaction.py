@@ -670,6 +670,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.log.info("Test fundrawtxn fee with many inputs")
 
         # Empty node1, send some small coins from node0 to node1.
+        # ELEMENTS FIXME: use sendall once its fixed: error `Specified output amount to <address> is below dust threshold`
+        # self.nodes[1].sendall(recipients=[self.nodes[0].getnewaddress()])
         self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[1].getbalance()['bitcoin'], "", "", True)
         self.generate(self.nodes[1], 1)
 
@@ -703,6 +705,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.log.info("Test fundrawtxn sign+send with many inputs")
 
         # Again, empty node1, send some small coins from node0 to node1.
+        # ELEMENTS FIXME: use sendall once its fixed: error `Specified output amount to <address> is below dust threshold`
+        # self.nodes[1].sendall(recipients=[self.nodes[0].getnewaddress()])
         self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[1].getbalance()['bitcoin'], "", "", True)
         self.generate(self.nodes[1], 1)
 

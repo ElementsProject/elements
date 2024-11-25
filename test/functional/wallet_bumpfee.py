@@ -640,8 +640,9 @@ def test_no_more_inputs_fails(self, rbf_node, dest_address):
     # feerate rbf requires confirmed outputs when change output doesn't exist or is insufficient
     self.generatetoaddress(rbf_node, 1, dest_address)
     # spend all funds, no change output
-    rbfid = rbf_node.sendtoaddress(rbf_node.getnewaddress(), rbf_node.getbalance()['bitcoin'], "", "", True)
-    assert_raises_rpc_error(-4, "Unable to create transaction. Could not cover fee", rbf_node.bumpfee, rbfid)
+    rbfid = rbf_node.sendall(recipients=[rbf_node.getnewaddress()])['txid']
+    assert_equal(rbf_node.getbalance()['bitcoin'], 0) # ELEMENTS
+    assert_raises_rpc_error(-4, "bumpfee can only be called on an unblinded transaction", rbf_node.bumpfee, rbfid) # ELEMENTS
     self.clear_mempool()
 
 
