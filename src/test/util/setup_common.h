@@ -135,7 +135,7 @@ struct TestChain100Setup : public TestingSetup {
      */
     CBlock CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns,
                                  const CScript& scriptPubKey,
-                                 CChainState* chainstate = nullptr);
+                                 Chainstate* chainstate = nullptr);
 
     /**
      * Create a new block with just given transactions, coinbase paying to
@@ -144,7 +144,7 @@ struct TestChain100Setup : public TestingSetup {
     CBlock CreateBlock(
         const std::vector<CMutableTransaction>& txns,
         const CScript& scriptPubKey,
-        CChainState& chainstate);
+        Chainstate& chainstate);
 
     //! Mine a series of new blocks on the active chain.
     void mineBlocks(int num_blocks);
