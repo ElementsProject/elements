@@ -1527,6 +1527,11 @@ RPCHelpMan sendall()
                 }
             }
 
+            // If this transaction is too large, e.g. because the wallet has many UTXOs, it will be rejected by the node's mempool.
+            if (tx_size.weight > MAX_STANDARD_TX_WEIGHT) {
+                throw JSONRPCError(RPC_WALLET_ERROR, "Transaction too large.");
+            }
+
             CAmount output_amounts_claimed{0};
             for (const CTxOut& out : rawTx.vout) {
                 output_amounts_claimed += out.nValue.GetAmount(); // ELEMENTS FIXME: is the unblinded value always available since it's in our wallet?
