@@ -119,6 +119,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
             "-logsourcelocations",
             "-logtimemicros",
             "-logthreadnames",
+            "-loglevel=trace",
             "-debug",
             "-debugexclude=libevent",
             "-debugexclude=leveldb",
