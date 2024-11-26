@@ -298,7 +298,7 @@ RPCHelpMan importaddress()
         RescanWallet(*pwallet, reserver);
         {
             LOCK(pwallet->cs_wallet);
-            pwallet->ReacceptWalletTransactions();
+            pwallet->ResubmitWalletTransactions(/*relay=*/false, /*force=*/true);
         }
     }
 
@@ -479,7 +479,7 @@ RPCHelpMan importpubkey()
         RescanWallet(*pwallet, reserver);
         {
             LOCK(pwallet->cs_wallet);
-            pwallet->ReacceptWalletTransactions();
+            pwallet->ResubmitWalletTransactions(/*relay=*/false, /*force=*/true);
         }
     }
 
@@ -1434,7 +1434,7 @@ RPCHelpMan importmulti()
         int64_t scannedTime = pwallet->RescanFromTime(nLowestTimestamp, reserver, true /* update */);
         {
             LOCK(pwallet->cs_wallet);
-            pwallet->ReacceptWalletTransactions();
+            pwallet->ResubmitWalletTransactions(/*relay=*/false, /*force=*/true);
         }
 
         if (pwallet->IsAbortingRescan()) {
@@ -1728,7 +1728,7 @@ RPCHelpMan importdescriptors()
         int64_t scanned_time = pwallet->RescanFromTime(lowest_timestamp, reserver, true /* update */);
         {
             LOCK(pwallet->cs_wallet);
-            pwallet->ReacceptWalletTransactions();
+            pwallet->ResubmitWalletTransactions(/*relay=*/false, /*force=*/true);
         }
 
         if (pwallet->IsAbortingRescan()) {
