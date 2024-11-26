@@ -37,6 +37,7 @@ from test_framework.messages import (
     msg_block,
 )
 from test_framework.p2p import P2PInterface
+from test_framework.script import hash256
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
@@ -475,6 +476,10 @@ class BlockchainTest(BitcoinTestFramework):
         self.wallet.send_self_transfer(fee_rate=fee_per_kb, from_node=node)
         blockhash = self.generate(node, 1)[0]
 
+        def assert_hexblock_hashes(verbosity):
+            block = node.getblock(blockhash, verbosity)
+            assert_equal(blockhash, hash256(bytes.fromhex(block[:156]))[::-1].hex()) # ELEMENTS FIXME explain this
+
         def assert_fee_not_in_block(verbosity):
            block = node.getblock(blockhash, verbosity)
            assert 'fee' not in block['tx'][1]
@@ -510,9 +515,13 @@ class BlockchainTest(BitcoinTestFramework):
                for vin in tx["vin"]:
                    assert "prevout" not in vin
 
-        # ELEMENTS: fee outputs are explicit
-        # self.log.info("Test that getblock with verbosity 1 doesn't include fee")
-        # assert_fee_not_in_block(1)
+        self.log.info("Test that getblock with verbosity 0 hashes to expected value")
+        assert_hexblock_hashes(0)
+        assert_hexblock_hashes(False)
+
+        self.log.info("Test that getblock with verbosity 1 doesn't include fee")
+        assert_fee_not_in_block(1)
+        assert_fee_not_in_block(True)
 
         self.log.info('Test that getblock with verbosity 2 and 3 includes expected fee')
         assert_fee_in_block(2)
