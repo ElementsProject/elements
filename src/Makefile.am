@@ -816,7 +816,7 @@ elements_cli_LDADD += $(EVENT_LIBS)
 
 # bitcoin-tx binary #
 elements_tx_SOURCES = bitcoin-tx.cpp
-elements_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(BOOST_CPPFLAGS)
+elements_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 elements_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 elements_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
 
