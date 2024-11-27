@@ -1089,6 +1089,10 @@ bool MemPoolAccept::PolicyScriptChecks(const ATMPArgs& args, Workspace& ws)
         scriptVerifyFlags |= SCRIPT_SIGHASH_RANGEPROOF;
     }
 
+    if (DeploymentActiveAfter(m_active_chainstate.m_chain.Tip(), ChainstateManager({args.m_chainparams, GetAdjustedTime}), Consensus::DEPLOYMENT_SIMPLICITY)) {
+        scriptVerifyFlags |= SCRIPT_VERIFY_SIMPLICITY;
+    }
+
     // Check input scripts and signatures.
     // This is done last to help prevent CPU exhaustion denial-of-service attacks.
     if (!CheckInputScripts(tx, state, m_view, scriptVerifyFlags, true, false, ws.m_precomputed_txdata)) {
@@ -2106,6 +2110,10 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex& block_index, const Ch
 
     if (DeploymentActiveAfter(block_index.pprev, chainman, Consensus::DEPLOYMENT_DYNA_FED)) {
         flags |= SCRIPT_SIGHASH_RANGEPROOF;
+    }
+
+    if (DeploymentActiveAfter(block_index.pprev, chainman, Consensus::DEPLOYMENT_SIMPLICITY)) {
+        flags |= SCRIPT_VERIFY_SIMPLICITY;
     }
 
     return flags;
