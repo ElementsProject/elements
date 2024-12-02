@@ -29,48 +29,63 @@ QList<BitcoinUnit> BitcoinUnits::availableUnits()
     return unitlist;
 }
 
+// ELEMENTS
+std::string peggedAssetWithUnit(BitcoinUnits::Unit unit)
+{
+    const std::string default_asset_name = gArgs.GetArg("-defaultpeggedassetname", "");
+    if (default_asset_name != "") {
+        switch(unit)
+        {
+        case BitcoinUnits::Unit::BTC: return default_asset_name;
+        case BitcoinUnits::Unit::mBTC: return std::string("m-") + default_asset_name;
+        case BitcoinUnits::Unit::uBTC: return std::string("μ-") + default_asset_name;
+        case BitcoinUnits::Unit::SAT: return std::string("sat-") + default_asset_name;
+        } // no default case, so the compiler can warn about missing cases
+        assert(false);
+    }
+    return default_asset_name;
+}
+
 QString BitcoinUnits::longName(Unit unit)
 {
+    const std::string pegged_asset_with_unit = peggedAssetWithUnit(unit);
+    if (pegged_asset_with_unit != "") {
+        return QString::fromUtf8(pegged_asset_with_unit.c_str());
+    }
     switch (unit) {
-    case Unit::BTC: return QString("L-BTC");
-    case Unit::mBTC: return QString("mL-BTC");
-    case Unit::uBTC: return QString::fromUtf8("µL-BTC (L-bits)");
-    case Unit::SAT: return QString("Satoshi (L-sat)");
+    case Unit::BTC: return QString("LBTC");
+    case Unit::mBTC: return QString("mLBTC");
+    case Unit::uBTC: return QString::fromUtf8("µLBTC (Lbits)");
+    case Unit::SAT: return QString("Satoshi (Lsat)");
     } // no default case, so the compiler can warn about missing cases
     assert(false);
 }
 
 QString BitcoinUnits::shortName(Unit unit)
 {
-    const std::string default_asset_name = gArgs.GetArg("-defaultpeggedassetname", "");
-    if (default_asset_name != "") {
-        std::string rv;
-        switch(unit)
-        {
-        case Unit::BTC: rv=default_asset_name;break;
-        case Unit::mBTC: rv=std::string("m-")+default_asset_name;break;
-        case Unit::uBTC: rv=std::string("μ-")+default_asset_name;break;
-        case Unit::SAT: rv=std::string("sat-")+default_asset_name;break;
-        default: rv="???";break;
-        }
-        return QString::fromUtf8(rv.c_str());
+    const std::string pegged_asset_with_unit = peggedAssetWithUnit(unit);
+    if (pegged_asset_with_unit != "") {
+        return QString::fromUtf8(pegged_asset_with_unit.c_str());
     }
     switch (unit) {
     case Unit::BTC: return longName(unit);
     case Unit::mBTC: return longName(unit);
-    case Unit::uBTC: return QString("L-bits");
-    case Unit::SAT: return QString("L-sat");
+    case Unit::uBTC: return QString("Lbits");
+    case Unit::SAT: return QString("Lsat");
     } // no default case, so the compiler can warn about missing cases
     assert(false);
 }
 
 QString BitcoinUnits::description(Unit unit)
 {
+    if (gArgs.GetArg("-defaultpeggedassetname", "") != "") {
+        return longName(unit);
+    }
     switch (unit) {
-    case Unit::BTC: return QString("Bitcoins");
-    case Unit::mBTC: return QString("Milli-Bitcoins (1 / 1" THIN_SP_UTF8 "000)");
-    case Unit::uBTC: return QString("Micro-Bitcoins (bits) (1 / 1" THIN_SP_UTF8 "000" THIN_SP_UTF8 "000)");
-    case Unit::SAT: return QString("Satoshi (sat) (1 / 100" THIN_SP_UTF8 "000" THIN_SP_UTF8 "000)");
+    case Unit::BTC: return QString("Liquid Bitcoins");
+    case Unit::mBTC: return QString("Liquid Milli-Bitcoins (1 / 1" THIN_SP_UTF8 "000)");
+    case Unit::uBTC: return QString("Liquid Micro-Bitcoins (bits) (1 / 1" THIN_SP_UTF8 "000" THIN_SP_UTF8 "000)");
+    case Unit::SAT: return QString("Liquid Satoshi (sat) (1 / 100" THIN_SP_UTF8 "000" THIN_SP_UTF8 "000)");
     } // no default case, so the compiler can warn about missing cases
     assert(false);
 }
