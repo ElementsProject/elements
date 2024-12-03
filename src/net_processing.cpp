@@ -2895,7 +2895,7 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
     //   headers at this point. Our logic is slightly more complex, to work around an apparent
     //   bug in the Bitcoin Core state machine, where we can end up downloading headers from
     ///  lots of peers at the same time by accident.
-    if (nCount == MAX_HEADERS_RESULTS) {
+    if (nCount == MAX_HEADERS_RESULTS && !have_headers_sync) {
         LOCK(cs_main);
         CNodeState *nodestate = State(pfrom.GetId());
 
