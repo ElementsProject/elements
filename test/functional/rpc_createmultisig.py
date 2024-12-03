@@ -21,7 +21,6 @@ from test_framework.wallet_util import bytes_to_wif
 from test_framework.wallet import (
     MiniWallet,
     getnewdestination,
-    address_to_scriptpubkey
 )
 
 class RpcCreateMultiSigTest(BitcoinTestFramework):

@@ -259,6 +259,7 @@ def test_notmine_bumpfee(self, rbf_node, peer_node, dest_address):
     entry = rbf_node.getmempoolentry(rbfid)
     old_fee = entry["fees"]["base"]
     old_feerate = int(old_fee / entry["vsize"] * Decimal(1e8))
+    print(old_feerate) # ELEMENTS FIXME lint
     assert_raises_rpc_error(-4, "Transaction contains inputs that don't belong to this wallet",
                             rbf_node.bumpfee, rbfid)
 

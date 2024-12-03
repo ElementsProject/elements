@@ -52,6 +52,8 @@ KNOWN_VIOLATIONS = [
     "src/test/util_tests.cpp:.*strtoll",
     "src/wallet/bdb.cpp:.*DbEnv::strerror",  # False positive
     "src/util/syserror.cpp:.*strerror",      # Outside this function use `SysErrorString`
+    # ELEMENTS
+    "src/chain.h:.*bool trim()", # False positive, we define our own `trim` it's not boost
 ]
 
 REGEXP_EXTERNAL_DEPENDENCIES_EXCLUSIONS = [
@@ -60,6 +62,8 @@ REGEXP_EXTERNAL_DEPENDENCIES_EXCLUSIONS = [
     "src/secp256k1/",
     "src/minisketch/",
     "src/tinyformat.h",
+    # ELEMENTS
+    "src/simplicity/",
 ]
 
 LOCALE_DEPENDENT_FUNCTIONS = [

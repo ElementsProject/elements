@@ -6,9 +6,14 @@
 
 from decimal import Decimal
 
+from test_framework.script_util import DUMMY_P2WPKH_SCRIPT
+from test_framework.script import CScript
 from test_framework.messages import (
     MAX_BIP125_RBF_SEQUENCE,
     COIN,
+    CTransaction,
+    CTxIn,
+    CTxOut,
     CTxOutValue,
     SEQUENCE_FINAL,
 )
@@ -124,11 +129,16 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # This will raise an exception due to insufficient fee
         assert_raises_rpc_error(-26, "insufficient fee", self.nodes[0].sendrawtransaction, tx.serialize().hex(), 0)
 
+        # ELEMENTS FIXME: fixing lint warnings only, see upstream for these tests
+        initial_nValue = 5 * COIN
+        tx0_outpoint = self.make_utxo(self.nodes[0], initial_nValue)
+        feeout = CTxOut(int(0.1*COIN), CScript())
+
         # Extra 0.1 BTC fee
         tx = CTransaction()
         tx.vin = [CTxIn(tx0_outpoint, nSequence=0)]
         tx.vout = [CTxOut(int(0.9 * COIN), DUMMY_P2WPKH_SCRIPT), feeout, feeout]
-        tx1b_hex = tx1b.serialize().hex()
+        tx1b_hex = tx.serialize().hex()
         # Works when enabled
         tx1b_txid = self.nodes[0].sendrawtransaction(tx1b_hex, 0)
 
@@ -206,8 +216,8 @@ class ReplaceByFeeTest(BitcoinTestFramework):
             yield tx["txid"]
             _total_txs[0] += 1
 
-            for i, txout in tx["new_utxos"]:
-                if txout.is_fee():
+            for utxo in tx["new_utxos"]:
+                if utxo.is_fee():
                     continue
                 for x in branch(utxo, txout_value,
                                   max_txs,

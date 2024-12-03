@@ -31,3 +31,4 @@ xwindows
 te
 ligh
 atack
+lsat

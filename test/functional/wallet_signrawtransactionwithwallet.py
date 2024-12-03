@@ -33,8 +33,6 @@ from decimal import (
     getcontext,
 )
 
-import time # ELEMENTS
-
 class SignRawTransactionWithWalletTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True

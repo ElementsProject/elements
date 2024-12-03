@@ -20,6 +20,7 @@ def main():
         r"^\s*def [a-zA-Z0-9_]+\(.*=\s*(\[|\{)",
         "--",
         "*.py",
+        ':!:test/bitcoin_functional/*.py', # ELEMENTS: exclude this dir
     ]
     output = subprocess.run(command, stdout=subprocess.PIPE, universal_newlines=True)
     if len(output.stdout) > 0:

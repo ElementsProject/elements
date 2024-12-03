@@ -27,35 +27,31 @@ EXPECTED_CIRCULAR_DEPENDENCIES = (
     # Temporary, removed in followup https://github.com/bitcoin/bitcoin/pull/24230
     "index/base -> node/context -> net_processing -> index/blockfilterindex -> index/base",
     # ELEMENTs: introduced by https://github.com/ElementsProject/elements/pull/1270
-    "chain -> validation -> chain"
-    "chain -> validation -> consensus/tx_verify -> chain"
-    "dynafed -> validation -> dynafed"
-    "pegins -> validation -> pegins"
-    "chain -> node/context -> txmempool -> chain"
-    "chain -> validation -> deploymentstatus -> chain"
-    "chain -> validation -> index/blockfilterindex -> chain"
-    "chain -> validation -> primitives/pak -> chain"
-    "chain -> validation -> txdb -> chain"
-    "chain -> validation -> validationinterface -> chain"
-    "chain -> validation -> txdb -> pow -> chain"
-    "chain -> validation -> deploymentstatus -> versionbits -> chain"
-    "confidential_validation -> pegins -> validation -> confidential_validation"
-    "consensus/tx_verify -> pegins -> validation -> consensus/tx_verify"
-    "dynafed -> validation -> primitives/pak -> dynafed"
-    "pegins -> validation -> txmempool -> pegins"
-    "block_proof -> chain -> validation -> block_proof"
-    "block_proof -> chain -> validation -> txdb -> block_proof"
-    "chain -> node/context -> net_processing -> node/blockstorage -> chain"
-    "consensus/tx_verify -> pegins -> validation -> txmempool -> consensus/tx_verify"
-    "block_proof -> chain -> node/context -> net_processing -> node/blockstorage -> block_proof"
-    "core_io -> script/sign -> pegins -> validation -> signet -> core_io"
+    "chain -> validation -> chain",
+    "chain -> validation -> consensus/tx_verify -> chain",
+    "dynafed -> validation -> dynafed",
+    "pegins -> validation -> pegins",
+    "chain -> node/context -> net_processing -> headerssync -> chain",
+    "chain -> node/context -> net_processing -> index/blockfilterindex -> chain",
+    "chain -> node/context -> txmempool -> chain",
+    "chain -> validation -> deploymentstatus -> chain",
+    "chain -> validation -> pow -> chain",
+    "chain -> validation -> primitives/pak -> chain",
+    "chain -> validation -> txdb -> chain",
+    "chain -> validation -> validationinterface -> chain",
+    "chain -> validation -> versionbits -> chain",
+    "confidential_validation -> pegins -> validation -> confidential_validation",
+    "consensus/tx_verify -> pegins -> validation -> consensus/tx_verify",
+    "dynafed -> validation -> primitives/pak -> dynafed",
+    "pegins -> validation -> txmempool -> pegins",
+    "block_proof -> chain -> validation -> block_proof",
+    "block_proof -> chain -> validation -> txdb -> block_proof",
+    "chain -> node/context -> net_processing -> node/blockstorage -> chain",
+    "consensus/tx_verify -> pegins -> validation -> txmempool -> consensus/tx_verify",
+    "block_proof -> chain -> node/context -> net_processing -> node/blockstorage -> block_proof",
+    "core_io -> script/sign -> pegins -> validation -> signet -> core_io",
     # ELEMENTS: will be fixed by blinding cleanup
-    "blindpsbt -> psbt -> blindpsbt"
-    # ELEMENTS: not so easy to fix, caused by us doing asset ID lookups in the
-    # wallet, from coin selection, to decide whether we are looking at a
-    # multi-asset transaction or not. Probably this check should be done in
-    # CreateTransaction instead.
-    "wallet/coinselection -> wallet/wallet -> wallet/coinselection"
+    "blindpsbt -> psbt -> blindpsbt",
 )
 
 CODE_DIR = "src"

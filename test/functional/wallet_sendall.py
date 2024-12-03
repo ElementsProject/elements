@@ -75,7 +75,7 @@ class SendallTest(BitcoinTestFramework):
         for out in tx_from_wallet["vout"]:
             if out["scriptPubKey"]["type"] == "fee":
                 return out["value"]
-        raise Exception("Unable find fee in tranaction: ", tx_from_wallet)
+        raise Exception("Unable find fee in transaction: ", tx_from_wallet)
 
     @cleanup
     def gen_and_clean(self):

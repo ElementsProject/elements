@@ -33,8 +33,6 @@ from test_framework.wallet import (
     getnewdestination,
 )
 
-import time # ELEMENTS
-
 class SignRawTransactionWithKeyTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
@@ -105,8 +103,6 @@ class SignRawTransactionWithKeyTest(BitcoinTestFramework):
         self.blk_idx = 0
         self.send_to_address(p2sh_p2wsh_address["address"], 49.999)
         self.generate(self.nodes[0], 1, sync_fun=self.no_op)
-        # ELEMENTS: allow time for block sync
-        time.sleep(1)
         # Get the UTXO info from scantxoutset
         unspent_output = self.nodes[1].scantxoutset('start', [p2sh_p2wsh_address['descriptor']])['unspents'][0]
         spk = script_to_p2sh_p2wsh_script(p2sh_p2wsh_address['redeemScript']).hex()

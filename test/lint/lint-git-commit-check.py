@@ -37,6 +37,9 @@ def main():
     args = parse_args()
     exit_code = 0
 
+    # ELEMENTS: lint error buried by too many merges to rewrite
+    exclude_hashes = ["1ab6187071b78b05e443de9a33cb9be43e82f0d5"]
+
     if not os.getenv("COMMIT_RANGE"):
         if args.prev_commits:
             commit_range = "HEAD~" + args.prev_commits + "...HEAD"
@@ -50,6 +53,8 @@ def main():
     commit_hashes = check_output(["git", "log", commit_range, "--format=%H"], universal_newlines=True, encoding="utf8").splitlines()
 
     for hash in commit_hashes:
+        if hash in exclude_hashes:
+            continue
         commit_info = check_output(["git", "log", "--format=%B", "-n", "1", hash], universal_newlines=True, encoding="utf8").splitlines()
         if len(commit_info) >= 2:
             if commit_info[1]:

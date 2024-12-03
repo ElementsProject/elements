@@ -11,23 +11,23 @@ from itertools import product
 from test_framework.descriptors import descsum_create
 from test_framework.key import ECKey, H_POINT
 from test_framework.messages import (
-    COutPoint,
-    CTransaction,
-    CTxIn,
-    CTxOut,
+    # COutPoint,
+    # CTransaction,
+    # CTxIn,
+    # CTxOut,
     MAX_BIP125_RBF_SEQUENCE,
     WITNESS_SCALE_FACTOR,
     ser_compact_size,
 )
-from test_framework.psbt import (
-    PSBT,
-    PSBTMap,
-    PSBT_GLOBAL_UNSIGNED_TX,
-    PSBT_IN_RIPEMD160,
-    PSBT_IN_SHA256,
-    PSBT_IN_HASH160,
-    PSBT_IN_HASH256,
-)
+# from test_framework.psbt import (
+#     PSBT,
+#     PSBTMap,
+#     PSBT_GLOBAL_UNSIGNED_TX,
+#     PSBT_IN_RIPEMD160,
+#     PSBT_IN_SHA256,
+#     PSBT_IN_HASH160,
+#     PSBT_IN_HASH256,
+# )
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
 #    assert_approx,
@@ -36,7 +36,7 @@ from test_framework.util import (
     assert_raises_rpc_error,
     find_output,
     find_vout_for_address,
-    random_bytes,
+    # random_bytes,
 )
 from test_framework.wallet_util import bytes_to_wif
 

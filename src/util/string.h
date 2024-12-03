@@ -15,7 +15,6 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <cstdint>
 
 void ReplaceAll(std::string& in_out, const std::string& search, const std::string& substitute);
 

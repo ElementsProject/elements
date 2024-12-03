@@ -18,6 +18,7 @@ from subprocess import check_output, CalledProcessError
 EXCLUDED_DIRS = ["src/leveldb/",
                  "src/crc32c/",
                  "src/secp256k1/",
+                 "src/simplicity/",
                  "src/minisketch/",
                 ]
 
@@ -31,7 +32,11 @@ EXPECTED_BOOST_INCLUDES = ["boost/date_time/posix_time/posix_time.hpp",
                            "boost/signals2/optional_last_value.hpp",
                            "boost/signals2/signal.hpp",
                            "boost/test/included/unit_test.hpp",
-                           "boost/test/unit_test.hpp"]
+                           "boost/test/unit_test.hpp",
+                           # ELEMENTS: used in assetsdir and pegin_witness_tests
+                           "boost/algorithm/string/classification.hpp",
+                           "boost/algorithm/string/split.hpp",
+                           ]
 
 
 def get_toplevel():

@@ -15,7 +15,7 @@ from test_framework.messages import (
 from test_framework.util import (
     assert_equal,
 )
-from test_framework.wallet import (MiniWallet, DEFAULT_FEE)
+from test_framework.wallet import MiniWallet
 
 class MempoolPackageLimitsTest(BitcoinTestFramework):
     def set_test_params(self):

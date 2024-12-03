@@ -1175,7 +1175,7 @@ static RPCHelpMan getnewblockhex()
         unsigned int nHeight = chainman.ActiveChain().Tip()->nHeight + 1; // Height first in coinbase required for block.version=2
         CMutableTransaction txCoinbase(*pblocktemplate->block.vtx[0]);
         txCoinbase.vin[0].scriptSig = (CScript() << nHeight << CScriptNum(nExtraNonce));
-        assert(txCoinbase.vin[0].scriptSig.size() <= 100);
+        CHECK_NONFATAL(txCoinbase.vin[0].scriptSig.size() <= 100);
 
         pblocktemplate->block.vtx[0] = MakeTransactionRef(std::move(txCoinbase));
         pblocktemplate->block.hashMerkleRoot = BlockMerkleRoot(pblocktemplate->block);
