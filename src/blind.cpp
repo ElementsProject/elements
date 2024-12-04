@@ -11,22 +11,22 @@
 #include <random.h>
 #include <util/system.h>
 
-secp256k1_context* secp256k1_blind_context = NULL;
+secp256k1_context* secp256k1_blind_context = nullptr;
 
 class Blind_ECC_Init {
 public:
     Blind_ECC_Init() {
-        assert(secp256k1_blind_context == NULL);
+        assert(secp256k1_blind_context == nullptr);
 
         secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
-        assert(ctx != NULL);
+        assert(ctx != nullptr);
 
         secp256k1_blind_context = ctx;
     }
 
     ~Blind_ECC_Init() {
         secp256k1_context *ctx = secp256k1_blind_context;
-        secp256k1_blind_context = NULL;
+        secp256k1_blind_context = nullptr;
 
         if (ctx) {
             secp256k1_context_destroy(ctx);
@@ -153,7 +153,7 @@ bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue&
 
     // Rewind rangeproof
     uint64_t min_value, max_value, amount;
-    if (!secp256k1_rangeproof_rewind(secp256k1_blind_context, blinding_factor_out.begin(), &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &value_commit, &vchRangeproof[0], vchRangeproof.size(), (committedScript.size() && !blank_nonce)? &committedScript.front(): NULL, blank_nonce ? 0 : committedScript.size(), &observed_gen)) {
+    if (!secp256k1_rangeproof_rewind(secp256k1_blind_context, blinding_factor_out.begin(), &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &value_commit, &vchRangeproof[0], vchRangeproof.size(), (committedScript.size() && !blank_nonce)? &committedScript.front(): nullptr, blank_nonce ? 0 : committedScript.size(), &observed_gen)) {
         return false;
     }
 
@@ -259,7 +259,7 @@ bool GenerateRangeproof(std::vector<unsigned char>& rangeproof, const std::vecto
     int ct_bits = (int)gArgs.GetIntArg("-ct_bits", 52);
     // If min_value is 0, scriptPubKey must be unspendable
     uint64_t min_value = scriptPubKey.IsUnspendable() ? 0 : 1;
-    int res = secp256k1_rangeproof_sign(secp256k1_blind_context, rangeproof.data(), &nRangeProofLen, min_value, &value_commit, value_blindptrs.back(), nonce.begin(), ct_exponent, ct_bits, amount, asset_message, sizeof(asset_message), scriptPubKey.size() ? &scriptPubKey.front() : NULL, scriptPubKey.size(), &gen);
+    int res = secp256k1_rangeproof_sign(secp256k1_blind_context, rangeproof.data(), &nRangeProofLen, min_value, &value_commit, value_blindptrs.back(), nonce.begin(), ct_exponent, ct_bits, amount, asset_message, sizeof(asset_message), scriptPubKey.size() ? &scriptPubKey.front() : nullptr, scriptPubKey.size(), &gen);
     rangeproof.resize(nRangeProofLen);
     return (res == 1);
 }

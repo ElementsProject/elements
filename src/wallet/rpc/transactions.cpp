@@ -98,7 +98,7 @@ static UniValue ListReceived(const CWallet& wallet, const UniValue& params, cons
         filtered_address = DecodeDestination(params[3].get_str());
     }
 
-    std::string strasset = "";
+    std::string strasset;
     if (params.size() > 4 && params[4].isStr()) {
         strasset = params[4].get_str();
     }
@@ -750,7 +750,7 @@ RPCHelpMan gettransaction()
                                     "\"immature\"              Coinbase transactions received with 100 or fewer confirmations.\n"
                                     "\"orphan\"                Orphaned coinbase transactions received."},
                                 {RPCResult::Type::STR_AMOUNT, "amount", "The amount in " + CURRENCY_UNIT},
-                                {RPCResult::Type::STR_HEX, "amountblinder", /*optionl=*/true, "The blinding factor for the amount"}, // ELEMENTS FIXME: is this really optional?
+                                {RPCResult::Type::STR_HEX, "amountblinder", /*optional=*/true, "The blinding factor for the amount"}, // ELEMENTS FIXME: is this really optional?
                                 {RPCResult::Type::STR_HEX, "asset", "The asset being transacted"},
                                 {RPCResult::Type::STR_HEX, "assetblinder", /*optional=*/true, "The blinding factor for the asset"}, // ELEMENTS FIXME: is this really optional?
                                 {RPCResult::Type::STR, "label", /*optional=*/true, "A comment for the address/transaction, if any"},
@@ -798,7 +798,7 @@ RPCHelpMan gettransaction()
 
     bool verbose = request.params[2].isNull() ? false : request.params[2].get_bool();
 
-    std::string asset = "";
+    std::string asset;
     if (request.params[3].isStr() && !request.params[3].get_str().empty()) {
         asset = request.params[3].get_str();
     }

@@ -90,7 +90,7 @@ FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
             txdata.Init(tx, std::move(spent_outs));
             DummySigChecker checker{&tx, nIn, amountIn, txdata, MissingDataBehavior::ASSERT_FAIL};
 
-            VerifyScript(/* scriptSig */ CScript{}, scriptPubKey, &witness, flags, checker, /* serror */ NULL);
+            VerifyScript(/* scriptSig */ CScript{}, scriptPubKey, &witness, flags, checker, /* serror */ nullptr);
         /* segwit v1 (taproot) */
         } else {
             /* Generate keys */
@@ -136,7 +136,7 @@ FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
             txdata.Init(tx, std::move(spent_outs));
             GenericTransactionSignatureChecker checker{&tx, nIn, amountIn, txdata, MissingDataBehavior::ASSERT_FAIL};
 
-            VerifyScript(/* scriptSig */ CScript{}, scriptPubKey, &witness, flags, checker, /* serror */ NULL);
+            VerifyScript(/* scriptSig */ CScript{}, scriptPubKey, &witness, flags, checker, /* serror */ nullptr);
         }
     } catch (const std::ios_base::failure&) {
         return;

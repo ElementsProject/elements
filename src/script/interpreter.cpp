@@ -2582,15 +2582,15 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
             simplicityRawInput[i].prevTxid = txTo.vin[i].prevout.hash.begin();
             simplicityRawInput[i].prevIx = txTo.vin[i].prevout.n;
             simplicityRawInput[i].sequence = txTo.vin[i].nSequence;
-            simplicityRawInput[i].txo.asset = m_spent_outputs[i].nAsset.vchCommitment.empty() ? NULL : m_spent_outputs[i].nAsset.vchCommitment.data();
-            simplicityRawInput[i].txo.value = m_spent_outputs[i].nValue.vchCommitment.empty() ? NULL : m_spent_outputs[i].nValue.vchCommitment.data();
+            simplicityRawInput[i].txo.asset = m_spent_outputs[i].nAsset.vchCommitment.empty() ? nullptr : m_spent_outputs[i].nAsset.vchCommitment.data();
+            simplicityRawInput[i].txo.value = m_spent_outputs[i].nValue.vchCommitment.empty() ? nullptr : m_spent_outputs[i].nValue.vchCommitment.data();
             simplicityRawInput[i].txo.scriptPubKey.buf = m_spent_outputs[i].scriptPubKey.data();
             simplicityRawInput[i].txo.scriptPubKey.len = m_spent_outputs[i].scriptPubKey.size();
             simplicityRawInput[i].issuance.blindingNonce = txTo.vin[i].assetIssuance.assetBlindingNonce.begin();
             simplicityRawInput[i].issuance.assetEntropy = txTo.vin[i].assetIssuance.assetEntropy.begin();
-            simplicityRawInput[i].issuance.amount = txTo.vin[i].assetIssuance.nAmount.vchCommitment.empty() ? NULL : txTo.vin[i].assetIssuance.nAmount.vchCommitment.data();
-            simplicityRawInput[i].issuance.inflationKeys = txTo.vin[i].assetIssuance.nInflationKeys.vchCommitment.empty() ? NULL : txTo.vin[i].assetIssuance.nInflationKeys.vchCommitment.data();
-            simplicityRawInput[i].annex = NULL;
+            simplicityRawInput[i].issuance.amount = txTo.vin[i].assetIssuance.nAmount.vchCommitment.empty() ? nullptr : txTo.vin[i].assetIssuance.nAmount.vchCommitment.data();
+            simplicityRawInput[i].issuance.inflationKeys = txTo.vin[i].assetIssuance.nInflationKeys.vchCommitment.empty() ? nullptr : txTo.vin[i].assetIssuance.nInflationKeys.vchCommitment.data();
+            simplicityRawInput[i].annex = nullptr;
             if (i < txTo.witness.vtxinwit.size()) {
                 Span<const valtype> stack{txTo.witness.vtxinwit[i].scriptWitness.stack};
                 if (stack.size() >= 2 && !stack.back().empty() && stack.back()[0] == ANNEX_TAG) {
@@ -2603,22 +2603,22 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
                 simplicityRawInput[i].issuance.inflationKeysRangePrf.buf = txTo.witness.vtxinwit[i].vchInflationKeysRangeproof.data();
                 simplicityRawInput[i].issuance.inflationKeysRangePrf.len = txTo.witness.vtxinwit[i].vchInflationKeysRangeproof.size();
                 assert(!txTo.vin[i].m_is_pegin || ( txTo.witness.vtxinwit[i].m_pegin_witness.stack.size() >= 4 && txTo.witness.vtxinwit[i].m_pegin_witness.stack[2].size() == 32));
-                simplicityRawInput[i].pegin = txTo.vin[i].m_is_pegin ? txTo.witness.vtxinwit[i].m_pegin_witness.stack[2].data() : 0;
+                simplicityRawInput[i].pegin = txTo.vin[i].m_is_pegin ? txTo.witness.vtxinwit[i].m_pegin_witness.stack[2].data() : nullptr;
             } else {
-                simplicityRawInput[i].issuance.amountRangePrf.buf = NULL;
+                simplicityRawInput[i].issuance.amountRangePrf.buf = nullptr;
                 simplicityRawInput[i].issuance.amountRangePrf.len = 0;
-                simplicityRawInput[i].issuance.inflationKeysRangePrf.buf = NULL;
+                simplicityRawInput[i].issuance.inflationKeysRangePrf.buf = nullptr;
                 simplicityRawInput[i].issuance.inflationKeysRangePrf.len = 0;
                 assert(!txTo.vin[i].m_is_pegin);
-                simplicityRawInput[i].pegin = 0;
+                simplicityRawInput[i].pegin = nullptr;
             }
         }
 
         std::vector<rawOutput> simplicityRawOutput(txTo.vout.size());
         for (size_t i = 0; i < txTo.vout.size(); ++i) {
-            simplicityRawOutput[i].asset = txTo.vout[i].nAsset.vchCommitment.empty() ? NULL : txTo.vout[i].nAsset.vchCommitment.data();
-            simplicityRawOutput[i].value = txTo.vout[i].nValue.vchCommitment.empty() ? NULL : txTo.vout[i].nValue.vchCommitment.data();
-            simplicityRawOutput[i].nonce = txTo.vout[i].nNonce.vchCommitment.empty() ? NULL : txTo.vout[i].nNonce.vchCommitment.data();
+            simplicityRawOutput[i].asset = txTo.vout[i].nAsset.vchCommitment.empty() ? nullptr : txTo.vout[i].nAsset.vchCommitment.data();
+            simplicityRawOutput[i].value = txTo.vout[i].nValue.vchCommitment.empty() ? nullptr : txTo.vout[i].nValue.vchCommitment.data();
+            simplicityRawOutput[i].nonce = txTo.vout[i].nNonce.vchCommitment.empty() ? nullptr : txTo.vout[i].nNonce.vchCommitment.data();
             simplicityRawOutput[i].scriptPubKey.buf = txTo.vout[i].scriptPubKey.data();
             simplicityRawOutput[i].scriptPubKey.len = txTo.vout[i].scriptPubKey.size();
             if (i < txTo.witness.vtxoutwit.size()) {
@@ -2627,9 +2627,9 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
                 simplicityRawOutput[i].rangeProof.buf = txTo.witness.vtxoutwit[i].vchRangeproof.data();
                 simplicityRawOutput[i].rangeProof.len = txTo.witness.vtxoutwit[i].vchRangeproof.size();
             } else {
-                simplicityRawOutput[i].surjectionProof.buf = NULL;
+                simplicityRawOutput[i].surjectionProof.buf = nullptr;
                 simplicityRawOutput[i].surjectionProof.len = 0;
-                simplicityRawOutput[i].rangeProof.buf = NULL;
+                simplicityRawOutput[i].rangeProof.buf = nullptr;
                 simplicityRawOutput[i].rangeProof.len = 0;
             }
         }
@@ -3095,7 +3095,7 @@ bool GenericTransactionSignatureChecker<T>::CheckSimplicity(const valtype& progr
 
     assert(txdata->m_simplicity_tx_data);
     assert(simplicityTapEnv);
-    if (!simplicity_elements_execSimplicity(&error, 0, txdata->m_simplicity_tx_data, nIn, simplicityTapEnv, txdata->m_hash_genesis_block.data(), budget, 0, program.data(), program.size(), witness.data(), witness.size())) {
+    if (!simplicity_elements_execSimplicity(&error, nullptr, txdata->m_simplicity_tx_data, nIn, simplicityTapEnv, txdata->m_hash_genesis_block.data(), budget, nullptr, program.data(), program.size(), witness.data(), witness.size())) {
         assert(!"simplicity_elements_execSimplicity internal error");
     }
     free(simplicityTapEnv);

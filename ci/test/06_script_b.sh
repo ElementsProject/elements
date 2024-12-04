@@ -36,9 +36,9 @@ fi
 
 if [ "${RUN_TIDY}" = "true" ]; then
   set -eo pipefail
-  export P_CI_DIR="${BASE_BUILD_DIR}/bitcoin-$HOST/src/"
+  export P_CI_DIR="${BASE_BUILD_DIR}/elements-$HOST/src/"
   ( CI_EXEC run-clang-tidy -quiet "${MAKEJOBS}" ) | grep -C5 "error"
-  export P_CI_DIR="${BASE_BUILD_DIR}/bitcoin-$HOST/"
+  export P_CI_DIR="${BASE_BUILD_DIR}/elements-$HOST/"
   CI_EXEC "python3 ${DIR_IWYU}/include-what-you-use/iwyu_tool.py"\
           " src/compat"\
           " src/dbwrapper.cpp"\
@@ -68,7 +68,7 @@ if [ "${RUN_TIDY}" = "true" ]; then
           " src/util/string.cpp"\
           " src/util/syserror.cpp"\
           " src/util/url.cpp"\
-          " -p . ${MAKEJOBS} -- -Xiwyu --cxx17ns -Xiwyu --mapping_file=${BASE_BUILD_DIR}/bitcoin-$HOST/contrib/devtools/iwyu/bitcoin.core.imp"
+          " -p . ${MAKEJOBS} -- -Xiwyu --cxx17ns -Xiwyu --mapping_file=${BASE_BUILD_DIR}/elements-$HOST/contrib/devtools/iwyu/bitcoin.core.imp"
 fi
 
 if [ "$RUN_SECURITY_TESTS" = "true" ]; then

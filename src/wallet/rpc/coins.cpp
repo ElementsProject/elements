@@ -127,7 +127,7 @@ RPCHelpMan getreceivedbyaddress()
 
     LOCK(pwallet->cs_wallet);
 
-    std::string asset = "";
+    std::string asset;
     if (request.params.size() > 2 && request.params[2].isStr()) {
         asset = request.params[2].get_str();
     }
@@ -179,7 +179,7 @@ RPCHelpMan getreceivedbylabel()
 
     LOCK(pwallet->cs_wallet);
 
-    std::string asset = "";
+    std::string asset;
     if (request.params.size() > 2 && request.params[2].isStr()) {
         asset = request.params[2].get_str();
     }
@@ -244,7 +244,7 @@ RPCHelpMan getbalance()
 
     bool avoid_reuse = GetAvoidReuseFlag(*pwallet, request.params[3]);
 
-    std::string asset = "";
+    std::string asset;
     if (!request.params[4].isNull() && request.params[4].isStr()) {
         asset = request.params[4].get_str();
     }

@@ -28,22 +28,22 @@
 #include <string>
 #include <vector>
 
-static secp256k1_context* secp256k1_blind_context = NULL;
+static secp256k1_context* secp256k1_blind_context = nullptr;
 
 class RPCRawTransaction_ECC_Init {
 public:
     RPCRawTransaction_ECC_Init() {
-        assert(secp256k1_blind_context == NULL);
+        assert(secp256k1_blind_context == nullptr);
 
         secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
-        assert(ctx != NULL);
+        assert(ctx != nullptr);
 
         secp256k1_blind_context = ctx;
     }
 
     ~RPCRawTransaction_ECC_Init() {
         secp256k1_context *ctx = secp256k1_blind_context;
-        secp256k1_blind_context = NULL;
+        secp256k1_blind_context = nullptr;
 
         if (ctx) {
             secp256k1_context_destroy(ctx);
@@ -359,7 +359,7 @@ void TxToUniv(const CTransaction& tx, const uint256& block_hash, UniValue& entry
             int mantissa;
             uint64_t minv;
             uint64_t maxv;
-            const CTxOutWitness* ptxoutwit = tx.witness.vtxoutwit.size() <= i? NULL: &tx.witness.vtxoutwit[i];
+            const CTxOutWitness* ptxoutwit = tx.witness.vtxoutwit.size() <= i ? nullptr : &tx.witness.vtxoutwit[i];
             if (ptxoutwit) {
                 if (ptxoutwit->vchRangeproof.size() && secp256k1_rangeproof_info(secp256k1_blind_context, &exp, &mantissa, &minv, &maxv, &ptxoutwit->vchRangeproof[0], ptxoutwit->vchRangeproof.size())) {
                     if (exp == -1) {

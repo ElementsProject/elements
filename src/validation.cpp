@@ -870,7 +870,7 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
 
     // The mempool holds txs for the next block, so pass height+1 to CheckTxInputs
     CAmountMap fee_map;
-    if (!Consensus::CheckTxInputs(tx, state, m_view, m_active_chainstate.m_chain.Height() + 1, fee_map, setPeginsSpent, NULL, true, true, fedpegscripts)) {
+    if (!Consensus::CheckTxInputs(tx, state, m_view, m_active_chainstate.m_chain.Height() + 1, fee_map, setPeginsSpent, nullptr, true, true, fedpegscripts)) {
         return false; // state filled in by CheckTxInputs
     }
 
@@ -1757,7 +1757,7 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txund
 
 bool CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->vin[nIn].scriptSig;
-    const CScriptWitness *witness = ptxTo->witness.vtxinwit.size() > nIn ? &ptxTo->witness.vtxinwit[nIn].scriptWitness : NULL;
+    const CScriptWitness *witness = ptxTo->witness.vtxinwit.size() > nIn ? &ptxTo->witness.vtxinwit[nIn].scriptWitness : nullptr;
     return VerifyScript(scriptSig, m_tx_out.scriptPubKey, witness, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore, *txdata), &error);
 }
 
@@ -2408,8 +2408,8 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
             TxValidationState tx_state;
             if (!Consensus::CheckTxInputs(tx, tx_state, view, pindex->nHeight, fee_map,
-                        setPeginsSpent == NULL ? setPeginsSpentDummy : *setPeginsSpent,
-                        g_parallel_script_checks ? &vChecks : NULL, fCacheResults, fScriptChecks, fedpegscripts)) {
+                        setPeginsSpent == nullptr ? setPeginsSpentDummy : *setPeginsSpent,
+                        g_parallel_script_checks ? &vChecks : nullptr, fCacheResults, fScriptChecks, fedpegscripts)) {
                 // Any transaction validation failure in ConnectBlock is a block consensus failure
                 state.Invalid(BlockValidationResult::BLOCK_CONSENSUS,
                         tx_state.GetRejectReason(), tx_state.GetDebugMessage());
@@ -4375,7 +4375,7 @@ bool TestBlockValidity(BlockValidationState& state,
         return error("%s: Consensus::CheckBlock: %s", __func__, state.ToString());
     if (!ContextualCheckBlock(block, state, chainstate.m_chainman, pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, state.ToString());
-    if (!chainstate.ConnectBlock(block, state, &indexDummy, viewNew, NULL, true)) {
+    if (!chainstate.ConnectBlock(block, state, &indexDummy, viewNew, nullptr, true)) {
         return false;
     }
     assert(state.IsValid());
@@ -5183,7 +5183,7 @@ bool Chainstate::ResizeCoinsCaches(size_t coinstip_size, size_t coinsdb_size)
 //! We can extrapolate the last block time to the current time to estimate how many more blocks
 //! we expect.
 double GuessVerificationProgress(const CBlockIndex* pindex, int64_t blockInterval) {
-    if (pindex == NULL || pindex->nHeight < 1) {
+    if (pindex == nullptr || pindex->nHeight < 1) {
         return 0.0;
     }
 

@@ -84,7 +84,7 @@ bool IsStandard(const CScript& scriptPubKey, const std::optional<unsigned>& max_
     std::vector<std::vector<unsigned char> > vSolutions;
     whichType = Solver(scriptPubKey, vSolutions);
 
-    CChainParams params = Params();
+    const CChainParams& params = Params();
     if (whichType == TxoutType::NONSTANDARD) {
         return false;
     } else if (whichType == TxoutType::MULTISIG) {
@@ -145,7 +145,7 @@ bool IsStandardTx(const CTransaction& tx, const std::optional<unsigned>& max_dat
         }
     }
 
-    CChainParams params = Params();
+    const CChainParams& params = Params();
     unsigned int nDataOut = 0;
     TxoutType whichType;
     for (const CTxOut& txout : tx.vout) {

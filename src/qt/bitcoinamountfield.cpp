@@ -32,9 +32,7 @@ class AmountSpinBox: public QAbstractSpinBox
 
 public:
     explicit AmountSpinBox(QWidget *parent):
-        QAbstractSpinBox(parent),
-        currentUnit(BitcoinUnit::BTC),
-        singleStep(0)
+        QAbstractSpinBox(parent)
     {
         current_asset = Params().GetConsensus().pegged_asset;
 

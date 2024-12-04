@@ -44,7 +44,7 @@ uint256 CTxOutWitness::GetHash() const
 
 static inline
 void MerkleHash_Sha256Midstate(uint256& parent, const uint256& left, const uint256& right) {
-    CSHA256().Write(left.begin(), 32).Write(right.begin(), 32).Midstate(parent.begin(), NULL, NULL);
+    CSHA256().Write(left.begin(), 32).Write(right.begin(), 32).Midstate(parent.begin(), nullptr, nullptr);
 }
 
 uint256 ComputeFastMerkleRoot(const std::vector<uint256>& hashes) {

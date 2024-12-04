@@ -728,7 +728,7 @@ void CSHA256::Finalize(unsigned char hash[OUTPUT_SIZE])
     WriteBE64(sizedesc, bytes << 3);
     Write(pad, 1 + ((119 - (bytes % 64)) % 64));
     Write(sizedesc, 8);
-    Midstate(hash, NULL, NULL);
+    Midstate(hash, nullptr, nullptr);
 }
 
 void CSHA256::Midstate(unsigned char hash[OUTPUT_SIZE], uint64_t* len, unsigned char *buffer)

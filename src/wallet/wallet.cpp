@@ -4227,7 +4227,7 @@ std::map<uint256, std::pair<CAsset, CAsset> > CWallet::GetReissuanceTokenTypes()
 CKey CWallet::GetBlindingKey(const CScript* script) const {
     CKey key;
 
-    if (script != NULL) {
+    if (script != nullptr) {
         std::map<CScriptID, uint256>::const_iterator it = mapSpecificBlindingKeys.find(CScriptID(*script));
         if (it != mapSpecificBlindingKeys.end()) {
             key.Set(it->second.begin(), it->second.end(), true);
@@ -4237,7 +4237,7 @@ CKey CWallet::GetBlindingKey(const CScript* script) const {
         }
     }
 
-    if (script != NULL && !blinding_derivation_key.IsNull()) {
+    if (script != nullptr && !blinding_derivation_key.IsNull()) {
         unsigned char vch[32];
         CHMAC_SHA256(blinding_derivation_key.begin(), blinding_derivation_key.size()).Write(&((*script)[0]), script->size()).Finalize(vch);
         key.Set(&vch[0], &vch[32], true);

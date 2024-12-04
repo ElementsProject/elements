@@ -23,18 +23,6 @@
 #include <wallet/spend.h>
 #include <wallet/wallet.h>
 
-using wallet::BlindDetails;
-using wallet::CAddressBookData;
-using wallet::CCoinControl;
-using wallet::CRecipient;
-using wallet::CWallet;
-using wallet::CWalletTx;
-using wallet::GetMinimumFee;
-using wallet::GetWalletForJSONRPCRequest;
-using wallet::IssuanceDetails;
-using wallet::mapValue_t;
-using wallet::LegacyScriptPubKeyMan;
-
 // forward declarations
 namespace wallet {
 UniValue SendMoney(CWallet& wallet, const CCoinControl &coin_control, std::vector<CRecipient> &recipients, mapValue_t map_value, bool verbose, bool ignore_blind_fail);
@@ -328,7 +316,7 @@ RPCHelpMan initpegoutwallet()
     }
 
     std::string bitcoin_desc = request.params[0].get_str();
-    std::string xpub_str = "";
+    std::string xpub_str;
 
     // First check for naked xpub, and impute it as pkh(<xpub>/0/*) for backwards compat
     CExtPubKey xpub = DecodeExtPubKey(bitcoin_desc);
@@ -1289,7 +1277,7 @@ RPCHelpMan blindrawtransaction()
         }
     }
 
-    if (BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, asset_keys, token_keys, tx, (auxiliary_generators.size() ? &auxiliary_generators : NULL)) != num_pubkeys) {
+    if (BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, asset_keys, token_keys, tx, (auxiliary_generators.size() ? &auxiliary_generators : nullptr)) != num_pubkeys) {
         // TODO Have more rich return values, communicating to user what has been blinded
         // User may be ok not blinding something that for instance has no corresponding type on input
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?");

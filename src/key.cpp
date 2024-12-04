@@ -216,7 +216,7 @@ uint256 CKey::ECDH(const CPubKey& pubkey) const {
     uint256 result;
     secp256k1_pubkey pkey;
     assert(secp256k1_ec_pubkey_parse(secp256k1_context_sign, &pkey, pubkey.begin(), pubkey.size()));
-    assert(secp256k1_ecdh(secp256k1_context_sign, result.begin(), &pkey, begin(), NULL, NULL));
+    assert(secp256k1_ecdh(secp256k1_context_sign, result.begin(), &pkey, begin(), nullptr, nullptr));
     return result;
 }
 

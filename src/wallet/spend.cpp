@@ -634,9 +634,9 @@ std::optional<SelectionResult> ChooseSelectionResult(const CWallet& wallet, cons
         }
         // Get output groups that only contain this asset.
         std::vector<OutputGroup> asset_groups;
-        for (OutputGroup g : positive_groups) {
+        for (const OutputGroup& g : positive_groups) {
             bool add = true;
-            for (COutput c : g.m_outputs) {
+            for (const COutput& c : g.m_outputs) {
                 if (c.asset != asset) {
                     add = false;
                     break;

@@ -202,7 +202,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
     // Non-consensus commitment output before finishing coinbase transaction
     if (commit_scripts && !commit_scripts->empty()) {
-        for (auto commit_script: *commit_scripts) {
+        for (const auto& commit_script: *commit_scripts) {
             coinbaseTx.vout.insert(std::prev(coinbaseTx.vout.end()), CTxOut(policyAsset, 0, commit_script));
         }
     }

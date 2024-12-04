@@ -113,7 +113,7 @@ void CCoinsViewCache::AddCoin(const COutPoint &outpoint, Coin&& coin, bool possi
            outpoint.hash.data(),
            (uint32_t)outpoint.n,
            (uint32_t)it->second.coin.nHeight,
-           it->second.coin.out.nValue.IsExplicit() ? (int64_t)coin.out.nValue.GetAmount() : 0,
+           it->second.coin.out.nValue.IsExplicit() ? (int64_t)it->second.coin.out.nValue.GetAmount() : 0,
            (bool)it->second.coin.IsCoinBase());
 }
 

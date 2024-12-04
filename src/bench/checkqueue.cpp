@@ -62,7 +62,7 @@ static void CCheckQueueSpeedPrevectorJob(benchmark::Bench& bench)
     bench.minEpochIterations(10).batch(BATCH_SIZE * BATCHES).unit("job").run([&] {
         // Make insecure_rand here so that each iteration is identical.
         CCheckQueueControl<PrevectorJob> control(&queue);
-        for (auto vChecks : vBatches) {
+        for (const auto& vChecks : vBatches) {
             control.Add(vChecks);
         }
         // control waits for completion by RAII, but

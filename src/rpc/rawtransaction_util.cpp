@@ -158,7 +158,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         inputs = inputs_in.get_array();
     }
 
-    UniValue outputs = outputs_in.get_array();
+    const UniValue& outputs = outputs_in.get_array();
 
     CMutableTransaction rawTx;
 
