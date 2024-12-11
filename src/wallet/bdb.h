@@ -141,6 +141,8 @@ public:
     /** Verifies the environment and database file */
     bool Verify(bilingual_str& error);
 
+    std::vector<fs::path> Files() override { return {}; }
+
     /** Return path to main database filename */
     std::string Filename() override { return fs::PathToString(env->Directory() / strFile); }
 
