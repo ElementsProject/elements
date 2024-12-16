@@ -1689,6 +1689,11 @@ CWallet::ScanResult CWallet::ScanForWalletTransactions(const uint256& start_bloc
         if (max_height && block_height >= *max_height) {
             break;
         }
+        if (block_height >= WITH_LOCK(cs_wallet, return GetLastBlockHeight())) {
+            WalletLogPrintf("Stopping scan. At block %d. Progress=%f\n", block_height, progress_current);
+            break;
+        }
+
         {
             if (!next_block) {
                 // break successfully when rescan has reached the tip, or
