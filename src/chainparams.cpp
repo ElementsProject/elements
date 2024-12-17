@@ -1163,7 +1163,7 @@ public:
 
         multi_data_permitted = true;
         create_discount_ct = args.GetBoolArg("-creatediscountct", false);
-        accept_discount_ct = args.GetBoolArg("-acceptdiscountct", false) || create_discount_ct;
+        accept_discount_ct = args.GetBoolArg("-acceptdiscountct", true) || create_discount_ct;
 
         parentGenesisBlockHash = uint256S("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f");
         const bool parent_genesis_is_null = parentGenesisBlockHash == uint256();
