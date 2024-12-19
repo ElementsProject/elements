@@ -60,10 +60,10 @@ QString BitcoinUnits::longName(int unit)
     }
     switch(unit)
     {
-    case BTC: return QString("L-BTC");
-    case mBTC: return QString("mL-BTC");
-    case uBTC: return QString::fromUtf8("μL-BTC");
-    case SAT: return QString("Satoshi (L-sat)");
+    case BTC: return QString("LBTC");
+    case mBTC: return QString("mLBTC");
+    case uBTC: return QString::fromUtf8("μLBTC");
+    case SAT: return QString("Satoshi (Lsat)");
     default: return QString("???");
     }
 }
@@ -75,8 +75,8 @@ QString BitcoinUnits::shortName(int unit)
     }
     switch(unit)
     {
-    case uBTC: return QString::fromUtf8("L-bits");
-    case SAT: return QString("L-sat");
+    case uBTC: return QString::fromUtf8("Lbits");
+    case SAT: return QString("Lsat");
     default: return longName(unit);
     }
 }
