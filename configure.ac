@@ -1,8 +1,8 @@
 AC_PREREQ([2.69])
 define(_CLIENT_VERSION_MAJOR, 23)
-define(_CLIENT_VERSION_MINOR, 2)
-define(_CLIENT_VERSION_BUILD, 4)
-define(_CLIENT_VERSION_RC, 0)
+define(_CLIENT_VERSION_MINOR, 3)
+define(_CLIENT_VERSION_BUILD, 0)
+define(_CLIENT_VERSION_RC, 1)
 define(_CLIENT_VERSION_IS_RELEASE, true)
 define(_COPYRIGHT_YEAR, 2024)
 define(_COPYRIGHT_HOLDERS,[The %s developers])
@@ -851,7 +851,7 @@ if test "$use_lcov" = "yes"; then
 
   AX_CHECK_LINK_FLAG([--coverage], [LDFLAGS="$LDFLAGS --coverage"],
     [AC_MSG_ERROR([lcov testing requested but --coverage linker flag does not work])])
-  AX_CHECK_COMPILE_FLAG([--coverage],[CXXFLAGS="$CXXFLAGS --coverage"],
+  AX_CHECK_COMPILE_FLAG([--coverage],[CXXFLAGS="$CXXFLAGS --coverage";CFLAGS="$CFLAGS --coverage"],
     [AC_MSG_ERROR([lcov testing requested but --coverage flag does not work])])
   CXXFLAGS="$CXXFLAGS -Og"
 fi
