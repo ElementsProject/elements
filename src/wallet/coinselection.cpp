@@ -669,8 +669,11 @@ CAmount GetSelectionWaste(const std::set<COutput>& inputs, CAmount change_cost, 
             waste += change_cost;
         } else {
             // When we are not making change (change_cost == 0), consider the excess we are throwing away to fees
-            assert(selected_effective_value >= target);
-            waste += selected_effective_value - target;
+            // ELEMENTS: changed from assert, the selected effective value may not have reached the target yet
+            // since inputs in coinset may not be policy asset (they have 0 effective value)
+            if (selected_effective_value >= target) {
+                waste += selected_effective_value - target;
+            }
         }
     }
 
