@@ -425,7 +425,7 @@ CAmountMap GetAvailableBalance(const CWallet& wallet, const CCoinControl* coinCo
             /*nMaximumAmount=*/ MAX_MONEY,
             /*nMinimumSumAmount=*/ MAX_MONEY,
             /*nMaximumCount=*/ 0,
-            nullptr // ELEMENTS: is this correct? Should I pass in an asset filter?
+            nullptr
     ).total_amount;
 }
 
@@ -1371,7 +1371,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
                                               MAX_MONEY,    /*nMaximumAmount*/
                                               MAX_MONEY,    /*nMinimumSumAmount*/
                                               0,            /*nMaximumCount*/
-                                              nullptr // ELEMENTS: is this correct? Should I pass in an asset filter?
+                                              nullptr
                                               );
 
     // Choose coins to use

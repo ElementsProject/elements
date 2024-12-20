@@ -1078,8 +1078,6 @@ bool AppInitParameterInteraction(const ArgsManager& args, bool use_syscall_sandb
         if (args.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
             return InitError(_("-reindex-chainstate option is not compatible with -txindex. Please temporarily disable txindex while using -reindex-chainstate, or replace -reindex-chainstate with -reindex to fully rebuild all indexes."));
         }
-
-        // ELEMENTS FIXME: do we also want to disable it for trim_headers?
     }
 
 #if defined(USE_SYSCALL_SANDBOX)

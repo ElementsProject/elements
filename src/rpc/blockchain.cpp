@@ -1144,7 +1144,7 @@ static RPCHelpMan gettxout()
                 {RPCResult::Type::NUM, "confirmations", "The number of confirmations"},
                 {RPCResult::Type::STR_AMOUNT, "value", /*optional=*/true, "The transaction value in " + CURRENCY_UNIT + " if known"}, // ELEMENTS: only known if non-confidential
                 {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "The asset of the output, if known"},
-                {RPCResult::Type::STR_HEX, "valuecommitment", /*optional=*/true, "The commitment for the range proof"}, // ELEMENTS FIXME: is this correct?
+                {RPCResult::Type::STR_HEX, "valuecommitment", /*optional=*/true, "The commitment for the value"},
                 {RPCResult::Type::STR_HEX, "commitmentnonce", /*optional=*/true, "The commitment nonce"},
                 {RPCResult::Type::STR_HEX, "assetcommitment", /*optional=*/true, "Commitment for the asset"},
                 {RPCResult::Type::OBJ, "scriptPubKey", "", {

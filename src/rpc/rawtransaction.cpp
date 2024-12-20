@@ -98,8 +98,8 @@ static std::vector<RPCResult> DecodeTxDoc(const std::string& txid_field_doc)
         {RPCResult::Type::NUM, "size", "The serialized transaction size"},
         {RPCResult::Type::NUM, "vsize", "The virtual transaction size (differs from size for witness transactions)"},
         {RPCResult::Type::NUM, "weight", "The transaction's weight (between vsize*4-3 and vsize*4)"},
-        {RPCResult::Type::STR_HEX, "withash", /*optional=*/true, "The hash of the witness"}, // ELEMENTS FIXME: is this optional?
-        {RPCResult::Type::STR_HEX, "wtxid", /*optional=*/true, "The hash of the witness"}, // ELEMENTS FIXME: is this correct?
+        {RPCResult::Type::STR_HEX, "withash", /*optional=*/true, "The hash of the witness"},
+        {RPCResult::Type::STR_HEX, "wtxid", /*optional=*/true, "Hash of the serialized transaction, including witness data"},
         {RPCResult::Type::NUM, "version", "The version"},
         {RPCResult::Type::NUM_TIME, "locktime", "The lock time"},
         {RPCResult::Type::ARR, "vin", "",
@@ -141,7 +141,7 @@ static std::vector<RPCResult> DecodeTxDoc(const std::string& txid_field_doc)
                 {RPCResult::Type::STR_HEX, "surjectionproof", /*optional=*/true, "The surjection proof for the output"},
                 {RPCResult::Type::NUM, "value-maximum", /*optional=*/true, "The maximum value in the range of the confidential output"},
                 {RPCResult::Type::NUM, "value-minimum", /*optional=*/true, "The minimum value in the range of the confidential output"},
-                {RPCResult::Type::STR_HEX, "valuecommitment", /*optional=*/true, "The commitment for the range proof"}, // ELEMENTS FIXME: is this correct?
+                {RPCResult::Type::STR_HEX, "valuecommitment", /*optional=*/true, "The commitment of the value"},
                 {RPCResult::Type::OBJ, "scriptPubKey", "",
                 {
                     {RPCResult::Type::STR, "asm", "Disassembly of the public key script"},
