@@ -327,8 +327,6 @@ CoinsResult AvailableCoins(const CWallet& wallet,
 
             CAmount outValue = wtx.GetOutputValueOut(wallet, i);
             CAsset asset = wtx.GetOutputAsset(wallet, i);
-            uint256 bfValue = wtx.GetOutputAmountBlindingFactor(wallet, i);
-            uint256 bfAsset = wtx.GetOutputAssetBlindingFactor(wallet, i);
             if (asset_filter && asset != *asset_filter) {
                 continue;
             }

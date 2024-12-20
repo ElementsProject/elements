@@ -1359,7 +1359,6 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
         vecSend.push_back(recipient);
     }
 
-    CAmount nFeeRequired;
     constexpr int RANDOM_CHANGE_POSITION = -1;
     bilingual_str error;
     FeeCalculation fee_calc_out;
@@ -1370,7 +1369,6 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
     if (!txr) {
         throw JSONRPCError(RPC_WALLET_ERROR, error.original);
     }
-    nFeeRequired = (*txr).fee;
 
     mapValue_t map_value;
     pwallet->CommitTransaction((*txr).tx, std::move(map_value), {} /* orderForm */, &blind_details);
