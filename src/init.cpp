@@ -653,7 +653,7 @@ void SetupServerArgs(ArgsManager& argsman)
     argsman.AddArg("-initialreissuancetokens=<n>", "The amount of reissuance tokens created in the genesis block. (default: 0)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-ct_bits", strprintf("The default number of hiding bits in a rangeproof. Will be exceeded to cover amounts exceeding the maximum hiding value. (default: %d)", 52), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-ct_exponent", strprintf("The hiding exponent. (default: %s)", 0), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    argsman.AddArg("-acceptdiscountct", "Accept discounted fees for Confidential Transactions (default: false)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-acceptdiscountct", "Accept discounted fees for Confidential Transactions (default: true in liquidtestnet and liquidv1, false otherwise)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-creatediscountct", "Create Confidential Transactions with discounted fees (default: false). Setting this to true will also set 'acceptdiscountct' to true.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
 
 #if defined(USE_SYSCALL_SANDBOX)
