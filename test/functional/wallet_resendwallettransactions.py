@@ -83,7 +83,7 @@ class ResendWalletTransactionsTest(BitcoinTestFramework):
         # ordering of mapWallet is, if the child is not before the parent, we will create a new
         # child (via bumpfee) and remove the old child (via removeprunedfunds) until we get the
         # ordering of child before parent.
-        child_txid = node.send(outputs=[{addr: 0.5}], options={"inputs": [{"txid":txid, "vout":0}]})["txid"]
+        child_txid = node.send(outputs=[{addr: 0.5}], options={"inputs": [{"txid":txid, "vout":0}], "replaceable": True})["txid"] # ELEMENTS FIXME: ensure replaceable, intermittent error "Transaction is not BIP 125 replaceable"
         while True:
             txids = node.listreceivedbyaddress(minconf=0, address_filter=addr)[0]["txids"]
             if txids == [child_txid, txid]:
