@@ -365,7 +365,8 @@ static RPCHelpMan createrawtransaction()
     if (!request.params[3].isNull()) {
         rbf = request.params[3].isTrue();
     }
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, chainman.ActiveChain().Tip());
+    auto tip = WITH_LOCK(::cs_main, return chainman.ActiveChain().Tip());
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, tip);
 
     return EncodeHexTx(CTransaction(rawTx));
 },
@@ -746,7 +747,8 @@ static RPCHelpMan signrawtransactionwithkey()
     ParsePrevouts(request.params[2], &keystore, coins);
 
     UniValue result(UniValue::VOBJ);
-    SignTransaction(mtx, &keystore, coins, request.params[3], result, chainman.ActiveChain().Tip());
+    auto tip = WITH_LOCK(::cs_main, return chainman.ActiveChain().Tip());
+    SignTransaction(mtx, &keystore, coins, request.params[3], result, tip);
     return result;
 },
     };
@@ -1894,7 +1896,8 @@ static RPCHelpMan createpsbt()
         rbf = request.params[3].isTrue();
     }
     std::map<CTxOut, PSBTOutput> psbt_outs;
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, chainman.ActiveChain().Tip(), &psbt_outs, true /* allow_peg_in */, true /* allow_issuance */);
+    auto tip = WITH_LOCK(::cs_main, return chainman.ActiveChain().Tip());
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, tip, &psbt_outs, true /* allow_peg_in */, true /* allow_issuance */);
 
     // Make a blank psbt
     uint32_t psbt_version = 2;
@@ -2523,7 +2526,8 @@ static RPCHelpMan rawblindrawtransaction()
             "Invalid parameter: one (potentially empty) input asset blind for each input must be provided");
     }
 
-    const auto& fedpegscripts = GetValidFedpegScripts(chainman.ActiveChain().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    auto tip = WITH_LOCK(::cs_main, return chainman.ActiveChain().Tip());
+    const auto& fedpegscripts = GetValidFedpegScripts(tip, Params().GetConsensus(), true /* nextblock_validation */);
 
     std::vector<CAmount> input_amounts;
     std::vector<uint256> input_blinds;

@@ -1100,7 +1100,8 @@ static RPCHelpMan getnewblockhex()
     // Construct proposed parameter entry, if any
     DynaFedParamEntry proposed;
     if (!request.params[1].isNull()) {
-        if (!DeploymentActiveAfter(chainman.ActiveChain().Tip(), chainman, Consensus::DEPLOYMENT_DYNA_FED)) {
+        auto tip = WITH_LOCK(::cs_main, return chainman.ActiveChain().Tip());
+        if (!DeploymentActiveAfter(tip, chainman, Consensus::DEPLOYMENT_DYNA_FED)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Dynamic federations is not active on this network. Proposed parameters are not needed.");
         }
 

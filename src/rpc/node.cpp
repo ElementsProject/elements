@@ -452,7 +452,8 @@ static RPCHelpMan tweakfedpegscript()
     }
 
     ChainstateManager& chainman = EnsureAnyChainman(request.context);
-    CScript fedpegscript = GetValidFedpegScripts(chainman.ActiveChain().Tip(), Params().GetConsensus(), true /* nextblock_validation */).front().second;
+    auto tip = WITH_LOCK(::cs_main, return chainman.ActiveChain().Tip());
+    CScript fedpegscript = GetValidFedpegScripts(tip, Params().GetConsensus(), true /* nextblock_validation */).front().second;
 
     if (!request.params[1].isNull()) {
         if (IsHex(request.params[1].get_str())) {
