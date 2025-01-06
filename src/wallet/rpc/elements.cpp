@@ -1361,7 +1361,6 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
 
     constexpr int RANDOM_CHANGE_POSITION = -1;
     bilingual_str error;
-    FeeCalculation fee_calc_out;
     CCoinControl dummy_control;
     BlindDetails blind_details;
     util::Result<CreatedTransactionResult> txr = CreateTransaction(*pwallet, vecSend, RANDOM_CHANGE_POSITION,
