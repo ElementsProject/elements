@@ -91,7 +91,7 @@ std::vector<unsigned char> ParseHexO(const UniValue& o, std::string strKey);
  * @param[in] decimals  Number of significant digits (default: 8).
  * @returns a CAmount if the various checks pass.
  */
-CAmount AmountFromValue(const UniValue& value, int decimals = 8);
+CAmount AmountFromValue(const UniValue& value, bool check_range = true, int decimals = 8);
 
 using RPCArgList = std::vector<std::pair<std::string, UniValue>>;
 std::string HelpExampleCli(const std::string& methodname, const std::string& args);

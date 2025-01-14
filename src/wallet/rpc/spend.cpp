@@ -50,7 +50,7 @@ static void ParseRecipients(const UniValue& address_amounts, const UniValue& add
         destinations.insert(dest);
 
         CScript script_pub_key = GetScriptForDestination(dest);
-        CAmount amount = AmountFromValue(address_amounts[i++]);
+        CAmount amount = AmountFromValue(address_amounts[i++], asset == Params().GetConsensus().pegged_asset);
 
         bool subtract_fee = false;
         for (unsigned int idx = 0; idx < subtract_fee_outputs.size(); idx++) {
@@ -124,7 +124,7 @@ static void SetFeeEstimateMode(const CWallet& wallet, CCoinControl& cc, const Un
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot specify both estimate_mode and fee_rate");
         }
         // Fee rates in sat/vB cannot represent more than 3 significant digits.
-        cc.m_feerate = CFeeRate{AmountFromValue(fee_rate, /* decimals */ 3)};
+        cc.m_feerate = CFeeRate{AmountFromValue(fee_rate, /*check_range=*/true, /*decimals=*/3)};
         if (override_min_fee) cc.fOverrideFeeRate = true;
         // Default RBF to true for explicit fee_rate, if unset.
         if (!cc.m_signal_bip125_rbf) cc.m_signal_bip125_rbf = true;
