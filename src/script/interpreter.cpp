@@ -2660,7 +2660,8 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
         }
 
         rawTransaction simplicityRawTx;
-        simplicityRawTx.txid = txTo.GetHash().begin();
+        uint256 rawHash = txTo.GetHash();
+        simplicityRawTx.txid = rawHash.begin();
         simplicityRawTx.input = simplicityRawInput.data();
         simplicityRawTx.numInputs = simplicityRawInput.size();
         simplicityRawTx.output = simplicityRawOutput.data();
