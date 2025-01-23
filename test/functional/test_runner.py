@@ -112,6 +112,7 @@ BASE_SCRIPTS = [
     'rpc_getnewblockhex.py',
     'wallet_elements_regression_1172.py --legacy-wallet',
     'wallet_elements_regression_1259.py --legacy-wallet',
+    'wallet_elements_21million.py',
     'feature_trim_headers.py',
     # Longest test should go first, to favor running tests in parallel
     'wallet_hd.py --legacy-wallet',
