@@ -1430,7 +1430,7 @@ CAmountMap CWallet::GetDebit(const CTransaction& tx, const isminefilter& filter)
     for (const CTxIn& txin : tx.vin)
     {
         nDebit += GetDebit(txin, filter);
-        if (!MoneyRange(nDebit))
+        if (!MoneyRange(nDebit, Params().GetConsensus().pegged_asset))
             throw std::runtime_error(std::string(__func__) + ": value out of range");
     }
     return nDebit;

@@ -90,13 +90,17 @@ bool operator==(const CAmountMap& a, const CAmountMap& b);
 bool operator!=(const CAmountMap& a, const CAmountMap& b);
 bool operator!(const CAmountMap& a); // Check if all values are 0
 
-inline bool MoneyRange(const CAmountMap& mapValue) {
+inline bool MoneyRange(const CAmountMap& mapValue, const CAsset& pegged_asset) {
     for(CAmountMap::const_iterator it = mapValue.begin(); it != mapValue.end(); it++) {
-        if (it->second < 0 || it->second > MAX_MONEY) {
+        if (it->second < 0 || ((pegged_asset.IsNull() || it->first == pegged_asset) && it->second > MAX_MONEY)) {
             return false;
         }
     }
    return true;
+}
+
+inline bool MoneyRange(const CAmountMap& mapValue) {
+    return MoneyRange(mapValue, CAsset());
 }
 
 CAmount valueFor(const CAmountMap& mapValue, const CAsset& asset);
