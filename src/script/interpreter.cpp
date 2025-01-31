@@ -3124,7 +3124,7 @@ bool GenericTransactionSignatureChecker<T>::CheckSimplicity(const valtype& progr
     if (!simplicity_elements_execSimplicity(&error, 0, txdata->m_simplicity_tx_data, nIn, simplicityTapEnv, txdata->m_hash_genesis_block.data(), budget, 0, program.data(), program.size(), witness.data(), witness.size())) {
         assert(!"simplicity_elements_execSimplicity internal error");
     }
-    free(simplicityTapEnv);
+    simplicity_elements_freeTapEnv(simplicityTapEnv);
     switch (error) {
     case SIMPLICITY_NO_ERROR: return set_success(serror);
     case SIMPLICITY_ERR_MALLOC:
@@ -3134,7 +3134,7 @@ bool GenericTransactionSignatureChecker<T>::CheckSimplicity(const valtype& progr
     case SIMPLICITY_ERR_DATA_OUT_OF_RANGE: return set_error(serror, SCRIPT_ERR_SIMPLICITY_DATA_OUT_OF_RANGE);
     case SIMPLICITY_ERR_DATA_OUT_OF_ORDER: return set_error(serror, SCRIPT_ERR_SIMPLICITY_DATA_OUT_OF_ORDER);
     case SIMPLICITY_ERR_FAIL_CODE: return set_error(serror, SCRIPT_ERR_SIMPLICITY_FAIL_CODE);
-    case SIMPLICITY_ERR_STOP_CODE: return set_error(serror, SCRIPT_ERR_SIMPLICITY_STOP_CODE);
+    case SIMPLICITY_ERR_RESERVED_CODE: return set_error(serror, SCRIPT_ERR_SIMPLICITY_RESERVED_CODE);
     case SIMPLICITY_ERR_HIDDEN: return set_error(serror, SCRIPT_ERR_SIMPLICITY_HIDDEN);
     case SIMPLICITY_ERR_BITSTREAM_EOF: return set_error(serror, SCRIPT_ERR_SIMPLICITY_BITSTREAM_EOF);
     case SIMPLICITY_ERR_BITSTREAM_TRAILING_BYTES: return set_error(serror, SCRIPT_ERR_SIMPLICITY_BITSTREAM_TRAILING_BYTES);
