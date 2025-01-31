@@ -18,7 +18,9 @@
 #    error Cannot compile precomputed_ecmult.c in exhaustive test mode
 #endif /* EXHAUSTIVE_TEST_ORDER */
 #define WINDOW_G ECMULT_WINDOW_SIZE
-static const secp256k1_ge_storage secp256k1_pre_g[ECMULT_TABLE_SIZE(WINDOW_G)] = {
+static const secp256k1_ge_storage secp256k1_pre_g[ECMULT_TABLE_SIZE(WINDOW_G)]
+#ifndef VST
+ = {
  S(79be667e,f9dcbbac,55a06295,ce870b07,29bfcdb,2dce28d9,59f2815b,16f81798,483ada77,26a3c465,5da4fbfc,e1108a8,fd17b448,a6855419,9c47d08f,fb10d4b8)
 #if WINDOW_G > 2
 ,S(f9308a01,9258c310,49344f85,f89d5229,b531c845,836f99b0,8601f113,bce036f9,388f7b0f,632de814,fe337e6,2a37f356,6500a999,34c2231b,6cb9fd75,84b8e672)
@@ -8237,8 +8239,12 @@ static const secp256k1_ge_storage secp256k1_pre_g[ECMULT_TABLE_SIZE(WINDOW_G)] =
 ,S(20990660,f1055420,b885fb0a,38824740,3b141c37,5aa20dce,8a29191a,e77bbb16,7d434476,9e302e38,9e14c02e,f5fd8a5c,64cfcf3d,e9813f1c,f53bc6d3,4da93559)
 ,S(1e70619c,381a6adc,e5d925e0,c9c74f97,3c02ff64,ff2662d7,34efc485,d2bce895,c923f771,f543ffed,42935c28,8474aaaf,80a46ad4,3c579ce0,bb5e663d,668b24b3)
 #endif
-};
-static const secp256k1_ge_storage secp256k1_pre_g_128[ECMULT_TABLE_SIZE(WINDOW_G)] = {
+}
+#endif
+;
+static const secp256k1_ge_storage secp256k1_pre_g_128[ECMULT_TABLE_SIZE(WINDOW_G)]
+#ifndef VST
+ = {
  S(8f68b9d2,f63b5f33,9239c1ad,981f162e,e88c5678,723ea335,1b7b444c,9ec4c0da,662a9f2d,ba063986,de1d90c2,b6be215d,bbea2cfe,95510bfd,f23cbf79,501fff82)
 #if WINDOW_G > 2
 ,S(38381dbe,2e509f22,8ba93363,f2451f08,fd845cb3,51d954be,18e2b8ed,d23809fa,e4a32d0a,fb917dc,b09405a5,520eb1cc,3681fccb,32d8f24d,bd707518,331fed52)
@@ -16457,7 +16463,9 @@ static const secp256k1_ge_storage secp256k1_pre_g_128[ECMULT_TABLE_SIZE(WINDOW_G
 ,S(15a1ae40,b4fc51dc,554b75d4,db0c2bfd,62dfbbfc,dede18e1,4edbb689,91525cff,4f0453b7,e4e0e99d,9663e5c6,bb018007,b52c8e14,d78a28d,c4a888e4,8c4326c2)
 ,S(1b9a142f,fc4d03ea,4b079f2d,b05fad98,8ddb2d32,b359967f,c173801f,63320825,59bda7ed,5b691c20,4fc8f8ac,f53be298,ae628954,a8134d0f,dd097e67,be9ff9b6)
 #endif
-};
+}
+#endif
+;
 #undef S
 
 #endif /* SECP256K1_PRECOMPUTED_ECMULT_H */

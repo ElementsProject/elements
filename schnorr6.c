@@ -29,8 +29,8 @@ const uint32_t schnorr6_cmr[] = {
   0x83b6b5bcu, 0xc9bdc956u, 0xaf326376u, 0xf201aa7au, 0x2e65bb9eu, 0xedca6a06u, 0x65976452u, 0x5203cf68u
 };
 
-/* The identity Merkle root of the above schnorr6 Simplicity expression. */
-const uint32_t schnorr6_imr[] = {
+/* The identity hash of the root of the above schnorr6 Simplicity expression. */
+const uint32_t schnorr6_ihr[] = {
   0x53acece2u, 0xa5e61e36u, 0xd6c57f92u, 0x4cff9c45u, 0x0a283badu, 0x853aab59u, 0xebdf384du, 0x26264fefu
 };
 

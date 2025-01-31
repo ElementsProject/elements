@@ -48,8 +48,8 @@ const uint32_t typeSkipTest_cmr[] = {
   0x2a791cd8u, 0xf1e2beeau, 0x883e53f2u, 0xce36db2bu, 0x246b3156u, 0xcc40f91bu, 0xb2f59059u, 0xb601ac4au
 };
 
-/* The identity Merkle root of the above typeSkipTest Simplicity expression. */
-const uint32_t typeSkipTest_imr[] = {
+/* The identity hash of the root of the above typeSkipTest Simplicity expression. */
+const uint32_t typeSkipTest_ihr[] = {
   0xbadac773u, 0x19e9cabau, 0x7fe49174u, 0x54d0e25eu, 0x7d4c4a7eu, 0x4867c392u, 0x20bf409au, 0xc6e6bf10u
 };
 

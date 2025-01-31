@@ -18,8 +18,8 @@ extern const size_t sizeof_ctx8Unpruned_witness;
 /* The commitment Merkle root of the above ctx8Unpruned Simplicity expression. */
 extern const uint32_t ctx8Unpruned_cmr[];
 
-/* The identity Merkle root of the above ctx8Unpruned Simplicity expression. */
-extern const uint32_t ctx8Unpruned_imr[];
+/* The identity hash of the root of the above ctx8Unpruned Simplicity expression. */
+extern const uint32_t ctx8Unpruned_ihr[];
 
 /* The annotated Merkle root of the above ctx8Unpruned Simplicity expression. */
 extern const uint32_t ctx8Unpruned_amr[];
