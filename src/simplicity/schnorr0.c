@@ -29,8 +29,8 @@ const uint32_t schnorr0_cmr[] = {
   0x8a9e9767u, 0x6b24be77u, 0x97d9ee0bu, 0xf32dd76bu, 0xcd78028eu, 0x973025f7u, 0x85eae8dcu, 0x91c8a0dau
 };
 
-/* The identity Merkle root of the above schnorr0 Simplicity expression. */
-const uint32_t schnorr0_imr[] = {
+/* The identity hash of the root of the above schnorr0 Simplicity expression. */
+const uint32_t schnorr0_ihr[] = {
   0xad7c38b1u, 0x6b912964u, 0x6dc89b52u, 0xcff144deu, 0x94a80e38u, 0x3c4983b5u, 0x3de65e35u, 0x75abcf38u
 };
 

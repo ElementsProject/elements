@@ -180,8 +180,8 @@ const uint32_t hashBlock_cmr[] = {
   0xa07dd7d8u, 0x22aed1adu, 0x40576a7au, 0x69fa1082u, 0x52d3dd89u, 0x539b1e4eu, 0x1f567851u, 0x9abf54e5u
 };
 
-/* The identity Merkle root of the above hashBlock Simplicity expression. */
-const uint32_t hashBlock_imr[] = {
+/* The identity hash of the root of the above hashBlock Simplicity expression. */
+const uint32_t hashBlock_ihr[] = {
   0x609cc145u, 0x9375db72u, 0x8f2172c9u, 0x62807e31u, 0x61df4cceu, 0xd6592d2cu, 0x4e594a77u, 0x79ab3175u
 };
 

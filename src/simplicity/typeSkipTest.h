@@ -38,8 +38,8 @@ extern const size_t sizeof_typeSkipTest_witness;
 /* The commitment Merkle root of the above typeSkipTest Simplicity expression. */
 extern const uint32_t typeSkipTest_cmr[];
 
-/* The identity Merkle root of the above typeSkipTest Simplicity expression. */
-extern const uint32_t typeSkipTest_imr[];
+/* The identity hash of the root of the above typeSkipTest Simplicity expression. */
+extern const uint32_t typeSkipTest_ihr[];
 
 /* The annotated Merkle root of the above typeSkipTest Simplicity expression. */
 extern const uint32_t typeSkipTest_amr[];
