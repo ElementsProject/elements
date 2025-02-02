@@ -315,6 +315,7 @@ test_fuzz_fuzz_SOURCES = \
  test/fuzz/signet.cpp \
  test/fuzz/simplicity_compute_amr.c \
  test/fuzz/simplicity.cpp \
+ test/fuzz/simplicity_tx.cpp \
  test/fuzz/socks5.cpp \
  test/fuzz/span.cpp \
  test/fuzz/spanparsing.cpp \

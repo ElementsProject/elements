@@ -18,15 +18,15 @@ extern "C" {
 #include <string>
 #include <vector>
 
-uint256 GENESIS_HASH;
+static uint256 GENESIS_HASH;
 
-CConfidentialAsset INPUT_ASSET_UNCONF{};
-CConfidentialAsset INPUT_ASSET_CONF{};
-CConfidentialValue INPUT_VALUE_UNCONF{};
-CConfidentialValue INPUT_VALUE_CONF{};
-CScript TAPROOT_SCRIPT_PUB_KEY{};
-std::vector<unsigned char> TAPROOT_CONTROL{};
-std::vector<unsigned char> TAPROOT_ANNEX(99, 0x50);
+static CConfidentialAsset INPUT_ASSET_UNCONF{};
+static CConfidentialAsset INPUT_ASSET_CONF{};
+static CConfidentialValue INPUT_VALUE_UNCONF{};
+static CConfidentialValue INPUT_VALUE_CONF{};
+static CScript TAPROOT_SCRIPT_PUB_KEY{};
+static std::vector<unsigned char> TAPROOT_CONTROL{};
+static std::vector<unsigned char> TAPROOT_ANNEX(99, 0x50);
 //CMutableTransaction MTX_TEMPLATE{};
 
 // Defined in simplicity_compute_amr.c
