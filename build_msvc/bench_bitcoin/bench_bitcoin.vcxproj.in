@@ -5,6 +5,7 @@
     <ProjectGuid>{1125654E-E1B2-4431-8B5C-62EA9A2FEECB}</ProjectGuid>
   </PropertyGroup>
   <PropertyGroup>
+    <TargetName>bench_elements</TargetName>
     <ConfigurationType>Application</ConfigurationType>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
