@@ -351,7 +351,7 @@ RPCHelpMan sendmany()
                 "\nSend multiple times. Amounts are double-precision floating point numbers." +
         HELP_REQUIRING_PASSPHRASE,
                 {
-                    {"dummy", RPCArg::Type::STR, RPCArg::Optional::NO, "Must be set to \"\" for backwards compatibility.", "\"\""},
+                    {"dummy", RPCArg::Type::STR, RPCArg::Optional::NO, "Must be set to \"\" for backwards compatibility.", RPCArgOptions{.oneline_description="\"\""}},
                     {"amounts", RPCArg::Type::OBJ_USER_KEYS, RPCArg::Optional::NO, "The addresses and amounts",
                         {
                             {"address", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The address is the key, the numeric amount (can be string) in " + CURRENCY_UNIT + " is the value"},
@@ -556,8 +556,6 @@ void FundTransaction(CWallet& wallet, CMutableTransaction& tx, CAmount& fee_out,
         coinControl.fAllowWatchOnly = options.get_bool();
       }
       else {
-        RPCTypeCheckArgument(options, UniValue::VOBJ);
-
         RPCTypeCheckObj(options,
             {
                 {"add_inputs", UniValueType(UniValue::VBOOL)},
@@ -858,7 +856,7 @@ RPCHelpMan fundrawtransaction()
                              },
                         },
                         FundTxDoc()),
-                        "options"},
+                        RPCArgOptions{.oneline_description="options"}},
                     {"iswitness", RPCArg::Type::BOOL, RPCArg::DefaultHint{"depends on heuristic tests"}, "Whether the transaction hex is a serialized witness transaction.\n"
                         "If iswitness is not present, heuristic tests will be used in decoding.\n"
                         "If true, only witness deserialization will be tried.\n"
@@ -1074,7 +1072,7 @@ static RPCHelpMan bumpfee_helper(std::string method_name)
                     {"estimate_mode", RPCArg::Type::STR, RPCArg::Default{"unset"}, "The fee estimate mode, must be one of (case insensitive):\n"
                      "\"" + FeeModes("\"\n\"") + "\""},
                 },
-                "options"},
+                RPCArgOptions{.oneline_description="options"}},
         },
         RPCResult{
             RPCResult::Type::OBJ, "", "", Cat(
@@ -1279,7 +1277,7 @@ RPCHelpMan send()
                     },
                 },
                 FundTxDoc()),
-                "options"},
+                RPCArgOptions{.oneline_description="options"}},
         },
         RPCResult{
             RPCResult::Type::OBJ, "", "",
@@ -1391,7 +1389,7 @@ RPCHelpMan sendall()
                     },
                     FundTxDoc()
                 ),
-                "options"
+                RPCArgOptions{.oneline_description="options"}
             },
         },
         RPCResult{
@@ -1489,12 +1487,11 @@ RPCHelpMan sendall()
                     if (pwallet->IsSpent(input.prevout)) {
                         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Input not available. UTXO (%s:%d) was already spent.", input.prevout.hash.ToString(), input.prevout.n));
                     }
-                    const auto wtx = pwallet->GetWalletTx(input.prevout.hash);
-                    const CWalletTx* tx{wtx};
-                    if (!tx || pwallet->IsMine(tx->tx->vout[input.prevout.n]) != (coin_control.fAllowWatchOnly ? ISMINE_ALL : ISMINE_SPENDABLE)) {
+                    const CWalletTx* tx{pwallet->GetWalletTx(input.prevout.hash)};
+                    if (!tx || input.prevout.n >= tx->tx->vout.size() || !(pwallet->IsMine(tx->tx->vout[input.prevout.n]) & (coin_control.fAllowWatchOnly ? ISMINE_ALL : ISMINE_SPENDABLE))) {
                         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Input not found. UTXO (%s:%d) is not part of wallet.", input.prevout.hash.ToString(), input.prevout.n));
                     }
-                    total_input_value += wtx->GetOutputValueOut(*pwallet, i);
+                    total_input_value += tx->GetOutputValueOut(*pwallet, i);
                 }
             } else {
                 const auto& outputs = AvailableCoins(*pwallet, &coin_control, fee_rate, /*nMinimumAmount=*/0).All();
@@ -1770,7 +1767,7 @@ RPCHelpMan walletcreatefundedpsbt()
                             },
                         },
                         FundTxDoc()),
-                        "options"},
+                        RPCArgOptions{.oneline_description="options"}},
                     {"bip32derivs", RPCArg::Type::BOOL, RPCArg::Default{true}, "Include BIP 32 derivation paths for public keys if we know them"},
                     {"solving_data", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED_NAMED_ARG, "Keys and scripts needed for producing a final transaction with a dummy signature. Used for fee estimation during coin selection.\n",
                         {
@@ -1836,7 +1833,6 @@ RPCHelpMan walletcreatefundedpsbt()
     bool rbf{wallet.m_signal_rbf};
     const UniValue &replaceable_arg = options["replaceable"];
     if (!replaceable_arg.isNull()) {
-        RPCTypeCheckArgument(replaceable_arg, UniValue::VBOOL);
         rbf = replaceable_arg.isTrue();
     }
     // It's hard to control the behavior of FundTransaction, so we will wait

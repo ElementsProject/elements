@@ -1,4 +1,4 @@
-BIPs that are implemented by Bitcoin Core (up-to-date up to **v23.0**):
+BIPs that are implemented by Bitcoin Core (up-to-date up to **v24.0**):
 
 * [`BIP 9`](https://github.com/bitcoin/bips/blob/master/bip-0009.mediawiki): The changes allowing multiple soft-forks to be deployed in parallel have been implemented since **v0.12.1**  ([PR #7575](https://github.com/bitcoin/bitcoin/pull/7575))
 * [`BIP 11`](https://github.com/bitcoin/bips/blob/master/bip-0011.mediawiki): Multisig outputs are standard since **v0.6.0** ([PR #669](https://github.com/bitcoin/bitcoin/pull/669)).
@@ -58,6 +58,7 @@ BIPs that are implemented by Bitcoin Core (up-to-date up to **v23.0**):
   with mainnet activation as of **v0.21.1** ([PR 21377](https://github.com/bitcoin/bitcoin/pull/21377),
   [PR 21686](https://github.com/bitcoin/bitcoin/pull/21686)).
 * [`BIP 350`](https://github.com/bitcoin/bips/blob/master/bip-0350.mediawiki): Addresses for native v1+ segregated Witness outputs use Bech32m instead of Bech32 as of **v22.0** ([PR 20861](https://github.com/bitcoin/bitcoin/pull/20861)).
+* [`BIP 371`](https://github.com/bitcoin/bips/blob/master/bip-0371.mediawiki): Taproot fields for PSBT as of **v24.0** ([PR 22558](https://github.com/bitcoin/bitcoin/pull/22558)).
 * [`BIP 380`](https://github.com/bitcoin/bips/blob/master/bip-0380.mediawiki)
   [`381`](https://github.com/bitcoin/bips/blob/master/bip-0381.mediawiki)
   [`382`](https://github.com/bitcoin/bips/blob/master/bip-0382.mediawiki)

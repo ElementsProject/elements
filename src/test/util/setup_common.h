@@ -8,20 +8,22 @@
 #include <chainparamsbase.h>
 #include <fs.h>
 #include <key.h>
-#include <util/system.h>
 #include <node/caches.h>
 #include <node/context.h>
+#include <primitives/transaction.h>
 #include <pubkey.h>
 #include <random.h>
 #include <stdexcept>
-#include <txmempool.h>
 #include <util/check.h>
 #include <util/string.h>
+#include <util/system.h>
 #include <util/vector.h>
 
 #include <functional>
 #include <type_traits>
 #include <vector>
+
+class Chainstate;
 
 /** This is connected to the logger. Can be used to redirect logs to any other log */
 extern const std::function<void(const std::string&)> G_TEST_LOG_FUN;
@@ -83,15 +85,12 @@ static constexpr CAmount CENT{1000000};
 struct BasicTestingSetup {
     node::NodeContext m_node; // keep as first member to be destructed last
 
-    explicit BasicTestingSetup(const std::string& chainName = CBaseChainParams::MAIN, const std::string& fedpegscript = "", const std::vector<const char*>& extra_args = {});
+    explicit BasicTestingSetup(const std::string& chainName = CBaseChainParams::MAIN, const std::vector<const char*>& extra_args = {}, const std::string& fedpegscript = "");
     ~BasicTestingSetup();
 
     const fs::path m_path_root;
     ArgsManager m_args;
 };
-
-
-CTxMemPool::Options MemPoolOptionsForTest(const node::NodeContext& node);
 
 /** Testing setup that performs all steps up until right before
  * ChainstateManager gets initialized. Meant for testing ChainstateManager
@@ -100,14 +99,24 @@ CTxMemPool::Options MemPoolOptionsForTest(const node::NodeContext& node);
 struct ChainTestingSetup : public BasicTestingSetup {
     node::CacheSizes m_cache_sizes{};
 
-    explicit ChainTestingSetup(const std::string& chainName = CBaseChainParams::MAIN, const std::string& fedpegscript = "", const std::vector<const char*>& extra_args = {});
+    explicit ChainTestingSetup(const std::string& chainName = CBaseChainParams::MAIN, const std::vector<const char*>& extra_args = {}, const std::string& fedpegscript = "");
     ~ChainTestingSetup();
 };
 
 /** Testing setup that configures a complete environment.
  */
 struct TestingSetup : public ChainTestingSetup {
-    explicit TestingSetup(const std::string& chainName = CBaseChainParams::MAIN, const std::string& fedpegscript = "", const std::vector<const char*>& extra_args = {});
+    bool m_coins_db_in_memory{true};
+    bool m_block_tree_db_in_memory{true};
+
+    void LoadVerifyActivateChainstate();
+
+    explicit TestingSetup(
+        const std::string& chainName = CBaseChainParams::MAIN,
+        const std::vector<const char*>& extra_args = {},
+        const std::string& fedpegscript = "",
+        const bool coins_db_in_memory = true,
+        const bool block_tree_db_in_memory = true);
 };
 
 /** Identical to TestingSetup, but chain set to regtest */
@@ -124,9 +133,12 @@ class CScript;
  * Testing fixture that pre-creates a 100-block REGTEST-mode block chain
  */
 struct TestChain100Setup : public TestingSetup {
-    TestChain100Setup(const std::string& chain_name = CBaseChainParams::REGTEST,
-                      const std::string& fedpegscript = "",
-                      const std::vector<const char*>& extra_args = {});
+    TestChain100Setup(
+        const std::string& chain_name = CBaseChainParams::REGTEST,
+        const std::vector<const char*>& extra_args = {},
+        const std::string& fedpegscript = "",
+        const bool coins_db_in_memory = true,
+        const bool block_tree_db_in_memory = true);
 
     /**
      * Create a new block with just given transactions, coinbase paying to
@@ -190,7 +202,7 @@ struct TestChain100Setup : public TestingSetup {
  * be used in "hot loops", for example fuzzing or benchmarking.
  */
 template <class T = const BasicTestingSetup>
-std::unique_ptr<T> MakeNoLogFileContext(const std::string& chain_name = CBaseChainParams::REGTEST, const std::string& fedpegscript = "", const std::vector<const char*>& extra_args = {})
+std::unique_ptr<T> MakeNoLogFileContext(const std::string& chain_name = CBaseChainParams::REGTEST, const std::vector<const char*>& extra_args = {}, const std::string& fedpegscript = "")
 {
     const std::vector<const char*> arguments = Cat(
         {
@@ -199,39 +211,8 @@ std::unique_ptr<T> MakeNoLogFileContext(const std::string& chain_name = CBaseCha
         },
         extra_args);
 
-    return std::make_unique<T>(chain_name, fedpegscript, arguments);
+    return std::make_unique<T>(chain_name, arguments, fedpegscript);
 }
-
-class CTxMemPoolEntry;
-
-struct TestMemPoolEntryHelper
-{
-    // Default values
-    CAmount nFee;
-    int64_t nTime;
-    unsigned int nHeight;
-    bool spendsCoinbase;
-    unsigned int sigOpCost;
-    LockPoints lp;
-    // ELEMENTS:
-    std::set<std::pair<uint256, COutPoint>> setPeginsSpent;
-
-    TestMemPoolEntryHelper() :
-        nFee(0), nTime(0), nHeight(1),
-        spendsCoinbase(false), sigOpCost(4) { }
-
-    CTxMemPoolEntry FromTx(const CMutableTransaction& tx) const;
-    CTxMemPoolEntry FromTx(const CTransactionRef& tx) const;
-
-    // Change the default value
-    TestMemPoolEntryHelper &Fee(CAmount _fee) { nFee = _fee; return *this; }
-    TestMemPoolEntryHelper &Time(int64_t _time) { nTime = _time; return *this; }
-    TestMemPoolEntryHelper &Height(unsigned int _height) { nHeight = _height; return *this; }
-    TestMemPoolEntryHelper &SpendsCoinbase(bool _flag) { spendsCoinbase = _flag; return *this; }
-    TestMemPoolEntryHelper &SigOpsCost(unsigned int _sigopsCost) { sigOpCost = _sigopsCost; return *this; }
-    // ELEMENTS:
-    TestMemPoolEntryHelper &PeginsSpent(std::set<std::pair<uint256, COutPoint> >& _setPeginsSpent) { setPeginsSpent = _setPeginsSpent; return *this; }
-};
 
 CBlock getBlock13b8a();
 

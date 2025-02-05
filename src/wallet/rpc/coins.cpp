@@ -344,8 +344,6 @@ RPCHelpMan lockunspent()
 
     LOCK(pwallet->cs_wallet);
 
-    RPCTypeCheckArgument(request.params[0], UniValue::VBOOL);
-
     bool fUnlock = request.params[0].get_bool();
 
     const bool persistent{request.params[2].isNull() ? false : request.params[2].get_bool()};
@@ -358,9 +356,7 @@ RPCHelpMan lockunspent()
         return true;
     }
 
-    RPCTypeCheckArgument(request.params[1], UniValue::VARR);
-
-    const UniValue& output_params = request.params[1];
+    const UniValue& output_params = request.params[1].get_array();
 
     // Create and validate the COutPoints first.
 
@@ -575,7 +571,7 @@ RPCHelpMan listunspent()
                             {"minimumSumAmount", RPCArg::Type::AMOUNT, RPCArg::DefaultHint{"unlimited"}, "Minimum sum value of all UTXOs in " + CURRENCY_UNIT + ""},
                             {"asset", RPCArg::Type::STR, RPCArg::Default{""}, "Asset to filter outputs for."},
                         },
-                        "query_options"},
+                        RPCArgOptions{.oneline_description="query_options"}},
                 },
                 RPCResult{
                     RPCResult::Type::ARR, "", "",
@@ -626,19 +622,16 @@ RPCHelpMan listunspent()
 
     int nMinDepth = 1;
     if (!request.params[0].isNull()) {
-        RPCTypeCheckArgument(request.params[0], UniValue::VNUM);
         nMinDepth = request.params[0].getInt<int>();
     }
 
     int nMaxDepth = 9999999;
     if (!request.params[1].isNull()) {
-        RPCTypeCheckArgument(request.params[1], UniValue::VNUM);
         nMaxDepth = request.params[1].getInt<int>();
     }
 
     std::set<CTxDestination> destinations;
     if (!request.params[2].isNull()) {
-        RPCTypeCheckArgument(request.params[2], UniValue::VARR);
         UniValue inputs = request.params[2].get_array();
         for (unsigned int idx = 0; idx < inputs.size(); idx++) {
             const UniValue& input = inputs[idx];
@@ -654,7 +647,6 @@ RPCHelpMan listunspent()
 
     bool include_unsafe = true;
     if (!request.params[3].isNull()) {
-        RPCTypeCheckArgument(request.params[3], UniValue::VBOOL);
         include_unsafe = request.params[3].get_bool();
     }
 

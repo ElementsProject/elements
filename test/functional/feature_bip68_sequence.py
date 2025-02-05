@@ -10,14 +10,20 @@ from test_framework.blocktools import (
     NORMAL_GBT_REQUEST_PARAMS,
     add_witness_commitment,
     create_block,
+    script_to_p2wsh_script,
 )
 from test_framework.messages import (
     COIN,
     COutPoint,
     CTransaction,
     CTxIn,
+    CTxInWitness,
     CTxOut,
     tx_from_hex,
+)
+from test_framework.script import (
+    CScript,
+    OP_TRUE,
 )
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -27,7 +33,8 @@ from test_framework.util import (
     softfork_active,
 )
 from test_framework import util
-from test_framework.script_util import DUMMY_P2WPKH_SCRIPT
+
+SCRIPT_W0_SH_OP_TRUE = script_to_p2wsh_script(CScript([OP_TRUE]))
 
 SEQUENCE_LOCKTIME_DISABLE_FLAG = (1<<31)
 SEQUENCE_LOCKTIME_TYPE_FLAG = (1<<22) # this means use time (0 means height)
@@ -43,12 +50,10 @@ class BIP68Test(BitcoinTestFramework):
         self.extra_args = [
             [
                 '-testactivationheight=csv@432',
-                "-acceptnonstdtxn=1",
                 "-con_csv_deploy_start=432", # ELEMENTS
             ],
             [
                 '-testactivationheight=csv@432',
-                "-acceptnonstdtxn=0",
                 "-con_csv_deploy_start=432", # ELEMENTS
             ],
         ]
@@ -104,7 +109,7 @@ class BIP68Test(BitcoinTestFramework):
         # input to mature.
         sequence_value = SEQUENCE_LOCKTIME_DISABLE_FLAG | 1
         tx1.vin = [CTxIn(COutPoint(int(utxo["txid"], 16), utxo["vout"]), nSequence=sequence_value)]
-        tx1.vout = [CTxOut(value, DUMMY_P2WPKH_SCRIPT)]
+        tx1.vout = [CTxOut(value, SCRIPT_W0_SH_OP_TRUE)]
         tx1.vout.append(CTxOut(int(utxo["amount"]*COIN) - value)) # fee
 
         tx1_signed = self.nodes[0].signrawtransactionwithwallet(tx1.serialize().hex())["hex"]
@@ -117,8 +122,10 @@ class BIP68Test(BitcoinTestFramework):
         tx2.nVersion = 2
         sequence_value = sequence_value & 0x7fffffff
         tx2.vin = [CTxIn(COutPoint(tx1_id, 0), nSequence=sequence_value)]
-        tx2.vout = [CTxOut(int(value - self.relayfee * COIN), DUMMY_P2WPKH_SCRIPT)]
-        tx2.vout.append(CTxOut(int(self.relayfee*COIN)))
+        tx2.wit.vtxinwit = [CTxInWitness()]
+        tx2.wit.vtxinwit[0].scriptWitness.stack = [CScript([OP_TRUE])]
+        tx2.vout = [CTxOut(int(value - self.relayfee * COIN), SCRIPT_W0_SH_OP_TRUE)]
+        tx2.vout.append(CTxOut(int(self.relayfee * COIN), CScript()))
         tx2.rehash()
 
         assert_raises_rpc_error(-26, NOT_FINAL_ERROR, self.nodes[0].sendrawtransaction, tx2.serialize().hex())
@@ -213,8 +220,8 @@ class BIP68Test(BitcoinTestFramework):
                 value += utxos[j]["amount"]*COIN
             # Overestimate the size of the tx - signatures should be less than 120 bytes, and leave 50 for the output
             tx_size = len(tx.serialize().hex())//2 + 120*num_inputs + 150 # ELEMENTS: overestimate more for output witnesses
-            tx.vout.append(CTxOut(int(value-self.relayfee*tx_size*COIN/1000), DUMMY_P2WPKH_SCRIPT))
-            tx.vout.append(CTxOut(int(self.relayfee*tx_size*COIN/1000))) # fee
+            tx.vout.append(CTxOut(int(value - self.relayfee * tx_size * COIN / 1000), SCRIPT_W0_SH_OP_TRUE))
+            tx.vout.append(CTxOut(int(self.relayfee * tx_size * COIN / 1000))) # fee
             rawtx = self.nodes[0].signrawtransactionwithwallet(tx.serialize().hex())["hex"]
 
             if (using_sequence_locks and not should_pass):
@@ -243,8 +250,8 @@ class BIP68Test(BitcoinTestFramework):
         tx2 = CTransaction()
         tx2.nVersion = 2
         tx2.vin = [CTxIn(COutPoint(tx1.sha256, 0), nSequence=0)]
-        tx2.vout = [CTxOut(int(tx1.vout[0].nValue.getAmount() - self.relayfee*COIN), DUMMY_P2WPKH_SCRIPT)]
-        tx2.vout.append(CTxOut(int(self.relayfee*COIN))) # fee
+        tx2.vout = [CTxOut(int(tx1.vout[0].nValue.getAmount() - self.relayfee * COIN), SCRIPT_W0_SH_OP_TRUE)]
+        tx2.vout.append(CTxOut(int(self.relayfee * COIN))) # fee
         tx2_raw = self.nodes[0].signrawtransactionwithwallet(tx2.serialize().hex())["hex"]
         tx2 = tx_from_hex(tx2_raw)
         tx2.rehash()
@@ -262,7 +269,9 @@ class BIP68Test(BitcoinTestFramework):
             tx = CTransaction()
             tx.nVersion = 2
             tx.vin = [CTxIn(COutPoint(orig_tx.sha256, 0), nSequence=sequence_value)]
-            tx.vout = [CTxOut(int(orig_tx.vout[0].nValue.getAmount() - relayfee * COIN), DUMMY_P2WPKH_SCRIPT)]
+            tx.wit.vtxinwit = [CTxInWitness()]
+            tx.wit.vtxinwit[0].scriptWitness.stack = [CScript([OP_TRUE])]
+            tx.vout = [CTxOut(int(orig_tx.vout[0].nValue.getAmount() - relayfee * COIN), SCRIPT_W0_SH_OP_TRUE)]
             tx.vout.append(CTxOut(int(relayfee * COIN))) # fee
             tx.rehash()
 
@@ -376,8 +385,8 @@ class BIP68Test(BitcoinTestFramework):
         tx2 = CTransaction()
         tx2.nVersion = 1
         tx2.vin = [CTxIn(COutPoint(tx1.sha256, 0), nSequence=0)]
-        tx2.vout = [CTxOut(int(tx1.vout[0].nValue.getAmount() - self.relayfee*COIN), DUMMY_P2WPKH_SCRIPT)]
-        tx2.vout.append(CTxOut(int(self.relayfee*COIN))) # fee
+        tx2.vout = [CTxOut(int(tx1.vout[0].nValue.getAmount() - self.relayfee * COIN), SCRIPT_W0_SH_OP_TRUE)]
+        tx2.vout.append(CTxOut(int(self.relayfee * COIN))) # fee
 
         # sign tx2
         tx2_raw = self.nodes[0].signrawtransactionwithwallet(tx2.serialize().hex())["hex"]
@@ -392,8 +401,10 @@ class BIP68Test(BitcoinTestFramework):
         tx3 = CTransaction()
         tx3.nVersion = 2
         tx3.vin = [CTxIn(COutPoint(tx2.sha256, 0), nSequence=sequence_value)]
-        tx3.vout = [CTxOut(int(tx2.vout[0].nValue.getAmount() - self.relayfee * COIN), DUMMY_P2WPKH_SCRIPT)]
-        tx3.vout.append(CTxOut(int(self.relayfee*COIN))) # fee
+        tx3.wit.vtxinwit = [CTxInWitness()]
+        tx3.wit.vtxinwit[0].scriptWitness.stack = [CScript([OP_TRUE])]
+        tx3.vout = [CTxOut(int(tx2.vout[0].nValue.getAmount() - self.relayfee * COIN), SCRIPT_W0_SH_OP_TRUE)]
+        tx3.vout.append(CTxOut(int(self.relayfee * COIN))) # fee
         tx3.rehash()
 
         assert_raises_rpc_error(-26, NOT_FINAL_ERROR, self.nodes[0].sendrawtransaction, tx3.serialize().hex())

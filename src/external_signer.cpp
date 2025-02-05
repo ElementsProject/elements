@@ -3,10 +3,10 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
+#include <common/run_command.h>
 #include <core_io.h>
 #include <psbt.h>
 #include <util/strencodings.h>
-#include <util/system.h>
 #include <external_signer.h>
 
 #include <algorithm>
@@ -80,6 +80,9 @@ bool ExternalSigner::SignTransaction(PartiallySignedTransaction& psbtx, std::str
     auto matches_signer_fingerprint = [&](const PSBTInput& input) {
         for (const auto& entry : input.hd_keypaths) {
             if (parsed_m_fingerprint == MakeUCharSpan(entry.second.fingerprint)) return true;
+        }
+        for (const auto& entry : input.m_tap_bip32_paths) {
+            if (parsed_m_fingerprint == MakeUCharSpan(entry.second.second.fingerprint)) return true;
         }
         return false;
     };

@@ -44,9 +44,10 @@ struct ConnmanTestMsg : public CConnman {
                    ServiceFlags remote_services,
                    ServiceFlags local_services,
                    int32_t version,
-                   bool relay_txs);
+                   bool relay_txs)
+        EXCLUSIVE_LOCKS_REQUIRED(NetEventsInterface::g_msgproc_mutex);
 
-    void ProcessMessagesOnce(CNode& node) { m_msgproc->ProcessMessages(&node, flagInterruptMsgProc); }
+    void ProcessMessagesOnce(CNode& node) EXCLUSIVE_LOCKS_REQUIRED(NetEventsInterface::g_msgproc_mutex) { m_msgproc->ProcessMessages(&node, flagInterruptMsgProc); }
 
     void NodeReceiveMsgBytes(CNode& node, Span<const uint8_t> msg_bytes, bool& complete) const;
 
@@ -164,6 +165,10 @@ public:
         std::memset(name, 0x0, *name_len);
         return 0;
     }
+
+    bool SetNonBlocking() const override { return true; }
+
+    bool IsSelectable() const override { return true; }
 
     bool Wait(std::chrono::milliseconds timeout,
               Event requested,

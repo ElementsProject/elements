@@ -1349,7 +1349,7 @@ struct PSBTOutput
     std::optional<CAmount> amount{std::nullopt};
     std::optional<CScript> script{std::nullopt};
     XOnlyPubKey m_tap_internal_key;
-    std::optional<TaprootBuilder> m_tap_tree;
+    std::vector<std::tuple<uint8_t, uint8_t, CScript>> m_tap_tree;
     std::map<XOnlyPubKey, std::pair<std::set<uint256>, KeyOriginInfo>> m_tap_bip32_paths;
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
     std::set<PSBTProprietary> m_proprietary;
@@ -1479,15 +1479,11 @@ struct PSBTOutput
         }
 
         // Write taproot tree
-        if (m_tap_tree.has_value()) {
+        if (!m_tap_tree.empty()) {
             SerializeToVector(s, PSBT_OUT_TAP_TREE);
             std::vector<unsigned char> value;
             CVectorWriter s_value(s.GetType(), s.GetVersion(), value, 0);
-            const auto& tuples = m_tap_tree->GetTreeTuples();
-            for (const auto& tuple : tuples) {
-                uint8_t depth = std::get<0>(tuple);
-                uint8_t leaf_ver = std::get<1>(tuple);
-                CScript script = std::get<2>(tuple);
+            for (const auto& [depth, leaf_ver, script] : m_tap_tree) {
                 s_value << depth;
                 s_value << leaf_ver;
                 s_value << script;
@@ -1607,10 +1603,13 @@ struct PSBTOutput
                     } else if (key.size() != 1) {
                         throw std::ios_base::failure("Output Taproot tree key is more than one byte type");
                     }
-                    m_tap_tree.emplace();
                     std::vector<unsigned char> tree_v;
                     s >> tree_v;
                     SpanReader s_tree(s.GetType(), s.GetVersion(), tree_v);
+                    if (s_tree.empty()) {
+                        throw std::ios_base::failure("Output Taproot tree must not be empty");
+                    }
+                    TaprootBuilder builder;
                     while (!s_tree.empty()) {
                         uint8_t depth;
                         uint8_t leaf_ver;
@@ -1624,9 +1623,10 @@ struct PSBTOutput
                         if ((leaf_ver & ~TAPROOT_LEAF_MASK) != 0) {
                             throw std::ios_base::failure("Output Taproot tree has a leaf with an invalid leaf version");
                         }
-                        m_tap_tree->Add((int)depth, script, (int)leaf_ver, true /* track */);
+                        m_tap_tree.push_back(std::make_tuple(depth, leaf_ver, script));
+                        builder.Add((int)depth, script, (int)leaf_ver, true /* track */);
                     }
-                    if (!m_tap_tree->IsComplete()) {
+                    if (!builder.IsComplete()) {
                         throw std::ios_base::failure("Output Taproot tree is malformed");
                     }
                     break;
@@ -1797,11 +1797,6 @@ struct PSBTOutput
                     break;
                 }
             }
-        }
-
-        // Finalize m_tap_tree so that all of the computed things are computed
-        if (m_tap_tree.has_value() && m_tap_tree->IsComplete() && m_tap_internal_key.IsFullyValid()) {
-            m_tap_tree->Finalize(m_tap_internal_key);
         }
 
         if (!found_sep) {
@@ -2295,8 +2290,11 @@ std::string PSBTRoleName(PSBTRole role);
 /** Compute a PrecomputedTransactionData object from a psbt. */
 PrecomputedTransactionData PrecomputePSBTData(const PartiallySignedTransaction& psbt);
 
-/** Checks whether a PSBTInput is already signed. */
+/** Checks whether a PSBTInput is already signed by checking for non-null finalized fields. */
 bool PSBTInputSigned(const PSBTInput& input);
+
+/** Checks whether a PSBTInput is already signed by doing script verification using final fields. */
+bool PSBTInputSignedAndVerified(const PartiallySignedTransaction psbt, unsigned int input_index, const PrecomputedTransactionData* txdata);
 
 /** Signs a PSBTInput, verifying that all provided data matches what is being signed.
  *

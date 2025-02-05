@@ -5,8 +5,8 @@
 #ifndef BITCOIN_CRYPTO_SHA256_H
 #define BITCOIN_CRYPTO_SHA256_H
 
+#include <cstdlib>
 #include <stdint.h>
-#include <stdlib.h>
 #include <string>
 #include <vector>
 

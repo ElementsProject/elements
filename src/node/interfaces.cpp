@@ -4,10 +4,12 @@
 
 #include <addrdb.h>
 #include <banman.h>
+#include <blockfilter.h>
 #include <chain.h>
 #include <chainparams.h>
 #include <deploymentstatus.h>
 #include <external_signer.h>
+#include <index/blockfilterindex.h>
 #include <init.h>
 #include <interfaces/chain.h>
 #include <interfaces/handler.h>
@@ -537,6 +539,20 @@ public:
         }
         return std::nullopt;
     }
+    bool hasBlockFilterIndex(BlockFilterType filter_type) override
+    {
+        return GetBlockFilterIndex(filter_type) != nullptr;
+    }
+    std::optional<bool> blockFilterMatchesAny(BlockFilterType filter_type, const uint256& block_hash, const GCSFilter::ElementSet& filter_set) override
+    {
+        const BlockFilterIndex* block_filter_index{GetBlockFilterIndex(filter_type)};
+        if (!block_filter_index) return std::nullopt;
+
+        BlockFilter filter;
+        const CBlockIndex* index{WITH_LOCK(::cs_main, return chainman().m_blockman.LookupBlockIndex(block_hash))};
+        if (index == nullptr || !block_filter_index->LookupFilter(index, filter)) return std::nullopt;
+        return filter.GetFilter().MatchAny(filter_set);
+    }
     bool findBlock(const uint256& hash, const FoundBlock& block) override
     {
         WAIT_LOCK(cs_main, lock);
@@ -662,8 +678,7 @@ public:
         std::string unused_error_string;
         LOCK(m_node.mempool->cs);
         return m_node.mempool->CalculateMemPoolAncestors(
-            entry, ancestors, limits.ancestor_count, limits.ancestor_size_vbytes,
-            limits.descendant_count, limits.descendant_size_vbytes, unused_error_string);
+            entry, ancestors, limits, unused_error_string);
     }
     CFeeRate estimateSmartFee(int num_blocks, bool conservative, FeeCalculation* calc) override
     {

@@ -62,7 +62,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
         }
 
         // Check if it is final
-        if (!utxo.IsNull() && !PSBTInputSigned(input)) {
+        if (!PSBTInputSignedAndVerified(psbtx, i, &txdata)) {
             input_analysis.is_final = false;
 
             // Figure out what is missing

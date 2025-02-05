@@ -13,11 +13,11 @@
 
 #include <algorithm>
 #include <assert.h>
+#include <cstdio>
 #include <ios>
 #include <limits>
 #include <optional>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 #include <string>
 #include <utility>
@@ -269,7 +269,6 @@ public:
     // Stream subset
     //
     bool eof() const             { return size() == 0; }
-    CDataStream* rdbuf()         { return this; }
     int in_avail() const         { return size(); }
 
     void SetType(int n)          { nType = n; }
@@ -488,12 +487,14 @@ public:
     AutoFile(const AutoFile&) = delete;
     AutoFile& operator=(const AutoFile&) = delete;
 
-    void fclose()
+    int fclose()
     {
+        int retval{0};
         if (file) {
-            ::fclose(file);
+            retval = ::fclose(file);
             file = nullptr;
         }
+        return retval;
     }
 
     /** Get wrapped FILE* with transfer of ownership.

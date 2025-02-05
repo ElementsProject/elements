@@ -80,6 +80,7 @@ BITCOIN_TESTS =\
   test/blockencodings_tests.cpp \
   test/blockfilter_index_tests.cpp \
   test/blockfilter_tests.cpp \
+  test/blockmanager_tests.cpp \
   test/bloom_tests.cpp \
   test/bswap_tests.cpp \
   test/checkqueue_tests.cpp \
@@ -150,6 +151,7 @@ BITCOIN_TESTS =\
   test/transaction_tests.cpp \
   test/txindex_tests.cpp \
   test/txpackage_tests.cpp \
+  test/txreconciliation_tests.cpp \
   test/txrequest_tests.cpp \
   test/txvalidation_tests.cpp \
   test/txvalidationcache_tests.cpp \
@@ -180,6 +182,7 @@ BITCOIN_TESTS += \
   wallet/test/availablecoins_tests.cpp \
   wallet/test/init_tests.cpp \
   wallet/test/ismine_tests.cpp \
+  wallet/test/rpc_util_tests.cpp \
   wallet/test/scriptpubkeyman_tests.cpp \
   wallet/test/walletload_tests.cpp
 # ELEMENTS: disable PSBT test
@@ -194,7 +197,8 @@ BITCOIN_TESTS += wallet/test/db_tests.cpp
 endif
 
 FUZZ_WALLET_SRC = \
- wallet/test/fuzz/coinselection.cpp
+ wallet/test/fuzz/coinselection.cpp \
+ wallet/test/fuzz/parse_iso8601.cpp
 
 if USE_SQLITE
 FUZZ_WALLET_SRC += \
@@ -296,7 +300,6 @@ test_fuzz_fuzz_SOURCES = \
  test/fuzz/node_eviction.cpp \
  test/fuzz/p2p_transport_serialization.cpp \
  test/fuzz/parse_hd_keypath.cpp \
- test/fuzz/parse_iso8601.cpp \
  test/fuzz/parse_numbers.cpp \
  test/fuzz/parse_script.cpp \
  test/fuzz/parse_univalue.cpp \
@@ -382,8 +385,8 @@ endif
 if TARGET_WINDOWS
 else
 if ENABLE_BENCH
-	@echo "Running bench/bench_bitcoin (one iteration sanity check)..."
-	$(BENCH_BINARY) --sanity-check > /dev/null
+	@echo "Running bench/bench_bitcoin (one iteration sanity check, only high priority)..."
+	$(BENCH_BINARY) -sanity-check -priority-level=high > /dev/null
 endif
 endif
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C secp256k1 check

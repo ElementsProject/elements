@@ -11,7 +11,6 @@ static void Logging(benchmark::Bench& bench, const std::vector<const char*>& ext
 {
     TestingSetup test_setup{
         CBaseChainParams::REGTEST,
-        "",
         extra_args,
     };
 
@@ -42,8 +41,8 @@ static void LoggingNoFile(benchmark::Bench& bench)
     });
 }
 
-BENCHMARK(LoggingYoThreadNames);
-BENCHMARK(LoggingNoThreadNames);
-BENCHMARK(LoggingYoCategory);
-BENCHMARK(LoggingNoCategory);
-BENCHMARK(LoggingNoFile);
+BENCHMARK(LoggingYoThreadNames, benchmark::PriorityLevel::HIGH);
+BENCHMARK(LoggingNoThreadNames, benchmark::PriorityLevel::HIGH);
+BENCHMARK(LoggingYoCategory, benchmark::PriorityLevel::HIGH);
+BENCHMARK(LoggingNoCategory, benchmark::PriorityLevel::HIGH);
+BENCHMARK(LoggingNoFile, benchmark::PriorityLevel::HIGH);

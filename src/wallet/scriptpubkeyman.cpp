@@ -28,6 +28,9 @@ util::Result<CTxDestination> LegacyScriptPubKeyMan::GetNewDestination(const Outp
     }
     assert(type != OutputType::BECH32M);
 
+    // Fill-up keypool if needed
+    TopUp();
+
     LOCK(cs_KeyStore);
 
     // Generate a new key that is added to wallet
@@ -309,6 +312,9 @@ util::Result<CTxDestination> LegacyScriptPubKeyMan::GetReservedDestination(const
     if (!CanGetAddresses(internal)) {
         return util::Error{_("Error: Keypool ran out, please call keypoolrefill first")};
     }
+
+    // Fill-up keypool if needed
+    TopUp();
 
     if (!ReserveKeyFromKeyPool(index, keypool, internal)) {
         return util::Error{_("Error: Keypool ran out, please call keypoolrefill first")};
@@ -592,7 +598,7 @@ bool LegacyScriptPubKeyMan::CanProvide(const CScript& script, SignatureData& sig
         // or solving information, even if not able to sign fully.
         return true;
     } else {
-        // If, given the stuff in sigdata, we could make a valid sigature, then we can provide for this script
+        // If, given the stuff in sigdata, we could make a valid signature, then we can provide for this script
         ProduceSignature(*this, DUMMY_SIGNATURE_CREATOR, script, sigdata);
         if (!sigdata.signatures.empty()) {
             // If we could make signatures, make sure we have a private key to actually make a signature
@@ -1988,7 +1994,7 @@ util::Result<CTxDestination> DescriptorScriptPubKeyMan::GetNewDestination(const 
         std::optional<OutputType> desc_addr_type = m_wallet_descriptor.descriptor->GetOutputType();
         assert(desc_addr_type);
         if (type != *desc_addr_type) {
-            throw std::runtime_error(std::string(__func__) + ": Types are inconsistent");
+            throw std::runtime_error(std::string(__func__) + ": Types are inconsistent. Stored type does not match type of newly generated address");
         }
 
         TopUp();
@@ -2006,11 +2012,8 @@ util::Result<CTxDestination> DescriptorScriptPubKeyMan::GetNewDestination(const 
         }
 
         CTxDestination dest;
-        std::optional<OutputType> out_script_type = m_wallet_descriptor.descriptor->GetOutputType();
-        if (out_script_type && out_script_type == type) {
-            ExtractDestination(scripts_temp[0], dest);
-        } else {
-            throw std::runtime_error(std::string(__func__) + ": Types are inconsistent. Stored type does not match type of newly generated address");
+        if (!ExtractDestination(scripts_temp[0], dest)) {
+            return util::Error{_("Error: Cannot extract destination from the generated scriptpubkey")}; // shouldn't happen
         }
         m_wallet_descriptor.next_index++;
         WalletBatch(m_storage.GetDatabase()).WriteDescriptor(GetID(), m_wallet_descriptor);
@@ -2649,14 +2652,24 @@ const WalletDescriptor DescriptorScriptPubKeyMan::GetWalletDescriptor() const
 
 const std::unordered_set<CScript, SaltedSipHasher> DescriptorScriptPubKeyMan::GetScriptPubKeys() const
 {
+    return GetScriptPubKeys(0);
+}
+
+const std::unordered_set<CScript, SaltedSipHasher> DescriptorScriptPubKeyMan::GetScriptPubKeys(int32_t minimum_index) const
+{
     LOCK(cs_desc_man);
     std::unordered_set<CScript, SaltedSipHasher> script_pub_keys;
     script_pub_keys.reserve(m_map_script_pub_keys.size());
 
-    for (auto const& script_pub_key: m_map_script_pub_keys) {
-        script_pub_keys.insert(script_pub_key.first);
+    for (auto const& [script_pub_key, index] : m_map_script_pub_keys) {
+        if (index >= minimum_index) script_pub_keys.insert(script_pub_key);
     }
     return script_pub_keys;
+}
+
+int32_t DescriptorScriptPubKeyMan::GetEndRange() const
+{
+    return m_max_cached_index + 1;
 }
 
 bool DescriptorScriptPubKeyMan::GetDescriptorString(std::string& out, const bool priv) const

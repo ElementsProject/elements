@@ -459,9 +459,8 @@ static RPCHelpMan getmempoolancestors()
     }
 
     CTxMemPool::setEntries setAncestors;
-    uint64_t noLimit = std::numeric_limits<uint64_t>::max();
     std::string dummy;
-    mempool.CalculateMemPoolAncestors(*it, setAncestors, noLimit, noLimit, noLimit, noLimit, dummy, false);
+    mempool.CalculateMemPoolAncestors(*it, setAncestors, CTxMemPool::Limits::NoLimits(), dummy, false);
 
     if (!fVerbose) {
         UniValue o(UniValue::VARR);
@@ -615,8 +614,7 @@ static RPCHelpMan gettxspendingprevout()
         },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
         {
-            RPCTypeCheckArgument(request.params[0], UniValue::VARR);
-            const UniValue& output_params = request.params[0];
+            const UniValue& output_params = request.params[0].get_array();
             if (output_params.empty()) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, outputs are missing");
             }

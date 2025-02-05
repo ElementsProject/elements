@@ -40,7 +40,7 @@ const std::string fedpegscript_str = "512103dff4923d778550cc13ce0d887d737553b4b5
 
 // Needed for easier parent PoW check, and setting fedpegscript
 struct FedpegSetup : public BasicTestingSetup {
-        FedpegSetup() : BasicTestingSetup("custom", fedpegscript_str) {}
+        FedpegSetup() : BasicTestingSetup("custom", {}, fedpegscript_str) {}
 };
 
 BOOST_FIXTURE_TEST_SUITE(pegin_witness_tests, FedpegSetup)

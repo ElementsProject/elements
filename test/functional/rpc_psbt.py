@@ -19,18 +19,21 @@ from test_framework.messages import (
     WITNESS_SCALE_FACTOR,
     ser_compact_size,
 )
-# from test_framework.psbt import (
-#     PSBT,
-#     PSBTMap,
-#     PSBT_GLOBAL_UNSIGNED_TX,
-#     PSBT_IN_RIPEMD160,
-#     PSBT_IN_SHA256,
-#     PSBT_IN_HASH160,
-#     PSBT_IN_HASH256,
-# )
+from test_framework.psbt import (
+    PSBT,
+    # PSBTMap,
+    # PSBT_GLOBAL_UNSIGNED_TX,
+    # PSBT_IN_RIPEMD160,
+    # PSBT_IN_SHA256,
+    # PSBT_IN_HASH160,
+    # PSBT_IN_HASH256,
+    # PSBT_IN_WITNESS_UTXO,
+    PSBT_OUT_TAP_TREE,
+)
+from test_framework.script import CScript, OP_TRUE
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
-#    assert_approx,
+    # assert_approx,
     assert_equal,
     assert_greater_than,
     assert_raises_rpc_error,
@@ -1286,9 +1289,20 @@ class PSBTTest(BitcoinTestFramework):
             self.generate(self.nodes[0], 1)
             self.nodes[0].importdescriptors([{"desc": descsum_create("tr({})".format(privkey)), "timestamp":"now"}])
 
-            psbt = watchonly.walletcreatefundedpsbt([], [{wallet.getnewaddress(): watchonly.getbalance()['bitcoin']}], None, {"subtractFeeFromOutputs": [0]})['psbt']
-            psbt = self.nodes[0].walletprocesspsbt(psbt)["psbt"]
-            self.nodes[0].sendrawtransaction(self.nodes[0].finalizepsbt(psbt)["hex"])
+            # psbt = watchonly.walletcreatefundedpsbt([], [{wallet.getnewaddress(): watchonly.getbalance()['bitcoin']}], None, {"subtractFeeFromOutputs": [0]})['psbt']
+            # ELEMENTS: FIXME
+            # psbt = watchonly.sendall([wallet.getnewaddress(), addr])["psbt"]
+            # psbt = self.nodes[0].walletprocesspsbt(psbt)["psbt"]
+            # txid = self.nodes[0].sendrawtransaction(self.nodes[0].finalizepsbt(psbt)["hex"])
+            # vout = find_vout_for_address(self.nodes[0], txid, addr)
+
+            # # Make sure tap tree is in psbt
+            # parsed_psbt = PSBT.from_base64(psbt)
+            # assert_greater_than(len(parsed_psbt.o[vout].map[PSBT_OUT_TAP_TREE]), 0)
+            # assert "taproot_tree" in self.nodes[0].decodepsbt(psbt)["outputs"][vout]
+            # parsed_psbt.make_blank()
+            # comb_psbt = self.nodes[0].combinepsbt([psbt, parsed_psbt.to_base64()])
+            # assert_equal(comb_psbt, psbt)
 
             self.log.info("Test that walletprocesspsbt both updates and signs a non-updated psbt containing Taproot inputs")
             addr = self.nodes[0].getnewaddress("", "bech32m")
@@ -1299,6 +1313,15 @@ class PSBTTest(BitcoinTestFramework):
             rawtx = self.nodes[0].finalizepsbt(signed["psbt"])["hex"]
             self.nodes[0].sendrawtransaction(rawtx)
             self.generate(self.nodes[0], 1)
+
+            # Make sure tap tree is not in psbt
+            # ELEMENTS: FIXME
+            # parsed_psbt = PSBT.from_base64(psbt)
+            # assert PSBT_OUT_TAP_TREE not in parsed_psbt.o[0].map
+            # assert "taproot_tree" not in self.nodes[0].decodepsbt(psbt)["outputs"][0]
+            # parsed_psbt.make_blank()
+            # comb_psbt = self.nodes[0].combinepsbt([psbt, parsed_psbt.to_base64()])
+            # assert_equal(comb_psbt, psbt)
 
         # ELEMENTS FIXME
         # self.log.info("Test decoding PSBT with per-input preimage types")
@@ -1342,6 +1365,19 @@ class PSBTTest(BitcoinTestFramework):
         # psbt2 = PSBT(g=PSBTMap({PSBT_GLOBAL_UNSIGNED_TX: tx.serialize()}), i=[PSBTMap()], o=[PSBTMap()]).to_base64()
         # assert_raises_rpc_error(-8, "PSBTs not compatible (different transactions)", self.nodes[0].combinepsbt, [psbt1, psbt2])
         # assert_equal(self.nodes[0].combinepsbt([psbt1, psbt1]), psbt1)
+
+        # ELEMENTS FIXME
+        # self.log.info("Test that PSBT inputs are being checked via script execution")
+        # acs_prevout = CTxOut(nValue=0, scriptPubKey=CScript([OP_TRUE]))
+        # tx = CTransaction()
+        # tx.vin = [CTxIn(outpoint=COutPoint(hash=int('dd' * 32, 16), n=0), scriptSig=b"")]
+        # tx.vout = [CTxOut(nValue=0, scriptPubKey=b"")]
+        # psbt = PSBT()
+        # psbt.g = PSBTMap({PSBT_GLOBAL_UNSIGNED_TX: tx.serialize()})
+        # psbt.i = [PSBTMap({bytes([PSBT_IN_WITNESS_UTXO]) : acs_prevout.serialize()})]
+        # psbt.o = [PSBTMap()]
+        # assert_equal(self.nodes[0].finalizepsbt(psbt.to_base64()),
+        #     {'hex': '0200000001dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd0000000000000000000100000000000000000000000000', 'complete': True})
 
 
 if __name__ == '__main__':

@@ -40,6 +40,7 @@
 #include <script/sigcache.h>
 #include <shutdown.h>
 #include <test/util/net.h>
+#include <test/util/txmempool.h>
 #include <timedata.h>
 #include <txdb.h>
 #include <txmempool.h>
@@ -64,7 +65,6 @@ using node::ApplyArgsManOptions;
 using node::BlockAssembler;
 using node::CalculateCacheSizes;
 using node::LoadChainstate;
-using node::NodeContext;
 using node::RegenerateCommitments;
 using node::VerifyLoadedChainstate;
 
@@ -100,7 +100,7 @@ std::ostream& operator<<(std::ostream& os, const uint256& num)
     return os;
 }
 
-BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::string& fedpegscript, const std::vector<const char*>& extra_args)
+BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::vector<const char*>& extra_args, const std::string& fedpegscript)
     : m_path_root{fs::temp_directory_path() / "test_common_" PACKAGE_NAME / g_insecure_rand_ctx_temp_path.rand256().ToString()},
       m_args{}
 {
@@ -159,7 +159,6 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
     Assert(InitSurjectionproofCache(validation_cache_sizes.surjectionproof_execution_cache_bytes));
 
     m_node.chain = interfaces::MakeChain(m_node);
-    fCheckBlockIndex = true;
 
     // ELEMENTS:
     // Set policy asset for correct fee output generation
@@ -183,22 +182,8 @@ BasicTestingSetup::~BasicTestingSetup()
     gArgs.ClearArgs();
 }
 
-CTxMemPool::Options MemPoolOptionsForTest(const NodeContext& node)
-{
-    CTxMemPool::Options mempool_opts{
-        .estimator = node.fee_estimator.get(),
-        // Default to always checking mempool regardless of
-        // chainparams.DefaultConsistencyChecks for tests
-        .check_ratio = 1,
-        .incremental_relay_feerate = CFeeRate(1000), // ELEMENTS: For unit tests, increase minrelay to "normal" 1000 sat/vkB
-    };
-    const auto err{ApplyArgsManOptions(*node.args, ::Params(), mempool_opts)};
-    Assert(!err);
-    return mempool_opts;
-}
-
-ChainTestingSetup::ChainTestingSetup(const std::string& chainName, const std::string& fedpegscript, const std::vector<const char*>& extra_args)
-    : BasicTestingSetup(chainName, fedpegscript, extra_args)
+ChainTestingSetup::ChainTestingSetup(const std::string& chainName, const std::vector<const char*>& extra_args, const std::string& fedpegscript)
+    : BasicTestingSetup(chainName, extra_args, fedpegscript)
 {
     const CChainParams& chainparams = Params();
 
@@ -216,14 +201,13 @@ ChainTestingSetup::ChainTestingSetup(const std::string& chainName, const std::st
     const ChainstateManager::Options chainman_opts{
         .chainparams = chainparams,
         .adjusted_time_callback = GetAdjustedTime,
+        .check_block_index = true,
     };
     m_node.chainman = std::make_unique<ChainstateManager>(chainman_opts);
     m_node.chainman->m_blockman.m_block_tree_db = std::make_unique<CBlockTreeDB>(m_cache_sizes.block_tree_db, true);
 
-    // Start script-checking threads. Set g_parallel_script_checks to true so they are used.
     constexpr int script_check_threads = 2;
     StartScriptCheckWorkerThreads(script_check_threads);
-    g_parallel_script_checks = true;
 }
 
 ChainTestingSetup::~ChainTestingSetup()
@@ -242,17 +226,12 @@ ChainTestingSetup::~ChainTestingSetup()
     m_node.chainman.reset();
 }
 
-TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedpegscript, const std::vector<const char*>& extra_args)
-    : ChainTestingSetup(chainName, fedpegscript, extra_args)
+void TestingSetup::LoadVerifyActivateChainstate()
 {
-    // Ideally we'd move all the RPC tests to the functional testing framework
-    // instead of unit tests, but for now we need these here.
-    RegisterAllCoreRPCCommands(tableRPC);
-
     node::ChainstateLoadOptions options;
     options.mempool = Assert(m_node.mempool.get());
-    options.block_tree_db_in_memory = true;
-    options.coins_db_in_memory = true;
+    options.block_tree_db_in_memory = m_block_tree_db_in_memory;
+    options.coins_db_in_memory = m_coins_db_in_memory;
     options.reindex = node::fReindex;
     options.reindex_chainstate = m_args.GetBoolArg("-reindex-chainstate", false);
     options.prune = node::fPruneMode;
@@ -268,6 +247,23 @@ TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedp
     if (!m_node.chainman->ActiveChainstate().ActivateBestChain(state)) {
         throw std::runtime_error(strprintf("ActivateBestChain failed. (%s)", state.ToString()));
     }
+}
+
+TestingSetup::TestingSetup(
+    const std::string& chainName,
+    const std::vector<const char*>& extra_args,
+    const std::string& fedpegscript,
+    const bool coins_db_in_memory,
+    const bool block_tree_db_in_memory)
+    : ChainTestingSetup(chainName, extra_args, fedpegscript),
+      m_coins_db_in_memory(coins_db_in_memory),
+      m_block_tree_db_in_memory(block_tree_db_in_memory)
+{
+    // Ideally we'd move all the RPC tests to the functional testing framework
+    // instead of unit tests, but for now we need these here.
+    RegisterAllCoreRPCCommands(tableRPC);
+
+    LoadVerifyActivateChainstate();
 
     m_node.netgroupman = std::make_unique<NetGroupManager>(/*asmap=*/std::vector<bool>());
     m_node.addrman = std::make_unique<AddrMan>(*m_node.netgroupman,
@@ -285,8 +281,13 @@ TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedp
     }
 }
 
-TestChain100Setup::TestChain100Setup(const std::string& chain_name, const std::string& fedpegscript, const std::vector<const char*>& extra_args)
-    : TestingSetup{chain_name, fedpegscript, extra_args}
+TestChain100Setup::TestChain100Setup(
+        const std::string& chain_name,
+        const std::vector<const char*>& extra_args,
+        const std::string& fedpegscript,
+        const bool coins_db_in_memory,
+        const bool block_tree_db_in_memory)
+    : TestingSetup{CBaseChainParams::REGTEST, extra_args, fedpegscript, coins_db_in_memory, block_tree_db_in_memory}
 {
     SetMockTime(1598887952);
     constexpr std::array<unsigned char, 32> vchKey = {
@@ -443,17 +444,6 @@ std::vector<CTransactionRef> TestChain100Setup::PopulateMempool(FastRandomContex
         --num_transactions;
     }
     return mempool_transactions;
-}
-
-CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(const CMutableTransaction& tx) const
-{
-    return FromTx(MakeTransactionRef(tx));
-}
-
-CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(const CTransactionRef& tx) const
-{
-    return CTxMemPoolEntry(tx, nFee, nTime, nHeight,
-                           spendsCoinbase, sigOpCost, lp, setPeginsSpent);
 }
 
 /**

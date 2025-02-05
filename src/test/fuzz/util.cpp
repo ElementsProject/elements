@@ -16,7 +16,7 @@
 #include <memory>
 
 FuzzedSock::FuzzedSock(FuzzedDataProvider& fuzzed_data_provider)
-    : m_fuzzed_data_provider{fuzzed_data_provider}
+    : m_fuzzed_data_provider{fuzzed_data_provider}, m_selectable{fuzzed_data_provider.ConsumeBool()}
 {
     m_socket = fuzzed_data_provider.ConsumeIntegralInRange<SOCKET>(INVALID_SOCKET - 1, INVALID_SOCKET);
 }
@@ -254,6 +254,24 @@ int FuzzedSock::GetSockName(sockaddr* name, socklen_t* name_len) const
     return 0;
 }
 
+bool FuzzedSock::SetNonBlocking() const
+{
+    constexpr std::array setnonblocking_errnos{
+        EBADF,
+        EPERM,
+    };
+    if (m_fuzzed_data_provider.ConsumeBool()) {
+        SetFuzzedErrNo(m_fuzzed_data_provider, setnonblocking_errnos);
+        return false;
+    }
+    return true;
+}
+
+bool FuzzedSock::IsSelectable() const
+{
+    return m_selectable;
+}
+
 bool FuzzedSock::Wait(std::chrono::milliseconds timeout, Event requested, Event* occurred) const
 {
     constexpr std::array wait_errnos{
@@ -307,8 +325,8 @@ CAmount ConsumeMoney(FuzzedDataProvider& fuzzed_data_provider, const std::option
 int64_t ConsumeTime(FuzzedDataProvider& fuzzed_data_provider, const std::optional<int64_t>& min, const std::optional<int64_t>& max) noexcept
 {
     // Avoid t=0 (1970-01-01T00:00:00Z) since SetMockTime(0) disables mocktime.
-    static const int64_t time_min{ParseISO8601DateTime("2000-01-01T00:00:01Z")};
-    static const int64_t time_max{ParseISO8601DateTime("2100-12-31T23:59:59Z")};
+    static const int64_t time_min{946684801}; // 2000-01-01T00:00:01Z
+    static const int64_t time_max{4133980799}; // 2100-12-31T23:59:59Z
     return fuzzed_data_provider.ConsumeIntegralInRange<int64_t>(min.value_or(time_min), max.value_or(time_max));
 }
 
@@ -482,22 +500,6 @@ CTxDestination ConsumeTxDestination(FuzzedDataProvider& fuzzed_data_provider) no
         })};
     Assert(call_size == std::variant_size_v<CTxDestination>);
     return tx_destination;
-}
-
-CTxMemPoolEntry ConsumeTxMemPoolEntry(FuzzedDataProvider& fuzzed_data_provider, const CTransaction& tx) noexcept
-{
-    // Avoid:
-    // policy/feerate.cpp:28:34: runtime error: signed integer overflow: 34873208148477500 * 1000 cannot be represented in type 'long'
-    //
-    // Reproduce using CFeeRate(348732081484775, 10).GetFeePerK()
-    const CAmount fee = std::min<CAmount>(ConsumeMoney(fuzzed_data_provider), std::numeric_limits<CAmount>::max() / static_cast<CAmount>(100000));
-    assert(MoneyRange(fee));
-    const int64_t time = fuzzed_data_provider.ConsumeIntegral<int64_t>();
-    const unsigned int entry_height = fuzzed_data_provider.ConsumeIntegral<unsigned int>();
-    const bool spends_coinbase = fuzzed_data_provider.ConsumeBool();
-    const unsigned int sig_op_cost = fuzzed_data_provider.ConsumeIntegralInRange<unsigned int>(0, MAX_BLOCK_SIGOPS_COST);
-    std::set<std::pair<uint256, COutPoint>> setPeginsSpent;
-    return CTxMemPoolEntry{MakeTransactionRef(tx), fee, time, entry_height, spends_coinbase, sig_op_cost, {}, setPeginsSpent};
 }
 
 bool ContainsSpentInput(const CTransaction& tx, const CCoinsViewCache& inputs) noexcept

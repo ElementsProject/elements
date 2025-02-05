@@ -78,4 +78,4 @@ static void CCheckQueueSpeedPrevectorJob(benchmark::Bench& bench)
 
     ECC_Stop();
 }
-BENCHMARK(CCheckQueueSpeedPrevectorJob);
+BENCHMARK(CCheckQueueSpeedPrevectorJob, benchmark::PriorityLevel::HIGH);

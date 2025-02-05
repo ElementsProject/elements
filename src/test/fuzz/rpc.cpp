@@ -37,7 +37,7 @@
 
 namespace {
 struct RPCFuzzTestingSetup : public TestingSetup {
-    RPCFuzzTestingSetup(const std::string& chain_name, const std::string& fedpegscript, const std::vector<const char*>& extra_args) : TestingSetup{chain_name, fedpegscript, extra_args}
+    RPCFuzzTestingSetup(const std::string& chain_name, const std::vector<const char*>& extra_args, const std::string& fedpegscript) : TestingSetup{chain_name, extra_args, fedpegscript}
     {
     }
 
@@ -153,6 +153,7 @@ const std::vector<std::string> RPC_COMMANDS_SAFE_FOR_FUZZING{
     "preciousblock",
     "pruneblockchain",
     "reconsiderblock",
+    "scanblocks",
     "scantxoutset",
     "sendrawtransaction",
     "setmocktime",
