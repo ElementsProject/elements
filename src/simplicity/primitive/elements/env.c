@@ -305,7 +305,8 @@ static uint_fast32_t sumFees(sigOutput** feeOutputs, uint_fast32_t numFees) {
 
   return result + 1;
 }
-/* Allocate and initialize a 'transaction' from a 'rawOutput', copying or hashing the data as needed.
+
+/* Allocate and initialize a 'transaction' from a 'rawTransaction', copying or hashing the data as needed.
  * Returns NULL if malloc fails (or if malloc cannot be called because we require an allocation larger than SIZE_MAX).
  *
  * Precondition: NULL != rawTx
@@ -568,6 +569,12 @@ extern transaction* simplicity_elements_mallocTransaction(const rawTransaction* 
   return tx;
 }
 
+/* Free a pointer to 'transaction'.
+ */
+extern void simplicity_elements_freeTransaction(transaction* tx) {
+  simplicity_free(tx);
+}
+
 /* Allocate and initialize a 'tapEnv' from a 'rawTapEnv', copying or hashing the data as needed.
  * Returns NULL if malloc fails (or if malloc cannot be called because we require an allocation larger than SIZE_MAX).
  *
@@ -637,6 +644,12 @@ extern tapEnv* simplicity_elements_mallocTapEnv(const rawTapEnv* rawEnv) {
     sha256_finalize(&ctx);
   }
   return env;
+}
+
+/* Free a pointer to 'tapEnv'.
+ */
+extern void simplicity_elements_freeTapEnv(tapEnv* env) {
+  simplicity_free(env);
 }
 
 /* Contstruct a txEnv structure from its components.

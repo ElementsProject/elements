@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "util.h"
 
-typedef struct {
+typedef struct secp256k1_uint128 {
   uint64_t lo;
   uint64_t hi;
 } secp256k1_uint128;
