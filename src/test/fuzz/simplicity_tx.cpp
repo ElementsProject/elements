@@ -121,7 +121,6 @@ FUZZ_TARGET_INIT(simplicity_tx, initialize_simplicity_tx)
 
     // 3. Construct `nIn` and `spent_outs` arrays.
     bool expect_simplicity = false;
-    std::vector<unsigned char[32]> cmrs;
     std::vector<CTxOut> spent_outs{};
     for (unsigned int i = 0; i < mtx.vin.size(); i++) {
         // Null asset or value would assert in the interpreter, and are impossible
@@ -161,23 +160,20 @@ FUZZ_TARGET_INIT(simplicity_tx, initialize_simplicity_tx)
                     // Compute CMR and do some sanity checks on it (and the program)
                     std::vector<unsigned char> cmr(32, 0);
                     assert(simplicity_computeCmr(&error, cmr.data(), program.data(), program.size()));
-                    if (error == SIMPLICITY_NO_ERROR) {
-                        const XOnlyPubKey internal{Span{control}.subspan(1, TAPROOT_CONTROL_BASE_SIZE - 1)};
+                    const XOnlyPubKey internal{Span{control}.subspan(1, TAPROOT_CONTROL_BASE_SIZE - 1)};
 
-                        const CScript leaf_script{cmr.begin(), cmr.end()};
-                        const uint256 tapleaf_hash = ComputeTapleafHash(0xbe, leaf_script);
-                        uint256 merkle_root = ComputeTaprootMerkleRoot(control, tapleaf_hash);
-                        auto ret = internal.CreateTapTweak(&merkle_root);
-                        if (ret.has_value()) {
-                            expect_simplicity = true;
-                            //assert(0); // useful for searching for a nontrivial fuzz target
-                            // Just drop the parity; it needs to match the one in the control block,
-                            // but we want to test that logic, so we allow them not to match.
-                            const XOnlyPubKey output_key = ret->first;
-                            // If we made it here, success (aside from parity maybe)
-                            current[top - 2] = std::move(cmr);
-                            scriptPubKey = CScript() << OP_1 << ToByteVector(output_key);
-                        }
+                    const CScript leaf_script{cmr.begin(), cmr.end()};
+                    const uint256 tapleaf_hash = ComputeTapleafHash(0xbe, leaf_script);
+                    uint256 merkle_root = ComputeTaprootMerkleRoot(control, tapleaf_hash);
+                    auto ret = internal.CreateTapTweak(&merkle_root);
+                    if (ret.has_value()) {
+                        expect_simplicity = (error == SIMPLICITY_NO_ERROR);
+                        // Just drop the parity; it needs to match the one in the control block,
+                        // but we want to test that logic, so we allow them not to match.
+                        const XOnlyPubKey output_key = ret->first;
+                        // If we made it here, success (aside from parity maybe)
+                        current[top - 2] = std::move(cmr);
+                        scriptPubKey = CScript() << OP_1 << ToByteVector(output_key);
                     }
                 }
             }
