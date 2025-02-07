@@ -50,8 +50,8 @@ class WalletTest(BitcoinTestFramework):
         assert_equal(self.nodes[1].getbalance()[asset], 22_000_000)
 
         # unload/load wallet
-        self.nodes[1].unloadwallet("")
-        self.nodes[1].loadwallet("")
+        self.nodes[1].unloadwallet(self.default_wallet_name)
+        self.nodes[1].loadwallet(self.default_wallet_name)
         assert_equal(self.nodes[1].getbalance()[asset], 22_000_000)
 
         # send more than 45 million of that asset
@@ -62,8 +62,8 @@ class WalletTest(BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance()[asset], 46_000_000)
 
         # unload/load wallet
-        self.nodes[2].unloadwallet("")
-        self.nodes[2].loadwallet("")
+        self.nodes[2].unloadwallet(self.default_wallet_name)
+        self.nodes[2].loadwallet(self.default_wallet_name)
         assert_equal(self.nodes[2].getbalance()[asset], 46_000_000)
 
         # send some policy asset to node 1 for fees
@@ -86,8 +86,8 @@ class WalletTest(BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance()[asset], 200_000_000)
 
         # unload/load wallet
-        self.nodes[2].unloadwallet("")
-        self.nodes[2].loadwallet("")
+        self.nodes[2].unloadwallet(self.default_wallet_name)
+        self.nodes[2].loadwallet(self.default_wallet_name)
         assert_equal(self.nodes[2].getbalance()[asset], 200_000_000)
 
 if __name__ == '__main__':
