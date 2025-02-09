@@ -19,19 +19,20 @@
  *
  * Otherwise '*error' is set to 'SIMPLICITY_NO_ERROR'.
  *
- * If 'imr != NULL' and '*error' is set to 'SIMPLICITY_NO_ERROR', then the identity Merkle root of the decoded expression is written to 'imr'.
- * Otherwise if 'imr != NULL'  and '*error' is not set to 'SIMPLCITY_NO_ERROR', then 'imr' may or may not be written to.
+ * If 'ihr != NULL' and '*error' is set to 'SIMPLICITY_NO_ERROR', then the identity hash of the root of the decoded expression is written to 'ihr'.
+ * Otherwise if 'ihr != NULL'  and '*error' is not set to 'SIMPLCITY_NO_ERROR', then 'ihr' may or may not be written to.
  *
  * Precondition: NULL != error;
- *               NULL != imr implies unsigned char imr[32]
+ *               NULL != ihr implies unsigned char ihr[32]
  *               NULL != tx;
  *               NULL != taproot;
  *               unsigned char genesisBlockHash[32]
+ *               0 <= budget;
  *               NULL != amr implies unsigned char amr[32]
  *               unsigned char program[program_len]
  *               unsigned char witness[witness_len]
  */
-extern bool simplicity_elements_execSimplicity( simplicity_err* error, unsigned char* imr
+extern bool simplicity_elements_execSimplicity( simplicity_err* error, unsigned char* ihr
                                               , const transaction* tx, uint_fast32_t ix, const tapEnv* taproot
                                               , const unsigned char* genesisBlockHash
                                               , int64_t budget

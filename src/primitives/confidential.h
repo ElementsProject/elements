@@ -135,6 +135,11 @@ public:
     CConfidentialValue() { SetNull(); }
     CConfidentialValue(CAmount nAmount) { SetToAmount(nAmount); }
 
+    template <typename Stream>
+    inline void Unserialize(Stream& s) {
+        CConfidentialCommitment::Unserialize(s);
+    }
+
     /* An explicit value is called an amount. The first byte indicates it is
      * an explicit value, and the remaining 8 bytes is the value serialized as
      * a 64-bit big-endian integer. */

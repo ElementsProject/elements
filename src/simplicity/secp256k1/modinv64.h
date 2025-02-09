@@ -16,17 +16,29 @@
 /* A signed 62-bit limb representation of integers.
  *
  * Its value is sum(v[i] * 2^(62*i), i=0..4). */
-typedef struct {
+typedef struct secp256k1_modinv64_signed62 {
     int64_t v[5];
 } secp256k1_modinv64_signed62;
 
-typedef struct {
+typedef struct secp256k1_modinv64_modinfo {
     /* The modulus in signed62 notation, must be odd and in [3, 2^256]. */
     secp256k1_modinv64_signed62 modulus;
 
     /* modulus^{-1} mod 2^62 */
     uint64_t modulus_inv62;
 } secp256k1_modinv64_modinfo;
+
+static inline void secp256k1_modinv64_signed62_assign(secp256k1_modinv64_signed62 *dst, const secp256k1_modinv64_signed62 *src) {
+#ifdef VST
+  dst->v[0] = src->v[0];
+  dst->v[1] = src->v[1];
+  dst->v[2] = src->v[2];
+  dst->v[3] = src->v[3];
+  dst->v[4] = src->v[4];
+#else
+  *dst = *src;
+#endif
+}
 
 /* Replace x with its modular inverse mod modinfo->modulus. x must be in range [0, modulus).
  * If x is zero, the result will be zero as well. If not, the inverse must exist (i.e., the gcd of

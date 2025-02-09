@@ -22,7 +22,7 @@
  * t = [ u  v ]
  *     [ q  r ]
  */
-typedef struct {
+typedef struct secp256k1_modinv64_trans2x2 {
     int64_t u, v, q, r;
 } secp256k1_modinv64_trans2x2;
 
@@ -651,8 +651,10 @@ static void secp256k1_modinv64_var(secp256k1_modinv64_signed62 *x, const secp256
     /* Start with d=0, e=1, f=modulus, g=x, eta=-1. */
     secp256k1_modinv64_signed62 d = {{0, 0, 0, 0, 0}};
     secp256k1_modinv64_signed62 e = {{1, 0, 0, 0, 0}};
-    secp256k1_modinv64_signed62 f = modinfo->modulus;
-    secp256k1_modinv64_signed62 g = *x;
+    secp256k1_modinv64_signed62 f, g;
+    secp256k1_modinv64_signed62_assign(&(f), &(modinfo->modulus));
+    secp256k1_modinv64_signed62_assign(&(g), &(*x));
+
 #ifdef VERIFY
     int i = 0;
 #endif
@@ -723,7 +725,7 @@ static void secp256k1_modinv64_var(secp256k1_modinv64_signed62 *x, const secp256
 
     /* Optionally negate d, normalize to [0,modulus), and return it. */
     secp256k1_modinv64_normalize_62(&d, f.v[len - 1], modinfo);
-    *x = d;
+    secp256k1_modinv64_signed62_assign(&(*x), &(d));
 }
 
 #if 0

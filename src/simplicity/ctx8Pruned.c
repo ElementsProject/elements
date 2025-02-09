@@ -270,8 +270,8 @@ const uint32_t ctx8Pruned_cmr[] = {
   0x7f11746fu, 0xb68fdaedu, 0x3cadda80u, 0xc7cd0245u, 0xa341b927u, 0xe98e60f8u, 0x745dc441u, 0xe11ce1a3u
 };
 
-/* The identity Merkle root of the above ctx8Pruned Simplicity expression. */
-const uint32_t ctx8Pruned_imr[] = {
+/* The identity hash of the root of the above ctx8Pruned Simplicity expression. */
+const uint32_t ctx8Pruned_ihr[] = {
   0x8e8742acu, 0x27f42d29u, 0xd87f5229u, 0x02bc0ae2u, 0xbcfc1298u, 0x1641a2ddu, 0x77091830u, 0xb79bf12du
 };
 
