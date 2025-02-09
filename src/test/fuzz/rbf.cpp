@@ -15,13 +15,7 @@
 #include <string>
 #include <vector>
 
-void initialize_rbf(void) {
-    // ELEMENTS: our mempool needs Params() to be set for multiple reasons -- to check
-    //  the discount CT rate, to figure out pegin policy, etc
-    SelectParams(CBaseChainParams::LIQUID1);
-}
-
-FUZZ_TARGET_INIT(rbf, initialize_rbf)
+FUZZ_TARGET(rbf)
 {
     FuzzedDataProvider fuzzed_data_provider(buffer.data(), buffer.size());
     SetMockTime(ConsumeTime(fuzzed_data_provider));
