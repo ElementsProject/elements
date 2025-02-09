@@ -222,7 +222,7 @@ struct PrecomputedTransactionData
     template <class T>
     explicit PrecomputedTransactionData(const T& tx);
     ~PrecomputedTransactionData() {
-        simplicity_elements_freeTransaction(m_simplicity_tx_data);
+        free(m_simplicity_tx_data);
     }
 };
 

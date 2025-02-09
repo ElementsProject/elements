@@ -79,5 +79,3 @@ implicit-integer-sign-change:blech32.cpp
 implicit-integer-sign-change:primitives/block.h
 implicit-integer-sign-change:primitives/confidential.cpp
 implicit-integer-sign-change:primitives/confidential.h
-shift-base:simplicity/sha256.c
-unsigned-integer-overflow:simplicity/sha256.c
