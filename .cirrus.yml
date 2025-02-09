@@ -214,10 +214,10 @@ task:
     FILE_ENV: "./ci/test/00_setup_env_native_qt5.sh"
 
 task:
-  name: '[TSan, depends, gui] [jammy]'
+  name: '[TSan, depends, gui] [2404]'
   << : *GLOBAL_TASK_TEMPLATE
   container:
-    image: ubuntu:jammy
+    image: ubuntu:24.04
     cpu: 6  # Increase CPU and Memory to avoid timeout
     memory: 24G
   env:

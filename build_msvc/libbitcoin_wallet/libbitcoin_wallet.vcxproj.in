@@ -57,9 +57,6 @@
     <ProjectReference Include="..\libleveldb\libleveldb.vcxproj">
       <Project>{18430fef-6b61-4c53-b396-718e02850f1b}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\libelementssimplicity\libelementssimplicity.vcxproj">
-      <Project>{abae25f0-d700-46e1-9ef6-5d6ddfcf8b26}</Project>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
