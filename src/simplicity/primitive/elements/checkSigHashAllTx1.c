@@ -28,8 +28,8 @@ const uint32_t elementsCheckSigHashAllTx1_cmr[] = {
   0xf3cd4537u, 0xd7ebb201u, 0x73220319u, 0x5b30b549u, 0xb8dc0c2cu, 0x6257b3a0u, 0xd53bedb0u, 0x8ea02874u
 };
 
-/* The identity Merkle root of the above elementsCheckSigHashAllTx1 Simplicity expression. */
-const uint32_t elementsCheckSigHashAllTx1_imr[] = {
+/* The identity hash of the root of the above elementsCheckSigHashAllTx1 Simplicity expression. */
+const uint32_t elementsCheckSigHashAllTx1_ihr[] = {
   0xd3a5130du, 0xf6abce06u, 0x51eb717au, 0x6dd04222u, 0xb7517651u, 0x9117ec5cu, 0x07bb9edbu, 0xac335e1bu
 };
 

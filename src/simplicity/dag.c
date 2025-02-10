@@ -77,16 +77,16 @@ static sha256_midstate amrIV(tag_t tag) {
   SIMPLICITY_UNREACHABLE;
 }
 
-/* Given the IMR of a jet specification, return the CMR for a jet that implements that specification.
+/* Given the identity hash of a jet specification, return the CMR for a jet that implements that specification.
  *
- * Precondition: uint32_t imr[8]
+ * Precondition: uint32_t ih[8]
  */
-static sha256_midstate mkJetCMR(uint32_t *imr, uint_fast64_t weight) {
+static sha256_midstate mkJetCMR(uint32_t *ih, uint_fast64_t weight) {
   sha256_midstate result = jetIV;
   uint32_t block[16] = {0};
   block[6] = (uint32_t)(weight >> 32);
   block[7] = (uint32_t)weight;
-  memcpy(&block[8], imr, sizeof(uint32_t[8]));
+  memcpy(&block[8], ih, sizeof(uint32_t[8]));
   simplicity_sha256_compression(result.s, block);
 
   return result;
@@ -100,7 +100,7 @@ sha256_midstate simplicity_computeWordCMR(const bitstring* value, size_t n) {
   /* 'stack' is an array of 30 hashes consisting of 8 'uint32_t's each. */
   uint32_t stack[8*30] = {0};
   uint32_t *stack_ptr = stack;
-  sha256_midstate imr = identityIV;
+  sha256_midstate ih = identityIV;
   simplicity_assert(n < 32);
   simplicity_assert((size_t)1 << n == value->len);
   /* Pass 1: Compute the CMR for the expression that writes 'value'.
@@ -135,14 +135,14 @@ sha256_midstate simplicity_computeWordCMR(const bitstring* value, size_t n) {
   /* value->len is a power of 2.*/
   simplicity_assert(stack_ptr == stack + 8);
 
-  /* Pass 2: Compute the IMR for the expression by adding the type roots of ONE and TWO^(2^n) to the CMR. */
-  simplicity_sha256_compression(imr.s, stack);
+  /* Pass 2: Compute the identity hash for the expression by adding the type roots of ONE and TWO^(2^n) to the CMR. */
+  simplicity_sha256_compression(ih.s, stack);
   memcpy(&stack[0], word_type_root[0].s, sizeof(uint32_t[8]));
   memcpy(&stack[8], word_type_root[n+1].s, sizeof(uint32_t[8]));
-  simplicity_sha256_compression(imr.s, stack);
+  simplicity_sha256_compression(ih.s, stack);
 
-  /* Pass 3: Compute the jet's CMR from the specificion's IMR. */
-  return mkJetCMR(imr.s, ((uint_fast64_t)1 << n));
+  /* Pass 3: Compute the jet's CMR from the specificion's identity hash. */
+  return mkJetCMR(ih.s, ((uint_fast64_t)1 << n));
 }
 
 /* Given a well-formed dag[i + 1], such that for all 'j', 0 <= 'j' < 'i',
@@ -192,21 +192,21 @@ void simplicity_computeCommitmentMerkleRoot(dag_node* dag, const uint_fast32_t i
   }
 }
 
-/* Computes the identity Merkle roots of every subexpression in a well-typed 'dag' with witnesses.
- * 'imr[i]' is set to the identity Merkle root of the subexpression 'dag[i]'.
- * When 'HIDDEN == dag[i].tag', then 'imr[i]' is instead set to a hidden root hash for that hidden node.
+/* Computes the identity hash roots of every subexpression in a well-typed 'dag' with witnesses.
+ * 'ihr[i]' is set to the identity hash of the root of the subexpression 'dag[i]'.
+ * When 'HIDDEN == dag[i].tag', then 'ihr[i]' is instead set to a hidden root hash for that hidden node.
  *
- * Precondition: sha256_midstate imr[len];
+ * Precondition: sha256_midstate ihr[len];
  *               dag_node dag[len] and 'dag' is well-typed with 'type_dag' and contains witnesses.
  */
-static void computeIdentityMerkleRoot(sha256_midstate* imr, const dag_node* dag, const type* type_dag, const uint_fast32_t len) {
+static void computeIdentityHashRoots(sha256_midstate* ihr, const dag_node* dag, const type* type_dag, const uint_fast32_t len) {
   /* Pass 1 */
   for (size_t i = 0; i < len; ++i) {
     uint32_t block[16] = {0};
     size_t j = 8;
 
     /* For jets, the first pass identity Merkle root is the same as their commitment Merkle root. */
-    imr[i] = HIDDEN == dag[i].tag ? dag[i].cmr
+    ihr[i] = HIDDEN == dag[i].tag ? dag[i].cmr
            : JET == dag[i].tag ? dag[i].cmr
            : WORD == dag[i].tag ? dag[i].cmr
            : imrIV(dag[i].tag);
@@ -214,7 +214,7 @@ static void computeIdentityMerkleRoot(sha256_midstate* imr, const dag_node* dag,
      case WITNESS:
       simplicity_sha256_bitstring(block, &dag[i].compactValue);
       memcpy(block + 8, type_dag[WITNESS_B(dag, type_dag, i)].typeMerkleRoot.s, sizeof(uint32_t[8]));
-      simplicity_sha256_compression(imr[i].s, block);
+      simplicity_sha256_compression(ihr[i].s, block);
       break;
      case COMP:
      case ASSERTL:
@@ -222,15 +222,15 @@ static void computeIdentityMerkleRoot(sha256_midstate* imr, const dag_node* dag,
      case CASE:
      case PAIR:
      case DISCONNECT:
-      memcpy(block + j, imr[dag[i].child[1]].s, sizeof(uint32_t[8]));
+      memcpy(block + j, ihr[dag[i].child[1]].s, sizeof(uint32_t[8]));
       j = 0;
       /*@fallthrough@*/
      case INJL:
      case INJR:
      case TAKE:
      case DROP:
-      memcpy(block + j, imr[dag[i].child[0]].s, sizeof(uint32_t[8]));
-      simplicity_sha256_compression(imr[i].s, block);
+      memcpy(block + j, ihr[dag[i].child[0]].s, sizeof(uint32_t[8]));
+      simplicity_sha256_compression(ihr[i].s, block);
      case IDEN:
      case UNIT:
      case HIDDEN:
@@ -245,16 +245,16 @@ static void computeIdentityMerkleRoot(sha256_midstate* imr, const dag_node* dag,
     uint32_t block[16] = {0};
 
     if (HIDDEN == dag[i].tag) {
-      memcpy(block + 8, imr[i].s, sizeof(uint32_t[8]));
-      imr[i] = hiddenIV;
-      simplicity_sha256_compression(imr[i].s, block);
+      memcpy(block + 8, ihr[i].s, sizeof(uint32_t[8]));
+      ihr[i] = hiddenIV;
+      simplicity_sha256_compression(ihr[i].s, block);
     } else {
-      memcpy(block + 8, imr[i].s, sizeof(uint32_t[8]));
-      imr[i] = identityIV;
-      simplicity_sha256_compression(imr[i].s, block);
+      memcpy(block + 8, ihr[i].s, sizeof(uint32_t[8]));
+      ihr[i] = identityIV;
+      simplicity_sha256_compression(ihr[i].s, block);
       memcpy(block, type_dag[dag[i].sourceType].typeMerkleRoot.s, sizeof(uint32_t[8]));
       memcpy(block + 8, type_dag[dag[i].targetType].typeMerkleRoot.s, sizeof(uint32_t[8]));
-      simplicity_sha256_compression(imr[i].s, block);
+      simplicity_sha256_compression(ihr[i].s, block);
     }
   }
 }
@@ -559,30 +559,30 @@ simplicity_err simplicity_fillWitnessData(dag_node* dag, type* type_dag, const u
   return SIMPLICITY_NO_ERROR;
 }
 
-/* Verifies that identity Merkle roots of every subexpression in a well-typed 'dag' with witnesses are all unique,
+/* Verifies that identity hash of every subexpression in a well-typed 'dag' with witnesses are all unique,
  * including that each hidden root hash for every 'HIDDEN' node is unique.
  *
- * if 'imr' is not NULL, then '*imr' is set to the identity Merkle root of the 'dag'.
+ * if 'ihr' is not NULL, then '*ihr' is set to the identity hash of the root of the 'dag'.
  *
  * If malloc fails, returns 'SIMPLICITY_ERR_MALLOC'.
- * If all the identity Merkle roots (and hidden roots) are all unique, returns 'SIMPLICITY_NO_ERROR'.
+ * If all the identity hahes (and hidden roots) are all unique, returns 'SIMPLICITY_NO_ERROR'.
  * Otherwise returns 'SIMPLICITY_ERR_UNSHARED_SUBEXPRESSION'.
  *
  * Precondition: dag_node dag[len] and 'dag' is well-typed with 'type_dag' and contains witnesses.
  */
-simplicity_err simplicity_verifyNoDuplicateIdentityRoots(sha256_midstate* imr, const dag_node* dag, const type* type_dag, const uint_fast32_t dag_len) {
+simplicity_err simplicity_verifyNoDuplicateIdentityHashes(sha256_midstate* ihr, const dag_node* dag, const type* type_dag, const uint_fast32_t dag_len) {
   simplicity_assert(0 < dag_len);
   simplicity_assert(dag_len <= DAG_LEN_MAX);
-  sha256_midstate* imr_buf = simplicity_malloc((size_t)dag_len * sizeof(sha256_midstate));
-  if (!imr_buf) return SIMPLICITY_ERR_MALLOC;
+  sha256_midstate* ih_buf = simplicity_malloc((size_t)dag_len * sizeof(sha256_midstate));
+  if (!ih_buf) return SIMPLICITY_ERR_MALLOC;
 
-  computeIdentityMerkleRoot(imr_buf, dag, type_dag, dag_len);
+  computeIdentityHashRoots(ih_buf, dag, type_dag, dag_len);
 
-  if (imr) *imr = imr_buf[dag_len-1];
+  if (ihr) *ihr = ih_buf[dag_len-1];
 
-  int result = simplicity_hasDuplicates(imr_buf, dag_len);
+  int result = simplicity_hasDuplicates(ih_buf, dag_len);
 
-  simplicity_free(imr_buf);
+  simplicity_free(ih_buf);
 
   switch (result) {
   case -1: return SIMPLICITY_ERR_MALLOC;

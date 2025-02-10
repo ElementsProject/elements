@@ -70,7 +70,8 @@ typedef struct rawInput {
 
 /* A structure representing data for an Elements transaction, including the TXO data of each output being redeemed.
  *
- * Invariant: rawInput input[numInputs];
+ * Invariant: unsigned char txid[32];
+ *            rawInput input[numInputs];
  *            rawOutput output[numOutputs];
  */
 typedef struct rawTransaction {
@@ -86,12 +87,16 @@ typedef struct rawTransaction {
 /* A forward declaration for the structure containing a copy (and digest) of the rawTransaction data */
 typedef struct transaction transaction;
 
-/* Allocate and initialize a 'transaction' from a 'rawOutput', copying or hashing the data as needed.
+/* Allocate and initialize a 'transaction' from a 'rawTransaction', copying or hashing the data as needed.
  * Returns NULL if malloc fails (or if malloc cannot be called because we require an allocation larger than SIZE_MAX).
  *
  * Precondition: NULL != rawTx
  */
 extern transaction* simplicity_elements_mallocTransaction(const rawTransaction* rawTx);
+
+/* Free a pointer to 'transaction'.
+ */
+extern void simplicity_elements_freeTransaction(transaction* tx);
 
 /* A structure representing taproot spending data for an Elements transaction.
  *
@@ -114,4 +119,8 @@ typedef struct tapEnv tapEnv;
  * Precondition: *rawEnv is well-formed (i.e. rawEnv->pathLen <= 128.)
  */
 extern tapEnv* simplicity_elements_mallocTapEnv(const rawTapEnv* rawEnv);
+
+/* Free a pointer to 'tapEnv'.
+ */
+extern void simplicity_elements_freeTapEnv(tapEnv* env);
 #endif

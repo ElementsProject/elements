@@ -377,17 +377,17 @@ simplicity_err simplicity_verifyCanonicalOrder(dag_node* dag, const uint_fast32_
  */
 simplicity_err simplicity_fillWitnessData(dag_node* dag, type* type_dag, const uint_fast32_t len, bitstream *witness);
 
-/* Verifies that identity Merkle roots of every subexpression in a well-typed 'dag' with witnesses are all unique,
+/* Verifies that identity hash of every subexpression in a well-typed 'dag' with witnesses are all unique,
  * including that each hidden root hash for every 'HIDDEN' node is unique.
  *
- * if 'imr' is not NULL, then '*imr' is set to the identity Merkle root of the 'dag'.
+ * if 'ihr' is not NULL, then '*ihr' is set to the identity hash of the root of the 'dag'.
  *
  * If malloc fails, returns 'SIMPLICITY_ERR_MALLOC'.
- * If all the identity Merkle roots (and hidden roots) are all unique, returns 'SIMPLICITY_NO_ERROR'.
+ * If all the identity hahes (and hidden roots) are all unique, returns 'SIMPLICITY_NO_ERROR'.
  * Otherwise returns 'SIMPLICITY_ERR_UNSHARED_SUBEXPRESSION'.
  *
  * Precondition: dag_node dag[len] and 'dag' is well-typed with 'type_dag' and contains witnesses.
  */
-simplicity_err simplicity_verifyNoDuplicateIdentityRoots(sha256_midstate* imr, const dag_node* dag, const type* type_dag, const uint_fast32_t dag_len);
+simplicity_err simplicity_verifyNoDuplicateIdentityHashes(sha256_midstate* ihr, const dag_node* dag, const type* type_dag, const uint_fast32_t dag_len);
 
 #endif
