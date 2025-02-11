@@ -58,7 +58,7 @@ if [ -n "$DPKG_ADD_ARCH" ]; then
   CI_EXEC dpkg --add-architecture "$DPKG_ADD_ARCH"
 fi
 
-if [[ $DOCKER_NAME_TAG == *centos* ]]; then
+if [[ $DOCKER_NAME_TAG == *centos* ]] || [[ $DOCKER_NAME_TAG == *rocky* ]]; then
   ${CI_RETRY_EXE} CI_EXEC dnf -y install epel-release
   ${CI_RETRY_EXE} CI_EXEC dnf -y --allowerasing install "$DOCKER_PACKAGES" "$PACKAGES"
 elif [ "$CI_USE_APT_INSTALL" != "no" ]; then
