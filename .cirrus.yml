@@ -224,7 +224,6 @@ task:
   env:
     << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
     FILE_ENV: "./ci/test/00_setup_env_native_msan.sh"
-    MAKEJOBS: "-j4"  # Avoid excessive memory use due to MSan
 
 task:
   name: '[ASan + LSan + UBSan + integer, no depends] [jammy]'
@@ -236,7 +235,6 @@ task:
   env:
     << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
     FILE_ENV: "./ci/test/00_setup_env_native_asan.sh"
-    MAKEJOBS: "-j4"  # Avoid excessive memory use
 
 task:
   name: '[fuzzer,address,undefined,integer, no depends] [jammy]'
