@@ -469,7 +469,7 @@ public:
     bool RemoveDynaFedMaskOnSerialize(bool for_read) {
         if (for_read) {
             bool is_dyna = nVersion < 0;
-            nVersion = ~CBlockHeader::DYNAFED_HF_MASK & nVersion;
+            nVersion = (int32_t) (~CBlockHeader::DYNAFED_HF_MASK & (uint32_t)nVersion);
             return is_dyna;
         } else {
             return is_dynafed_block();
