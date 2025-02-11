@@ -330,8 +330,9 @@ CoinsResult AvailableCoins(const CWallet& wallet,
             if (asset_filter && asset != *asset_filter) {
                 continue;
             }
-            if (outValue < nMinimumAmount || outValue > nMaximumAmount)
+            if (outValue < nMinimumAmount || (asset == Params().GetConsensus().pegged_asset && outValue > nMaximumAmount)) {
                 continue;
+            }
 
             if (coinControl && coinControl->HasSelected() && !coinControl->m_allow_other_inputs && !coinControl->IsSelected(outpoint))
                 continue;

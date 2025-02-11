@@ -55,14 +55,17 @@ CAmountMap TxGetCredit(const CWallet& wallet, const CWalletTx& wtx, const ismine
     {
         LOCK(wallet.cs_wallet);
 
+        CAsset pegged_asset{Params().GetConsensus().pegged_asset};
         for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i) {
             if (wallet.IsMine(wtx.tx->vout[i]) & filter) {
+                CAsset asset{wtx.GetOutputAsset(wallet, i)};
                 CAmount credit = std::max<CAmount>(0, wtx.GetOutputValueOut(wallet, i));
-                if (!MoneyRange(credit))
+                if (asset == pegged_asset && !MoneyRange(credit)) {
                     throw std::runtime_error(std::string(__func__) + ": value out of range");
+                }
 
-                nCredit[wtx.GetOutputAsset(wallet, i)] += credit;
-                if (!MoneyRange(nCredit))
+                nCredit[asset] += credit;
+                if (!MoneyRange(nCredit, pegged_asset))
                     throw std::runtime_error(std::string(__func__) + ": value out of range");
             }
         }
@@ -204,16 +207,18 @@ CAmountMap CachedTxGetAvailableCredit(const CWallet& wallet, const CWalletTx& wt
     bool allow_used_addresses = (filter & ISMINE_USED) || !wallet.IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE);
     CAmountMap nCredit;
     uint256 hashTx = wtx.GetHash();
+    CAsset pegged_asset{Params().GetConsensus().pegged_asset};
     for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
         const CTxOut& txout = wtx.tx->vout[i];
         if (!wallet.IsSpent(COutPoint(hashTx, i)) && (allow_used_addresses || !wallet.IsSpentKey(txout.scriptPubKey))) {
             if (wallet.IsMine(wtx.tx->vout[i]) & filter) {
+                CAsset asset = wtx.GetOutputAsset(wallet, i);
                 CAmount credit = std::max<CAmount>(0, wtx.GetOutputValueOut(wallet, i));
-                if (!MoneyRange(credit))
+                if (asset == pegged_asset && !MoneyRange(credit))
                     throw std::runtime_error(std::string(__func__) + ": value out of range");
 
                 nCredit[wtx.GetOutputAsset(wallet, i)] += std::max<CAmount>(0, wtx.GetOutputValueOut(wallet, i));
-                if (!MoneyRange(nCredit))
+                if (!MoneyRange(nCredit, pegged_asset))
                     throw std::runtime_error(std::string(__func__) + ": value out of range");
             }
         }
