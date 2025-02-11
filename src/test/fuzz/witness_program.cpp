@@ -45,7 +45,7 @@ FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
 
         CScriptWitness witness;
         int fuzz_control;
-        int flags;
+        unsigned flags;
         ds >> fuzz_control;
         ds >> witness.stack;
         ds >> flags;
