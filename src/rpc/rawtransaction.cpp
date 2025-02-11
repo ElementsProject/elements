@@ -1475,6 +1475,11 @@ static RPCHelpMan decodepsbt()
             } else {
                 out.pushKV("amountcommitment", txout.nValue.GetHex());
             }
+            if (txout.nAsset.IsExplicit()) {
+                out.pushKV("asset", txout.nAsset.GetAsset().GetHex());
+            } else {
+                out.pushKV("assetcommitment", txout.nAsset.GetHex());
+            }
             out.pushKV("scriptPubKey", o);
 
             in.pushKV("witness_utxo", out);
