@@ -303,6 +303,9 @@ public:
             s >> nAsset;
             s >> nValue;
             s >> nNonce;
+            if (nAsset.IsNull() || nValue.IsNull()) {
+                throw std::ios_base::failure("Confidential values may not be null");
+            }
         } else {
             CAmount value;
             s >> value;
