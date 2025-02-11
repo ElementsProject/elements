@@ -20,8 +20,8 @@ extern const size_t sizeof_elementsCheckSigHashAllTx1_witness;
 /* The commitment Merkle root of the above elementsCheckSigHashAllTx1 Simplicity expression. */
 extern const uint32_t elementsCheckSigHashAllTx1_cmr[];
 
-/* The identity Merkle root of the above elementsCheckSigHashAllTx1 Simplicity expression. */
-extern const uint32_t elementsCheckSigHashAllTx1_imr[];
+/* The identity hash of the root of the above elementsCheckSigHashAllTx1 Simplicity expression. */
+extern const uint32_t elementsCheckSigHashAllTx1_ihr[];
 
 /* The annotated Merkle root of the above elementsCheckSigHashAllTx1 Simplicity expression. */
 extern const uint32_t elementsCheckSigHashAllTx1_amr[];

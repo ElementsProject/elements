@@ -127,13 +127,13 @@ static void test_hashBlock(void) {
         }
       }
       {
-        sha256_midstate imr;
-        if (IS_OK(simplicity_verifyNoDuplicateIdentityRoots(&imr, dag, type_dag, (uint_fast32_t)len)) &&
-            0 == memcmp(hashBlock_imr, imr.s, sizeof(uint32_t[8]))) {
+        sha256_midstate ihr;
+        if (IS_OK(simplicity_verifyNoDuplicateIdentityHashes(&ihr, dag, type_dag, (uint_fast32_t)len)) &&
+            0 == memcmp(hashBlock_ihr, ihr.s, sizeof(uint32_t[8]))) {
           successes++;
         } else {
           failures++;
-          printf("Unexpected IMR of hashblock\n");
+          printf("Unexpected IHR of hashblock\n");
         }
       }
 
@@ -187,7 +187,7 @@ static void test_hashBlock(void) {
 
 static void test_program(char* name, const unsigned char* program, size_t program_len, const unsigned char* witness, size_t witness_len,
                          simplicity_err expectedResult, const uint32_t* expectedCMR,
-                         const uint32_t* expectedIMR, const uint32_t* expectedAMR, const ubounded *expectedCost) {
+                         const uint32_t* expectedIHR, const uint32_t* expectedAMR, const ubounded *expectedCost) {
   printf("Test %s\n", name);
   dag_node* dag;
   combinator_counters census;
@@ -253,13 +253,13 @@ static void test_program(char* name, const unsigned char* program, size_t progra
         }
       }
       {
-        sha256_midstate imr;
-        if (IS_OK(simplicity_verifyNoDuplicateIdentityRoots(&imr, dag, type_dag, (uint_fast32_t)len)) &&
-            (!expectedIMR || 0 == memcmp(expectedIMR, imr.s, sizeof(uint32_t[8])))) {
+        sha256_midstate ihr;
+        if (IS_OK(simplicity_verifyNoDuplicateIdentityHashes(&ihr, dag, type_dag, (uint_fast32_t)len)) &&
+            (!expectedIHR || 0 == memcmp(expectedIHR, ihr.s, sizeof(uint32_t[8])))) {
           successes++;
         } else {
           failures++;
-          printf("Unexpected IMR.\n");
+          printf("Unexpected IHR.\n");
         }
       }
       if (expectedCost) {
@@ -404,15 +404,15 @@ static void test_elements(void) {
         }
       }
       {
-        unsigned char imrResult[32];
-        if (simplicity_elements_execSimplicity(&execResult, imrResult, tx1, 0, taproot, genesisHash, (elementsCheckSigHashAllTx1_cost + 999)/1000, amr, elementsCheckSigHashAllTx1, sizeof_elementsCheckSigHashAllTx1, elementsCheckSigHashAllTx1_witness, sizeof_elementsCheckSigHashAllTx1_witness) && IS_OK(execResult)) {
-          sha256_midstate imr;
-          sha256_toMidstate(imr.s, imrResult);
-          if (0 == memcmp(imr.s, elementsCheckSigHashAllTx1_imr, sizeof(uint32_t[8]))) {
+        unsigned char ihrResult[32];
+        if (simplicity_elements_execSimplicity(&execResult, ihrResult, tx1, 0, taproot, genesisHash, (elementsCheckSigHashAllTx1_cost + 999)/1000, amr, elementsCheckSigHashAllTx1, sizeof_elementsCheckSigHashAllTx1, elementsCheckSigHashAllTx1_witness, sizeof_elementsCheckSigHashAllTx1_witness) && IS_OK(execResult)) {
+          sha256_midstate ihr;
+          sha256_toMidstate(ihr.s, ihrResult);
+          if (0 == memcmp(ihr.s, elementsCheckSigHashAllTx1_ihr, sizeof(uint32_t[8]))) {
             successes++;
           } else {
             failures++;
-            printf("Unexpected IMR of elementsCheckSigHashAllTx1\n");
+            printf("Unexpected IHR of elementsCheckSigHashAllTx1\n");
           }
         } else {
           failures++;
@@ -421,7 +421,7 @@ static void test_elements(void) {
         if (elementsCheckSigHashAllTx1_cost){
           /* test the same transaction without adequate budget. */
           simplicity_assert(elementsCheckSigHashAllTx1_cost);
-          if (simplicity_elements_execSimplicity(&execResult, imrResult, tx1, 0, taproot, genesisHash, (elementsCheckSigHashAllTx1_cost - 1)/1000, amr, elementsCheckSigHashAllTx1, sizeof_elementsCheckSigHashAllTx1, elementsCheckSigHashAllTx1_witness, sizeof_elementsCheckSigHashAllTx1_witness) && SIMPLICITY_ERR_EXEC_BUDGET == execResult) {
+          if (simplicity_elements_execSimplicity(&execResult, ihrResult, tx1, 0, taproot, genesisHash, (elementsCheckSigHashAllTx1_cost - 1)/1000, amr, elementsCheckSigHashAllTx1, sizeof_elementsCheckSigHashAllTx1, elementsCheckSigHashAllTx1_witness, sizeof_elementsCheckSigHashAllTx1_witness) && SIMPLICITY_ERR_EXEC_BUDGET == execResult) {
             successes++;
           } else {
             failures++;
@@ -445,7 +445,7 @@ static void test_elements(void) {
       printf("mallocTransaction(&rawTx1) failed\n");
       failures++;
     }
-    simplicity_free(tx1);
+    simplicity_elements_freeTransaction(tx1);
   }
   /* test a modified transaction with the same signature. */
   {
@@ -494,9 +494,9 @@ static void test_elements(void) {
       printf("mallocTransaction(&testTx2) failed\n");
       failures++;
     }
-    simplicity_free(tx2);
+    simplicity_elements_freeTransaction(tx2);
   }
-  simplicity_free(taproot);
+  simplicity_elements_freeTapEnv(taproot);
 }
 
 static sha256_midstate hashint(uint_fast32_t n) {
@@ -664,16 +664,16 @@ int main(int argc, char **argv) {
   test_hasDuplicates("hasDuplicates one duplicate testcase", 1, rsort_one_duplicate, 10000);
   test_hasDuplicates("hasDuplicates diagonal testcase", 0, rsort_diagonal, 33);
 
-  test_program("ctx8Pruned", ctx8Pruned, sizeof_ctx8Pruned, ctx8Pruned_witness, sizeof_ctx8Pruned_witness, SIMPLICITY_NO_ERROR, ctx8Pruned_cmr, ctx8Pruned_imr, ctx8Pruned_amr, &ctx8Pruned_cost);
-  test_program("ctx8Unpruned", ctx8Unpruned, sizeof_ctx8Unpruned, ctx8Unpruned_witness, sizeof_ctx8Unpruned_witness, SIMPLICITY_ERR_ANTIDOS, ctx8Unpruned_cmr, ctx8Unpruned_imr, ctx8Unpruned_amr, &ctx8Unpruned_cost);
+  test_program("ctx8Pruned", ctx8Pruned, sizeof_ctx8Pruned, ctx8Pruned_witness, sizeof_ctx8Pruned_witness, SIMPLICITY_NO_ERROR, ctx8Pruned_cmr, ctx8Pruned_ihr, ctx8Pruned_amr, &ctx8Pruned_cost);
+  test_program("ctx8Unpruned", ctx8Unpruned, sizeof_ctx8Unpruned, ctx8Unpruned_witness, sizeof_ctx8Unpruned_witness, SIMPLICITY_ERR_ANTIDOS, ctx8Unpruned_cmr, ctx8Unpruned_ihr, ctx8Unpruned_amr, &ctx8Unpruned_cost);
   if (0 == memcmp(ctx8Pruned_cmr, ctx8Unpruned_cmr, sizeof(uint32_t[8]))) {
     successes++;
   } else {
     failures++;
     printf("Pruned and Unpruned CMRs are not the same.\n");
   }
-  test_program("schnorr0", schnorr0, sizeof_schnorr0, schnorr0_witness, sizeof_schnorr0_witness, SIMPLICITY_NO_ERROR, schnorr0_cmr, schnorr0_imr, schnorr0_amr, &schnorr0_cost);
-  test_program("schnorr6", schnorr6, sizeof_schnorr6, schnorr6_witness, sizeof_schnorr6_witness, SIMPLICITY_ERR_EXEC_JET, schnorr6_cmr, schnorr6_imr, schnorr6_amr, &schnorr0_cost);
+  test_program("schnorr0", schnorr0, sizeof_schnorr0, schnorr0_witness, sizeof_schnorr0_witness, SIMPLICITY_NO_ERROR, schnorr0_cmr, schnorr0_ihr, schnorr0_amr, &schnorr0_cost);
+  test_program("schnorr6", schnorr6, sizeof_schnorr6, schnorr6_witness, sizeof_schnorr6_witness, SIMPLICITY_ERR_EXEC_JET, schnorr6_cmr, schnorr6_ihr, schnorr6_amr, &schnorr0_cost);
   test_program("typeSkipTest", typeSkipTest, sizeof_typeSkipTest, typeSkipTest_witness, sizeof_typeSkipTest_witness, SIMPLICITY_NO_ERROR, NULL, NULL, NULL, NULL);
   test_elements();
   regression_tests();

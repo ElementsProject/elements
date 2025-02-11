@@ -16,7 +16,7 @@ typedef enum {
   SIMPLICITY_ERR_DATA_OUT_OF_RANGE = -2,
   SIMPLICITY_ERR_DATA_OUT_OF_ORDER = -4,
   SIMPLICITY_ERR_FAIL_CODE = -6,
-  SIMPLICITY_ERR_STOP_CODE = -8,
+  SIMPLICITY_ERR_RESERVED_CODE = -8,
   SIMPLICITY_ERR_HIDDEN = -10,
   SIMPLICITY_ERR_BITSTREAM_EOF = -12,
   SIMPLICITY_ERR_BITSTREAM_TRAILING_BYTES = -14,
@@ -62,10 +62,10 @@ static inline const char * SIMPLICITY_ERR_MSG(simplicity_err err) {
     return "Non-canonical order";
   case SIMPLICITY_ERR_FAIL_CODE:
     return "Program has FAIL node";
-  case SIMPLICITY_ERR_STOP_CODE:
-    return "Program has STOP node";
+  case SIMPLICITY_ERR_RESERVED_CODE:
+    return "Program has reserved codeword";
   case SIMPLICITY_ERR_HIDDEN:
-    return "Program has illegal HIDDEN child node";
+    return "Program has node with a HIDDEN child in a position where it is not allowed";
   case SIMPLICITY_ERR_BITSTREAM_EOF:
     return "Unexpected end of bitstream";
   case SIMPLICITY_ERR_BITSTREAM_TRAILING_BYTES:

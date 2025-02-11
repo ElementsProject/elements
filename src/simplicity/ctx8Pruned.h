@@ -18,8 +18,8 @@ extern const size_t sizeof_ctx8Pruned_witness;
 /* The commitment Merkle root of the above ctx8Pruned Simplicity expression. */
 extern const uint32_t ctx8Pruned_cmr[];
 
-/* The identity Merkle root of the above ctx8Pruned Simplicity expression. */
-extern const uint32_t ctx8Pruned_imr[];
+/* The identity hash of the root of the above ctx8Pruned Simplicity expression. */
+extern const uint32_t ctx8Pruned_ihr[];
 
 /* The annotated Merkle root of the above ctx8Pruned Simplicity expression. */
 extern const uint32_t ctx8Pruned_amr[];

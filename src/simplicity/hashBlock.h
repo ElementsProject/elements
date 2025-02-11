@@ -16,8 +16,8 @@ extern const size_t sizeof_hashBlock_witness;
 /* The commitment Merkle root of the above hashBlock Simplicity expression. */
 extern const uint32_t hashBlock_cmr[];
 
-/* The identity Merkle root of the above hashBlock Simplicity expression. */
-extern const uint32_t hashBlock_imr[];
+/* The identity hash of the root of the above hashBlock Simplicity expression. */
+extern const uint32_t hashBlock_ihr[];
 
 /* The annotated Merkle root of the above hashBlock Simplicity expression. */
 extern const uint32_t hashBlock_amr[];

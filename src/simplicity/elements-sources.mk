@@ -35,6 +35,7 @@ ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/bitstream.h
 ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/bitstring.h
 ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/bounded.h
 ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/dag.h
+ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/decodeCoreJets.inc
 ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/deserialize.h
 ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/eval.h
 ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/frame.h
@@ -88,6 +89,7 @@ ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/secp256k1/secp256k1.h
 ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/secp256k1/secp256k1_impl.h
 ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/secp256k1/util.h
 
+ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/primitive/elements/decodeElementsJets.inc
 ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/primitive/elements/elementsJets.h
 ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/primitive/elements/ops.h
 ELEMENTS_SIMPLICITY_LIB_HEADERS_INT += %reldir%/primitive/elements/primitive.h
