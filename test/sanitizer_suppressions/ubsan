@@ -81,5 +81,3 @@ implicit-integer-sign-change:primitives/confidential.cpp
 implicit-integer-sign-change:primitives/confidential.h
 shift-base:simplicity/sha256.c
 unsigned-integer-overflow:simplicity/sha256.c
-# See comment in simplicity/primitive/elements/env.c line 303
-unsigned-integer-overflow:simplicity/primitive/elements/env.c
