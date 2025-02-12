@@ -13,6 +13,7 @@
 #include <crypto/siphash.h>
 #include <hash.h>
 #include <i2p.h>
+#include <logging.h>
 #include <net_permissions.h>
 #include <netaddress.h>
 #include <netbase.h>
@@ -32,6 +33,7 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <list>
 #include <map>
 #include <memory>
 #include <optional>
@@ -311,6 +313,8 @@ public:
  */
 class TransportDeserializer {
 public:
+    // returns true if the current deserialization is empty
+    virtual bool IsEmpty() const = 0;
     // returns true if the current deserialization is complete
     virtual bool Complete() const = 0;
     // set the serialization context version
@@ -361,6 +365,10 @@ public:
         Reset();
     }
 
+    bool IsEmpty() const override
+    {
+        return (nHdrPos == 0);
+    }
     bool Complete() const override
     {
         if (!in_data)

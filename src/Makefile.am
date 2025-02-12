@@ -15,7 +15,7 @@ AM_LIBTOOLFLAGS = --preserve-dup-deps
 PTHREAD_FLAGS = $(PTHREAD_CFLAGS) $(PTHREAD_LIBS)
 EXTRA_LIBRARIES =
 
-BITCOIN_INCLUDES=-I$(builddir) -I$(srcdir)/$(MINISKETCH_INCLUDE_DIR_INT) -I$(srcdir)/secp256k1/include -I$(srcdir)/$(UNIVALUE_INCLUDE_DIR_INT) -I$(srcdir)/$(ELEMENTS_SIMPLICITY_INCLUDE_DIR_INT) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
+BITCOIN_INCLUDES=-I$(builddir) -I$(srcdir)/$(MINISKETCH_INCLUDE_DIR_INT) -I$(srcdir)/secp256k1/include -I$(srcdir)/$(UNIVALUE_INCLUDE_DIR_INT) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
 
 LIBBITCOIN_NODE=libbitcoin_node.a
 LIBBITCOIN_COMMON=libbitcoin_common.a
@@ -104,10 +104,6 @@ endif
 
 if BUILD_BITCOIN_UTIL
   bin_PROGRAMS += elements-util
-endif
-
-if BUILD_BITCOIN_CHAINSTATE
-  bin_PROGRAMS += bitcoin-chainstate
 endif
 
 .PHONY: FORCE check-symbols check-security
@@ -721,8 +717,7 @@ elements_bin_ldadd = \
   $(LIBLEVELDB) \
   $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV) \
-  $(LIBSECP256K1) \
-  $(LIBELEMENTSSIMPLICITY)
+  $(LIBSECP256K1)
 
 elements_bin_ldadd += $(BDB_LIBS) $(MINIUPNPC_LIBS) $(NATPMP_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) $(SQLITE_LIBS)
 
@@ -773,8 +768,7 @@ elements_tx_LDADD = \
   $(LIBBITCOIN_UTIL) \
   $(LIBBITCOIN_CONSENSUS) \
   $(LIBBITCOIN_CRYPTO) \
-  $(LIBSECP256K1) \
-  $(LIBELEMENTSSIMPLICITY)
+  $(LIBSECP256K1)
 #
 
 # bitcoin-wallet binary #
@@ -792,7 +786,6 @@ elements_wallet_LDADD = \
   $(LIBBITCOIN_CONSENSUS) \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBSECP256K1) \
-  $(LIBELEMENTSSIMPLICITY) \
   $(BDB_LIBS) \
   $(EVENT_LIBS) \
   $(LIBLEVELDB) \
@@ -821,135 +814,7 @@ elements_util_LDADD = \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_CONSENSUS) \
   $(LIBBITCOIN_CRYPTO) \
-  $(LIBSECP256K1) \
-  $(LIBELEMENTSSIMPLICITY)
-#
-
-# bitcoin-chainstate binary #
-bitcoin_chainstate_SOURCES = \
-  bitcoin-chainstate.cpp \
-  arith_uint256.cpp \
-  blockfilter.cpp \
-  chain.cpp \
-  chainparamsbase.cpp \
-  chainparams.cpp \
-  clientversion.cpp \
-  coins.cpp \
-  compat/glibcxx_sanity.cpp \
-  compressor.cpp \
-  consensus/merkle.cpp \
-  consensus/tx_check.cpp \
-  consensus/tx_verify.cpp \
-  core_read.cpp \
-  dbwrapper.cpp \
-  deploymentinfo.cpp \
-  deploymentstatus.cpp \
-  flatfile.cpp \
-  fs.cpp \
-  hash.cpp \
-  index/base.cpp \
-  index/blockfilterindex.cpp \
-  index/coinstatsindex.cpp \
-  init/common.cpp \
-  key.cpp \
-  logging.cpp \
-  netaddress.cpp \
-  node/blockstorage.cpp \
-  node/chainstate.cpp \
-  node/coinstats.cpp \
-  node/ui_interface.cpp \
-  policy/feerate.cpp \
-  policy/fees.cpp \
-  policy/packages.cpp \
-  policy/policy.cpp \
-  policy/rbf.cpp \
-  policy/settings.cpp \
-  pow.cpp \
-  primitives/block.cpp \
-  primitives/transaction.cpp \
-  pubkey.cpp \
-  random.cpp \
-  randomenv.cpp \
-  scheduler.cpp \
-  script/interpreter.cpp \
-  script/script.cpp \
-  script/script_error.cpp \
-  script/sigcache.cpp \
-  script/standard.cpp \
-  shutdown.cpp \
-  signet.cpp \
-  support/cleanse.cpp \
-  support/lockedpool.cpp \
-  sync.cpp \
-  threadinterrupt.cpp \
-  timedata.cpp \
-  txdb.cpp \
-  txmempool.cpp \
-  uint256.cpp \
-  util/asmap.cpp \
-  util/bytevectorhash.cpp \
-  util/getuniquepath.cpp \
-  util/hasher.cpp \
-  util/moneystr.cpp \
-  util/rbf.cpp \
-  util/serfloat.cpp \
-  util/settings.cpp \
-  util/strencodings.cpp \
-  util/syscall_sandbox.cpp \
-  util/system.cpp \
-  util/thread.cpp \
-  util/threadnames.cpp \
-  util/time.cpp \
-  util/tokenpipe.cpp \
-  validation.cpp \
-  validationinterface.cpp \
-  versionbits.cpp \
-  warnings.cpp
-# ELEMENTS: additional sources for chainstate
-bitcoin_chainstate_SOURCES += \
-  asset.cpp \
-  blind.cpp \
-  blindpsbt.cpp \
-  block_proof.cpp \
-  common/bloom.cpp \
-  confidential_validation.cpp \
-  dynafed.cpp \
-  issuance.cpp \
-  mainchainrpc.cpp \
-  merkleblock.cpp \
-  pegins.cpp \
-  primitives/bitcoin/block.cpp \
-  primitives/bitcoin/merkleblock.cpp \
-  primitives/bitcoin/transaction.cpp \
-  primitives/confidential.cpp \
-  primitives/pak.cpp \
-  primitives/txwitness.cpp \
-  psbt.cpp \
-  rpc/request.cpp \
-  script/pegins.cpp \
-  script/sign.cpp \
-  script/signingprovider.cpp \
-  support/events.h \
-  util/url.cpp
-
-bitcoin_chainstate_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-bitcoin_chainstate_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-bitcoin_chainstate_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
-bitcoin_chainstate_LDADD = \
-  $(LIBBITCOIN_CRYPTO) \
-  $(LIBUNIVALUE) \
-  $(LIBSECP256K1) \
-  $(LIBELEMENTSSIMPLICITY) \
-  $(LIBLEVELDB) \
-  $(LIBLEVELDB_SSE42) \
-  $(LIBMEMENV)
-# ELEMENTS:
-bitcoin_chainstate_LDADD += \
-  $(EVENT_LIBS)
-
-# Required for obj/build.h to be generated first.
-# More details: https://www.gnu.org/software/automake/manual/html_node/Built-Sources-Example.html
-bitcoin_chainstate-clientversion.$(OBJEXT): obj/build.h
+  $(LIBSECP256K1)
 #
 
 # bitcoinconsensus library #
@@ -958,8 +823,8 @@ include_HEADERS = script/bitcoinconsensus.h
 libelementsconsensus_la_SOURCES = support/cleanse.cpp $(crypto_libbitcoin_crypto_base_a_SOURCES) $(libelements_consensus_a_SOURCES)
 
 libelementsconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined $(RELDFLAGS)
-libelementsconsensus_la_LIBADD = $(LIBSECP256K1) $(LIBELEMENTSSIMPLICITY)
-libelementsconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -I$(srcdir)/$(ELEMENTS_SIMPLICITY_INCLUDE_DIR_INT) -DBUILD_BITCOIN_INTERNAL
+libelementsconsensus_la_LIBADD = $(LIBSECP256K1)
+libelementsconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_BITCOIN_INTERNAL
 libelementsconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 endif
@@ -1084,5 +949,3 @@ include Makefile.qttest.include
 endif
 
 include Makefile.univalue.include
-
-include Makefile.elementssimplicity.include
