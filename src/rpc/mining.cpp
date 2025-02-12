@@ -1305,6 +1305,10 @@ static RPCHelpMan getcompactsketch()
     CDataStream ssBlock(block_bytes, SER_NETWORK, PROTOCOL_VERSION);
     ssBlock >> block;
 
+    if (block.vtx.empty()) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Cannot obtain sketch of empty block.");
+    }
+
     CBlockHeaderAndShortTxIDs cmpctblock(block);
 
     CDataStream ssCompactBlock(SER_NETWORK, PROTOCOL_VERSION);
