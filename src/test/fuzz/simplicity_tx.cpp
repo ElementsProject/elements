@@ -122,6 +122,7 @@ FUZZ_TARGET_INIT(simplicity_tx, initialize_simplicity_tx)
     // 3. Construct `nIn` and `spent_outs` arrays.
     bool expect_simplicity = false;
     std::vector<CTxOut> spent_outs{};
+    unsigned char last_cmr[32] = { 0 };
     for (unsigned int i = 0; i < mtx.vin.size(); i++) {
         // Null asset or value would assert in the interpreter, and are impossible
         // to hit in real transactions. Nonces are not included in the UTXO set and
@@ -160,6 +161,15 @@ FUZZ_TARGET_INIT(simplicity_tx, initialize_simplicity_tx)
                     // Compute CMR and do some sanity checks on it (and the program)
                     std::vector<unsigned char> cmr(32, 0);
                     assert(simplicity_computeCmr(&error, cmr.data(), program.data(), program.size()));
+                    if (error == SIMPLICITY_NO_ERROR) {
+                        if (memcmp(last_cmr, cmr.data(), sizeof(last_cmr)) == 0) {
+                            // If we have already seen this CMR this transaction, try mangling
+                            // it to check that this produces a CMR error and not something worse.
+                            cmr.data()[1] ^= 1;
+                        }
+                        memcpy(last_cmr, cmr.data(), sizeof(last_cmr));
+                    }
+
                     const XOnlyPubKey internal{Span{control}.subspan(1, TAPROOT_CONTROL_BASE_SIZE - 1)};
 
                     const CScript leaf_script{cmr.begin(), cmr.end()};
