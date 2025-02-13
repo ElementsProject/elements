@@ -11,9 +11,9 @@ if [[ $QEMU_USER_CMD == qemu-s390* ]]; then
 fi
 
 if [ "$CI_OS_NAME" == "macos" ]; then
-  sudo -H pip3 install --upgrade pip
+  sudo -H pip3 install --upgrade --break-system-packages pip
   # shellcheck disable=SC2086
-  IN_GETOPT_BIN="/usr/local/opt/gnu-getopt/bin/getopt" ${CI_RETRY_EXE} pip3 install --user $PIP_PACKAGES
+  IN_GETOPT_BIN="$(brew --prefix gnu-getopt)/bin/getopt" ${CI_RETRY_EXE} pip3 install --user $PIP_PACKAGES
 fi
 
 # Create folders that are mounted into the docker
