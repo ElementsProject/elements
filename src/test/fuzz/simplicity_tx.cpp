@@ -2,7 +2,6 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <cstdio>
 #include <span.h>
 #include <primitives/transaction.h>
 #include <script/sigcache.h>
@@ -63,14 +62,6 @@ void initialize_simplicity_tx()
     INPUT_ASSET_UNCONF.vchCommitment[0] = 0x01;
     INPUT_ASSET_CONF.vchCommitment = INPUT_VALUE_CONF.vchCommitment;
     INPUT_ASSET_CONF.vchCommitment[0] = 0x0a;
-}
-
-void write_u32(FILE *fh, uint32_t val) {
-    unsigned char buf[4];
-
-    val = htole32(val);
-    memcpy(buf, &val, 4);
-    assert(fwrite(buf, 1, 4, fh) == 4);
 }
 
 FUZZ_TARGET_INIT(simplicity_tx, initialize_simplicity_tx)
