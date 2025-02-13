@@ -4,6 +4,7 @@
   <Import Project="..\common.qt.init.vcxproj" />
   <PropertyGroup Label="Globals">
     <ProjectGuid>{51201D5E-D939-4854-AE9D-008F03FF518E}</ProjectGuid>
+    <TargetName>test_elements-qt</TargetName>
     <ConfigurationType>Application</ConfigurationType>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
