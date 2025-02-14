@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 
+export LC_ALL=C
 set -eo pipefail
 
 BASE_ORIG=merged-master
 BASE="${BASE_ORIG}"
 BITCOIN_UPSTREAM_REMOTE=bitcoin
 BITCOIN_UPSTREAM="${BITCOIN_UPSTREAM_REMOTE}/master"
-ELEMENTS_UPSTREAM_REMOTE=upstream
-ELEMENTS_UPSTREAM="${ELEMENTS_UPSTREAM_REMOTE}/master"
+# ELEMENTS_UPSTREAM_REMOTE=upstream
+# ELEMENTS_UPSTREAM="${ELEMENTS_UPSTREAM_REMOTE}/master"
 
 # Replace this with the location where we should put the fuzz test corpus
 BITCOIN_QA_ASSETS="${HOME}/.tmp/bitcoin/qa-assets"
 FUZZ_CORPUS="${BITCOIN_QA_ASSETS}/fuzz_seed_corpus/"
-mkdir -p "$(dirname ${BITCOIN_QA_ASSETS})"
+mkdir -p "$(dirname "${BITCOIN_QA_ASSETS}")"
 
 # BEWARE: On some systems /tmp/ gets periodically cleaned, which may cause
 #   random files from this directory to disappear based on timestamp, and
@@ -100,13 +101,10 @@ if [[ "$SKIP_MERGE" == "1" ]]; then
 fi
 
 ## Get full list of merges
-ELT_COMMITS=$(git -C "$WORKTREE" log "$ELEMENTS_UPSTREAM" --not $BASE --merges --first-parent --pretty='format:%ct %cI %h Elements %s')
-BTC_COMMITS=$(git -C "$WORKTREE" log "$BITCOIN_UPSTREAM" --not $BASE --merges --first-parent --pretty='format:%ct %cI %h Bitcoin %s')
-
-#ELT_COMMITS=
-#BTC_COMMITS=$(git -C "$WORKTREE" log v0.21.0 --not $BASE --merges --first-parent --pretty='format:%ct %cI %h Bitcoin %s')
-
-#play /home/apoelstra/games/Hover/sounds/mixed/hit_wall.wav 2>/dev/null ## play start sound
+# for elements
+# COMMITS=$(git -C "$WORKTREE" log "$ELEMENTS_UPSTREAM" --not $BASE --merges --first-parent --pretty='format:%ct %cI %h Elements %s')
+# for bitcoin
+COMMITS=$(git -C "$WORKTREE" log "$BITCOIN_UPSTREAM" --not $BASE --merges --first-parent --pretty='format:%ct %cI %h Bitcoin %s')
 
 cd "$WORKTREE"
 
@@ -122,19 +120,19 @@ quietly () {
 
 ## Sort by unix timestamp and iterate over them
 #echo "$ELT_COMMITS" "$BTC_COMMITS" | sort -n -k1 | while read line
-echo "$ELT_COMMITS" | tac | while read line
+echo "$COMMITS" | tac | while read -r line
 do
     echo
     echo "=-=-=-=-=-=-=-=-=-=-="
     echo
 
-    echo -e $line
+    echo -e "$line"
     ## Extract data and output what we're doing
-    DATE=$(echo $line | cut -d ' ' -f 2)
-    HASH=$(echo $line | cut -d ' ' -f 3)
-    CHAIN=$(echo $line | cut -d ' ' -f 4)
-    PR_ID=$(echo $line | cut -d ' ' -f 6 | tr -d :)
-    PR_ID_ALT=$(echo $line | cut -d ' ' -f 8 | tr -d :)
+    DATE=$(echo "$line" | cut -d ' ' -f 2)
+    HASH=$(echo "$line" | cut -d ' ' -f 3)
+    CHAIN=$(echo "$line" | cut -d ' ' -f 4)
+    PR_ID=$(echo "$line" | cut -d ' ' -f 6 | tr -d :)
+    PR_ID_ALT=$(echo "$line" | cut -d ' ' -f 8 | tr -d :)
 
     if [[ "$PR_ID" == "pull" ]]; then
 	PR_ID="${PR_ID_ALT}"
@@ -150,7 +148,7 @@ do
         echo -e "Continuing build of \e[37m$PR_ID\e[0m at $(date)"
     else
         echo -e "Start merge/build of \e[37m$PR_ID\e[0m at $(date)"
-        git -C "$WORKTREE" merge $HASH --no-ff -m "Merge $HASH into merged_master ($CHAIN PR $PR_ID)"
+        git -C "$WORKTREE" merge "$HASH" --no-ff -m "Merge $HASH into merged_master ($CHAIN PR $PR_ID)"
     fi
 
     if [[ "$DO_BUILD" == "1" ]]; then
