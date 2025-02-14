@@ -1091,9 +1091,9 @@ struct PSBTInput
                                 } else if (subkey_len != 1) {
                                     throw std::ios_base::failure("Input issuance needs blinded flag is more than one byte type");
                                 }
-                                bool b;
+                                uint8_t b;
                                 UnserializeFromVector(s, b);
-                                m_blinded_issuance = b;
+                                m_blinded_issuance = !!b;
                                 break;
                             }
                             default:
