@@ -19,18 +19,18 @@ from test_framework.messages import (
     WITNESS_SCALE_FACTOR,
     ser_compact_size,
 )
-from test_framework.psbt import (
-    PSBT,
-    # PSBTMap,
-    # PSBT_GLOBAL_UNSIGNED_TX,
-    # PSBT_IN_RIPEMD160,
-    # PSBT_IN_SHA256,
-    # PSBT_IN_HASH160,
-    # PSBT_IN_HASH256,
-    # PSBT_IN_WITNESS_UTXO,
-    PSBT_OUT_TAP_TREE,
-)
-from test_framework.script import CScript, OP_TRUE
+# from test_framework.psbt import (
+#     PSBT,
+#     PSBTMap,
+#     PSBT_GLOBAL_UNSIGNED_TX,
+#     PSBT_IN_RIPEMD160,
+#     PSBT_IN_SHA256,
+#     PSBT_IN_HASH160,
+#     PSBT_IN_HASH256,
+#     PSBT_IN_WITNESS_UTXO,
+#     PSBT_OUT_TAP_TREE,
+# )
+# from test_framework.script import CScript, OP_TRUE
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     # assert_approx,

@@ -53,7 +53,6 @@
 #include <blind.h>
 #include <issuance.h>
 #include <crypto/hmac_sha256.h>
-#include <random.h>
 
 using interfaces::FoundBlock;
 
