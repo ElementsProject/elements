@@ -629,19 +629,12 @@ simplicity_err simplicity_analyseBounds( ubounded *cellsBound, ubounded *UWORDBo
                                                , bound[dag[i].child[1]].cost ));
       break;
      case DISCONNECT:
-      if (UBOUNDED_MAX <= type_dag[DISCONNECT_W256A(dag, type_dag, i)].bitSize ||
-          UBOUNDED_MAX <= type_dag[DISCONNECT_BC(dag, type_dag, i)].bitSize) {
-        /* 'BITSIZE(WORD256 * A)' or 'BITSIZE(B * C)' has exceeded our limits. */
-        bound[i].extraCellsBound[0] = UBOUNDED_MAX;
-        bound[i].extraCellsBound[1] = UBOUNDED_MAX;
-      } else {
-        bound[i].extraCellsBound[1] = type_dag[DISCONNECT_W256A(dag, type_dag, i)].bitSize;
-        bound[i].extraCellsBound[0] = bounded_max(
-          bounded_add( type_dag[DISCONNECT_BC(dag, type_dag, i)].bitSize
-                     , bounded_max( bounded_add(bound[i].extraCellsBound[1], bound[dag[i].child[0]].extraCellsBound[1])
-                          , bounded_max(bound[dag[i].child[0]].extraCellsBound[0], bound[dag[i].child[1]].extraCellsBound[1]))),
-          bound[dag[i].child[1]].extraCellsBound[0]);
-      }
+      bound[i].extraCellsBound[1] = type_dag[DISCONNECT_W256A(dag, type_dag, i)].bitSize;
+      bound[i].extraCellsBound[0] = bounded_max(
+        bounded_add( type_dag[DISCONNECT_BC(dag, type_dag, i)].bitSize
+                   , bounded_max( bounded_add(bound[i].extraCellsBound[1], bound[dag[i].child[0]].extraCellsBound[1])
+                                , bounded_max(bound[dag[i].child[0]].extraCellsBound[0], bound[dag[i].child[1]].extraCellsBound[1]))),
+        bound[dag[i].child[1]].extraCellsBound[0]);
       bound[i].extraUWORDBound[1] = (ubounded)ROUND_UWORD(type_dag[DISCONNECT_W256A(dag, type_dag, i)].bitSize);
       bound[i].extraUWORDBound[0] = bounded_max(
           (ubounded)ROUND_UWORD(type_dag[DISCONNECT_BC(dag, type_dag, i)].bitSize) +
@@ -660,18 +653,12 @@ simplicity_err simplicity_analyseBounds( ubounded *cellsBound, ubounded *UWORDBo
                     , bounded_add(bound[dag[i].child[0]].cost, bound[dag[i].child[1]].cost))))));
       break;
      case COMP:
-      if (UBOUNDED_MAX <= type_dag[COMP_B(dag, type_dag, i)].bitSize) {
-        /* 'BITSIZE(B)' has exceeded our limits. */
-        bound[i].extraCellsBound[0] = UBOUNDED_MAX;
-        bound[i].extraCellsBound[1] = UBOUNDED_MAX;
-      } else {
-        bound[i].extraCellsBound[0] = bounded_max( bounded_add( type_dag[COMP_B(dag, type_dag, i)].bitSize
-                                                      , bounded_max( bound[dag[i].child[0]].extraCellsBound[0]
-                                                           , bound[dag[i].child[1]].extraCellsBound[1] ))
-                                         , bound[dag[i].child[1]].extraCellsBound[0] );
-        bound[i].extraCellsBound[1] = bounded_add( type_dag[COMP_B(dag, type_dag, i)].bitSize
-                                                 , bound[dag[i].child[0]].extraCellsBound[1] );
-      }
+      bound[i].extraCellsBound[0] = bounded_max( bounded_add( type_dag[COMP_B(dag, type_dag, i)].bitSize
+                                                            , bounded_max( bound[dag[i].child[0]].extraCellsBound[0]
+                                                                         , bound[dag[i].child[1]].extraCellsBound[1] ))
+                                               , bound[dag[i].child[1]].extraCellsBound[0] );
+      bound[i].extraCellsBound[1] = bounded_add( type_dag[COMP_B(dag, type_dag, i)].bitSize
+                                               , bound[dag[i].child[0]].extraCellsBound[1] );
       bound[i].extraUWORDBound[0] = bounded_max( (ubounded)ROUND_UWORD(type_dag[COMP_B(dag, type_dag, i)].bitSize) +
                                          bounded_max( bound[dag[i].child[0]].extraUWORDBound[0]
                                             , bound[dag[i].child[1]].extraUWORDBound[1] )
