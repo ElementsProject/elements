@@ -901,12 +901,16 @@ struct PSBTInput
                                     Sidechain::Bitcoin::CTransactionRef tx;
                                     OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion());
                                     UnserializeFromVector(os, tx);
-                                    m_peg_in_tx = tx;
+                                    if (tx) {
+                                        m_peg_in_tx = tx;
+                                    }
                                 } else {
                                     CTransactionRef tx;
                                     OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion());
                                     UnserializeFromVector(os, tx);
-                                    m_peg_in_tx = tx;
+                                    if (tx) {
+                                        m_peg_in_tx = tx;
+                                    }
                                 }
                                 break;
                             }
