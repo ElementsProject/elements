@@ -1078,11 +1078,11 @@ bool MemPoolAccept::PolicyScriptChecks(const ATMPArgs& args, Workspace& ws)
     // Dynamic Federations. This can be included in the
     // STANDARD_LOCKTIME_VERIFY_FLAGS in a release post-activation.
 
-    if (DeploymentActiveAfter(m_active_chainstate.m_chain.Tip(), ChainstateManager({args.m_chainparams, GetAdjustedTime}), Consensus::DEPLOYMENT_DYNA_FED)) {
+    if (DeploymentActiveAfter(m_active_chainstate.m_chain.Tip(), m_active_chainstate.m_chainman, Consensus::DEPLOYMENT_DYNA_FED)) {
         scriptVerifyFlags |= SCRIPT_SIGHASH_RANGEPROOF;
     }
 
-    if (DeploymentActiveAfter(m_active_chainstate.m_chain.Tip(), ChainstateManager({args.m_chainparams, GetAdjustedTime}), Consensus::DEPLOYMENT_SIMPLICITY)) {
+    if (DeploymentActiveAfter(m_active_chainstate.m_chain.Tip(), m_active_chainstate.m_chainman, Consensus::DEPLOYMENT_SIMPLICITY)) {
         scriptVerifyFlags |= SCRIPT_VERIFY_SIMPLICITY;
     }
 
@@ -3846,12 +3846,10 @@ std::vector<unsigned char> ChainstateManager::GenerateCoinbaseCommitment(CBlock&
 }
 
 // ELEMENTS
-
-
-static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, BlockValidationState& state, const CChainParams& params, const CBlockIndex* pindexPrev)
+static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, BlockValidationState& state, const ChainstateManager& chainman, const CBlockIndex* pindexPrev)
 {
     // When not active, it's a NOP
-    if (!DeploymentActiveAfter(pindexPrev, ChainstateManager({params, GetAdjustedTime}), Consensus::DEPLOYMENT_DYNA_FED)) {
+    if (!DeploymentActiveAfter(pindexPrev, chainman, Consensus::DEPLOYMENT_DYNA_FED)) {
         return true;
     }
 
@@ -3868,6 +3866,7 @@ static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, BlockValidat
         return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "invalid-dyna-fed", "dynamic block header has unknown HF extension bits set");
     }
 
+    const CChainParams& params = chainman.GetParams();
     const DynaFedParamEntry expected_current_params = ComputeNextBlockCurrentParameters(pindexPrev, params.GetConsensus());
 
     if (expected_current_params != dynafed_params.m_current) {
@@ -4002,7 +4001,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, BlockValidatio
                                  strprintf("rejected nVersion=0x%08x block", block.nVersion));
     }
 
-    if (!ContextualCheckDynaFedHeader(block, state, chainman.GetParams(), pindexPrev)) {
+    if (!ContextualCheckDynaFedHeader(block, state, chainman, pindexPrev)) {
         return false;
     }
 

@@ -376,6 +376,8 @@ struct SnapshotTestSetup : TestChain100Setup {
             const ChainstateManager::Options chainman_opts{
                 .chainparams = ::Params(),
                 .adjusted_time_callback = GetAdjustedTime,
+                .minimum_chain_work = std::nullopt,
+                .assumed_valid_block = std::nullopt,
             };
             // For robustness, ensure the old manager is destroyed before creating a
             // new one.

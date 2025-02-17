@@ -188,7 +188,9 @@ RPCHelpMan getpeginaddress()
     spk_man->AddCScript(dest_script);
 
     // Get P2CH deposit address on mainchain from most recent fedpegscript.
-    const auto& fedpegscripts = GetValidFedpegScripts(pwallet->chain().getTip(), Params().GetConsensus(), true /* nextblock_validation */);
+    const CChainParams& chainparams = Params();
+    const Consensus::Params& consensus = chainparams.GetConsensus();
+    const auto& fedpegscripts = GetValidFedpegScripts(pwallet->chain().getTip(), consensus, true /* nextblock_validation */);
     if (fedpegscripts.empty()) {
         std::string message = "No valid fedpegscripts.";
         if (!g_con_elementsmode) {
@@ -199,7 +201,13 @@ RPCHelpMan getpeginaddress()
     CTxDestination mainchain_dest(WitnessV0ScriptHash(calculate_contract(fedpegscripts.front().second, dest_script)));
     // P2SH-wrapped is the only valid choice for non-dynafed chains but still an
     // option for dynafed-enabled ones as well
-    if (!DeploymentActiveAfter(pwallet->chain().getTip(), ChainstateManager({Params(), GetAdjustedTime}), Consensus::DEPLOYMENT_DYNA_FED) ||
+    ChainstateManager::Options opts{
+        .chainparams = chainparams,
+        .adjusted_time_callback = GetAdjustedTime,
+        .minimum_chain_work = UintToArith256(consensus.nMinimumChainWork),
+        .assumed_valid_block = consensus.defaultAssumeValid,
+    };
+    if (!DeploymentActiveAfter(pwallet->chain().getTip(), ChainstateManager(opts), Consensus::DEPLOYMENT_DYNA_FED) ||
                 fedpegscripts.front().first.IsPayToScriptHash()) {
         mainchain_dest = ScriptHash(GetScriptForDestination(mainchain_dest));
     }
