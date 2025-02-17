@@ -218,7 +218,7 @@ FUZZ_TARGET_INIT(simplicity_tx, initialize_simplicity_tx)
         // that we will allocate Simplicity data. The check for whether to do this is very
         // lax: is this a 34-byte scriptPubKey that starts with OP_1 and does it have a
         // nonempty witness.
-        assert(txdata.m_simplicity_tx_data != NULL);
+        assert(txdata.m_simplicity_tx_data != nullptr);
     }
 
     const CTransaction tx{mtx};
