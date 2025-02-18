@@ -2166,7 +2166,7 @@ static RPCHelpMan createpsbt()
     std::set<uint256> new_reissuance;
     for (unsigned int i = 0; i < rawTx.vin.size(); ++i) {
         if (!rawTx.vin[i].assetIssuance.IsNull()) {
-            const UniValue& blind_reissuance_v = find_value(request.params[0].get_array()[i].get_obj(), "blind_reissuance");
+            const UniValue& blind_reissuance_v = request.params[0].get_array()[i].get_obj().find_value("blind_reissuance");
             bool blind_reissuance = blind_reissuance_v.isNull() ? true : blind_reissuance_v.get_bool();
             uint256 entropy;
             CAsset asset;
