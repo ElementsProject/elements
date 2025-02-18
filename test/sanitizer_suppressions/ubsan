@@ -1,10 +1,10 @@
 # -fsanitize=undefined suppressions
 # =================================
-# This would be `signed-integer-overflow:CTxMemPool::PrioritiseTransaction`,
+# The suppressions would be `sanitize-type:ClassName::MethodName`,
 # however due to a bug in clang the symbolizer is disabled and thus no symbol
 # names can be used.
 # See https://github.com/google/sanitizers/issues/1364
-signed-integer-overflow:txmempool.cpp
+
 # https://github.com/bitcoin/bitcoin/pull/21798#issuecomment-829180719
 signed-integer-overflow:policy/feerate.cpp
 
@@ -79,5 +79,24 @@ implicit-integer-sign-change:blech32.cpp
 implicit-integer-sign-change:primitives/block.h
 implicit-integer-sign-change:primitives/confidential.cpp
 implicit-integer-sign-change:primitives/confidential.h
+shift-base:simplicity/jets.c
+unsigned-integer-overflow:simplicity/jets.c
+implicit-unsigned-integer-truncation:simplicity/jets.c
 shift-base:simplicity/sha256.c
 unsigned-integer-overflow:simplicity/sha256.c
+unsigned-integer-overflow:simplicity/secp256k1/modinv64_impl.h
+implicit-integer-sign-change:simplicity/secp256k1/modinv64_impl.h
+implicit-unsigned-integer-truncation:simplicity/secp256k1/modinv64_impl.h
+shift-base:simplicity/secp256k1/modinv64_impl.h
+shift-base:simplicity/secp256k1/field_5x52_impl.h
+unsigned-integer-overflow:simplicity/secp256k1/field_5x52_impl.h
+shift-base:simplicity/secp256k1/scalar_4x64_impl.h
+implicit-unsigned-integer-truncation:simplicity/secp256k1/scalar_4x64_impl.h
+unsigned-integer-overflow:simplicity/secp256k1/scalar_4x64_impl.h
+# This one, in secp256k1_ge_table_set_globalz, looks dangerous (len - 1 with
+# len = 0) but is ok since the rest of the function is guarded on len > 0.
+unsigned-integer-overflow:simplicity/secp256k1/group_impl.h
+# This one involves careful roconnor code
+shift-base:simplicity/frame.c
+# See comment in simplicity/primitive/elements/env.c line 303
+unsigned-integer-overflow:simplicity/primitive/elements/env.c

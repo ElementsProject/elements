@@ -261,6 +261,10 @@ class PSBTTest(BitcoinTestFramework):
         decoded = self.nodes[1].decodepsbt(walletsignpsbt_out['psbt'])
         assert 'non_witness_utxo' in decoded['inputs'][0]
         assert 'witness_utxo' in decoded['inputs'][0]
+        if 'asset' in decoded['inputs'][0]['witness_utxo']:
+            assert_equal(decoded['inputs'][0]['witness_utxo']['asset'], 'b2e15d0d7a0c94e4e2ce0fe6e8691b9e451377f6e46e8045a86f7c4b5d4f0f23')
+        else:
+            assert 'assetcommitment' in decoded['inputs'][0]['witness_utxo']
         # Check decodepsbt fee calculation (input values shall only be counted once per UTXO)
         #assert_equal(decoded['fee'], created_psbt['fee']) # ELEMENTS: we do not have this field. Should be fixed by #900
         assert_equal(walletsignpsbt_out['complete'], True)

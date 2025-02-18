@@ -5,6 +5,7 @@
     <ProjectGuid>{84DE8790-EDE3-4483-81AC-C32F15E861F4}</ProjectGuid>
   </PropertyGroup>
   <PropertyGroup Label="Configuration">
+    <TargetName>elements-wallet</TargetName>
     <ConfigurationType>Application</ConfigurationType>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>

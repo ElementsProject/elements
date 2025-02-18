@@ -7,6 +7,8 @@
 
 #include <zmq/zmqabstractnotifier.h>
 
+#include <cstdint>
+
 class CBlockIndex;
 
 class CZMQAbstractPublishNotifier : public CZMQAbstractNotifier

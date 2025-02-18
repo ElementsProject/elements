@@ -5,6 +5,7 @@
     <ProjectGuid>{D4513DDF-6013-44DC-ADCC-12EAF6D1F038}</ProjectGuid>
   </PropertyGroup>
   <PropertyGroup Label="Configuration">
+    <TargetName>elementsd</TargetName>
     <ConfigurationType>Application</ConfigurationType>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
