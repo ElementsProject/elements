@@ -30,7 +30,7 @@ bool ExternalSigner::Enumerate(const std::string& command, std::vector<ExternalS
     }
     for (UniValue signer : result.getValues()) {
         // Check for error
-        const UniValue& error = find_value(signer, "error");
+        const UniValue& error = signer.find_value("error");
         if (!error.isNull()) {
             if (!error.isStr()) {
                 throw std::runtime_error(strprintf("'%s' error", command));
@@ -38,7 +38,7 @@ bool ExternalSigner::Enumerate(const std::string& command, std::vector<ExternalS
             throw std::runtime_error(strprintf("'%s' error: %s", command, error.getValStr()));
         }
         // Check if fingerprint is present
-        const UniValue& fingerprint = find_value(signer, "fingerprint");
+        const UniValue& fingerprint = signer.find_value("fingerprint");
         if (fingerprint.isNull()) {
             throw std::runtime_error(strprintf("'%s' received invalid response, missing signer fingerprint", command));
         }
@@ -50,7 +50,7 @@ bool ExternalSigner::Enumerate(const std::string& command, std::vector<ExternalS
         }
         if (duplicate) break;
         std::string name = "";
-        const UniValue& model_field = find_value(signer, "model");
+        const UniValue& model_field = signer.find_value("model");
         if (model_field.isStr() && model_field.getValStr() != "") {
             name += model_field.getValStr();
         }

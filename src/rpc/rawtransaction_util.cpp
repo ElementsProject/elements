@@ -175,7 +175,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
         uint256 txid = ParseHashO(o, "txid");
 
-        const UniValue& vout_v = find_value(o, "vout");
+        const UniValue& vout_v = o.find_value("vout");
         if (!vout_v.isNum())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
         int nOutput = vout_v.get_int();
@@ -192,7 +192,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         }
 
         // set the sequence number if passed in the parameters object
-        const UniValue& sequenceObj = find_value(o, "sequence");
+        const UniValue& sequenceObj = o.find_value("sequence");
         if (sequenceObj.isNum()) {
             int64_t seqNr64 = sequenceObj.get_int64();
             if (seqNr64 < 0 || seqNr64 > CTxIn::SEQUENCE_FINAL) {
@@ -205,11 +205,11 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         CTxIn in(COutPoint(txid, nOutput), CScript(), nSequence);
 
         // Get issuance stuff if it's there
-        const UniValue& blinding_nonce_v = find_value(o, "asset_blinding_nonce");
-        const UniValue& entropy_v = find_value(o, "asset_entropy");
-        const UniValue& amount_v = find_value(o, "issuance_amount");
-        const UniValue& issuance_tokens_v = find_value(o, "issuance_tokens");
-        const UniValue& blind_reissuance_v = find_value(o, "blind_reissuance");
+        const UniValue& blinding_nonce_v = o.find_value("asset_blinding_nonce");
+        const UniValue& entropy_v = o.find_value("asset_entropy");
+        const UniValue& amount_v = o.find_value("issuance_amount");
+        const UniValue& issuance_tokens_v = o.find_value("issuance_tokens");
+        const UniValue& blind_reissuance_v = o.find_value("blind_reissuance");
         if (!amount_v.isNull() && allow_issuance) {
             if (!amount_v.isNum()) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "issuance_amount is not a number");
@@ -242,9 +242,9 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         rawTx.vin.push_back(in);
 
         // Get the pegin stuff if it's there
-        const UniValue& pegin_tx = find_value(o, "pegin_bitcoin_tx");
-        const UniValue& pegin_tx_proof = find_value(o, "pegin_txout_proof");
-        const UniValue& pegin_script = find_value(o, "pegin_claim_script");
+        const UniValue& pegin_tx = o.find_value("pegin_bitcoin_tx");
+        const UniValue& pegin_tx_proof = o.find_value("pegin_txout_proof");
+        const UniValue& pegin_script = o.find_value("pegin_claim_script");
         if (!pegin_tx.isNull() && !pegin_tx_proof.isNull() && !pegin_script.isNull() && allow_peg_in) {
             if (!IsHex(pegin_script.get_str())) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Given claim_script is not hex.");
