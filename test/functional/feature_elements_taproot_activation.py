@@ -53,7 +53,7 @@ class TaprootActivationTest(BitcoinTestFramework):
         # bitcoin PR #23508 changed bip9 status to the current block instead of the next block
         blocks = self.generatetoaddress(rpc, 1, rpc.getnewaddress())
         assert_equal(rpc.getdeploymentinfo()["deployments"]["taproot"]["bip9"]["status"], "defined")
-        assert_equal(rpc.getdeploymentinfo()["deployments"]["taproot"]["bip9"]["status-next"], "started")
+        assert_equal(rpc.getdeploymentinfo()["deployments"]["taproot"]["bip9"]["status_next"], "started")
         assert_equal(rpc.getblockheader(blocks[0])["versionHex"], "20000000")
 
         blocks = self.generatetoaddress(rpc, 127, rpc.getnewaddress())
@@ -80,7 +80,7 @@ class TaprootActivationTest(BitcoinTestFramework):
         # The 128th block then switches from "started" to "locked_in"
         blocks = self.generatetoaddress(rpc, 1, rpc.getnewaddress())
         assert_equal(rpc.getdeploymentinfo()["deployments"]["taproot"]["bip9"]["status"], "started")
-        assert_equal(rpc.getdeploymentinfo()["deployments"]["taproot"]["bip9"]["status-next"], "locked_in")
+        assert_equal(rpc.getdeploymentinfo()["deployments"]["taproot"]["bip9"]["status_next"], "locked_in")
         assert_equal(rpc.getblockheader(blocks[0])["versionHex"], "20000004")
 
         # Run through another 128 blocks, which will go from "locked in" to "active" regardless of signalling
@@ -93,7 +93,7 @@ class TaprootActivationTest(BitcoinTestFramework):
         block = block[:1] + "0" + block[2:] # turn off Taproot signal
         rpc.submitblock(block)
         assert_equal(rpc.getdeploymentinfo()["deployments"]["taproot"]["bip9"]["status"], "locked_in")
-        assert_equal(rpc.getdeploymentinfo()["deployments"]["taproot"]["bip9"]["status-next"], "active")
+        assert_equal(rpc.getdeploymentinfo()["deployments"]["taproot"]["bip9"]["status_next"], "active")
 
         # After the state is "active", signallng stops by default.
         blocks = self.generatetoaddress(rpc, 1, self.nodes[0].getnewaddress())

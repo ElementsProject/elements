@@ -68,9 +68,6 @@
     <ProjectReference Include="..\libsecp256k1\libsecp256k1.vcxproj">
       <Project>{bb493552-3b8c-4a8c-bf69-a6e7a51d2ea6}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\libelementssimplicity\libelementssimplicity.vcxproj">
-      <Project>{abae25f0-d700-46e1-9ef6-5d6ddfcf8b26}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\libleveldb\libleveldb.vcxproj">
       <Project>{18430fef-6b61-4c53-b396-718e02850f1b}</Project>
     </ProjectReference>
