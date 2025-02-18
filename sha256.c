@@ -123,7 +123,7 @@ static void sha256_compression_portable(uint32_t* s, const uint32_t* chunk) {
 void (*simplicity_sha256_compression)(uint32_t* midstate, const uint32_t* block) = sha256_compression_portable;
 
 /* For information purposes only.
- * Returns true if the sha256_compression implemenation has been optimized for the CPU.
+ * Returns true if the sha256_compression implementation has been optimized for the CPU.
  * Otherwise returns false.
  */
 bool simplicity_sha256_compression_is_optimized(void) {

@@ -11,10 +11,10 @@ static_assert(UCHAR_MAX < SIZE_MAX, "UCHAR_MAX >= SIZE_MAX");
 /* Return the 'i'th char of the object representation of the midstate pointed to by a.
  *
  * In C, values are represented as 'unsigned char [sizeof(v)]' array.  However the exact
- * specification of how this represenation works is implementation defined.
+ * specification of how this representation works is implementation defined.
  *
  * For the 'uint32_t' values of 'sha256_midstate', the object representation of these values will differ
- * between big endian and little endian archtectures.
+ * between big endian and little endian architectures.
  *
  * Precondition: NULL != a
  *               i < sizeof(a->s);
@@ -138,7 +138,7 @@ static void rsort_ex(const sha256_midstate** a, uint_fast32_t len, const sha256_
      We will decrease len as we go as we find out that items at the end of the array are in their proper, sorted position.
 
      The 'i'th bucket is the subarray a[stack[i]:stack[i+1]),
-     excecpt for the last bucket which is the subarray a[stack[totalBucketCount-1]:len).
+     except for the last bucket which is the subarray a[stack[totalBucketCount-1]:len).
 
      The depth to which various buckets are sorted increases the further down the stack you go.
      The 'bucketCount' stores how many buckets are sorted to various depths.
@@ -169,7 +169,7 @@ static void rsort_ex(const sha256_midstate** a, uint_fast32_t len, const sha256_
      Note: there is an added optimization where by if there is only one non-empty bucket found when attempting to sort,
      i.e. it happens that every bucket item already has identical 'depth' characters,
      we skip the subdivision and move onto the next depth immediately.
-     (This is equivalent to pushing the one non-empty bucket onto the stack and immediately poping it back off.)
+     (This is equivalent to pushing the one non-empty bucket onto the stack and immediately popping it back off.)
 
      If the last bucket is of size 0 or 1, it must be already be sorted.
      Since this bucket is at the end of the array we decrease 'len'.
