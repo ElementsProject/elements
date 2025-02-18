@@ -158,12 +158,12 @@ bool IsConfirmedBitcoinBlock(const uint256& hash, const int nMinConfirmationDept
         UniValue params(UniValue::VARR);
         params.push_back(hash.GetHex());
         UniValue reply = CallMainChainRPC("getblockheader", params);
-        UniValue errval = find_value(reply, "error");
+        UniValue errval = reply.find_value("error");
         if (!errval.isNull()) {
             LogPrintf("WARNING: Got error reply from bitcoind getblockheader: %s\n", errval.write());
             return false;
         }
-        UniValue result = find_value(reply, "result");
+        UniValue result = reply.find_value("result");
         if (!result.isObject()) {
             LogPrintf("ERROR: bitcoind getblockheader result was malformed (not object): %s\n", result.write());
             return false;
