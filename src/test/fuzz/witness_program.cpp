@@ -45,7 +45,7 @@ FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
 
         CScriptWitness witness;
         int fuzz_control;
-        int flags;
+        unsigned flags;
         ds >> fuzz_control;
         ds >> witness.stack;
         ds >> flags;
@@ -64,7 +64,7 @@ FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
 
         if (fuzz_control & 1) {
             unsigned char hash_program[32];
-            CSHA256().Write(&program[0], program.size()).Finalize(hash_program);
+            CSHA256().Write(program.data(), program.size()).Finalize(hash_program);
             CScript scriptPubKey = CScript{} << OP_0 << std::vector<unsigned char>(hash_program, hash_program + sizeof(hash_program));
             witness.stack.push_back(program);
 

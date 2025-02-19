@@ -5,6 +5,7 @@
     <ProjectGuid>{57A04EC9-542A-4E40-83D0-AC3BE1F36805}</ProjectGuid>
   </PropertyGroup>
   <PropertyGroup Label="Configuration">
+    <TargetName>elements-util</TargetName>
     <ConfigurationType>Application</ConfigurationType>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
