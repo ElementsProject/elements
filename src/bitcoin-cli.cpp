@@ -1181,8 +1181,8 @@ static int CommandLineRPC(int argc, char *argv[])
             const UniValue reply = ConnectAndCallRPC(rh.get(), method, args, wallet_name);
 
             // Parse reply
-            UniValue result = find_value(reply, "result");
-            const UniValue& error = find_value(reply, "error");
+            UniValue result = reply.find_value("result");
+            const UniValue& error = reply.find_value("error");
             if (error.isNull()) {
                 if (gArgs.GetBoolArg("-getinfo", false)) {
                     if (!gArgs.IsArgSet("-rpcwallet")) {

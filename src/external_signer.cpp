@@ -93,19 +93,19 @@ bool ExternalSigner::SignTransaction(PartiallySignedTransaction& psbtx, std::str
 
     const UniValue signer_result = RunCommandParseJSON(command, stdinStr);
 
-    if (find_value(signer_result, "error").isStr()) {
-        error = find_value(signer_result, "error").get_str();
+    if (signer_result.find_value("error").isStr()) {
+        error = signer_result.find_value("error").get_str();
         return false;
     }
 
-    if (!find_value(signer_result, "psbt").isStr()) {
+    if (!signer_result.find_value("psbt").isStr()) {
         error = "Unexpected result from signer";
         return false;
     }
 
     PartiallySignedTransaction signer_psbtx;
     std::string signer_psbt_error;
-    if (!DecodeBase64PSBT(signer_psbtx, find_value(signer_result, "psbt").get_str(), signer_psbt_error)) {
+    if (!DecodeBase64PSBT(signer_psbtx, signer_result.find_value("psbt").get_str(), signer_psbt_error)) {
         error = strprintf("TX decode failed %s", signer_psbt_error);
         return false;
     }

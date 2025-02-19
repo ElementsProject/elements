@@ -335,7 +335,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 out.nAsset = CAsset(ParseHashO(output, name_));
             } else if (name_ == "blinder_index") {
                 // For PSET
-                psbt_out.m_blinder_index = find_value(output, name_).get_int();
+                psbt_out.m_blinder_index = output.find_value(name_).get_int();
             } else {
                 CTxDestination destination = DecodeDestination(name_);
                 if (!IsValidDestination(destination)) {
@@ -429,7 +429,7 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
 
             uint256 txid = ParseHashO(prevOut, "txid");
 
-            int nOut = find_value(prevOut, "vout").get_int();
+            int nOut = prevOut.find_value("vout").get_int();
             if (nOut < 0) {
                 throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "vout cannot be negative");
             }
@@ -450,7 +450,7 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
                 newcoin.out.scriptPubKey = scriptPubKey;
                 newcoin.out.nValue = CConfidentialValue(MAX_MONEY);
                 if (prevOut.exists("amount")) {
-                    newcoin.out.nValue = CConfidentialValue(AmountFromValue(find_value(prevOut, "amount")));
+                    newcoin.out.nValue = CConfidentialValue(AmountFromValue(prevOut.find_value("amount")));
                 } else if (prevOut.exists("amountcommitment")) {
                     // Segwit sigs require the amount commitment to be sighashed
                     newcoin.out.nValue.vchCommitment = ParseHexO(prevOut, "amountcommitment");
@@ -468,8 +468,8 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
                         {"redeemScript", UniValueType(UniValue::VSTR)},
                         {"witnessScript", UniValueType(UniValue::VSTR)},
                     }, true);
-                UniValue rs = find_value(prevOut, "redeemScript");
-                UniValue ws = find_value(prevOut, "witnessScript");
+                UniValue rs = prevOut.find_value("redeemScript");
+                UniValue ws = prevOut.find_value("witnessScript");
                 if (rs.isNull() && ws.isNull()) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing redeemScript/witnessScript");
                 }
