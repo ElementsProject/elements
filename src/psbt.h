@@ -901,12 +901,16 @@ struct PSBTInput
                                     Sidechain::Bitcoin::CTransactionRef tx;
                                     OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion());
                                     UnserializeFromVector(os, tx);
-                                    m_peg_in_tx = tx;
+                                    if (tx) {
+                                        m_peg_in_tx = tx;
+                                    }
                                 } else {
                                     CTransactionRef tx;
                                     OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion());
                                     UnserializeFromVector(os, tx);
-                                    m_peg_in_tx = tx;
+                                    if (tx) {
+                                        m_peg_in_tx = tx;
+                                    }
                                 }
                                 break;
                             }
@@ -1091,9 +1095,9 @@ struct PSBTInput
                                 } else if (subkey_len != 1) {
                                     throw std::ios_base::failure("Input issuance needs blinded flag is more than one byte type");
                                 }
-                                bool b;
+                                uint8_t b;
                                 UnserializeFromVector(s, b);
-                                m_blinded_issuance = b;
+                                m_blinded_issuance = !!b;
                                 break;
                             }
                             default:
