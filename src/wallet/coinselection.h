@@ -312,6 +312,7 @@ public:
     void Clear();
 
     void AddInput(const OutputGroup& group);
+    void AddInputs(const std::set<COutput>& inputs, bool subtract_fee_outputs);
     // ELEMENTS
     void AddInput(const SelectionResult& result);
 

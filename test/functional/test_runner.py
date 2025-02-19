@@ -85,6 +85,7 @@ EXTENDED_SCRIPTS = [
     'feature_fee_estimation.py',
     'feature_index_prune.py',
     'feature_trim_headers.py',
+    'wallet_elements_regression_fundrawtransaction.py --legacy-wallet', # ELEMENTS FIXME
 ]
 
 BASE_SCRIPTS = [

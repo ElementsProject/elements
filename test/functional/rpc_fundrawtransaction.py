@@ -436,7 +436,9 @@ class RawTransactionsTest(BitcoinTestFramework):
 
     def test_invalid_input(self):
         self.log.info("Test fundrawtxn with an invalid vin")
-        inputs  = [ {'txid' : "1c7f966dab21119bac53213a2bc7532bff1fa844c124fd750a7d0b1332440bd1", 'vout' : 0} ] #invalid vin!
+        txid = "1c7f966dab21119bac53213a2bc7532bff1fa844c124fd750a7d0b1332440bd1"
+        vout = 0
+        inputs  = [ {'txid' : txid, 'vout' : vout} ] #invalid vin!
         outputs = [{ self.nodes[0].getnewaddress() : 1.0}]
         rawtx   = self.nodes[2].createrawtransaction(inputs, outputs)
         assert_raises_rpc_error(-4, "Unable to find UTXO for external input", self.nodes[2].fundrawtransaction, rawtx)
@@ -1092,11 +1094,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         ext_utxo = ext_wallet.listunspent(addresses=[addr])[0]
 
         # An external input without solving data should result in an error
-        raw_tx = ext_wallet.createrawtransaction([ext_utxo], [{ext_wallet.getnewaddress(): ext_utxo["amount"] / 2}])
-        # ELEMENTS
-        # This bitcoin assert is no longer valid because we had to generate a bunch of blocks
-        # above to fund ext_wallet
-        #assert_raises_rpc_error(-4, "Insufficient funds", wallet.fundrawtransaction, raw_tx)
+        raw_tx = ext_wallet.createrawtransaction([ext_utxo], [{self.nodes[0].getnewaddress(): ext_utxo["amount"] / 2}])
+        assert_raises_rpc_error(-4, "Not solvable pre-selected input COutPoint(%s, %s)" % (ext_utxo["txid"][0:10], ext_utxo["vout"]), ext_wallet.fundrawtransaction, raw_tx)
 
         # Error conditions
         assert_raises_rpc_error(-5, "'not a pubkey' is not hex", ext_fund.fundrawtransaction, raw_tx, {"solving_data": {"pubkeys":["not a pubkey"]}})
@@ -1180,6 +1179,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         #       Expect: only preset inputs are used.
         # 5. Explicit add_inputs=true, no preset inputs (same as (1) but with an explicit set):
         #       Expect: include inputs from the wallet.
+        # 6. Explicit add_inputs=false, no preset inputs:
+        #       Expect: failure as we did not provide inputs and the process cannot automatically select coins.
 
         # Case (1), 'send' command
         # 'add_inputs' value is true unless "inputs" are specified, in such case, add_inputs=false.
@@ -1231,6 +1232,10 @@ class RawTransactionsTest(BitcoinTestFramework):
         tx = wallet.send(outputs=[{addr1: 8}], options=options)
         assert tx["complete"]
 
+        # 6. Explicit add_inputs=false, no preset inputs:
+        options = {"add_inputs": False}
+        assert_raises_rpc_error(-4, "Insufficient funds", wallet.send, outputs=[{addr1: 3}], options=options)
+
         ################################################
 
         # Case (1), 'walletcreatefundedpsbt' command
@@ -1271,6 +1276,10 @@ class RawTransactionsTest(BitcoinTestFramework):
             "add_inputs": True
         }
         assert "psbt" in wallet.walletcreatefundedpsbt(inputs=[], outputs=outputs, options=options)
+
+        # Case (6). Explicit add_inputs=false, no preset inputs:
+        options = {"add_inputs": False}
+        assert_raises_rpc_error(-4, "Insufficient funds", wallet.walletcreatefundedpsbt, inputs=[], outputs=outputs, options=options)
 
         self.nodes[2].unloadwallet("test_preset_inputs")
 

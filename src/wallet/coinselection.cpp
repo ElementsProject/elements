@@ -43,7 +43,6 @@ COutput::COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int 
         asset = txout.nAsset.GetAsset();
 
         // ELEMENTS: "effective value" only comes from the policy asset
-        //effective_value = txout.nValue.GetAmount();
         effective_value = value * (asset == ::policyAsset) - fee.value();
     } else {
         effective_value = 0;
@@ -69,7 +68,6 @@ COutput::COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int 
         asset = txout.nAsset.GetAsset();
 
         effective_value = value * (asset == ::policyAsset) - fee.value();
-        //effective_value = txout.nValue.GetAmount();
     } else {
         effective_value = 0;
     }
@@ -727,6 +725,12 @@ void SelectionResult::AddInput(const OutputGroup& group)
 {
     util::insert(m_selected_inputs, group.m_outputs);
     m_use_effective = !group.m_subtract_fee_outputs;
+}
+
+void SelectionResult::AddInputs(const std::set<COutput>& inputs, bool subtract_fee_outputs)
+{
+    util::insert(m_selected_inputs, inputs);
+    m_use_effective = !subtract_fee_outputs;
 }
 
 // ELEMENTS
