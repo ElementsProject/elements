@@ -151,7 +151,7 @@ bool GetMainchainAuthCookie(std::string *cookie_out)
     std::string cookie;
 
     std::filesystem::path filepath = GetMainchainAuthCookieFile();
-    file.open(filepath.string().c_str());
+    file.open(filepath);
     if (!file.is_open())
         return false;
     std::getline(file, cookie);
