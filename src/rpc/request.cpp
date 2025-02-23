@@ -139,7 +139,10 @@ static fs::path GetMainchainAuthCookieFile()
     if (gArgs.GetChainName() == "liquidv1") {
         cookie_file = ".cookie";
     }
-    return fsbridge::AbsPathJoin(GetMainchainDefaultDataDir(), fs::PathFromString(gArgs.GetArg("-mainchainrpccookiefile", cookie_file)));
+    fs::path cookie_path = fs::PathFromString(gArgs.GetArg("-mainchainrpccookiefile", cookie_file));
+    if (cookie_path.is_absolute())
+        return cookie_path;
+    return fsbridge::AbsPathJoin(GetMainchainDefaultDataDir(), cookie_path);
 }
 
 bool GetMainchainAuthCookie(std::string *cookie_out)
