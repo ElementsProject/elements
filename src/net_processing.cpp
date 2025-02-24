@@ -2122,29 +2122,30 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, const Peer& peer,
     // If we are already too far ahead of where we want to be on headers, discard
     //   the received headers. We can still get ahead by up to a single maximum-sized
     //   headers message here, but never further, so that's fine.
-    if (pindexBestHeader) {
-        int64_t headers_ahead = pindexBestHeader->nHeight - m_chainman.ActiveHeight();
-        bool too_far_ahead = node::fTrimHeaders && (headers_ahead >= node::nHeaderDownloadBuffer);
-        if (too_far_ahead) {
-            LOCK(cs_main);
-            CNodeState *nodestate = State(pfrom.GetId());
-            if ((nodestate->pindexBestKnownBlock == nullptr) ||
+    if (node::fTrimHeaders) {
+        LOCK(cs_main);
+        if (pindexBestHeader)  {
+            int64_t headers_ahead = pindexBestHeader->nHeight - m_chainman.ActiveHeight();
+            if (headers_ahead >= node::nHeaderDownloadBuffer) {
+                CNodeState *nodestate = State(pfrom.GetId());
+                if ((nodestate->pindexBestKnownBlock == nullptr) ||
                 (nodestate->pindexBestKnownBlock->nHeight < m_chainman.ActiveHeight())) {
-                // Our notion of what blocks a peer has available is based on its pindexBestKnownBlock,
-                // which is based on headers received from it. If we don't have one, or it's too old,
-                // then we can never get blocks from this peer until we accept headers from it first.
-                LogPrint(BCLog::NET, "NOT discarding headers from peer=%d, to update its block availability. (current best header %d, active chain height %d)\n", pfrom.GetId(), pindexBestHeader->nHeight, m_chainman.ActiveHeight());
-            } else {
-                LogPrint(BCLog::NET, "Discarding received headers and pausing header sync from peer=%d, because we are too far ahead of block sync. (%d > %d)\n", pfrom.GetId(), pindexBestHeader->nHeight, m_chainman.ActiveHeight());
-                if (nodestate->fSyncStarted) {
-                    // Cancel sync from this node, so we don't penalize it later.
-                    // This will cause us to automatically start syncing from a different node (or restart syncing from the same node) later,
-                    //   if we still need to sync headers.
-                    nSyncStarted--;
-                    nodestate->fSyncStarted = false;
-                    nodestate->m_headers_sync_timeout = 0us;
+                    // Our notion of what blocks a peer has available is based on its pindexBestKnownBlock,
+                    // which is based on headers received from it. If we don't have one, or it's too old,
+                    // then we can never get blocks from this peer until we accept headers from it first.
+                    LogPrint(BCLog::NET, "NOT discarding headers from peer=%d, to update its block availability. (current best header %d, active chain height %d)\n", pfrom.GetId(), pindexBestHeader->nHeight, m_chainman.ActiveHeight());
+                } else {
+                    LogPrint(BCLog::NET, "Discarding received headers and pausing header sync from peer=%d, because we are too far ahead of block sync. (%d > %d)\n", pfrom.GetId(), pindexBestHeader->nHeight, m_chainman.ActiveHeight());
+                    if (nodestate->fSyncStarted) {
+                        // Cancel sync from this node, so we don't penalize it later.
+                        // This will cause us to automatically start syncing from a different node (or restart syncing from the same node) later,
+                        //   if we still need to sync headers.
+                        nSyncStarted--;
+                        nodestate->fSyncStarted = false;
+                        nodestate->m_headers_sync_timeout = 0us;
+                    }
+                    return;
                 }
-                return;
             }
         }
     }
