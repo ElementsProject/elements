@@ -11,6 +11,7 @@
 #include <assetsdir.h>
 #include <banman.h>
 #include <chainparams.h>
+#include <common/url.h>
 #include <consensus/consensus.h>
 #include <consensus/params.h>
 #include <consensus/validation.h>
@@ -50,7 +51,6 @@
 #include <util/threadnames.h>
 #include <util/time.h>
 #include <util/translation.h>
-#include <util/url.h>
 #include <util/vector.h>
 #include <validation.h>
 #include <validationinterface.h>
