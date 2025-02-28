@@ -1494,9 +1494,9 @@ RPCHelpMan sendall()
                     total_input_value += tx->GetOutputValueOut(*pwallet, i);
                 }
             } else {
-                const auto& outputs = AvailableCoins(*pwallet, &coin_control, fee_rate, /*nMinimumAmount=*/0).All();
-                for (size_t i = 0; i < outputs.size(); ++i) {
-                    const COutput& output = outputs[i];
+                CoinFilterParams coins_params;
+                coins_params.min_amount = 0;
+                for (const COutput& output : AvailableCoins(*pwallet, &coin_control, fee_rate, coins_params).All()) {
                     CHECK_NONFATAL(output.input_bytes > 0);
                     if (send_max && fee_rate.GetFee(output.input_bytes) > output.value) {
                         continue;

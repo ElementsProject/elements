@@ -304,12 +304,7 @@ util::Result<PreSelectedInputs> FetchSelectedInputs(const CWallet& wallet, const
 CoinsResult AvailableCoins(const CWallet& wallet,
                            const CCoinControl *coinControl,
                            std::optional<CFeeRate> feerate,
-                           const CAmount &nMinimumAmount,
-                           const CAmount &nMaximumAmount,
-                           const CAmount &nMinimumSumAmount,
-                           const uint64_t nMaximumCount,
-                           const CAsset* asset_filter,
-                           bool only_spendable) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
+                           const CoinFilterParams& params)
 {
     AssertLockHeld(wallet.cs_wallet);
 
@@ -327,7 +322,7 @@ CoinsResult AvailableCoins(const CWallet& wallet,
         const uint256& wtxid = entry.first;
         const CWalletTx& wtx = entry.second;
 
-        if (wallet.IsTxImmatureCoinBase(wtx))
+        if (wallet.IsTxImmatureCoinBase(wtx) && !params.include_immature_coinbase)
             continue;
 
         int nDepth = wallet.GetTxDepthInMainChain(wtx);
@@ -388,10 +383,10 @@ CoinsResult AvailableCoins(const CWallet& wallet,
 
             CAmount outValue = wtx.GetOutputValueOut(wallet, i);
             CAsset asset = wtx.GetOutputAsset(wallet, i);
-            if (asset_filter && asset != *asset_filter) {
+            if (params.asset && asset != *params.asset) {
                 continue;
             }
-            if (outValue < nMinimumAmount || (asset == Params().GetConsensus().pegged_asset && outValue > nMaximumAmount)) {
+            if (outValue < params.min_amount || (asset == Params().GetConsensus().pegged_asset && outValue > params.max_amount)) {
                 continue;
             }
 
@@ -424,7 +419,7 @@ CoinsResult AvailableCoins(const CWallet& wallet,
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
 
             // Filter by spendable outputs only
-            if (!spendable && only_spendable) continue;
+            if (!spendable && params.only_spendable) continue;
 
             // Obtain script type
             std::vector<std::vector<uint8_t>> script_solutions;
@@ -448,14 +443,14 @@ CoinsResult AvailableCoins(const CWallet& wallet,
             // Cache total amount as we go
             result.total_amount[asset] += outValue;
             // Checks the sum amount of all UTXO's.
-            if (nMinimumSumAmount != MAX_MONEY) {
-                if (result.total_amount[asset] >= nMinimumSumAmount) {
-                    return result; // ELEMENTS FIXME: is this the right time to return? We are not done tallying all results for the other assets
+            if (params.min_sum_amount != MAX_MONEY) {
+                if (result.total_amount[::policyAsset] >= params.min_sum_amount) { // ELEMENTS: only use mininum sum for policy asset
+                    return result;
                 }
             }
 
             // Checks the maximum number of UTXO's.
-            if (nMaximumCount > 0 && result.Size() >= nMaximumCount) {
+            if (params.max_count > 0 && result.Size() >= params.max_count) {
                 return result;
             }
         }
@@ -464,22 +459,16 @@ CoinsResult AvailableCoins(const CWallet& wallet,
     return result;
 }
 
-CoinsResult AvailableCoinsListUnspent(const CWallet& wallet, const CCoinControl* coinControl, const CAmount& nMinimumAmount, const CAmount& nMaximumAmount, const CAmount& nMinimumSumAmount, const uint64_t nMaximumCount, const CAsset*s)
+CoinsResult AvailableCoinsListUnspent(const CWallet& wallet, const CCoinControl* coinControl, CoinFilterParams params)
 {
-    return AvailableCoins(wallet, coinControl, /*feerate=*/ std::nullopt, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount, s, /*only_spendable=*/false);
+    params.only_spendable = false;
+    return AvailableCoins(wallet, coinControl, /*feerate=*/ std::nullopt, params);
 }
 
 CAmountMap GetAvailableBalance(const CWallet& wallet, const CCoinControl* coinControl)
 {
     LOCK(wallet.cs_wallet);
-    return AvailableCoins(wallet, coinControl,
-            /*feerate=*/ std::nullopt,
-            /*nMinimumAmount=*/ 1,
-            /*nMaximumAmount=*/ MAX_MONEY,
-            /*nMinimumSumAmount=*/ MAX_MONEY,
-            /*nMaximumCount=*/ 0,
-            nullptr
-    ).total_amount;
+    return AvailableCoins(wallet, coinControl).total_amount;
 }
 
 const CTxOut& FindNonChangeParentOutput(const CWallet& wallet, const CTransaction& tx, int output) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
@@ -1341,14 +1330,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     // allowed (coins automatically selected by the wallet)
     CoinsResult available_coins;
     if (coin_control.m_allow_other_inputs) {
-        available_coins = AvailableCoins(wallet,
-                                         &coin_control,
-                                         coin_selection_params.m_effective_feerate,
-                                         1,            /*nMinimumAmount*/
-                                         MAX_MONEY,    /*nMaximumAmount*/
-                                         MAX_MONEY,    /*nMinimumSumAmount*/
-                                         0,            /*nMaximumCount*/
-                                         nullptr);     /*asset_filter*/
+        available_coins = AvailableCoins(wallet, &coin_control, coin_selection_params.m_effective_feerate);
     }
 
     // Choose coins to use
