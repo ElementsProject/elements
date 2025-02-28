@@ -14,6 +14,9 @@
 #include <utility>
 #include <vector>
 
+#include <kernel/mempool_limits.h>
+#include <kernel/mempool_options.h>
+
 #include <coins.h>
 #include <consensus/amount.h>
 #include <indirectmap.h>
@@ -33,7 +36,7 @@
 
 class CBlockIndex;
 class CChain;
-class CChainState;
+class Chainstate;
 extern RecursiveMutex cs_main;
 
 /** Fake height value used in Coin to signify they are only in the memory pool (since 0.8) */
@@ -409,6 +412,8 @@ enum class MemPoolRemovalReason {
     REPLACED,    //!< Removed for replacement
 };
 
+const std::string RemovalReasonToString(const MemPoolRemovalReason& r) noexcept;
+
 /**
  * CTxMemPool stores valid-according-to-the-current-best-chain transactions
  * that may be included in the next block.
@@ -419,7 +424,7 @@ enum class MemPoolRemovalReason {
  * - a transaction which doesn't meet the minimum fee requirements.
  * - a new transaction that double-spends an input of a transaction already in
  * the pool where the new transaction does not meet the Replace-By-Fee
- * requirements as defined in BIP 125.
+ * requirements as defined in doc/policy/mempool-replacements.md.
  * - a non-standard transaction.
  *
  * CTxMemPool::mapTx, and CTxMemPoolEntry bookkeeping:
@@ -506,7 +511,9 @@ protected:
 
     void trackPackageRemoved(const CFeeRate& rate) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
-    bool m_is_loaded GUARDED_BY(cs){false};
+    bool m_load_tried GUARDED_BY(cs){false};
+
+    CFeeRate GetMinFee(size_t sizelimit) const;
 
 public:
 
@@ -585,6 +592,8 @@ public:
 
     typedef std::set<txiter, CompareIteratorByHash> setEntries;
 
+    using Limits = kernel::MemPoolLimits;
+
     uint64_t CalculateDescendantMaximum(txiter entry) const EXCLUSIVE_LOCKS_REQUIRED(cs);
 private:
     typedef std::map<txiter, setEntries, CompareIteratorByHash> cacheMap;
@@ -604,34 +613,48 @@ private:
     /**
      * Helper function to calculate all in-mempool ancestors of staged_ancestors and apply ancestor
      * and descendant limits (including staged_ancestors thsemselves, entry_size and entry_count).
-     * param@[in]   entry_size          Virtual size to include in the limits.
-     * param@[in]   entry_count         How many entries to include in the limits.
-     * param@[in]   staged_ancestors    Should contain entries in the mempool.
-     * param@[out]  setAncestors        Will be populated with all mempool ancestors.
+     *
+     * @param[in]   entry_size          Virtual size to include in the limits.
+     * @param[in]   entry_count         How many entries to include in the limits.
+     * @param[out]  setAncestors        Will be populated with all mempool ancestors.
+     * @param[in]   staged_ancestors    Should contain entries in the mempool.
+     * @param[in]   limits              Maximum number and size of ancestors and descendants
+     * @param[out]  errString           Populated with error reason if any limits are hit
+     *
+     * @return true if no limits were hit and all in-mempool ancestors were calculated, false
+     * otherwise
      */
     bool CalculateAncestorsAndCheckLimits(size_t entry_size,
                                           size_t entry_count,
                                           setEntries& setAncestors,
                                           CTxMemPoolEntry::Parents &staged_ancestors,
-                                          uint64_t limitAncestorCount,
-                                          uint64_t limitAncestorSize,
-                                          uint64_t limitDescendantCount,
-                                          uint64_t limitDescendantSize,
+                                          const Limits& limits,
                                           std::string &errString) const EXCLUSIVE_LOCKS_REQUIRED(cs);
 
 public:
     indirectmap<COutPoint, const CTransaction*> mapNextTx GUARDED_BY(cs);
     std::map<uint256, CAmount> mapDeltas GUARDED_BY(cs);
 
+    using Options = kernel::MemPoolOptions;
+
+    const int64_t m_max_size_bytes;
+    const std::chrono::seconds m_expiry;
+    const CFeeRate m_incremental_relay_feerate;
+    const CFeeRate m_min_relay_feerate;
+    const CFeeRate m_dust_relay_feerate;
+    const bool m_permit_bare_multisig;
+    const std::optional<unsigned> m_max_datacarrier_bytes;
+    const bool m_require_standard;
+    const bool m_full_rbf;
+
+    const Limits m_limits;
+
     /** Create a new CTxMemPool.
      * Sanity checks will be off by default for performance, because otherwise
      * accepting transactions becomes O(N^2) where N is the number of transactions
      * in the pool.
-     *
-     * @param[in] estimator is used to estimate appropriate transaction fees.
-     * @param[in] check_ratio is the ratio used to determine how often sanity checks will run.
      */
-    explicit CTxMemPool(CBlockPolicyEstimator* estimator = nullptr, int check_ratio = 0);
+    explicit CTxMemPool(const Options& opts);
 
     /**
      * If sanity-checking is turned on, check makes sure the pool is
@@ -712,46 +735,44 @@ public:
      *
      * @param[in] vHashesToUpdate          The set of txids from the
      *     disconnected block that have been accepted back into the mempool.
-     * @param[in] ancestor_size_limit      The maximum allowed size in virtual
-     *     bytes of an entry and its ancestors
-     * @param[in] ancestor_count_limit     The maximum allowed number of
-     *     transactions including the entry and its ancestors.
      */
-    void UpdateTransactionsFromBlock(const std::vector<uint256>& vHashesToUpdate,
-            uint64_t ancestor_size_limit, uint64_t ancestor_count_limit) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main) LOCKS_EXCLUDED(m_epoch);
+    void UpdateTransactionsFromBlock(const std::vector<uint256>& vHashesToUpdate) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main) LOCKS_EXCLUDED(m_epoch);
 
-    /** Try to calculate all in-mempool ancestors of entry.
-     *  (these are all calculated including the tx itself)
-     *  limitAncestorCount = max number of ancestors
-     *  limitAncestorSize = max size of ancestors
-     *  limitDescendantCount = max number of descendants any ancestor can have
-     *  limitDescendantSize = max size of descendants any ancestor can have
-     *  errString = populated with error reason if any limits are hit
-     *  fSearchForParents = whether to search a tx's vin for in-mempool parents, or
-     *    look up parents from mapLinks. Must be true for entries not in the mempool
+    /**
+     * Try to calculate all in-mempool ancestors of entry.
+     * (these are all calculated including the tx itself)
+     *
+     * @param[in]   entry               CTxMemPoolEntry of which all in-mempool ancestors are calculated
+     * @param[out]  setAncestors        Will be populated with all mempool ancestors.
+     * @param[in]   limits              Maximum number and size of ancestors and descendants
+     * @param[out]  errString           Populated with error reason if any limits are hit
+     * @param[in]   fSearchForParents   Whether to search a tx's vin for in-mempool parents, or look
+     *                                  up parents from mapLinks. Must be true for entries not in
+     *                                  the mempool
+     *
+     * @return true if no limits were hit and all in-mempool ancestors were calculated, false
+     * otherwise
      */
-    bool CalculateMemPoolAncestors(const CTxMemPoolEntry& entry, setEntries& setAncestors, uint64_t limitAncestorCount, uint64_t limitAncestorSize, uint64_t limitDescendantCount, uint64_t limitDescendantSize, std::string& errString, bool fSearchForParents = true) const EXCLUSIVE_LOCKS_REQUIRED(cs);
+    bool CalculateMemPoolAncestors(const CTxMemPoolEntry& entry,
+                                   setEntries& setAncestors,
+                                   const Limits& limits,
+                                   std::string& errString,
+                                   bool fSearchForParents = true) const EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     /** Calculate all in-mempool ancestors of a set of transactions not already in the mempool and
      * check ancestor and descendant limits. Heuristics are used to estimate the ancestor and
      * descendant count of all entries if the package were to be added to the mempool.  The limits
      * are applied to the union of all package transactions. For example, if the package has 3
-     * transactions and limitAncestorCount = 25, the union of all 3 sets of ancestors (including the
+     * transactions and limits.ancestor_count = 25, the union of all 3 sets of ancestors (including the
      * transactions themselves) must be <= 22.
      * @param[in]       package                 Transaction package being evaluated for acceptance
      *                                          to mempool. The transactions need not be direct
      *                                          ancestors/descendants of each other.
-     * @param[in]       limitAncestorCount      Max number of txns including ancestors.
-     * @param[in]       limitAncestorSize       Max virtual size including ancestors.
-     * @param[in]       limitDescendantCount    Max number of txns including descendants.
-     * @param[in]       limitDescendantSize     Max virtual size including descendants.
+     * @param[in]       limits                  Maximum number and size of ancestors and descendants
      * @param[out]      errString               Populated with error reason if a limit is hit.
      */
     bool CheckPackageLimits(const Package& package,
-                            uint64_t limitAncestorCount,
-                            uint64_t limitAncestorSize,
-                            uint64_t limitDescendantCount,
-                            uint64_t limitDescendantSize,
+                            const Limits& limits,
                             std::string &errString) const EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     /** Populate setDescendants with all in-mempool descendants of hash.
@@ -760,12 +781,14 @@ public:
     void CalculateDescendants(txiter it, setEntries& setDescendants) const EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     /** The minimum fee to get into the mempool, which may itself not be enough
-      *  for larger-sized transactions.
-      *  The incrementalRelayFee policy variable is used to bound the time it
-      *  takes the fee rate to go back down all the way to 0. When the feerate
-      *  would otherwise be half of this, it is set to 0 instead.
-      */
-    CFeeRate GetMinFee(size_t sizelimit) const;
+     *  for larger-sized transactions.
+     *  The m_incremental_relay_feerate policy variable is used to bound the time it
+     *  takes the fee rate to go back down all the way to 0. When the feerate
+     *  would otherwise be half of this, it is set to 0 instead.
+     */
+    CFeeRate GetMinFee() const {
+        return GetMinFee(m_max_size_bytes);
+    }
 
     /** Remove transactions from the mempool until its dynamic size is <= sizelimit.
       *  pvNoSpendsRemaining, if set, will be populated with the list of outpoints
@@ -784,11 +807,17 @@ public:
      */
     void GetTransactionAncestry(const uint256& txid, size_t& ancestors, size_t& descendants, size_t* ancestorsize = nullptr, CAmount* ancestorfees = nullptr) const;
 
-    /** @returns true if the mempool is fully loaded */
-    bool IsLoaded() const;
+    /**
+     * @returns true if we've made an attempt to load the mempool regardless of
+     *          whether the attempt was successful or not
+     */
+    bool GetLoadTried() const;
 
-    /** Sets the current loaded state */
-    void SetIsLoaded(bool loaded);
+    /**
+     * Set whether or not we've made an attempt to load the mempool (regardless
+     * of whether the attempt was successful or not)
+     */
+    void SetLoadTried(bool load_tried);
 
     unsigned long size() const
     {
@@ -869,7 +898,7 @@ private:
      *  mempool but may have child transactions in the mempool, eg during a
      *  chain reorg.
      *
-     * @pre CTxMemPool::m_children is correct for the given tx and all
+     * @pre CTxMemPoolEntry::m_children is correct for the given tx and all
      *      descendants.
      * @pre cachedDescendants is an accurate cache where each entry has all
      *      descendants of the corresponding key, including those that should
@@ -891,14 +920,9 @@ private:
      * @param[out] descendants_to_remove Populated with the txids of entries that
      *     exceed ancestor limits. It's the responsibility of the caller to
      *     removeRecursive them.
-     * @param[in] ancestor_size_limit the max number of ancestral bytes allowed
-     *     for any descendant
-     * @param[in] ancestor_count_limit the max number of ancestor transactions
-     *     allowed for any descendant
      */
     void UpdateForDescendants(txiter updateIt, cacheMap& cachedDescendants,
-                              const std::set<uint256>& setExclude, std::set<uint256>& descendants_to_remove,
-                              uint64_t ancestor_size_limit, uint64_t ancestor_count_limit) EXCLUSIVE_LOCKS_REQUIRED(cs);
+                              const std::set<uint256>& setExclude, std::set<uint256>& descendants_to_remove) EXCLUSIVE_LOCKS_REQUIRED(cs);
     /** Update ancestors of hash to add/remove it as a descendant transaction. */
     void UpdateAncestorsOf(bool add, txiter hash, setEntries &setAncestors) EXCLUSIVE_LOCKS_REQUIRED(cs);
     /** Set ancestor state for an entry */

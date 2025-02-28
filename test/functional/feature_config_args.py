@@ -20,11 +20,25 @@ class ConfArgsTest(BitcoinTestFramework):
         self.disable_autoconnect = False
 
     def test_config_file_parser(self):
+        self.log.info('Test config file parser')
         self.stop_node(0)
 
+        # Check that startup fails if conf= is set in bitcoin.conf or in an included conf file
+        bad_conf_file_path = os.path.join(self.options.tmpdir, 'node0', 'bitcoin_bad.conf')
+        util.write_config(bad_conf_file_path, n=0, chain='', extra_config=f'conf=some.conf\n')
+        conf_in_config_file_err = 'Error: Error reading configuration file: conf cannot be set in the configuration file; use includeconf= if you want to include additional config files'
+        self.nodes[0].assert_start_raises_init_error(
+            extra_args=[f'-conf={bad_conf_file_path}'],
+            expected_msg=conf_in_config_file_err,
+        )
         inc_conf_file_path = os.path.join(self.nodes[0].datadir, 'include.conf')
         with open(os.path.join(self.nodes[0].datadir, 'elements.conf'), 'a', encoding='utf-8') as conf:
             conf.write(f'includeconf={inc_conf_file_path}\n')
+        with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
+            conf.write('conf=some.conf\n')
+        self.nodes[0].assert_start_raises_init_error(
+            expected_msg=conf_in_config_file_err,
+        )
 
         self.nodes[0].assert_start_raises_init_error(
             expected_msg='Error: Error parsing command line arguments: Invalid parameter -dash_cli=1',
@@ -32,7 +46,15 @@ class ConfArgsTest(BitcoinTestFramework):
         )
         with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
             conf.write('dash_conf=1\n')
+
         with self.nodes[0].assert_debug_log(expected_msgs=['Ignoring unknown configuration value dash_conf']):
+            self.start_node(0)
+        self.stop_node(0)
+
+        with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
+            conf.write('reindex=1\n')
+
+        with self.nodes[0].assert_debug_log(expected_msgs=['Warning: reindex=1 is set in the configuration file, which will significantly slow down startup. Consider removing or commenting out this option for better performance, unless there is currently a condition which makes rebuilding the indexes necessary']):
             self.start_node(0)
         self.stop_node(0)
 
@@ -87,7 +109,7 @@ class ConfArgsTest(BitcoinTestFramework):
 
     def test_invalid_command_line_options(self):
         self.nodes[0].assert_start_raises_init_error(
-            expected_msg='Error: No proxy server specified. Use -proxy=<ip> or -proxy=<ip:port>.',
+            expected_msg='Error: Error parsing command line arguments: Can not set -proxy with no value. Please specify value with -proxy=value.',
             extra_args=['-proxy'],
         )
 
@@ -189,11 +211,12 @@ class ConfArgsTest(BitcoinTestFramework):
         with self.nodes[0].assert_debug_log(expected_msgs=[
                 "Loaded 0 addresses from peers.dat",
                 "DNS seeding disabled",
-                "Adding fixed seeds as -dnsseed=0, -addnode is not provided and all -seednode(s) attempted\n",
+                "Adding fixed seeds as -dnsseed=0 (or IPv4/IPv6 connections are disabled via -onlynet), -addnode is not provided and all -seednode(s) attempted\n",
         ]):
             self.start_node(0, extra_args=['-dnsseed=0', '-fixedseeds=1'])
         assert time.time() - start < 60
         self.stop_node(0)
+        self.nodes[0].assert_start_raises_init_error(['-dnsseed=1', '-onlynet=i2p', '-i2psam=127.0.0.1:7656'], "Error: Incompatible options: -dnsseed=1 was explicitly specified, but -onlynet forbids connections to IPv4/IPv6")
 
         # No peers.dat exists and dns seeds are disabled.
         # We expect the node will not add fixed seeds when explicitly disabled.
@@ -250,7 +273,8 @@ class ConfArgsTest(BitcoinTestFramework):
         conf_file = os.path.join(default_data_dir, "elements.conf")
 
         # datadir needs to be set before [chain] section
-        conf_file_contents = open(conf_file, encoding='utf8').read()
+        with open(conf_file, encoding='utf8') as f:
+            conf_file_contents = f.read()
         with open(conf_file, 'w', encoding='utf8') as f:
             f.write(f"datadir={new_data_dir}\n")
             f.write(conf_file_contents)

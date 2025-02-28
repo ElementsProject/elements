@@ -9,13 +9,13 @@
 #include <asset.h>
 #include <clientversion.h>
 #include <coins.h>
+#include <compat/compat.h>
 #include <consensus/amount.h>
 #include <consensus/consensus.h>
 #include <core_io.h>
 #include <key_io.h>
 #include <fs.h>
 #include <policy/policy.h>
-#include <policy/rbf.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
 #include <script/sign.h>
@@ -28,11 +28,9 @@
 #include <util/system.h>
 #include <util/translation.h>
 
+#include <cstdio>
 #include <functional>
 #include <memory>
-#include <stdio.h>
-
-#include <boost/algorithm/string.hpp>
 
 static bool fCreateBlank;
 static std::map<std::string,UniValue> registers;
@@ -245,7 +243,7 @@ static void MutateTxRBFOptIn(CMutableTransaction& tx, const std::string& strInId
 template <typename T>
 static T TrimAndParse(const std::string& int_str, const std::string& err)
 {
-    const auto parsed{ToIntegral<T>(TrimString(int_str))};
+    const auto parsed{ToIntegral<T>(TrimStringView(int_str))};
     if (!parsed.has_value()) {
         throw std::runtime_error(err + " '" + int_str + "'");
     }
@@ -254,8 +252,7 @@ static T TrimAndParse(const std::string& int_str, const std::string& err)
 
 static void MutateTxAddInput(CMutableTransaction& tx, const std::string& strInput)
 {
-    std::vector<std::string> vStrInputParts;
-    boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
+    std::vector<std::string> vStrInputParts = SplitString(strInput, ':');
 
     // separate TXID:VOUT in string
     if (vStrInputParts.size()<2)
@@ -290,8 +287,7 @@ static void MutateTxAddInput(CMutableTransaction& tx, const std::string& strInpu
 static void MutateTxAddOutAddr(CMutableTransaction& tx, const std::string& strInput)
 {
     // Separate into VALUE:ADDRESS
-    std::vector<std::string> vStrInputParts;
-    boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
+    std::vector<std::string> vStrInputParts = SplitString(strInput, ':');
 
     if (vStrInputParts.size() < 2)
         throw std::runtime_error("TX output missing or too many separators");
@@ -329,8 +325,7 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const std::string& strIn
 static void MutateTxAddOutPubKey(CMutableTransaction& tx, const std::string& strInput)
 {
     // Separate into VALUE:PUBKEY[:FLAGS]
-    std::vector<std::string> vStrInputParts;
-    boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
+    std::vector<std::string> vStrInputParts = SplitString(strInput, ':');
 
     if (vStrInputParts.size() < 2 || vStrInputParts.size() > 3)
         throw std::runtime_error("TX output missing or too many separators");
@@ -373,8 +368,7 @@ static void MutateTxAddOutPubKey(CMutableTransaction& tx, const std::string& str
 static void MutateTxAddOutMultiSig(CMutableTransaction& tx, const std::string& strInput)
 {
     // Separate into VALUE:REQUIRED:NUMKEYS:PUBKEY1:PUBKEY2:....[:FLAGS]
-    std::vector<std::string> vStrInputParts;
-    boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
+    std::vector<std::string> vStrInputParts = SplitString(strInput, ':');
 
     // Check that there are enough parameters
     if (vStrInputParts.size()<3)
@@ -449,8 +443,7 @@ static void MutateTxAddOutData(CMutableTransaction& tx, const std::string& strIn
     CAmount value = 0;
 
     // separate [VALUE:]DATA[:ASSET] in string
-    std::vector<std::string> vStrInputParts;
-    boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
+    std::vector<std::string> vStrInputParts = SplitString(strInput, ':');
 
     // Check that there are enough parameters
     if (vStrInputParts[0].empty())
@@ -494,8 +487,7 @@ static void MutateTxAddOutData(CMutableTransaction& tx, const std::string& strIn
 static void MutateTxAddOutScript(CMutableTransaction& tx, const std::string& strInput)
 {
     // separate VALUE:SCRIPT[:FLAGS]
-    std::vector<std::string> vStrInputParts;
-    boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
+    std::vector<std::string> vStrInputParts = SplitString(strInput, ':');
     if (vStrInputParts.size() < 2)
         throw std::runtime_error("TX output missing separator");
 
@@ -636,7 +628,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
     UniValue prevtxsObj = registers["prevtxs"];
     {
         for (unsigned int previdx = 0; previdx < prevtxsObj.size(); previdx++) {
-            UniValue prevOut = prevtxsObj[previdx];
+            const UniValue& prevOut = prevtxsObj[previdx];
             if (!prevOut.isObject())
                 throw std::runtime_error("expected prevtxs internal object");
 
@@ -653,7 +645,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
                 throw std::runtime_error("txid must be hexadecimal string (not '" + prevOut["txid"].get_str() + "')");
             }
 
-            const int nOut = prevOut["vout"].get_int();
+            const int nOut = prevOut["vout"].getInt<int>();
             if (nOut < 0)
                 throw std::runtime_error("vout cannot be negative");
 
@@ -708,7 +700,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
         SignatureData sigdata = DataFromTransaction(mergedTx, i, coin.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mergedTx.vout.size()))
-            ProduceSignature(keystore, MutableTransactionSignatureCreator(&mergedTx, i, amount, nHashType), prevPubKey, sigdata);
+            ProduceSignature(keystore, MutableTransactionSignatureCreator(mergedTx, i, amount, nHashType), prevPubKey, sigdata);
 
         if (amount.IsExplicit() && amount.GetAmount() == MAX_MONEY && !sigdata.scriptWitness.IsNull()) {
             throw std::runtime_error(strprintf("Missing amount for CTxOut with scriptPubKey=%s", HexStr(prevPubKey)));
@@ -784,7 +776,7 @@ static void MutateTx(CMutableTransaction& tx, const std::string& command,
 static void OutputTxJSON(const CTransaction& tx)
 {
     UniValue entry(UniValue::VOBJ);
-    TxToUniv(tx, uint256(), entry);
+    TxToUniv(tx, /*block_hash=*/uint256(), entry);
 
     std::string jsonOutput = entry.write(4);
     tfm::format(std::cout, "%s\n", jsonOutput);
@@ -905,7 +897,7 @@ static int CommandLineRawTx(int argc, char* argv[])
     return nRet;
 }
 
-int main(int argc, char* argv[])
+MAIN_FUNCTION
 {
     SetupEnvironment();
 

@@ -42,11 +42,11 @@ class SimplicityActivationTest(BitcoinTestFramework):
                 assert_equal (decode["versionHex"], "20000000")
 
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "defined")
-        # The 1023rd block does not signal, but changes status-next to "started" from "defined"
+        # The 1023rd block does not signal, but changes status_next to "started" from "defined"
         # bitcoin PR #23508 changed bip9 status to the current block instead of the next block
         blocks = self.generatetoaddress(rpc, 1, rpc.getnewaddress())
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "defined")
-        assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status-next"], "started")
+        assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status_next"], "started")
         assert_equal(rpc.getblockheader(blocks[0])["versionHex"], "20000000")
 
         blocks = self.generatetoaddress(rpc, 127, rpc.getnewaddress())
@@ -73,7 +73,7 @@ class SimplicityActivationTest(BitcoinTestFramework):
         # The 128th block then switches from "started" to "locked_in"
         blocks = self.generatetoaddress(rpc, 1, rpc.getnewaddress())
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "started")
-        assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status-next"], "locked_in")
+        assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status_next"], "locked_in")
         assert_equal(rpc.getblockheader(blocks[0])["versionHex"], "21000000")
 
         # Run through another 128 blocks, which will go from "locked in" to "active" regardless of signalling
@@ -86,7 +86,7 @@ class SimplicityActivationTest(BitcoinTestFramework):
         block = block[:7] + "0" + block[8:] # turn off Simplicity signal
         rpc.submitblock(block)
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "locked_in")
-        assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status-next"], "active")
+        assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status_next"], "active")
 
         # After the state is "active", signallng stops by default.
         blocks = self.generatetoaddress(rpc, 1, self.nodes[0].getnewaddress())

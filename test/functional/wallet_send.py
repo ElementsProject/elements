@@ -10,6 +10,10 @@ from itertools import product
 from test_framework.authproxy import JSONRPCException
 from test_framework.descriptors import descsum_create
 from test_framework.key import ECKey
+from test_framework.messages import (
+    ser_compact_size,
+    WITNESS_SCALE_FACTOR,
+)
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
@@ -363,7 +367,7 @@ class WalletSendTest(BitcoinTestFramework):
         for mode in ["economical", "conservative"]:
             for k, v in {"string": "true", "bool": True, "object": {"foo": "bar"}}.items():
                 self.test_send(from_wallet=w0, to_wallet=w1, amount=1, conf_target=v, estimate_mode=mode,
-                    expect_error=(-3, f"Expected type number for conf_target, got {k}"))
+                    expect_error=(-3, f"JSON value of type {k} for field conf_target is not of expected type number"))
 
         # Test setting explicit fee rate just below the minimum of 1 sat/vB.
         self.log.info("Explicit fee rate raises RPC error 'fee rate too low' if fee_rate of 0.99999999 is passed")
@@ -493,8 +497,8 @@ class WalletSendTest(BitcoinTestFramework):
         self.nodes[1].createwallet("extfund")
         ext_fund = self.nodes[1].get_wallet_rpc("extfund")
 
-        # Make a weird but signable script. sh(pkh()) descriptor accomplishes this
-        desc = descsum_create("sh(pkh({}))".format(privkey))
+        # Make a weird but signable script. sh(wsh(pkh())) descriptor accomplishes this
+        desc = descsum_create("sh(wsh(pkh({})))".format(privkey))
         if self.options.descriptors:
             res = ext_fund.importdescriptors([{"desc": desc, "timestamp": "now"}])
         else:
@@ -509,12 +513,10 @@ class WalletSendTest(BitcoinTestFramework):
         ext_utxo = ext_fund.listunspent(addresses=[addr])[0]
 
         # An external input without solving data should result in an error
-        # ELEMENTS: minor FIXME error is different since SelectCoins no longer has the error out
-        # (Bitcoin error: 'Missing solving data for estimating transaction size')
-        self.test_send(from_wallet=ext_wallet, to_wallet=self.nodes[0], amount=15, inputs=[ext_utxo], add_inputs=True, psbt=True, include_watching=True, expect_error=(-4, "Insufficient funds"))
+        self.test_send(from_wallet=ext_wallet, to_wallet=self.nodes[0], amount=15, inputs=[ext_utxo], add_inputs=True, psbt=True, include_watching=True, expect_error=(-4, "Not solvable pre-selected input COutPoint(%s, %s)" % (ext_utxo["txid"][0:10], ext_utxo["vout"])))
 
         # But funding should work when the solving data is provided
-        res = self.test_send(from_wallet=ext_wallet, to_wallet=self.nodes[0], amount=15, inputs=[ext_utxo], add_inputs=True, psbt=True, include_watching=True, solving_data={"pubkeys": [addr_info['pubkey']], "scripts": [addr_info["embedded"]["scriptPubKey"]]})
+        res = self.test_send(from_wallet=ext_wallet, to_wallet=self.nodes[0], amount=15, inputs=[ext_utxo], add_inputs=True, psbt=True, include_watching=True, solving_data={"pubkeys": [addr_info['pubkey']], "scripts": [addr_info["embedded"]["scriptPubKey"], addr_info["embedded"]["embedded"]["scriptPubKey"]]})
         signed = ext_wallet.walletprocesspsbt(res["psbt"])
         signed = ext_fund.walletprocesspsbt(res["psbt"])
         assert signed["complete"]
@@ -533,10 +535,11 @@ class WalletSendTest(BitcoinTestFramework):
                 break
         psbt_in = dec["inputs"][input_idx]
         # Calculate the input weight
-        # (prevout + sequence + length of scriptSig + 2 bytes buffer) * 4 + len of scriptwitness
+        # (prevout + sequence + length of scriptSig + scriptsig + 1 byte buffer) * WITNESS_SCALE_FACTOR + num scriptWitness stack items + (length of stack item + stack item) * N stack items + 1 byte buffer
         len_scriptsig = len(psbt_in["final_scriptSig"]["hex"]) // 2 if "final_scriptSig" in psbt_in else 0
-        len_scriptwitness = len(psbt_in["final_scriptwitness"]["hex"]) // 2 if "final_scriptwitness" in psbt_in else 0
-        input_weight = ((41 + len_scriptsig + 2) * 4) + len_scriptwitness
+        len_scriptsig += len(ser_compact_size(len_scriptsig)) + 1
+        len_scriptwitness = (sum([(len(x) // 2) + len(ser_compact_size(len(x) // 2)) for x in psbt_in["final_scriptwitness"]]) + len(psbt_in["final_scriptwitness"]) + 1) if "final_scriptwitness" in psbt_in else 0
+        input_weight = ((40 + len_scriptsig) * WITNESS_SCALE_FACTOR) + len_scriptwitness
 
         # Input weight error conditions
         assert_raises_rpc_error(

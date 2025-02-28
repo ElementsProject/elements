@@ -32,6 +32,13 @@ class WalletSignerTest(BitcoinTestFramework):
         else:
             return path
 
+    def mock_multi_signers_path(self):
+        path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'mocks', 'multi_signers.py')
+        if platform.system() == "Windows":
+            return "py " + path
+        else:
+            return path
+
     def set_test_params(self):
         self.num_nodes = 2
         # The experimental syscall sandbox feature (-sandbox) is not compatible with -signer (which
@@ -59,6 +66,8 @@ class WalletSignerTest(BitcoinTestFramework):
         self.test_valid_signer()
         self.restart_node(1, [f"-signer={self.mock_invalid_signer_path()}", "-keypool=10"])
         self.test_invalid_signer()
+        self.restart_node(1, [f"-signer={self.mock_multi_signers_path()}", "-keypool=10"])
+        self.test_multiple_signers()
 
     def test_valid_signer(self):
         self.log.debug(f"-signer={self.mock_signer_path()}")
@@ -90,7 +99,7 @@ class WalletSignerTest(BitcoinTestFramework):
         # )
         # self.clear_mock_result(self.nodes[1])
 
-        assert_equal(hww.getwalletinfo()["keypoolsize"], 30)
+        assert_equal(hww.getwalletinfo()["keypoolsize"], 40)
 
         address1 = hww.getnewaddress(address_type="bech32")
         assert_equal(address1, "ert1qm90ugl4d48jv8n6e5t9ln6t9zlpm5th6ljqheg")
@@ -113,6 +122,13 @@ class WalletSignerTest(BitcoinTestFramework):
         assert_equal(address_info['ismine'], True)
         assert_equal(address_info['hdkeypath'], "m/44'/1'/0'/0/0")
 
+        address4 = hww.getnewaddress(address_type="bech32m")
+        assert_equal(address4, "bcrt1phw4cgpt6cd30kz9k4wkpwm872cdvhss29jga2xpmftelhqll62ms4e9sqj")
+        address_info = hww.getaddressinfo(address4)
+        assert_equal(address_info['solvable'], True)
+        assert_equal(address_info['ismine'], True)
+        assert_equal(address_info['hdkeypath'], "m/86'/1'/0'/0/0")
+
         self.log.info('Test walletdisplayaddress')
         result = hww.walletdisplayaddress(address1)
         assert_equal(result, {"address": address1})
@@ -125,7 +141,7 @@ class WalletSignerTest(BitcoinTestFramework):
         self.clear_mock_result(self.nodes[1])
 
         self.log.info('Prepare mock PSBT')
-        self.nodes[0].sendtoaddress(address1, 1)
+        self.nodes[0].sendtoaddress(address4, 1)
         self.generate(self.nodes[0], 1)
 
         # Load private key into wallet to generate a signed PSBT for the mock
@@ -134,14 +150,14 @@ class WalletSignerTest(BitcoinTestFramework):
         assert mock_wallet.getwalletinfo()['private_keys_enabled']
 
         result = mock_wallet.importdescriptors([{
-            "desc": "wpkh([00000001/84'/1'/0']tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/0/*)#rweraev0",
+            "desc": "tr([00000001/86'/1'/0']tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/0/*)#0jtt2jc9",
             "timestamp": 0,
             "range": [0,1],
             "internal": False,
             "active": True
         },
         {
-            "desc": "wpkh([00000001/84'/1'/0']tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/1/*)#j6uzqvuh",
+            "desc": "tr([00000001/86'/1'/0']tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/1/*)#7xw2h8ga",
             "timestamp": 0,
             "range": [0, 0],
             "internal": True,
@@ -195,6 +211,12 @@ class WalletSignerTest(BitcoinTestFramework):
         assert(res["complete"])
         assert_equal(res["hex"], mock_tx)
 
+        self.log.info('Test sendall using hww1')
+
+        res = hww.sendall(recipients=[{dest:0.5}, hww.getrawchangeaddress()],options={"add_to_wallet": False})
+        assert(res["complete"])
+        assert_equal(res["hex"], mock_tx)
+
         # # Handle error thrown by script
         # self.set_mock_result(self.nodes[4], "2")
         # assert_raises_rpc_error(-1, 'Unable to parse JSON',
@@ -206,6 +228,12 @@ class WalletSignerTest(BitcoinTestFramework):
         self.log.debug(f"-signer={self.mock_invalid_signer_path()}")
         self.log.info('Test invalid external signer')
         assert_raises_rpc_error(-1, "Invalid descriptor", self.nodes[1].createwallet, wallet_name='hww_invalid', disable_private_keys=True, descriptors=True, external_signer=True)
+
+    def test_multiple_signers(self):
+        self.log.debug(f"-signer={self.mock_multi_signers_path()}")
+        self.log.info('Test multiple external signers')
+
+        assert_raises_rpc_error(-1, "GetExternalSigner: More than one external signer found", self.nodes[1].createwallet, wallet_name='multi_hww', disable_private_keys=True, descriptors=True, external_signer=True)
 
 if __name__ == '__main__':
     WalletSignerTest().main()

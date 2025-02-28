@@ -320,31 +320,6 @@ bool static CheckPubKeyEncoding(const valtype &vchPubKey, unsigned int flags, co
     return true;
 }
 
-bool CheckMinimalPush(const valtype& data, opcodetype opcode) {
-    // Excludes OP_1NEGATE, OP_1-16 since they are by definition minimal
-    assert(0 <= opcode && opcode <= OP_PUSHDATA4);
-    if (data.size() == 0) {
-        // Should have used OP_0.
-        return opcode == OP_0;
-    } else if (data.size() == 1 && data[0] >= 1 && data[0] <= 16) {
-        // Should have used OP_1 .. OP_16.
-        return false;
-    } else if (data.size() == 1 && data[0] == 0x81) {
-        // Should have used OP_1NEGATE.
-        return false;
-    } else if (data.size() <= 75) {
-        // Must have used a direct push (opcode indicating number of bytes pushed + those bytes).
-        return opcode == data.size();
-    } else if (data.size() <= 255) {
-        // Must have used OP_PUSHDATA.
-        return opcode == OP_PUSHDATA1;
-    } else if (data.size() <= 65535) {
-        // Must have used OP_PUSHDATA2.
-        return opcode == OP_PUSHDATA2;
-    }
-    return true;
-}
-
 int FindAndDelete(CScript& script, const CScript& b)
 {
     int nFound = 0;
@@ -571,9 +546,9 @@ static bool EvalChecksig(const valtype& sig, const valtype& pubkey, CScript::con
     assert(false);
 }
 
-const CHashWriter HASHER_TAPLEAF_ELEMENTS = TaggedHash("TapLeaf/elements");
-const CHashWriter HASHER_TAPBRANCH_ELEMENTS = TaggedHash("TapBranch/elements");
-const CHashWriter HASHER_TAPSIGHASH_ELEMENTS = TaggedHash("TapSighash/elements");
+const HashWriter HASHER_TAPLEAF_ELEMENTS = TaggedHash("TapLeaf/elements");
+const HashWriter HASHER_TAPBRANCH_ELEMENTS = TaggedHash("TapBranch/elements");
+const HashWriter HASHER_TAPSIGHASH_ELEMENTS = TaggedHash("TapSighash/elements");
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, SigVersion sigversion, ScriptExecutionData& execdata, ScriptError* serror)
 {
@@ -2402,7 +2377,7 @@ uint256 GetOutpointFlagsSHA256(const T& txTo)
 template <class T>
 uint256 GetPrevoutsSHA256(const T& txTo)
 {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (const auto& txin : txTo.vin) {
         ss << txin.prevout;
     }
@@ -2413,7 +2388,7 @@ uint256 GetPrevoutsSHA256(const T& txTo)
 template <class T>
 uint256 GetSequencesSHA256(const T& txTo)
 {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (const auto& txin : txTo.vin) {
         ss << txin.nSequence;
     }
@@ -2466,7 +2441,7 @@ uint256 GetIssuanceRangeproofsSHA256(const T& txTo)
 template <class T>
 uint256 GetOutputsSHA256(const T& txTo)
 {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (const auto& txout : txTo.vout) {
         ss << txout;
     }
@@ -2477,7 +2452,7 @@ uint256 GetOutputsSHA256(const T& txTo)
 // Elements TapHash only
 uint256 GetSpentAssetsAmountsSHA256(const std::vector<CTxOut>& outputs_spent)
 {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (const auto& txout : outputs_spent) {
         ss << txout.nAsset;
         ss << txout.nValue;
@@ -2488,7 +2463,7 @@ uint256 GetSpentAssetsAmountsSHA256(const std::vector<CTxOut>& outputs_spent)
 /** Compute the (single) SHA256 of the concatenation of all scriptPubKeys spent by a tx. */
 uint256 GetSpentScriptsSHA256(const std::vector<CTxOut>& outputs_spent)
 {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (const auto& txout : outputs_spent) {
         ss << txout.scriptPubKey;
     }
@@ -2607,15 +2582,15 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
             simplicityRawInput[i].prevTxid = txTo.vin[i].prevout.hash.begin();
             simplicityRawInput[i].prevIx = txTo.vin[i].prevout.n;
             simplicityRawInput[i].sequence = txTo.vin[i].nSequence;
-            simplicityRawInput[i].txo.asset = m_spent_outputs[i].nAsset.vchCommitment.empty() ? NULL : m_spent_outputs[i].nAsset.vchCommitment.data();
-            simplicityRawInput[i].txo.value = m_spent_outputs[i].nValue.vchCommitment.empty() ? NULL : m_spent_outputs[i].nValue.vchCommitment.data();
+            simplicityRawInput[i].txo.asset = m_spent_outputs[i].nAsset.vchCommitment.empty() ? nullptr : m_spent_outputs[i].nAsset.vchCommitment.data();
+            simplicityRawInput[i].txo.value = m_spent_outputs[i].nValue.vchCommitment.empty() ? nullptr : m_spent_outputs[i].nValue.vchCommitment.data();
             simplicityRawInput[i].txo.scriptPubKey.buf = m_spent_outputs[i].scriptPubKey.data();
             simplicityRawInput[i].txo.scriptPubKey.len = m_spent_outputs[i].scriptPubKey.size();
             simplicityRawInput[i].issuance.blindingNonce = txTo.vin[i].assetIssuance.assetBlindingNonce.begin();
             simplicityRawInput[i].issuance.assetEntropy = txTo.vin[i].assetIssuance.assetEntropy.begin();
-            simplicityRawInput[i].issuance.amount = txTo.vin[i].assetIssuance.nAmount.vchCommitment.empty() ? NULL : txTo.vin[i].assetIssuance.nAmount.vchCommitment.data();
-            simplicityRawInput[i].issuance.inflationKeys = txTo.vin[i].assetIssuance.nInflationKeys.vchCommitment.empty() ? NULL : txTo.vin[i].assetIssuance.nInflationKeys.vchCommitment.data();
-            simplicityRawInput[i].annex = NULL;
+            simplicityRawInput[i].issuance.amount = txTo.vin[i].assetIssuance.nAmount.vchCommitment.empty() ? nullptr : txTo.vin[i].assetIssuance.nAmount.vchCommitment.data();
+            simplicityRawInput[i].issuance.inflationKeys = txTo.vin[i].assetIssuance.nInflationKeys.vchCommitment.empty() ? nullptr : txTo.vin[i].assetIssuance.nInflationKeys.vchCommitment.data();
+            simplicityRawInput[i].annex = nullptr;
             if (i < txTo.witness.vtxinwit.size()) {
                 Span<const valtype> stack{txTo.witness.vtxinwit[i].scriptWitness.stack};
                 if (stack.size() >= 2 && !stack.back().empty() && stack.back()[0] == ANNEX_TAG) {
@@ -2628,22 +2603,22 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
                 simplicityRawInput[i].issuance.inflationKeysRangePrf.buf = txTo.witness.vtxinwit[i].vchInflationKeysRangeproof.data();
                 simplicityRawInput[i].issuance.inflationKeysRangePrf.len = txTo.witness.vtxinwit[i].vchInflationKeysRangeproof.size();
                 assert(!txTo.vin[i].m_is_pegin || ( txTo.witness.vtxinwit[i].m_pegin_witness.stack.size() >= 4 && txTo.witness.vtxinwit[i].m_pegin_witness.stack[2].size() == 32));
-                simplicityRawInput[i].pegin = txTo.vin[i].m_is_pegin ? txTo.witness.vtxinwit[i].m_pegin_witness.stack[2].data() : 0;
+                simplicityRawInput[i].pegin = txTo.vin[i].m_is_pegin ? txTo.witness.vtxinwit[i].m_pegin_witness.stack[2].data() : nullptr;
             } else {
-                simplicityRawInput[i].issuance.amountRangePrf.buf = NULL;
+                simplicityRawInput[i].issuance.amountRangePrf.buf = nullptr;
                 simplicityRawInput[i].issuance.amountRangePrf.len = 0;
-                simplicityRawInput[i].issuance.inflationKeysRangePrf.buf = NULL;
+                simplicityRawInput[i].issuance.inflationKeysRangePrf.buf = nullptr;
                 simplicityRawInput[i].issuance.inflationKeysRangePrf.len = 0;
                 assert(!txTo.vin[i].m_is_pegin);
-                simplicityRawInput[i].pegin = 0;
+                simplicityRawInput[i].pegin = nullptr;
             }
         }
 
         std::vector<rawOutput> simplicityRawOutput(txTo.vout.size());
         for (size_t i = 0; i < txTo.vout.size(); ++i) {
-            simplicityRawOutput[i].asset = txTo.vout[i].nAsset.vchCommitment.empty() ? NULL : txTo.vout[i].nAsset.vchCommitment.data();
-            simplicityRawOutput[i].value = txTo.vout[i].nValue.vchCommitment.empty() ? NULL : txTo.vout[i].nValue.vchCommitment.data();
-            simplicityRawOutput[i].nonce = txTo.vout[i].nNonce.vchCommitment.empty() ? NULL : txTo.vout[i].nNonce.vchCommitment.data();
+            simplicityRawOutput[i].asset = txTo.vout[i].nAsset.vchCommitment.empty() ? nullptr : txTo.vout[i].nAsset.vchCommitment.data();
+            simplicityRawOutput[i].value = txTo.vout[i].nValue.vchCommitment.empty() ? nullptr : txTo.vout[i].nValue.vchCommitment.data();
+            simplicityRawOutput[i].nonce = txTo.vout[i].nNonce.vchCommitment.empty() ? nullptr : txTo.vout[i].nNonce.vchCommitment.data();
             simplicityRawOutput[i].scriptPubKey.buf = txTo.vout[i].scriptPubKey.data();
             simplicityRawOutput[i].scriptPubKey.len = txTo.vout[i].scriptPubKey.size();
             if (i < txTo.witness.vtxoutwit.size()) {
@@ -2652,9 +2627,9 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
                 simplicityRawOutput[i].rangeProof.buf = txTo.witness.vtxoutwit[i].vchRangeproof.data();
                 simplicityRawOutput[i].rangeProof.len = txTo.witness.vtxoutwit[i].vchRangeproof.size();
             } else {
-                simplicityRawOutput[i].surjectionProof.buf = NULL;
+                simplicityRawOutput[i].surjectionProof.buf = nullptr;
                 simplicityRawOutput[i].surjectionProof.len = 0;
-                simplicityRawOutput[i].rangeProof.buf = NULL;
+                simplicityRawOutput[i].rangeProof.buf = nullptr;
                 simplicityRawOutput[i].rangeProof.len = 0;
             }
         }
@@ -2690,7 +2665,7 @@ template PrecomputedTransactionData::PrecomputedTransactionData(const CMutableTr
 
 PrecomputedTransactionData::PrecomputedTransactionData(const uint256& hash_genesis_block)
         : m_hash_genesis_block(hash_genesis_block)
-        , m_tapsighash_hasher(CHashWriter(HASHER_TAPSIGHASH_ELEMENTS) << hash_genesis_block << hash_genesis_block) {}
+        , m_tapsighash_hasher(HashWriter(HASHER_TAPSIGHASH_ELEMENTS) << hash_genesis_block << hash_genesis_block) {}
 
 static bool HandleMissingData(MissingDataBehavior mdb)
 {
@@ -2729,7 +2704,7 @@ bool SignatureHashSchnorr(uint256& hash_out, ScriptExecutionData& execdata, cons
         return HandleMissingData(mdb);
     }
 
-    CHashWriter ss = cache.m_tapsighash_hasher;
+    HashWriter ss = cache.m_tapsighash_hasher;
 
     // no epoch in elements taphash
     // static constexpr uint8_t EPOCH = 0;
@@ -2794,7 +2769,7 @@ bool SignatureHashSchnorr(uint256& hash_out, ScriptExecutionData& execdata, cons
     if (output_type == SIGHASH_SINGLE) {
         if (in_pos >= tx_to.vout.size()) return false;
         if (!execdata.m_output_hash) {
-            CHashWriter sha_single_output(SER_GETHASH, 0);
+            HashWriter sha_single_output{};
             sha_single_output << tx_to.vout[in_pos];
             execdata.m_output_hash = sha_single_output.GetSHA256();
         }
@@ -2855,7 +2830,7 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
                 hashRangeproofs = cacheready ? cache->hashRangeproofs : GetRangeproofsHash(txTo);
             }
         } else if ((nHashType & 0x1f) == SIGHASH_SINGLE && nIn < txTo.vout.size()) {
-            CHashWriter ss(SER_GETHASH, 0);
+            HashWriter ss{};
             ss << txTo.vout[nIn];
             hashOutputs = ss.GetHash();
 
@@ -2872,7 +2847,7 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
             }
         }
 
-        CHashWriter ss(SER_GETHASH, 0);
+        HashWriter ss{};
         // Version
         ss << txTo.nVersion;
         // Input prevouts/nSequence (none/all, depending on flags)
@@ -2923,7 +2898,7 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
     CTransactionSignatureSerializer<T> txTmp(txTo, scriptCode, nIn, nHashType, flags);
 
     // Serialize and hash
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     ss << txTmp << nHashType;
     return ss.GetHash();
 }
@@ -3121,7 +3096,7 @@ bool GenericTransactionSignatureChecker<T>::CheckSimplicity(const valtype& progr
 
     assert(txdata->m_simplicity_tx_data);
     assert(simplicityTapEnv);
-    if (!simplicity_elements_execSimplicity(&error, 0, txdata->m_simplicity_tx_data, nIn, simplicityTapEnv, txdata->m_hash_genesis_block.data(), budget, 0, program.data(), program.size(), witness.data(), witness.size())) {
+    if (!simplicity_elements_execSimplicity(&error, nullptr, txdata->m_simplicity_tx_data, nIn, simplicityTapEnv, txdata->m_hash_genesis_block.data(), budget, nullptr, program.data(), program.size(), witness.data(), witness.size())) {
         assert(!"simplicity_elements_execSimplicity internal error");
     }
     simplicity_elements_freeTapEnv(simplicityTapEnv);
@@ -3204,15 +3179,19 @@ static bool ExecuteWitnessScript(const Span<const valtype>& stack_span, const CS
 
 uint256 ComputeTapleafHash(uint8_t leaf_version, const CScript& script)
 {
-    return (CHashWriter(HASHER_TAPLEAF_ELEMENTS) << leaf_version << script).GetSHA256();
+    return (HashWriter(HASHER_TAPLEAF_ELEMENTS) << leaf_version << script).GetSHA256();
 }
 
 uint256 ComputeTaprootMerkleRoot(Span<const unsigned char> control, const uint256& tapleaf_hash)
 {
+    assert(control.size() >= TAPROOT_CONTROL_BASE_SIZE);
+    assert(control.size() <= TAPROOT_CONTROL_MAX_SIZE);
+    assert((control.size() - TAPROOT_CONTROL_BASE_SIZE) % TAPROOT_CONTROL_NODE_SIZE == 0);
+
     const int path_len = (control.size() - TAPROOT_CONTROL_BASE_SIZE) / TAPROOT_CONTROL_NODE_SIZE;
     uint256 k = tapleaf_hash;
     for (int i = 0; i < path_len; ++i) {
-        CHashWriter ss_branch = CHashWriter{HASHER_TAPBRANCH_ELEMENTS};
+        HashWriter ss_branch{HASHER_TAPBRANCH_ELEMENTS};
         Span node{Span{control}.subspan(TAPROOT_CONTROL_BASE_SIZE + TAPROOT_CONTROL_NODE_SIZE * i, TAPROOT_CONTROL_NODE_SIZE)};
         if (std::lexicographical_compare(k.begin(), k.end(), node.begin(), node.end())) {
             ss_branch << k << node;
@@ -3275,7 +3254,7 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
         if (stack.size() >= 2 && !stack.back().empty() && stack.back()[0] == ANNEX_TAG) {
             // Drop annex (this is non-standard; see IsWitnessStandard)
             const valtype& annex = SpanPopBack(stack);
-            execdata.m_annex_hash = (CHashWriter(SER_GETHASH, 0) << annex).GetSHA256();
+            execdata.m_annex_hash = (HashWriter{} << annex).GetSHA256();
             execdata.m_annex_present = true;
         } else {
             execdata.m_annex_present = false;
@@ -3373,7 +3352,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
                 // The scriptSig must be _exactly_ CScript(), otherwise we reintroduce malleability.
                 return set_error(serror, SCRIPT_ERR_WITNESS_MALLEATED);
             }
-            if (!VerifyWitnessProgram(*witness, witnessversion, witnessprogram, flags, checker, serror, /* is_p2sh */ false)) {
+            if (!VerifyWitnessProgram(*witness, witnessversion, witnessprogram, flags, checker, serror, /*is_p2sh=*/false)) {
                 return false;
             }
             // Bypass the cleanstack check at the end. The actual stack is obviously not clean
@@ -3418,7 +3397,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
                     // reintroduce malleability.
                     return set_error(serror, SCRIPT_ERR_WITNESS_MALLEATED_P2SH);
                 }
-                if (!VerifyWitnessProgram(*witness, witnessversion, witnessprogram, flags, checker, serror, /* is_p2sh */ true)) {
+                if (!VerifyWitnessProgram(*witness, witnessversion, witnessprogram, flags, checker, serror, /*is_p2sh=*/true)) {
                     return false;
                 }
                 // Bypass the cleanstack check at the end. The actual stack is obviously not clean

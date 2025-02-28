@@ -6,21 +6,22 @@
 #define BITCOIN_POLICY_FEES_H
 
 #include <consensus/amount.h>
+#include <fs.h>
 #include <policy/feerate.h>
-#include <uint256.h>
 #include <random.h>
 #include <sync.h>
+#include <threadsafety.h>
+#include <uint256.h>
 
 #include <array>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
-class CAutoFile;
-class CFeeRate;
+class AutoFile;
 class CTxMemPoolEntry;
-class CTxMemPool;
 class TxConfirmStats;
 
 /* Identifier for each of the 3 different TxConfirmStats which will track
@@ -179,9 +180,10 @@ private:
      */
     static constexpr double FEE_SPACING = 1.05;
 
+    const fs::path m_estimation_filepath;
 public:
     /** Create new BlockPolicyEstimator and initialize stats tracking classes with default values */
-    CBlockPolicyEstimator();
+    CBlockPolicyEstimator(const fs::path& estimation_filepath);
     ~CBlockPolicyEstimator();
 
     /** Process all the transactions that have been included in a block */
@@ -218,11 +220,11 @@ public:
         EXCLUSIVE_LOCKS_REQUIRED(!m_cs_fee_estimator);
 
     /** Write estimation data to a file */
-    bool Write(CAutoFile& fileout) const
+    bool Write(AutoFile& fileout) const
         EXCLUSIVE_LOCKS_REQUIRED(!m_cs_fee_estimator);
 
     /** Read estimation data from a file */
-    bool Read(CAutoFile& filein)
+    bool Read(AutoFile& filein)
         EXCLUSIVE_LOCKS_REQUIRED(!m_cs_fee_estimator);
 
     /** Empty mempool transactions on shutdown to record failure to confirm for txs still in mempool */
@@ -297,14 +299,15 @@ private:
 
 public:
     /** Create new FeeFilterRounder */
-    explicit FeeFilterRounder(const CFeeRate& minIncrementalFee);
+    explicit FeeFilterRounder(const CFeeRate& min_incremental_fee);
 
-    /** Quantize a minimum fee for privacy purpose before broadcast. Not thread-safe due to use of FastRandomContext */
-    CAmount round(CAmount currentMinFee);
+    /** Quantize a minimum fee for privacy purpose before broadcast. */
+    CAmount round(CAmount currentMinFee) EXCLUSIVE_LOCKS_REQUIRED(!m_insecure_rand_mutex);
 
 private:
-    std::set<double> feeset;
-    FastRandomContext insecure_rand;
+    const std::set<double> m_fee_set;
+    Mutex m_insecure_rand_mutex;
+    FastRandomContext insecure_rand GUARDED_BY(m_insecure_rand_mutex);
 };
 
 #endif // BITCOIN_POLICY_FEES_H

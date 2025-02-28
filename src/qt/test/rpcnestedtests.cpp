@@ -4,6 +4,7 @@
 
 #include <qt/test/rpcnestedtests.h>
 
+#include <chain.h>
 #include <interfaces/node.h>
 #include <rpc/server.h>
 #include <qt/rpcconsole.h>

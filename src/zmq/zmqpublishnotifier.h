@@ -10,6 +10,7 @@
 #include <cstdint>
 
 class CBlockIndex;
+class CTransaction;
 
 class CZMQAbstractPublishNotifier : public CZMQAbstractNotifier
 {

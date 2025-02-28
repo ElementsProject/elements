@@ -99,7 +99,7 @@ static int verify_script(const unsigned char *hash_genesis_block,
         auto hash_genesis_block_ = hash_genesis_block ? uint256{hash_genesis_block, 32} : uint256{};
         PrecomputedTransactionData txdata(hash_genesis_block_);
         txdata.Init(tx, {});
-        const CScriptWitness* pScriptWitness = (tx.witness.vtxinwit.size() > nIn ? &tx.witness.vtxinwit[nIn].scriptWitness : NULL);
+        const CScriptWitness* pScriptWitness = (tx.witness.vtxinwit.size() > nIn ? &tx.witness.vtxinwit[nIn].scriptWitness : nullptr);
         return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), pScriptWitness, flags, TransactionSignatureChecker(&tx, nIn, amount, txdata, MissingDataBehavior::FAIL), nullptr);
     } catch (const std::exception&) {
         return set_error(err, bitcoinconsensus_ERR_TX_DESERIALIZE); // Error deserializing

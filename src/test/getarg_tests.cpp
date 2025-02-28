@@ -3,6 +3,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <test/util/setup_common.h>
+#include <univalue.h>
+#include <util/settings.h>
 #include <util/strencodings.h>
 #include <util/system.h>
 
@@ -11,7 +13,6 @@
 #include <utility>
 #include <vector>
 
-#include <boost/algorithm/string.hpp>
 #include <boost/test/unit_test.hpp>
 
 BOOST_FIXTURE_TEST_SUITE(getarg_tests, BasicTestingSetup)
@@ -19,8 +20,9 @@ BOOST_FIXTURE_TEST_SUITE(getarg_tests, BasicTestingSetup)
 void ResetArgs(ArgsManager& local_args, const std::string& strArg)
 {
     std::vector<std::string> vecArg;
-    if (strArg.size())
-        boost::split(vecArg, strArg, IsSpace, boost::token_compress_on);
+    if (strArg.size()) {
+        vecArg = SplitString(strArg, ' ');
+    }
 
     // Insert dummy executable name:
     vecArg.insert(vecArg.begin(), "testbitcoin");
@@ -39,6 +41,116 @@ void SetupArgs(ArgsManager& local_args, const std::vector<std::pair<std::string,
     for (const auto& arg : args) {
         local_args.AddArg(arg.first, "", arg.second, OptionsCategory::OPTIONS);
     }
+}
+
+// Test behavior of GetArg functions when string, integer, and boolean types
+// are specified in the settings.json file. GetArg functions are convenience
+// functions. The GetSetting method can always be used instead of GetArg
+// methods to retrieve original values, and there's not always an objective
+// answer to what GetArg behavior is best in every case. This test makes sure
+// there's test coverage for whatever the current behavior is, so it's not
+// broken or changed unintentionally.
+BOOST_AUTO_TEST_CASE(setting_args)
+{
+    ArgsManager args;
+    SetupArgs(args, {{"-foo", ArgsManager::ALLOW_ANY}});
+
+    auto set_foo = [&](const util::SettingsValue& value) {
+      args.LockSettings([&](util::Settings& settings) {
+        settings.rw_settings["foo"] = value;
+      });
+    };
+
+    set_foo("str");
+    BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "\"str\"");
+    BOOST_CHECK_EQUAL(args.GetArg("foo", "default"), "str");
+    BOOST_CHECK_EQUAL(args.GetIntArg("foo", 100), 0);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", true), false);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", false), false);
+
+    set_foo("99");
+    BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "\"99\"");
+    BOOST_CHECK_EQUAL(args.GetArg("foo", "default"), "99");
+    BOOST_CHECK_EQUAL(args.GetIntArg("foo", 100), 99);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", true), true);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", false), true);
+
+    set_foo("3.25");
+    BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "\"3.25\"");
+    BOOST_CHECK_EQUAL(args.GetArg("foo", "default"), "3.25");
+    BOOST_CHECK_EQUAL(args.GetIntArg("foo", 100), 3);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", true), true);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", false), true);
+
+    set_foo("0");
+    BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "\"0\"");
+    BOOST_CHECK_EQUAL(args.GetArg("foo", "default"), "0");
+    BOOST_CHECK_EQUAL(args.GetIntArg("foo", 100), 0);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", true), false);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", false), false);
+
+    set_foo("");
+    BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "\"\"");
+    BOOST_CHECK_EQUAL(args.GetArg("foo", "default"), "");
+    BOOST_CHECK_EQUAL(args.GetIntArg("foo", 100), 0);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", true), true);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", false), true);
+
+    set_foo(99);
+    BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "99");
+    BOOST_CHECK_EQUAL(args.GetArg("foo", "default"), "99");
+    BOOST_CHECK_EQUAL(args.GetIntArg("foo", 100), 99);
+    BOOST_CHECK_THROW(args.GetBoolArg("foo", true), std::runtime_error);
+    BOOST_CHECK_THROW(args.GetBoolArg("foo", false), std::runtime_error);
+
+    set_foo(3.25);
+    BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "3.25");
+    BOOST_CHECK_EQUAL(args.GetArg("foo", "default"), "3.25");
+    BOOST_CHECK_THROW(args.GetIntArg("foo", 100), std::runtime_error);
+    BOOST_CHECK_THROW(args.GetBoolArg("foo", true), std::runtime_error);
+    BOOST_CHECK_THROW(args.GetBoolArg("foo", false), std::runtime_error);
+
+    set_foo(0);
+    BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "0");
+    BOOST_CHECK_EQUAL(args.GetArg("foo", "default"), "0");
+    BOOST_CHECK_EQUAL(args.GetIntArg("foo", 100), 0);
+    BOOST_CHECK_THROW(args.GetBoolArg("foo", true), std::runtime_error);
+    BOOST_CHECK_THROW(args.GetBoolArg("foo", false), std::runtime_error);
+
+    set_foo(true);
+    BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "true");
+    BOOST_CHECK_EQUAL(args.GetArg("foo", "default"), "1");
+    BOOST_CHECK_EQUAL(args.GetIntArg("foo", 100), 1);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", true), true);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", false), true);
+
+    set_foo(false);
+    BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "false");
+    BOOST_CHECK_EQUAL(args.GetArg("foo", "default"), "0");
+    BOOST_CHECK_EQUAL(args.GetIntArg("foo", 100), 0);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", true), false);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", false), false);
+
+    set_foo(UniValue::VOBJ);
+    BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "{}");
+    BOOST_CHECK_THROW(args.GetArg("foo", "default"), std::runtime_error);
+    BOOST_CHECK_THROW(args.GetIntArg("foo", 100), std::runtime_error);
+    BOOST_CHECK_THROW(args.GetBoolArg("foo", true), std::runtime_error);
+    BOOST_CHECK_THROW(args.GetBoolArg("foo", false), std::runtime_error);
+
+    set_foo(UniValue::VARR);
+    BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "[]");
+    BOOST_CHECK_THROW(args.GetArg("foo", "default"), std::runtime_error);
+    BOOST_CHECK_THROW(args.GetIntArg("foo", 100), std::runtime_error);
+    BOOST_CHECK_THROW(args.GetBoolArg("foo", true), std::runtime_error);
+    BOOST_CHECK_THROW(args.GetBoolArg("foo", false), std::runtime_error);
+
+    set_foo(UniValue::VNULL);
+    BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "null");
+    BOOST_CHECK_EQUAL(args.GetArg("foo", "default"), "default");
+    BOOST_CHECK_EQUAL(args.GetIntArg("foo", 100), 100);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", true), true);
+    BOOST_CHECK_EQUAL(args.GetBoolArg("foo", false), false);
 }
 
 BOOST_AUTO_TEST_CASE(boolarg)
@@ -245,6 +357,24 @@ BOOST_AUTO_TEST_CASE(patharg)
 
     ResetArgs(local_args, "-dir=user/.bitcoin/.//");
     BOOST_CHECK_EQUAL(local_args.GetPathArg("-dir"), relative_path);
+
+    // Check negated and default argument handling. Specifying an empty argument
+    // is the same as not specifying the argument. This is convenient for
+    // scripting so later command line arguments can override earlier command
+    // line arguments or bitcoin.conf values. Currently the -dir= case cannot be
+    // distinguished from -dir case with no assignment, but #16545 would add the
+    // ability to distinguish these in the future (and treat the no-assign case
+    // like an imperative command or an error).
+    ResetArgs(local_args, "");
+    BOOST_CHECK_EQUAL(local_args.GetPathArg("-dir", "default"), fs::path{"default"});
+    ResetArgs(local_args, "-dir=override");
+    BOOST_CHECK_EQUAL(local_args.GetPathArg("-dir", "default"), fs::path{"override"});
+    ResetArgs(local_args, "-dir=");
+    BOOST_CHECK_EQUAL(local_args.GetPathArg("-dir", "default"), fs::path{"default"});
+    ResetArgs(local_args, "-dir");
+    BOOST_CHECK_EQUAL(local_args.GetPathArg("-dir", "default"), fs::path{"default"});
+    ResetArgs(local_args, "-nodir");
+    BOOST_CHECK_EQUAL(local_args.GetPathArg("-dir", "default"), fs::path{""});
 }
 
 BOOST_AUTO_TEST_CASE(doubledash)
@@ -299,7 +429,7 @@ BOOST_AUTO_TEST_CASE(logargs)
     const auto okaylog = std::make_pair("-okaylog", ArgsManager::ALLOW_ANY);
     const auto dontlog = std::make_pair("-dontlog", ArgsManager::ALLOW_ANY | ArgsManager::SENSITIVE);
     SetupArgs(local_args, {okaylog_bool, okaylog_negbool, okaylog, dontlog});
-    ResetArgs(local_args, "-okaylog-bool -nookaylog-negbool -okaylog=public -dontlog=private");
+    ResetArgs(local_args, "-okaylog-bool -nookaylog-negbool -okaylog=public -dontlog=private42");
 
     // Everything logged to debug.log will also append to str
     std::string str;
@@ -317,7 +447,7 @@ BOOST_AUTO_TEST_CASE(logargs)
     BOOST_CHECK(str.find("Command-line arg: okaylog-negbool=false") != std::string::npos);
     BOOST_CHECK(str.find("Command-line arg: okaylog=\"public\"") != std::string::npos);
     BOOST_CHECK(str.find("dontlog=****") != std::string::npos);
-    BOOST_CHECK(str.find("private") == std::string::npos);
+    BOOST_CHECK(str.find("private42") == std::string::npos);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

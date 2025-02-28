@@ -14,11 +14,15 @@
 #include <attributes.h>
 #include <chain.h>
 #include <confidential_validation.h>
+#include <chainparams.h>
+#include <kernel/chainstatemanager_opts.h>
 #include <consensus/amount.h>
+#include <deploymentstatus.h>
 #include <fs.h>
 #include <node/blockstorage.h>
 #include <policy/feerate.h>
 #include <policy/packages.h>
+#include <policy/policy.h>
 #include <script/script_error.h>
 #include <sync.h>
 #include <txdb.h>
@@ -27,6 +31,7 @@
 #include <util/check.h>
 #include <util/hasher.h>
 #include <util/translation.h>
+#include <versionbits.h>
 
 #include <atomic>
 #include <map>
@@ -41,9 +46,8 @@
 
 #include <primitives/pak.h> // CPAKList
 
-class CChainState;
+class Chainstate;
 class CBlockTreeDB;
-class CChainParams;
 class CTxMemPool;
 class ChainstateManager;
 struct ChainTxData;
@@ -54,40 +58,14 @@ struct AssumeutxoData;
 namespace node {
 class SnapshotMetadata;
 } // namespace node
+namespace Consensus {
+struct Params;
+} // namespace Consensus
 
-/** Default for -minrelaytxfee, minimum relay fee for transactions */
-static const unsigned int DEFAULT_MIN_RELAY_TX_FEE = 100;
-/** Default for -limitancestorcount, max number of in-mempool ancestors */
-static const unsigned int DEFAULT_ANCESTOR_LIMIT = 25;
-/** Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors */
-static const unsigned int DEFAULT_ANCESTOR_SIZE_LIMIT = 101;
-/** Default for -limitdescendantcount, max number of in-mempool descendants */
-static const unsigned int DEFAULT_DESCENDANT_LIMIT = 25;
-/** Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants */
-static const unsigned int DEFAULT_DESCENDANT_SIZE_LIMIT = 101;
-
-// If a package is submitted, it must be within the mempool's ancestor/descendant limits. Since a
-// submitted package must be child-with-unconfirmed-parents (all of the transactions are an ancestor
-// of the child), package limits are ultimately bounded by mempool package limits. Ensure that the
-// defaults reflect this constraint.
-static_assert(DEFAULT_DESCENDANT_LIMIT >= MAX_PACKAGE_COUNT);
-static_assert(DEFAULT_ANCESTOR_LIMIT >= MAX_PACKAGE_COUNT);
-static_assert(DEFAULT_ANCESTOR_SIZE_LIMIT >= MAX_PACKAGE_SIZE);
-static_assert(DEFAULT_DESCENDANT_SIZE_LIMIT >= MAX_PACKAGE_SIZE);
-
-/** Default for -mempoolexpiry, expiration time for mempool transactions in hours */
-static const unsigned int DEFAULT_MEMPOOL_EXPIRY = 336;
 /** Maximum number of dedicated script-checking threads allowed */
 static const int MAX_SCRIPTCHECK_THREADS = 15;
 /** -par default (number of script-checking threads, 0 = auto) */
 static const int DEFAULT_SCRIPTCHECK_THREADS = 0;
-static const int64_t DEFAULT_MAX_TIP_AGE = 24 * 60 * 60;
-static const bool DEFAULT_CHECKPOINTS_ENABLED = true;
-static const bool DEFAULT_TXINDEX = false;
-static constexpr bool DEFAULT_COINSTATSINDEX{false};
-static const char* const DEFAULT_BLOCKFILTERINDEX = "0";
-/** Default for -persistmempool */
-static const bool DEFAULT_PERSIST_MEMPOOL = true;
 /** Default for -stopatheight */
 static const int DEFAULT_STOPATHEIGHT = 0;
 /** Block files containing a block-height within MIN_BLOCKS_TO_KEEP of ActiveChain().Tip() will not be pruned. */
@@ -119,36 +97,14 @@ enum class SynchronizationState {
 };
 
 extern RecursiveMutex cs_main;
-extern Mutex g_best_block_mutex;
+extern GlobalMutex g_best_block_mutex;
 extern std::condition_variable g_best_block_cv;
 /** Used to notify getblocktemplate RPC of new tips. */
 extern uint256 g_best_block;
-/** Whether there are dedicated script-checking threads running.
- * False indicates all script checking is done on the main threadMessageHandler thread.
- */
-extern bool g_parallel_script_checks;
-extern bool fRequireStandard;
-extern bool fCheckBlockIndex;
-extern bool fCheckpointsEnabled;
-/** A fee rate smaller than this is considered zero fee (for relaying, mining and transaction creation) */
-extern CFeeRate minRelayTxFee;
-/** If the tip is older than this (in seconds), the node is considered to be in initial block download. */
-extern int64_t nMaxTipAge;
-
-/** Block hash whose ancestors we will assume to have valid scripts without checking them. */
-extern uint256 hashAssumeValid;
-
-/** Minimum work we will assume exists on some valid chain. */
-extern arith_uint256 nMinimumChainWork;
-
-/** Best header we've seen so far (used for getheaders queries' starting points). */
-extern CBlockIndex *pindexBestHeader;
 
 /** Documentation for argument 'checklevel'. */
 extern const std::vector<std::string> CHECKLEVEL_DOC;
 
-/** Unload database information */
-void UnloadBlockIndex(CTxMemPool* mempool, ChainstateManager& chainman);
 /** Run instances of script checking worker threads */
 void StartScriptCheckWorkerThreads(int threads_num);
 /** Stop all of the script checking worker threads */
@@ -162,7 +118,7 @@ bool AbortNode(BlockValidationState& state, const std::string& strMessage, const
 double GuessVerificationProgress(const CBlockIndex* pindex, int64_t blockInterval);
 
 /** Prune block files up to a given height */
-void PruneBlockFilesManual(CChainState& active_chainstate, int nManualPruneHeight);
+void PruneBlockFilesManual(Chainstate& active_chainstate, int nManualPruneHeight);
 
 /**
 * Validation result for a single transaction mempool acceptance.
@@ -182,7 +138,7 @@ struct MempoolAcceptResult {
     const TxValidationState m_state;
 
     // The following fields are only present when m_result_type = ResultType::VALID or MEMPOOL_ENTRY
-    /** Mempool transactions replaced by the tx per BIP 125 rules. */
+    /** Mempool transactions replaced by the tx. */
     const std::optional<std::list<CTransactionRef>> m_replaced_transactions;
     /** Virtual size as used by the mempool, calculated using serialized size and sigops. */
     const std::optional<int64_t> m_vsize;
@@ -244,10 +200,18 @@ struct PackageMempoolAcceptResult
     * was a package-wide error (see result in m_state), m_tx_results will be empty.
     */
     std::map<const uint256, const MempoolAcceptResult> m_tx_results;
+    /** Package feerate, defined as the aggregated modified fees divided by the total virtual size
+     * of all transactions in the package.  May be unavailable if some inputs were not available or
+     * a transaction failure caused validation to terminate early. */
+    std::optional<CFeeRate> m_package_feerate;
 
     explicit PackageMempoolAcceptResult(PackageValidationState state,
                                         std::map<const uint256, const MempoolAcceptResult>&& results)
         : m_state{state}, m_tx_results(std::move(results)) {}
+
+    explicit PackageMempoolAcceptResult(PackageValidationState state, CFeeRate feerate,
+                                        std::map<const uint256, const MempoolAcceptResult>&& results)
+        : m_state{state}, m_tx_results(std::move(results)), m_package_feerate{feerate} {}
 
     /** Constructor to create a PackageMempoolAcceptResult from a single MempoolAcceptResult */
     explicit PackageMempoolAcceptResult(const uint256& wtxid, const MempoolAcceptResult& result)
@@ -267,7 +231,7 @@ struct PackageMempoolAcceptResult
  *
  * @returns a MempoolAcceptResult indicating whether the transaction was accepted/rejected with reason.
  */
-MempoolAcceptResult AcceptToMemoryPool(CChainState& active_chainstate, const CTransactionRef& tx,
+MempoolAcceptResult AcceptToMemoryPool(Chainstate& active_chainstate, const CTransactionRef& tx,
                                        int64_t accept_time, bool bypass_limits, bool test_accept)
     EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
@@ -279,20 +243,16 @@ MempoolAcceptResult AcceptToMemoryPool(CChainState& active_chainstate, const CTr
 * If a transaction fails, validation will exit early and some results may be missing. It is also
 * possible for the package to be partially submitted.
 */
-PackageMempoolAcceptResult ProcessNewPackage(CChainState& active_chainstate, CTxMemPool& pool,
+PackageMempoolAcceptResult ProcessNewPackage(Chainstate& active_chainstate, CTxMemPool& pool,
                                                    const Package& txns, bool test_accept)
                                                    EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-/** Transaction validation functions */
+/* Mempool validation helper functions */
 
 /**
  * Check if transaction will be final in the next block to be created.
- *
- * Calls IsFinalTx() with current block height and appropriate block time.
- *
- * See consensus/consensus.h for flag definitions.
  */
-bool CheckFinalTx(const CBlockIndex* active_chain_tip, const CTransaction &tx, int flags = -1) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+bool CheckFinalTxAtTip(const CBlockIndex& active_chain_tip, const CTransaction& tx) EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
 
 /**
  * Check if transaction will be BIP68 final in the next block to be created on top of tip.
@@ -309,14 +269,11 @@ bool CheckFinalTx(const CBlockIndex* active_chain_tip, const CTransaction &tx, i
  * Optionally stores in LockPoints the resulting height and time calculated and the hash
  * of the block needed for calculation or skips the calculation and uses the LockPoints
  * passed in for evaluation.
- * The LockPoints should not be considered valid if CheckSequenceLocks returns false.
- *
- * See consensus/consensus.h for flag definitions.
+ * The LockPoints should not be considered valid if CheckSequenceLocksAtTip returns false.
  */
-bool CheckSequenceLocks(CBlockIndex* tip,
+bool CheckSequenceLocksAtTip(CBlockIndex* tip,
                         const CCoinsView& coins_view,
                         const CTransaction& tx,
-                        int flags,
                         LockPoints* lp = nullptr,
                         bool useExistingLockPoints = false);
 
@@ -343,7 +300,7 @@ public:
 };
 
 /** Initializes the script-execution cache */
-void InitScriptExecutionCache();
+[[nodiscard]] bool InitScriptExecutionCache(size_t max_size_bytes);
 
 /** Functions for validating blocks and updating the block tree */
 
@@ -353,19 +310,18 @@ bool CheckBlock(const CBlock& block, BlockValidationState& state, const Consensu
 /** Check a block is completely valid from start to finish (only works on top of our current best block) */
 bool TestBlockValidity(BlockValidationState& state,
                        const CChainParams& chainparams,
-                       CChainState& chainstate,
+                       Chainstate& chainstate,
                        const CBlock& block,
                        CBlockIndex* pindexPrev,
+                       const std::function<NodeClock::time_point()>& adjusted_time_callback,
                        bool fCheckPOW = true,
                        bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-/** Update uncommitted block structures (currently: only the witness reserved value). This is safe for submitted blocks. */
-void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams);
+/** Check with the proof of work on each blockheader matches the value in nBits */
+bool HasValidProofOfWork(const std::vector<CBlockHeader>& headers, const Consensus::Params& consensusParams);
 
-/** Produce the necessary coinbase commitment for a block (modifies the hash, don't call for mined blocks). */
-std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams);
-
-// ELEMENTS
+/** Return the sum of the work on a given set of headers */
+arith_uint256 CalculateHeadersWork(const std::vector<CBlockHeader>& headers);
 
 /** RAII wrapper for VerifyDB: Verify consistency of the block and coin databases */
 class CVerifyDB {
@@ -373,7 +329,7 @@ public:
     CVerifyDB();
     ~CVerifyDB();
     bool VerifyDB(
-        CChainState& chainstate,
+        Chainstate& chainstate,
         const Consensus::Params& consensus_params,
         CCoinsView& coinsview,
         int nCheckLevel,
@@ -389,7 +345,7 @@ enum DisconnectResult
 
 class ConnectTrace;
 
-/** @see CChainState::FlushStateToDisk */
+/** @see Chainstate::FlushStateToDisk */
 enum class FlushStateMode {
     NONE,
     IF_NEEDED,
@@ -426,7 +382,7 @@ public:
     //! state to disk, which should not be done until the health of the database is verified.
     //!
     //! All arguments forwarded onto CCoinsViewDB.
-    CoinsViews(std::string ldb_name, size_t cache_size_bytes, bool in_memory, bool should_wipe);
+    CoinsViews(fs::path ldb_name, size_t cache_size_bytes, bool in_memory, bool should_wipe);
 
     //! Initialize the CCoinsViewCache member.
     void InitCache() EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
@@ -442,7 +398,7 @@ enum class CoinsCacheSizeState
 };
 
 /**
- * CChainState stores and provides an API to update our local knowledge of the
+ * Chainstate stores and provides an API to update our local knowledge of the
  * current best chain.
  *
  * Eventually, the API here is targeted at being exposed externally as a
@@ -455,7 +411,7 @@ enum class CoinsCacheSizeState
  * whereas block information and metadata independent of the current tip is
  * kept in `BlockManager`.
  */
-class CChainState
+class Chainstate
 {
 protected:
     /**
@@ -493,18 +449,15 @@ protected:
 
 public:
     //! Reference to a BlockManager instance which itself is shared across all
-    //! CChainState instances.
+    //! Chainstate instances.
     node::BlockManager& m_blockman;
-
-    /** Chain parameters for this chainstate */
-    const CChainParams& m_params;
 
     //! The chainstate manager that owns this chainstate. The reference is
     //! necessary so that this instance can check whether it is the active
     //! chainstate within deeply nested method calls.
     ChainstateManager& m_chainman;
 
-    explicit CChainState(
+    explicit Chainstate(
         CTxMemPool* mempool,
         node::BlockManager& blockman,
         ChainstateManager& chainman,
@@ -520,7 +473,7 @@ public:
         size_t cache_size_bytes,
         bool in_memory,
         bool should_wipe,
-        std::string leveldb_name = "chainstate");
+        fs::path leveldb_name = "chainstate");
 
     //! Initialize the in-memory coins cache (to be done after the health of the on-disk database
     //! is verified).
@@ -601,8 +554,36 @@ public:
     bool ResizeCoinsCaches(size_t coinstip_size, size_t coinsdb_size)
         EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
 
-    /** Import blocks from an external file */
-    void LoadExternalBlockFile(FILE* fileIn, FlatFilePos* dbp = nullptr)
+    /**
+     * Import blocks from an external file
+     *
+     * During reindexing, this function is called for each block file (datadir/blocks/blk?????.dat).
+     * It reads all blocks contained in the given file and attempts to process them (add them to the
+     * block index). The blocks may be out of order within each file and across files. Often this
+     * function reads a block but finds that its parent hasn't been read yet, so the block can't be
+     * processed yet. The function will add an entry to the blocks_with_unknown_parent map (which is
+     * passed as an argument), so that when the block's parent is later read and processed, this
+     * function can re-read the child block from disk and process it.
+     *
+     * Because a block's parent may be in a later file, not just later in the same file, the
+     * blocks_with_unknown_parent map must be passed in and out with each call. It's a multimap,
+     * rather than just a map, because multiple blocks may have the same parent (when chain splits
+     * or stale blocks exist). It maps from parent-hash to child-disk-position.
+     *
+     * This function can also be used to read blocks from user-specified block files using the
+     * -loadblock= option. There's no unknown-parent tracking, so the last two arguments are omitted.
+     *
+     *
+     * @param[in]     fileIn                        FILE handle to file containing blocks to read
+     * @param[in]     dbp                           (optional) Disk block position (only for reindex)
+     * @param[in,out] blocks_with_unknown_parent    (optional) Map of disk positions for blocks with
+     *                                              unknown parent, key is parent block hash
+     *                                              (only used for reindex)
+     * */
+    void LoadExternalBlockFile(
+        FILE* fileIn,
+        FlatFilePos* dbp = nullptr,
+        std::multimap<uint256, FlatFilePos>* blocks_with_unknown_parent = nullptr)
         EXCLUSIVE_LOCKS_REQUIRED(!m_chainstate_mutex);
 
     /**
@@ -649,7 +630,7 @@ public:
         EXCLUSIVE_LOCKS_REQUIRED(!m_chainstate_mutex)
         LOCKS_EXCLUDED(::cs_main);
 
-    bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, BlockValidationState& state, CBlockIndex** ppindex, bool fRequested, const FlatFilePos* dbp, bool* fNewBlock) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, BlockValidationState& state, CBlockIndex** ppindex, bool fRequested, const FlatFilePos* dbp, bool* fNewBlock, bool min_pow_checked) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Block (dis)connection on a given view:
     DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view)
@@ -693,17 +674,17 @@ public:
     bool IsInitialBlockDownload() const;
 
     /** Find the last common block of this chain and a locator. */
-    CBlockIndex* FindForkInGlobalIndex(const CBlockLocator& locator) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    const CBlockIndex* FindForkInGlobalIndex(const CBlockLocator& locator) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /**
      * Make various assertions about the state of the block index.
      *
-     * By default this only executes fully when using the Regtest chain; see: fCheckBlockIndex.
+     * By default this only executes fully when using the Regtest chain; see: m_options.check_block_index.
      */
     void CheckBlockIndex();
 
     /** Load the persisted mempool from disk */
-    void LoadMempool(const ArgsManager& args);
+    void LoadMempool(const fs::path& load_path, fsbridge::FopenFn mockable_fopen_function = fsbridge::fopen);
 
     /** Update the chain tip based on database information, i.e. CoinsTip()'s best block. */
     bool LoadChainTip() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -807,7 +788,7 @@ private:
     //! This is especially important when, e.g., calling ActivateBestChain()
     //! on all chainstates because we are not able to hold ::cs_main going into
     //! that call.
-    std::unique_ptr<CChainState> m_ibd_chainstate GUARDED_BY(::cs_main);
+    std::unique_ptr<Chainstate> m_ibd_chainstate GUARDED_BY(::cs_main);
 
     //! A chainstate initialized on the basis of a UTXO snapshot. If this is
     //! non-null, it is always our active chainstate.
@@ -818,7 +799,7 @@ private:
     //! This is especially important when, e.g., calling ActivateBestChain()
     //! on all chainstates because we are not able to hold ::cs_main going into
     //! that call.
-    std::unique_ptr<CChainState> m_snapshot_chainstate GUARDED_BY(::cs_main);
+    std::unique_ptr<Chainstate> m_snapshot_chainstate GUARDED_BY(::cs_main);
 
     //! Points to either the ibd or snapshot chainstate; indicates our
     //! most-work chain.
@@ -829,34 +810,63 @@ private:
     //! This is especially important when, e.g., calling ActivateBestChain()
     //! on all chainstates because we are not able to hold ::cs_main going into
     //! that call.
-    CChainState* m_active_chainstate GUARDED_BY(::cs_main) {nullptr};
+    Chainstate* m_active_chainstate GUARDED_BY(::cs_main) {nullptr};
 
     //! If true, the assumed-valid chainstate has been fully validated
     //! by the background validation chainstate.
-    bool m_snapshot_validated{false};
+    bool m_snapshot_validated GUARDED_BY(::cs_main){false};
 
-    CBlockIndex* m_best_invalid;
-    friend bool node::BlockManager::LoadBlockIndex(const Consensus::Params&, ChainstateManager&);
+    CBlockIndex* m_best_invalid GUARDED_BY(::cs_main){nullptr};
 
     //! Internal helper for ActivateSnapshot().
     [[nodiscard]] bool PopulateAndValidateSnapshot(
-        CChainState& snapshot_chainstate,
-        CAutoFile& coins_file,
+        Chainstate& snapshot_chainstate,
+        AutoFile& coins_file,
         const node::SnapshotMetadata& metadata);
 
     /**
      * If a block header hasn't already been seen, call CheckBlockHeader on it, ensure
      * that it doesn't descend from an invalid block, and then add it to m_block_index.
+     * Caller must set min_pow_checked=true in order to add a new header to the
+     * block index (permanent memory storage), indicating that the header is
+     * known to be part of a sufficiently high-work chain (anti-dos check).
      */
     bool AcceptBlockHeader(
         const CBlockHeader& block,
         BlockValidationState& state,
-        const CChainParams& chainparams,
         CBlockIndex** ppindex,
+        bool min_pow_checked,
         bool* duplicate = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    friend CChainState;
+    friend Chainstate;
+
+    /** Most recent headers presync progress update, for rate-limiting. */
+    std::chrono::time_point<std::chrono::steady_clock> m_last_presync_update GUARDED_BY(::cs_main) {};
 
 public:
+    using Options = kernel::ChainstateManagerOpts;
+
+    explicit ChainstateManager(Options options);
+
+    const CChainParams& GetParams() const { return m_options.chainparams; }
+    const Consensus::Params& GetConsensus() const { return m_options.chainparams.GetConsensus(); }
+    bool ShouldCheckBlockIndex() const { return *Assert(m_options.check_block_index); }
+    const arith_uint256& MinimumChainWork() const { return *Assert(m_options.minimum_chain_work); }
+    const uint256& AssumedValidBlock() const { return *Assert(m_options.assumed_valid_block); }
+
+    /**
+     * Alias for ::cs_main.
+     * Should be used in new code to make it easier to make ::cs_main a member
+     * of this class.
+     * Generally, methods of this class should be annotated to require this
+     * mutex. This will make calling code more verbose, but also help to:
+     * - Clarify that the method will acquire a mutex that heavily affects
+     *   overall performance.
+     * - Force call sites to think how long they need to acquire the mutex to
+     *   get consistent results.
+     */
+    RecursiveMutex& GetMutex() const LOCK_RETURNED(::cs_main) { return ::cs_main; }
+
+    const Options m_options;
     std::thread m_load_block;
     //! A single BlockManager instance is shared across each constructed
     //! chainstate to avoid duplicating block metadata.
@@ -883,6 +893,9 @@ public:
      */
     std::set<CBlockIndex*> m_failed_blocks;
 
+    /** Best header we've seen so far (used for getheaders queries' starting points). */
+    CBlockIndex* m_best_header = nullptr;
+
     //! The total number of bytes available for us to use across all in-memory
     //! coins caches. This will be split somehow across chainstates.
     int64_t m_total_coinstip_cache{0};
@@ -891,26 +904,20 @@ public:
     //! coins databases. This will be split somehow across chainstates.
     int64_t m_total_coinsdb_cache{0};
 
-    //! Instantiate a new chainstate and assign it based upon whether it is
-    //! from a snapshot.
+    //! Instantiate a new chainstate.
     //!
     //! @param[in] mempool              The mempool to pass to the chainstate
     //                                  constructor
-    //! @param[in] snapshot_blockhash   If given, signify that this chainstate
-    //!                                 is based on a snapshot.
-    CChainState& InitializeChainstate(
-        CTxMemPool* mempool,
-        const std::optional<uint256>& snapshot_blockhash = std::nullopt)
-        LIFETIMEBOUND EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
+    Chainstate& InitializeChainstate(CTxMemPool* mempool) EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
 
     //! Get all chainstates currently being used.
-    std::vector<CChainState*> GetAll();
+    std::vector<Chainstate*> GetAll();
 
     //! Construct and activate a Chainstate on the basis of UTXO snapshot data.
     //!
     //! Steps:
     //!
-    //! - Initialize an unused CChainState.
+    //! - Initialize an unused Chainstate.
     //! - Load its `CoinsViews` contents from `coins_file`.
     //! - Verify that the hash of the resulting coinsdb matches the expected hash
     //!   per assumeutxo chain parameters.
@@ -920,19 +927,24 @@ public:
     //! - Move the new chainstate to `m_snapshot_chainstate` and make it our
     //!   ChainstateActive().
     [[nodiscard]] bool ActivateSnapshot(
-        CAutoFile& coins_file, const node::SnapshotMetadata& metadata, bool in_memory);
+        AutoFile& coins_file, const node::SnapshotMetadata& metadata, bool in_memory);
 
     //! The most-work chain.
-    CChainState& ActiveChainstate() const;
-    CChain& ActiveChain() const { return ActiveChainstate().m_chain; }
-    int ActiveHeight() const { return ActiveChain().Height(); }
-    CBlockIndex* ActiveTip() const { return ActiveChain().Tip(); }
+    Chainstate& ActiveChainstate() const;
+    CChain& ActiveChain() const EXCLUSIVE_LOCKS_REQUIRED(GetMutex()) { return ActiveChainstate().m_chain; }
+    int ActiveHeight() const EXCLUSIVE_LOCKS_REQUIRED(GetMutex()) { return ActiveChain().Height(); }
+    CBlockIndex* ActiveTip() const EXCLUSIVE_LOCKS_REQUIRED(GetMutex()) { return ActiveChain().Tip(); }
 
     node::BlockMap& BlockIndex() EXCLUSIVE_LOCKS_REQUIRED(::cs_main)
     {
         AssertLockHeld(::cs_main);
         return m_blockman.m_block_index;
     }
+
+    /**
+     * Track versionbit status
+     */
+    mutable VersionBitsCache m_versionbitscache;
 
     //! @returns true if a snapshot-based chainstate is in use. Also implies
     //!          that a background validation chainstate is also in use.
@@ -941,7 +953,7 @@ public:
     std::optional<uint256> SnapshotBlockhash() const;
 
     //! Is there a snapshot in use and has it been fully validated?
-    bool IsSnapshotValidated() const { return m_snapshot_validated; }
+    bool IsSnapshotValidated() const EXCLUSIVE_LOCKS_REQUIRED(::cs_main) { return m_snapshot_validated; }
 
     /**
      * Process an incoming block. This only returns after the best known valid
@@ -959,10 +971,15 @@ public:
      *
      * @param[in]   block The block we want to process.
      * @param[in]   force_processing Process this block even if unrequested; used for non-network block sources.
+     * @param[in]   min_pow_checked  True if proof-of-work anti-DoS checks have
+     *                               been done by caller for headers chain
+     *                               (note: only affects headers acceptance; if
+     *                               block header is already present in block
+     *                               index then this parameter has no effect)
      * @param[out]  new_block A boolean which is set to indicate if the block was first received via this call
      * @returns     If the block was processed, independently of block validity
      */
-    bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<const CBlock>& block, bool force_processing, bool* new_block) LOCKS_EXCLUDED(cs_main);
+    bool ProcessNewBlock(const std::shared_ptr<const CBlock>& block, bool force_processing, bool min_pow_checked, bool* new_block) LOCKS_EXCLUDED(cs_main);
 
     /**
      * Process incoming block headers.
@@ -971,11 +988,11 @@ public:
      * validationinterface callback.
      *
      * @param[in]  block The block headers themselves
+     * @param[in]  min_pow_checked  True if proof-of-work anti-DoS checks have been done by caller for headers chain
      * @param[out] state This may be set to an Error state if any error occurred processing them
-     * @param[in]  chainparams The params for the chain we want to connect to
      * @param[out] ppindex If set, the pointer will be set to point to the last new block index object for the given headers
      */
-    bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& block, BlockValidationState& state, const CChainParams& chainparams, const CBlockIndex** ppindex = nullptr, bool* all_duplicate = nullptr) LOCKS_EXCLUDED(cs_main);
+    bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& block, bool min_pow_checked, BlockValidationState& state, const CBlockIndex** ppindex = nullptr, bool* all_duplicate = nullptr) LOCKS_EXCLUDED(cs_main);
 
     /**
      * Try to add a transaction to the memory pool.
@@ -989,30 +1006,54 @@ public:
     //! Load the block tree and coins database from disk, initializing state if we're running with -reindex
     bool LoadBlockIndex() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    //! Unload block index and chain data before shutdown.
-    void Unload() EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
-
-    //! Clear (deconstruct) chainstate data.
-    void Reset();
-
     //! Check to see if caches are out of balance and if so, call
     //! ResizeCoinsCaches() as needed.
     void MaybeRebalanceCaches() EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
 
-    ~ChainstateManager() {
-        LOCK(::cs_main);
-        UnloadBlockIndex(/* mempool */ nullptr, *this);
-        Reset();
-    }
+    /** Update uncommitted block structures (currently: only the witness reserved value). This is safe for submitted blocks. */
+    void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPrev) const;
+
+    /** Produce the necessary coinbase commitment for a block (modifies the hash, don't call for mined blocks). */
+    std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBlockIndex* pindexPrev) const;
+
+    /** This is used by net_processing to report pre-synchronization progress of headers, as
+     *  headers are not yet fed to validation during that time, but validation is (for now)
+     *  responsible for logging and signalling through NotifyHeaderTip, so it needs this
+     *  information. */
+    void ReportHeadersPresync(const arith_uint256& work, int64_t height, int64_t timestamp);
+
+    //! When starting up, search the datadir for a chainstate based on a UTXO
+    //! snapshot that is in the process of being validated.
+    bool DetectSnapshotChainstate(CTxMemPool* mempool) EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
+
+    void ResetChainstates() EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
+
+    //! Switch the active chainstate to one based on a UTXO snapshot that was loaded
+    //! previously.
+    Chainstate& ActivateExistingSnapshot(CTxMemPool* mempool, uint256 base_blockhash)
+        EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
+
+    ~ChainstateManager();
 };
 
-using FopenFn = std::function<FILE*(const fs::path&, const char*)>;
+/** Deployment* info via ChainstateManager */
+template<typename DEP>
+bool DeploymentActiveAfter(const CBlockIndex* pindexPrev, const ChainstateManager& chainman, DEP dep)
+{
+    return DeploymentActiveAfter(pindexPrev, chainman.GetConsensus(), dep, chainman.m_versionbitscache);
+}
 
-/** Dump the mempool to disk. */
-bool DumpMempool(const CTxMemPool& pool, FopenFn mockable_fopen_function = fsbridge::fopen, bool skip_file_commit = false);
+template<typename DEP>
+bool DeploymentActiveAt(const CBlockIndex& index, const ChainstateManager& chainman, DEP dep)
+{
+    return DeploymentActiveAt(index, chainman.GetConsensus(), dep, chainman.m_versionbitscache);
+}
 
-/** Load the mempool from disk. */
-bool LoadMempool(CTxMemPool& pool, CChainState& active_chainstate, FopenFn mockable_fopen_function = fsbridge::fopen);
+template<typename DEP>
+bool DeploymentEnabled(const ChainstateManager& chainman, DEP dep)
+{
+    return DeploymentEnabled(chainman.GetConsensus(), dep);
+}
 
 /**
  * Return the expected assumeutxo value for a given height, if one exists.

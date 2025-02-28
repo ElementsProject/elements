@@ -135,7 +135,7 @@ do
     PR_ID_ALT=$(echo "$line" | cut -d ' ' -f 8 | tr -d :)
 
     if [[ "$PR_ID" == "pull" ]]; then
-	PR_ID="${PR_ID_ALT}"
+    PR_ID="${PR_ID_ALT}"
     fi
     echo -e "$CHAIN PR \e[37m$PR_ID \e[33m$HASH\e[0m on \e[32m$DATE\e[0m "
 

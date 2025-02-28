@@ -39,6 +39,9 @@ class ScantxoutsetTest(BitcoinTestFramework):
         self.wallet.generate(200, invalid_call=False)
         self.wallet.rescan_utxos()
 
+        self.log.info("Test if we find coinbase outputs.")
+        assert_equal(sum(u["coinbase"] for u in self.nodes[0].scantxoutset("start", [self.wallet.get_descriptor()])["unspents"]), 200)
+
         self.log.info("Create UTXOs...")
         pubk1, spk_P2SH_SEGWIT, addr_P2SH_SEGWIT = getnewdestination("p2sh-segwit", prefix=196)
         pubk2, spk_LEGACY, addr_LEGACY = getnewdestination("legacy", version=111)

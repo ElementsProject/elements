@@ -11,13 +11,13 @@
 #include <hash.h> // for signet block challenge hash
 #include <issuance.h>
 #include <primitives/transaction.h>
+#include <script/interpreter.h>
+#include <util/string.h>
 #include <util/system.h>
 #include <crypto/sha256.h>
 
 #include <assert.h>
 
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
 static CScript StrHexToScriptWithDefault(std::string strScript, const CScript defaultScript)
 {
     CScript returnScript;
@@ -94,8 +94,7 @@ static void UpdateElementsActivationParametersFromArgs(Consensus::Params& consen
 
     std::map<std::string,int> map_deployments;
     for (const std::string& strDeployment : args.GetArgs("-evbparams")) {
-        std::vector<std::string> vDeploymentParams;
-        boost::split(vDeploymentParams, strDeployment, boost::is_any_of(":"));
+        std::vector<std::string> vDeploymentParams = SplitString(strDeployment, ':');
         if (vDeploymentParams.size() != 5) {
             throw std::runtime_error("ElementsVersion bits parameters malformed, expecting deployment:start:end:period:threshold");
         }
@@ -183,7 +182,10 @@ public:
         consensus.signet_blocks = false;
         consensus.signet_challenge.clear();
         consensus.nSubsidyHalvingInterval = 210000;
-        consensus.BIP16Exception = uint256S("0x00000000000002dc756eebf4f49723ed8d30cc28a5f108eb94b1ba88ac4f9c22");
+        consensus.script_flag_exceptions.emplace( // BIP16 exception
+            uint256S("0x00000000000002dc756eebf4f49723ed8d30cc28a5f108eb94b1ba88ac4f9c22"), SCRIPT_VERIFY_NONE);
+        consensus.script_flag_exceptions.emplace( // Taproot exception
+            uint256S("0x0000000000000000000f14c35b2d841e986ab5441de8c585d5ffe55ea1e395ad"), SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS);
         consensus.BIP34Height = 227931;
         consensus.BIP34Hash = uint256S("0x000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8");
         consensus.BIP65Height = 388381; // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
@@ -214,6 +216,8 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nTimeout = 1628640000; // August 11th, 2021
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 709632; // Approximately November 12th, 2021
 
+        consensus.nMinimumChainWork = uint256S("0x00000000000000000000000000000000000000003404ba0801921119f903495e");
+        consensus.defaultAssumeValid = uint256S("0x00000000000000000009c97098b5295f7e5f183ac811fb5d1534040adb93cabd"); // 751565
         // Simplicity
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].bit = 24;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
@@ -249,7 +253,7 @@ public:
         pchMessageStart[3] = 0xd9;
         nDefaultPort = 8333;
         nPruneAfterHeight = 100000;
-        m_assumed_blockchain_size = 460;
+        m_assumed_blockchain_size = 496;
         m_assumed_chain_state_size = 6;
 
         genesis = CreateGenesisBlock(1231006505, 2083236893, 0x1d00ffff, 1, 50 * COIN, consensus);
@@ -311,10 +315,10 @@ public:
         };
 
         chainTxData = ChainTxData{
-            // Data from RPC: getchaintxstats 4096 000000000000000000052d314a259755ca65944e68df6b12a067ea8f1f5a7091
-            /* nTime    */ 1645542140,
-            /* nTxCount */ 712531200,
-            /* dTxRate  */ 2.891036496010309,
+            // Data from RPC: getchaintxstats 4096 00000000000000000009c97098b5295f7e5f183ac811fb5d1534040adb93cabd
+            .nTime    = 1661697692,
+            .nTxCount = 760120522,
+            .dTxRate  = 2.925802860942233,
         };
     }
 };
@@ -329,7 +333,8 @@ public:
         consensus.signet_blocks = false;
         consensus.signet_challenge.clear();
         consensus.nSubsidyHalvingInterval = 210000;
-        consensus.BIP16Exception = uint256S("0x00000000dd30457c001f4095d208cc1296b0eed002427aa599874af7a432b105");
+        consensus.script_flag_exceptions.emplace( // BIP16 exception
+            uint256S("0x00000000dd30457c001f4095d208cc1296b0eed002427aa599874af7a432b105"), SCRIPT_VERIFY_NONE);
         consensus.BIP34Height = 21111;
         consensus.BIP34Hash = uint256S("0x0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8");
         consensus.BIP65Height = 581885; // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
@@ -360,6 +365,8 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nTimeout = 1628640000; // August 11th, 2021
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 0; // No activation delay
 
+        consensus.nMinimumChainWork = uint256S("0x00000000000000000000000000000000000000000000076f6e7cbd0beade5d20");
+        consensus.defaultAssumeValid = uint256S("0x0000000000000004877fa2d36316398528de4f347df2f8a96f76613a298ce060"); // 2344474
         // Simplicity
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].bit = 24;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
@@ -390,7 +397,7 @@ public:
         pchMessageStart[3] = 0x07;
         nDefaultPort = 18333;
         nPruneAfterHeight = 1000;
-        m_assumed_blockchain_size = 40;
+        m_assumed_blockchain_size = 42;
         m_assumed_chain_state_size = 2;
 
         genesis = CreateGenesisBlock(1296688602, 414098458, 0x1d00ffff, 1, 50 * COIN, consensus);
@@ -433,10 +440,10 @@ public:
         };
 
         chainTxData = ChainTxData{
-            // Data from RPC: getchaintxstats 4096 00000000d18cfe81cbeea665076807789bd8f831d557632e635bc6e3c003069e
-            /* nTime    */ 1645635119,
-            /* nTxCount */ 62226341,
-            /* dTxRate  */ 0.07717997442177152,
+            // Data from RPC: getchaintxstats 4096 0000000000000004877fa2d36316398528de4f347df2f8a96f76613a298ce060
+            .nTime    = 1661705221,
+            .nTxCount = 63531852,
+            .dTxRate  = 0.1079119341520164,
         };
     }
 };
@@ -458,15 +465,15 @@ public:
             vSeeds.emplace_back("178.128.221.177");
             vSeeds.emplace_back("v7ajjeirttkbnt32wpy3c6w3emwnfr3fkla7hpxcfokr3ysd3kqtzmqd.onion:38333");
 
-            consensus.nMinimumChainWork = uint256S("0x000000000000000000000000000000000000000000000000000000de26b0e471");
-            consensus.defaultAssumeValid = uint256S("0x00000112852484b5fe3451572368f93cfd2723279af3464e478aee35115256ef"); // 78788
+            consensus.nMinimumChainWork = uint256S("0x000000000000000000000000000000000000000000000000000001291fc22898");
+            consensus.defaultAssumeValid = uint256S("0x000000d1a0e224fa4679d2fb2187ba55431c284fa1b74cbc8cfda866fd4d2c09"); // 105495
             m_assumed_blockchain_size = 1;
             m_assumed_chain_state_size = 0;
             chainTxData = ChainTxData{
-                // Data from RPC: getchaintxstats 4096 0000003d9144c56ac110ae04a0c271a0acce2f14f426b39fdf0d938c96d2eb09
-                /* nTime    */ 1645631279,
-                /* nTxCount */ 1257429,
-                /* dTxRate  */ 0.1389638742514995,
+                // Data from RPC: getchaintxstats 4096 000000d1a0e224fa4679d2fb2187ba55431c284fa1b74cbc8cfda866fd4d2c09
+                .nTime    = 1661702566,
+                .nTxCount = 1903567,
+                .dTxRate  = 0.02336701143027275,
             };
         } else {
             const auto signet_challenge = args.GetArgs("-signetchallenge");
@@ -495,7 +502,6 @@ public:
         consensus.signet_blocks = true;
         consensus.signet_challenge.assign(bin.begin(), bin.end());
         consensus.nSubsidyHalvingInterval = 210000;
-        consensus.BIP16Exception = uint256{};
         consensus.BIP34Height = 1;
         consensus.BIP34Hash = uint256{};
         consensus.BIP65Height = 1;
@@ -549,7 +555,7 @@ public:
         consensus.elements_mode = g_con_elementsmode;
 
         // message start is defined as the first 4 bytes of the sha256d of the block script
-        CHashWriter h(SER_DISK, 0);
+        HashWriter h{};
         h << consensus.signet_challenge;
         uint256 hash = h.GetHash();
         memcpy(pchMessageStart, hash.begin(), 4);
@@ -591,13 +597,12 @@ public:
         consensus.signet_blocks = false;
         consensus.signet_challenge.clear();
         consensus.nSubsidyHalvingInterval = 150;
-        consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 1; // Always active unless overridden
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 1;  // Always active unless overridden
         consensus.BIP66Height = 1;  // Always active unless overridden
         consensus.CSVHeight = 1;    // Always active unless overridden
-        consensus.SegwitHeight = 1; // Always active unless overridden
+        consensus.SegwitHeight = 0; // Always active unless overridden
         consensus.MinBIP9WarningHeight = 0;
         consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -757,8 +762,7 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
     if (!args.IsArgSet("-vbparams")) return;
 
     for (const std::string& strDeployment : args.GetArgs("-vbparams")) {
-        std::vector<std::string> vDeploymentParams;
-        boost::split(vDeploymentParams, strDeployment, boost::is_any_of(":"));
+        std::vector<std::string> vDeploymentParams = SplitString(strDeployment, ':');
         if (vDeploymentParams.size() < 3 || 4 < vDeploymentParams.size()) {
             throw std::runtime_error("Version bits parameters malformed, expecting deployment:start:end[:min_activation_height]");
         }
@@ -800,7 +804,6 @@ protected:
         UpdateActivationParametersFromArgs(args);
 
         consensus.nSubsidyHalvingInterval = args.GetIntArg("-con_nsubsidyhalvinginterval", consensus.nSubsidyHalvingInterval);
-        consensus.BIP16Exception = uint256S(args.GetArg("-con_bip16exception", "0x0"));
         consensus.BIP34Height = args.GetIntArg("-con_bip34height", 0);
         consensus.BIP34Hash = uint256S(args.GetArg("-con_bip34hash", "0x0"));
         consensus.BIP65Height = args.GetIntArg("-con_bip65height", 0);
@@ -1072,7 +1075,6 @@ public:
 
         strNetworkID = "liquidv1";
         consensus.nSubsidyHalvingInterval = 150;
-        consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 0;
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0;
@@ -1393,9 +1395,6 @@ public:
     void UpdateFromArgs(const ArgsManager& args)
     {
         consensus.nSubsidyHalvingInterval = args.GetIntArg("-con_nsubsidyhalvinginterval", consensus.nSubsidyHalvingInterval);
-        if (args.IsArgSet("-con_bip16exception")) {
-            consensus.BIP16Exception = uint256S(args.GetArg("-con_bip16exception", ""));
-        }
         consensus.BIP34Height = args.GetIntArg("-con_bip34height", consensus.BIP34Height);
         if (args.IsArgSet("-con_bip34hash")) {
             consensus.BIP34Hash = uint256S(args.GetArg("-con_bip34hash", ""));

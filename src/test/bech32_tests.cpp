@@ -162,8 +162,8 @@ BOOST_AUTO_TEST_CASE(bech32_polymod_sanity)
 {
     std::vector<unsigned char> data(40);
     // GetRandBytes only allows 32 bytes at a time
-    GetRandBytes(data.data(), 32);
-    GetRandBytes(data.data() + 32, data.size() - 32);
+    GetRandBytes(Span<unsigned char>(data.data(), 32));
+    GetRandBytes(Span<unsigned char>(data.data() + 32, data.size() - 32));
 
     std::vector<unsigned char> base32;
     ConvertBits<8, 5, true>([&](unsigned char c) { base32.push_back(c); }, data.begin(), data.end());

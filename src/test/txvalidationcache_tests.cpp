@@ -16,7 +16,7 @@
 
 struct Dersig100Setup : public TestChain100Setup {
     Dersig100Setup()
-        : TestChain100Setup{{"-testactivationheight=dersig@102"}} {}
+        : TestChain100Setup{CBaseChainParams::REGTEST, {"-testactivationheight=dersig@102"}} {}
 };
 
 bool CheckInputScripts(const CTransaction& tx, TxValidationState& state,
@@ -170,11 +170,6 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, Dersig100Setup)
 {
     // Test that passing CheckInputScripts with one set of script flags doesn't imply
     // that we would pass again with a different set of flags.
-    {
-        LOCK(cs_main);
-        InitScriptExecutionCache();
-    }
-
     CScript p2pk_scriptPubKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
     CScript p2sh_scriptPubKey = GetScriptForDestination(ScriptHash(p2pk_scriptPubKey));
     CScript p2pkh_scriptPubKey = GetScriptForDestination(PKHash(coinbaseKey.GetPubKey()));
@@ -340,7 +335,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, Dersig100Setup)
 
         // Sign
         SignatureData sigdata;
-        BOOST_CHECK(ProduceSignature(keystore, MutableTransactionSignatureCreator(&valid_with_witness_tx, 0, 11*CENT, SIGHASH_ALL), spend_tx.vout[1].scriptPubKey, sigdata));
+        BOOST_CHECK(ProduceSignature(keystore, MutableTransactionSignatureCreator(valid_with_witness_tx, 0, 11 * CENT, SIGHASH_ALL), spend_tx.vout[1].scriptPubKey, sigdata));
         UpdateTransaction(valid_with_witness_tx, 0, sigdata);
 
         // This should be valid under all script flags.
@@ -367,9 +362,9 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, Dersig100Setup)
         tx.vout[0].scriptPubKey = p2pk_scriptPubKey;
 
         // Sign
-        for (int i=0; i<2; ++i) {
+        for (int i = 0; i < 2; ++i) {
             SignatureData sigdata;
-            BOOST_CHECK(ProduceSignature(keystore, MutableTransactionSignatureCreator(&tx, i, 11*CENT, SIGHASH_ALL), spend_tx.vout[i].scriptPubKey, sigdata));
+            BOOST_CHECK(ProduceSignature(keystore, MutableTransactionSignatureCreator(tx, i, 11 * CENT, SIGHASH_ALL), spend_tx.vout[i].scriptPubKey, sigdata));
             UpdateTransaction(tx, i, sigdata);
         }
 

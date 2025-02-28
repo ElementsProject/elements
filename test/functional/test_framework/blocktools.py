@@ -183,29 +183,6 @@ def create_tx_with_script(prevtx, n, script_sig=b"", *, amount, fee=0, script_pu
     tx.calc_sha256()
     return tx
 
-def create_transaction(node, txid, to_address, *, amount, fee, locktime=0):
-    """ Return signed transaction spending the first output of the
-        input txid. Note that the node must have a wallet that can
-        sign for the output that is being spent.
-    """
-    raw_tx = create_raw_transaction(node, txid, to_address, amount=amount, fee=fee, locktime=locktime)
-    tx = tx_from_hex(raw_tx)
-    return tx
-
-def create_raw_transaction(node, txid, to_address, *, amount, fee, locktime=0):
-    """ Return raw signed transaction spending the first output of the
-        input txid. Note that the node must have a wallet that can sign
-        for the output that is being spent.
-    """
-    psbt = node.createpsbt(inputs=[{"txid": txid, "vout": 0}], outputs=[{to_address: amount}, {"fee": fee}], locktime=locktime)
-    for sign in [False, True]:
-        for w in node.listwallets():
-            wrpc = node.get_wallet_rpc(w)
-            psbt = wrpc.walletprocesspsbt(psbt, sign)["psbt"]
-    final_psbt = node.finalizepsbt(psbt)
-    assert_equal(final_psbt["complete"], True)
-    return final_psbt['hex']
-
 def get_legacy_sigopcount_block(block, accurate=True):
     count = 0
     for tx in block.vtx:

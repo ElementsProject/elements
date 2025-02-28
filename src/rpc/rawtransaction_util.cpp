@@ -145,7 +145,7 @@ void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, Sidechain::B
     CreatePegInInputInner(mtx, input_idx, tx_btc, merkle_block, claim_scripts, txData, txOutProofData, active_chain_tip);
 }
 
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const CBlockIndex* active_chain_tip, std::map<CTxOut, PSBTOutput>* outputs_aux, bool allow_peg_in, bool allow_issuance)
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, std::optional<bool> rbf, const CBlockIndex* active_chain_tip, std::map<CTxOut, PSBTOutput>* outputs_aux, bool allow_peg_in, bool allow_issuance)
 {
     if (outputs_in.isNull()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output argument must be non-null");
@@ -158,12 +158,12 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         inputs = inputs_in.get_array();
     }
 
-    UniValue outputs = outputs_in.get_array();
+    const UniValue& outputs = outputs_in.get_array();
 
     CMutableTransaction rawTx;
 
     if (!locktime.isNull()) {
-        int64_t nLockTime = locktime.get_int64();
+        int64_t nLockTime = locktime.getInt<int64_t>();
         if (nLockTime < 0 || nLockTime > LOCKTIME_MAX)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, locktime out of range");
         rawTx.nLockTime = nLockTime;
@@ -178,12 +178,13 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         const UniValue& vout_v = find_value(o, "vout");
         if (!vout_v.isNum())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
-        int nOutput = vout_v.get_int();
+        int nOutput = vout_v.getInt<int>();
         if (nOutput < 0)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout cannot be negative");
 
         uint32_t nSequence;
-        if (rbf) {
+
+        if (rbf.value_or(true)) {
             nSequence = MAX_BIP125_RBF_SEQUENCE; /* CTxIn::SEQUENCE_FINAL - 2 */
         } else if (rawTx.nLockTime) {
             nSequence = CTxIn::MAX_SEQUENCE_NONFINAL; /* CTxIn::SEQUENCE_FINAL - 1 */
@@ -194,7 +195,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         // set the sequence number if passed in the parameters object
         const UniValue& sequenceObj = find_value(o, "sequence");
         if (sequenceObj.isNum()) {
-            int64_t seqNr64 = sequenceObj.get_int64();
+            int64_t seqNr64 = sequenceObj.getInt<int64_t>();
             if (seqNr64 < 0 || seqNr64 > CTxIn::SEQUENCE_FINAL) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, sequence number is out of range");
             } else {
@@ -335,7 +336,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 out.nAsset = CAsset(ParseHashO(output, name_));
             } else if (name_ == "blinder_index") {
                 // For PSET
-                psbt_out.m_blinder_index = find_value(output, name_).get_int();
+                psbt_out.m_blinder_index = find_value(output, name_).getInt<int>();
             } else {
                 CTxDestination destination = DecodeDestination(name_);
                 if (!IsValidDestination(destination)) {
@@ -383,7 +384,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         }
     }
 
-    if (rbf && rawTx.vin.size() > 0 && !SignalsOptInRBF(CTransaction(rawTx))) {
+    if (rbf.has_value() && rbf.value() && rawTx.vin.size() > 0 && !SignalsOptInRBF(CTransaction(rawTx))) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter combination: Sequence number(s) contradict replaceable option");
     }
 
@@ -411,14 +412,14 @@ static void TxInErrorToJSON(const CTxIn& txin, const CTxInWitness& txinwit, UniV
 void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keystore, std::map<COutPoint, Coin>& coins)
 {
     if (!prevTxsUnival.isNull()) {
-        UniValue prevTxs = prevTxsUnival.get_array();
+        const UniValue& prevTxs = prevTxsUnival.get_array();
         for (unsigned int idx = 0; idx < prevTxs.size(); ++idx) {
             const UniValue& p = prevTxs[idx];
             if (!p.isObject()) {
                 throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "expected object with {\"txid'\",\"vout\",\"scriptPubKey\"}");
             }
 
-            UniValue prevOut = p.get_obj();
+            const UniValue& prevOut = p.get_obj();
 
             RPCTypeCheckObj(prevOut,
                 {
@@ -429,7 +430,7 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
 
             uint256 txid = ParseHashO(prevOut, "txid");
 
-            int nOut = find_value(prevOut, "vout").get_int();
+            int nOut = find_value(prevOut, "vout").getInt<int>();
             if (nOut < 0) {
                 throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "vout cannot be negative");
             }

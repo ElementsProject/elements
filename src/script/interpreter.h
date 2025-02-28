@@ -173,7 +173,7 @@ struct PrecomputedTransactionData
 {
     transaction* m_simplicity_tx_data = nullptr;
     // BIP341 precomputed data.
-    // These are single-SHA256, see https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki#cite_note-15.
+    // These are single-SHA256, see https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki#cite_note-16.
     uint256 m_prevouts_single_hash;
     uint256 m_sequences_single_hash;
     uint256 m_outputs_single_hash;
@@ -204,7 +204,7 @@ struct PrecomputedTransactionData
 
     //! ELEMENTS: parent genesis hash
     const uint256 m_hash_genesis_block;
-    CHashWriter m_tapsighash_hasher;
+    HashWriter m_tapsighash_hasher;
 
     explicit PrecomputedTransactionData(const uint256& hash_genesis_block);
     explicit PrecomputedTransactionData() : PrecomputedTransactionData(uint256{}) {}
@@ -279,9 +279,9 @@ static constexpr size_t TAPROOT_CONTROL_NODE_SIZE = 32;
 static constexpr size_t TAPROOT_CONTROL_MAX_NODE_COUNT = 128;
 static constexpr size_t TAPROOT_CONTROL_MAX_SIZE = TAPROOT_CONTROL_BASE_SIZE + TAPROOT_CONTROL_NODE_SIZE * TAPROOT_CONTROL_MAX_NODE_COUNT;
 
-extern const CHashWriter HASHER_TAPSIGHASH_ELEMENTS; //!< Hasher with tag "TapSighash" pre-fed to it.
-extern const CHashWriter HASHER_TAPLEAF_ELEMENTS;    //!< Hasher with tag "TapLeaf" pre-fed to it.
-extern const CHashWriter HASHER_TAPBRANCH_ELEMENTS;  //!< Hasher with tag "TapBranch" pre-fed to it.
+extern const HashWriter HASHER_TAPSIGHASH_ELEMENTS; //!< Hasher with tag "TapSighash" pre-fed to it.
+extern const HashWriter HASHER_TAPLEAF_ELEMENTS;    //!< Hasher with tag "TapLeaf" pre-fed to it.
+extern const HashWriter HASHER_TAPBRANCH_ELEMENTS;  //!< Hasher with tag "TapBranch" pre-fed to it.
 
 template <class T>
 uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn, int nHashType, const CConfidentialValue& amount, SigVersion sigversion, unsigned int flags, const PrecomputedTransactionData* cache = nullptr);
@@ -396,10 +396,10 @@ using MutableTransactionSignatureChecker = GenericTransactionSignatureChecker<CM
 class DeferringSignatureChecker : public BaseSignatureChecker
 {
 protected:
-    BaseSignatureChecker& m_checker;
+    const BaseSignatureChecker& m_checker;
 
 public:
-    DeferringSignatureChecker(BaseSignatureChecker& checker) : m_checker(checker) {}
+    DeferringSignatureChecker(const BaseSignatureChecker& checker) : m_checker(checker) {}
 
     bool CheckECDSASignature(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion, unsigned int flags) const override
     {
@@ -434,7 +434,5 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
 size_t CountWitnessSigOps(const CScript& scriptSig, const CScript& scriptPubKey, const CScriptWitness* witness, unsigned int flags);
 
 int FindAndDelete(CScript& script, const CScript& b);
-
-bool CheckMinimalPush(const std::vector<unsigned char>& data, opcodetype opcode);
 
 #endif // BITCOIN_SCRIPT_INTERPRETER_H

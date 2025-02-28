@@ -18,7 +18,7 @@ def perform_pre_checks():
             sys.exit(int(mock_result[0]))
 
 def enumerate(args):
-    sys.stdout.write(json.dumps([{"fingerprint": "00000001", "type": "trezor", "model": "trezor_t"}, {"fingerprint": "00000002"}]))
+    sys.stdout.write(json.dumps([{"fingerprint": "00000001", "type": "trezor", "model": "trezor_t"}]))
 
 def getdescriptors(args):
     xpub = "tpubD6NzVbkrYhZ4WaWSyoBvQwbpLkojyoTZPRsgXELWz3Popb3qkjcJyJUGLnL4qHHoQvao8ESaAstxYSnhyswJ76uZPStJRJCTKvosUCJZL5B"
@@ -27,12 +27,15 @@ def getdescriptors(args):
         "receive": [
             "pkh([00000001/44'/1'/" + args.account + "']" + xpub + "/0/*)#vt6w3l3j",
             "sh(wpkh([00000001/49'/1'/" + args.account + "']" + xpub + "/0/*))#r0grqw5x",
-            "wpkh([00000001/84'/1'/" + args.account + "']" + xpub + "/0/*)#x30uthjs"
+            "wpkh([00000001/84'/1'/" + args.account + "']" + xpub + "/0/*)#x30uthjs",
+            "tr([00000001/86'/1'/" + args.account + "']" + xpub + "/0/*)#sng9rd4t"
         ],
         "internal": [
             "pkh([00000001/44'/1'/" + args.account + "']" + xpub + "/1/*)#all0v2p2",
             "sh(wpkh([00000001/49'/1'/" + args.account + "']" + xpub + "/1/*))#kwx4c3pe",
-            "wpkh([00000001/84'/1'/" + args.account + "']" + xpub + "/1/*)#h92akzzg"
+            "wpkh([00000001/84'/1'/" + args.account + "']" + xpub + "/1/*)#h92akzzg",
+            "tr([00000001/86'/1'/" + args.account + "']" + xpub + "/1/*)#p8dy7c9n"
+
         ]
     }))
 
@@ -44,7 +47,8 @@ def displayaddress(args):
         return sys.stdout.write(json.dumps({"error": "Unexpected fingerprint", "fingerprint": args.fingerprint}))
 
     expected_desc = [
-        "wpkh([00000001/84'/1'/0'/0/0]02c97dc3f4420402e01a113984311bf4a1b8de376cac0bdcfaf1b3ac81f13433c7)#0yneg42r"
+        "wpkh([00000001/84'/1'/0'/0/0]02c97dc3f4420402e01a113984311bf4a1b8de376cac0bdcfaf1b3ac81f13433c7)#0yneg42r",
+        "tr([00000001/86'/1'/0'/0/0]c97dc3f4420402e01a113984311bf4a1b8de376cac0bdcfaf1b3ac81f13433c7)#4vdj9jqk",
     ]
     if args.desc not in expected_desc:
         return sys.stdout.write(json.dumps({"error": "Unexpected descriptor", "desc": args.desc}))

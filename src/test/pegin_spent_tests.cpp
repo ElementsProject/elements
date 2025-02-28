@@ -26,7 +26,7 @@ BOOST_FIXTURE_TEST_SUITE(pegin_spent_tests, TestingSetup)
 
 class CCoinsViewTester : public CCoinsView {
 public:
-    bool IsPeginSpentCalled;
+    bool IsPeginSpentCalled{false};
     bool IsPeginSpent(const std::pair<uint256, COutPoint> &outpoint) const override {
         const_cast<bool&>(IsPeginSpentCalled) = true;
         return CCoinsView::IsPeginSpent(outpoint);
@@ -42,7 +42,7 @@ public:
         return CCoinsView::BatchWrite(mapCoins, hashBlock);
     }
 
-    CCoinsViewTester() : IsPeginSpentCalled(false) {}
+    CCoinsViewTester() {}
 };
 
 BOOST_AUTO_TEST_CASE(PeginSpent_validity)

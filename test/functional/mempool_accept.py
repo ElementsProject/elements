@@ -11,7 +11,7 @@ import math
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.key import ECKey
 from test_framework.messages import (
-    BIP125_SEQUENCE_NUMBER,
+    MAX_BIP125_RBF_SEQUENCE,
     COIN,
     COutPoint,
     CTxIn,
@@ -68,7 +68,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         assert_equal(node.getmempoolinfo()['size'], self.mempool_size)
 
         self.log.info('Should not accept garbage to testmempoolaccept')
-        assert_raises_rpc_error(-3, 'Expected type array, got string', lambda: node.testmempoolaccept(rawtxs='ff00baar'))
+        assert_raises_rpc_error(-3, 'JSON value of type string is not of expected type array', lambda: node.testmempoolaccept(rawtxs='ff00baar'))
         assert_raises_rpc_error(-8, 'Array must contain between 1 and 25 transactions.', lambda: node.testmempoolaccept(rawtxs=['ff22']*26))
         assert_raises_rpc_error(-8, 'Array must contain between 1 and 25 transactions.', lambda: node.testmempoolaccept(rawtxs=[]))
         assert_raises_rpc_error(-22, 'TX decode failed', lambda: node.testmempoolaccept(rawtxs=['ff00baar']))
@@ -80,7 +80,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         tx.vout[1].nValue.setToAmount(int(0.7 * COIN)) # ELEMENTS: fee
         tx.vout[2].nValue.setToAmount(int(49 * COIN))
         raw_tx_in_block = tx.serialize().hex()
-        txid_in_block = self.wallet.sendrawtransaction(from_node=node, tx_hex=raw_tx_in_block, maxfeerate=0)
+        txid_in_block = self.wallet.sendrawtransaction(from_node=node, tx_hex=raw_tx_in_block)
         self.generate(node, 1)
         self.mempool_size = 0
         self.check_mempool_result(
@@ -91,7 +91,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         self.log.info('A transaction not in the mempool')
         fee = Decimal('0.000007')
         utxo_to_spend = self.wallet.get_utxo(txid=txid_in_block)  # use 0.3 BTC UTXO
-        tx = self.wallet.create_self_transfer(utxo_to_spend=utxo_to_spend, sequence=BIP125_SEQUENCE_NUMBER)['tx']
+        tx = self.wallet.create_self_transfer(utxo_to_spend=utxo_to_spend, sequence=MAX_BIP125_RBF_SEQUENCE)['tx']
         tx.vout[0].nValue.setToAmount(int((Decimal('0.3') - fee) * COIN))
         tx.vout[1].nValue.setToAmount(int(fee * COIN))
         raw_tx_0 = tx.serialize().hex()
@@ -134,7 +134,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         tx.vout[0].nValue.setToAmount(tx.vout[0].nValue.getAmount() - int(fee * COIN))  # Double the fee
         txid_0_out = tx.vout[0].nValue.getAmount()
         tx.vout[1].nValue.setToAmount(tx.vout[1].nValue.getAmount() + int(fee * COIN))
-        tx.vin[0].nSequence = BIP125_SEQUENCE_NUMBER + 1  # Now, opt out of RBF
+        tx.vin[0].nSequence = MAX_BIP125_RBF_SEQUENCE + 1  # Now, opt out of RBF
         raw_tx_0 = tx.serialize().hex()
         txid_0 = tx.rehash()
         self.check_mempool_result(
@@ -179,7 +179,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         tx.vout[0].nValue.setToAmount(int(0.1 * COIN))
         tx.vout[1].nValue.setToAmount(txid_0_out + txid_1_out - int(0.1 * COIN))
         raw_tx_spend_both = tx.serialize().hex()
-        txid_spend_both = self.wallet.sendrawtransaction(from_node=node, tx_hex=raw_tx_spend_both, maxfeerate=0)
+        txid_spend_both = self.wallet.sendrawtransaction(from_node=node, tx_hex=raw_tx_spend_both)
         self.generate(node, 1)
         self.mempool_size = 0
         # Now see if we can add the coins back to the utxo set by sending the exact txs again

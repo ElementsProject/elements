@@ -204,11 +204,11 @@ FUZZ_TARGET_INIT(simplicity, initialize_simplicity)
     PrecomputedTransactionData txdata{GENESIS_HASH};
     std::vector<CTxOut> spent_outs_copy{spent_outs};
     txdata.Init(mtx, std::move(spent_outs_copy));
-    assert(txdata.m_simplicity_tx_data != NULL);
+    assert(txdata.m_simplicity_tx_data != nullptr);
 
     // 4. Main test
     unsigned char imr_out[32];
-    unsigned char *imr = mtx.vin[0].prevout.hash.data()[2] & 2 ? imr_out : NULL;
+    unsigned char *imr = mtx.vin[0].prevout.hash.data()[2] & 2 ? imr_out : nullptr;
 
     const transaction* tx = txdata.m_simplicity_tx_data;
     tapEnv* taproot = simplicity_elements_mallocTapEnv(&simplicityRawTap);

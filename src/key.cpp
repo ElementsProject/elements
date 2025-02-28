@@ -160,7 +160,7 @@ bool CKey::Check(const unsigned char *vch) {
 
 void CKey::MakeNewKey(bool fCompressedIn) {
     do {
-        GetStrongRandBytes(keydata.data(), keydata.size());
+        GetStrongRandBytes(keydata);
     } while (!Check(keydata.data()));
     fValid = true;
     fCompressed = fCompressedIn;
@@ -216,7 +216,7 @@ uint256 CKey::ECDH(const CPubKey& pubkey) const {
     uint256 result;
     secp256k1_pubkey pkey;
     assert(secp256k1_ec_pubkey_parse(secp256k1_context_sign, &pkey, pubkey.begin(), pubkey.size()));
-    assert(secp256k1_ecdh(secp256k1_context_sign, result.begin(), &pkey, begin(), NULL, NULL));
+    assert(secp256k1_ecdh(secp256k1_context_sign, result.begin(), &pkey, begin(), nullptr, nullptr));
     return result;
 }
 
@@ -254,7 +254,7 @@ bool CKey::VerifyPubKey(const CPubKey& pubkey) const {
     }
     unsigned char rnd[8];
     std::string str = "Bitcoin key verification\n";
-    GetRandBytes(rnd, sizeof(rnd));
+    GetRandBytes(rnd);
     uint256 hash;
     CHash256().Write(MakeUCharSpan(str)).Write(rnd).Finalize(hash);
     std::vector<unsigned char> vchSig;
@@ -347,6 +347,7 @@ bool CKey::Derive(CKey& keyChild, ChainCode &ccChild, unsigned int nChild, const
 }
 
 bool CExtKey::Derive(CExtKey &out, unsigned int _nChild) const {
+    if (nDepth == std::numeric_limits<unsigned char>::max()) return false;
     out.nDepth = nDepth + 1;
     CKeyID id = key.GetPubKey().GetID();
     memcpy(out.vchFingerprint, &id, 4);
@@ -354,11 +355,11 @@ bool CExtKey::Derive(CExtKey &out, unsigned int _nChild) const {
     return key.Derive(out.key, out.chaincode, _nChild, chaincode);
 }
 
-void CExtKey::SetSeed(Span<const uint8_t> seed)
+void CExtKey::SetSeed(Span<const std::byte> seed)
 {
     static const unsigned char hashkey[] = {'B','i','t','c','o','i','n',' ','s','e','e','d'};
     std::vector<unsigned char, secure_allocator<unsigned char>> vout(64);
-    CHMAC_SHA512{hashkey, sizeof(hashkey)}.Write(seed.data(), seed.size()).Finalize(vout.data());
+    CHMAC_SHA512{hashkey, sizeof(hashkey)}.Write(UCharCast(seed.data()), seed.size()).Finalize(vout.data());
     key.Set(vout.data(), vout.data() + 32, true);
     memcpy(chaincode.begin(), vout.data() + 32, 32);
     nDepth = 0;
@@ -411,7 +412,7 @@ void ECC_Start() {
     {
         // Pass in a random blinding seed to the secp256k1 context.
         std::vector<unsigned char, secure_allocator<unsigned char>> vseed(32);
-        GetRandBytes(vseed.data(), 32);
+        GetRandBytes(vseed);
         bool ret = secp256k1_context_randomize(ctx, vseed.data());
         assert(ret);
     }

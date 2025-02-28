@@ -8,6 +8,7 @@
 #include <chainparams.h>
 #include <consensus/validation.h>
 #include <streams.h>
+#include <util/system.h>
 #include <validation.h>
 
 // These are the two major time-sinks which happen after we have fully received
@@ -49,5 +50,5 @@ static void DeserializeAndCheckBlockTest(benchmark::Bench& bench)
     });
 }
 
-BENCHMARK(DeserializeBlockTest);
-BENCHMARK(DeserializeAndCheckBlockTest);
+BENCHMARK(DeserializeBlockTest, benchmark::PriorityLevel::HIGH);
+BENCHMARK(DeserializeAndCheckBlockTest, benchmark::PriorityLevel::HIGH);

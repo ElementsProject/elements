@@ -75,7 +75,7 @@ crucial differences:
 
 1. Since only Windows and macOS build outputs require codesigning, the `HOSTS`
    environment variable will have a sane default value of `x86_64-w64-mingw32
-   x86_64-apple-darwin` instead of all the platforms.
+   x86_64-apple-darwin arm64-apple-darwin` instead of all the platforms.
 2. The `guix-codesign` command ***requires*** a `DETACHED_SIGS_REPO` flag.
     * _**DETACHED_SIGS_REPO**_
 
@@ -382,7 +382,7 @@ https://ci.guix.gnu.org is automatically used unless the `--no-substitutes` flag
 is supplied. This default list of substitute servers is overridable both on a
 `guix-daemon` level and when you invoke `guix` commands. See examples below for
 the various ways of adding dongcarl's substitute server after having [authorized
-his signing key](#authorize-the-signing-keys).
+his signing key](#step-1-authorize-the-signing-keys).
 
 Change the **default list** of substitute servers by starting `guix-daemon` with
 the `--substitute-urls` option (you will likely need to edit your init script):

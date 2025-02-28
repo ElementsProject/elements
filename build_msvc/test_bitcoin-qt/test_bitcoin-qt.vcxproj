@@ -13,6 +13,7 @@
     <ClCompile Include="..\..\src\test\util\setup_common.cpp" />
     <ClCompile Include="..\..\src\qt\test\addressbooktests.cpp" />
     <ClCompile Include="..\..\src\qt\test\apptests.cpp" />
+    <ClCompile Include="..\..\src\qt\test\optiontests.cpp" />
     <ClCompile Include="..\..\src\qt\test\rpcnestedtests.cpp" />
     <ClCompile Include="..\..\src\qt\test\test_main.cpp" />
     <ClCompile Include="..\..\src\qt\test\uritests.cpp" />
@@ -21,6 +22,7 @@
     <ClCompile Include="..\..\src\wallet\test\wallet_test_fixture.cpp" />
     <ClCompile Include="$(GeneratedFilesOutDir)\moc\moc_addressbooktests.cpp" />
     <ClCompile Include="$(GeneratedFilesOutDir)\moc\moc_apptests.cpp" />
+    <ClCompile Include="$(GeneratedFilesOutDir)\moc\moc_optiontests.cpp" />
     <ClCompile Include="$(GeneratedFilesOutDir)\moc\moc_rpcnestedtests.cpp" />
     <ClCompile Include="$(GeneratedFilesOutDir)\moc\moc_uritests.cpp" />
     <ClCompile Include="$(GeneratedFilesOutDir)\moc\moc_wallettests.cpp" />
@@ -53,6 +55,9 @@
     </ProjectReference>
     <ProjectReference Include="..\libbitcoin_zmq\libbitcoin_zmq.vcxproj">
       <Project>{792d487f-f14c-49fc-a9de-3fc150f31c3f}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\libtest_util\libtest_util.vcxproj">
+      <Project>{1e065f03-3566-47d0-8fa9-daa72b084e7d}</Project>
     </ProjectReference>
     <ProjectReference Include="..\libleveldb\libleveldb.vcxproj">
       <Project>{18430fef-6b61-4c53-b396-718e02850f1b}</Project>
@@ -90,6 +95,7 @@
   <ItemGroup>
     <MocTestFiles Include="..\..\src\qt\test\addressbooktests.h" />
     <MocTestFiles Include="..\..\src\qt\test\apptests.h" />
+    <MocTestFiles Include="..\..\src\qt\test\optiontests.h" />
     <MocTestFiles Include="..\..\src\qt\test\rpcnestedtests.h" />
     <MocTestFiles Include="..\..\src\qt\test\uritests.h" />
     <MocTestFiles Include="..\..\src\qt\test\wallettests.h" />

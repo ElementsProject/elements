@@ -7,14 +7,26 @@
 
 #include <clientversion.h>
 #include <fs.h>
+#include <logging.h>
 #include <serialize.h>
 #include <span.h>
 #include <streams.h>
-#include <util/strencodings.h>
-#include <util/system.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <exception>
 #include <leveldb/db.h>
+#include <leveldb/iterator.h>
+#include <leveldb/options.h>
+#include <leveldb/slice.h>
+#include <leveldb/status.h>
 #include <leveldb/write_batch.h>
+#include <stdexcept>
+#include <string>
+#include <vector>
+namespace leveldb {
+class Env;
+}
 
 static const size_t DBWRAPPER_PREALLOC_KEY_SIZE = 64;
 static const size_t DBWRAPPER_PREALLOC_VALUE_SIZE = 1024;
@@ -26,6 +38,10 @@ public:
 };
 
 class CDBWrapper;
+
+namespace dbwrapper {
+    using leveldb::DestroyDB;
+}
 
 /** These should be considered an implementation detail of the specific database.
  */
@@ -166,11 +182,6 @@ public:
         }
         return true;
     }
-
-    unsigned int GetValueSize() {
-        return piter->value().size();
-    }
-
 };
 
 class CDBWrapper
@@ -211,6 +222,12 @@ private:
     static const unsigned int OBFUSCATE_KEY_NUM_BYTES;
 
     std::vector<unsigned char> CreateObfuscateKey() const;
+
+    //! path to filesystem storage
+    const fs::path m_path;
+
+    //! whether or not the database resides in memory
+    bool m_is_memory;
 
 public:
     /**
@@ -259,6 +276,14 @@ public:
         CDBBatch batch(*this);
         batch.Write(key, value);
         return WriteBatch(batch, fSync);
+    }
+
+    //! @returns filesystem path to the on-disk data.
+    std::optional<fs::path> StoragePath() {
+        if (m_is_memory) {
+            return {};
+        }
+        return m_path;
     }
 
     template <typename K>
@@ -317,22 +342,6 @@ public:
         leveldb::Range range(slKey1, slKey2);
         pdb->GetApproximateSizes(&range, 1, &size);
         return size;
-    }
-
-    /**
-     * Compact a certain range of keys in the database.
-     */
-    template<typename K>
-    void CompactRange(const K& key_begin, const K& key_end) const
-    {
-        CDataStream ssKey1(SER_DISK, CLIENT_VERSION), ssKey2(SER_DISK, CLIENT_VERSION);
-        ssKey1.reserve(DBWRAPPER_PREALLOC_KEY_SIZE);
-        ssKey2.reserve(DBWRAPPER_PREALLOC_KEY_SIZE);
-        ssKey1 << key_begin;
-        ssKey2 << key_end;
-        leveldb::Slice slKey1((const char*)ssKey1.data(), ssKey1.size());
-        leveldb::Slice slKey2((const char*)ssKey2.data(), ssKey2.size());
-        pdb->CompactRange(&slKey1, &slKey2);
     }
 };
 

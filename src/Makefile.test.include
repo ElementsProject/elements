@@ -6,7 +6,7 @@ if ENABLE_FUZZ_BINARY
 noinst_PROGRAMS += test/fuzz/fuzz
 endif
 
-if !ENABLE_FUZZ
+if ENABLE_TESTS
 bin_PROGRAMS += test/test_bitcoin
 endif
 
@@ -47,7 +47,6 @@ FUZZ_SUITE_LD_COMMON = \
  $(LIBBITCOIN_CLI) \
  $(LIBUNIVALUE) \
  $(LIBLEVELDB) \
- $(LIBLEVELDB_SSE42) \
  $(LIBMEMENV) \
  $(LIBSECP256K1) \
  $(LIBELEMENTSSIMPLICITY) \
@@ -69,6 +68,7 @@ BITCOIN_TESTS =\
   test/addrman_tests.cpp \
   test/allocator_tests.cpp \
   test/amount_tests.cpp \
+  test/argsman_tests.cpp \
   test/arith_uint256_tests.cpp \
   test/banman_tests.cpp \
   test/base32_tests.cpp \
@@ -81,6 +81,7 @@ BITCOIN_TESTS =\
   test/blockencodings_tests.cpp \
   test/blockfilter_index_tests.cpp \
   test/blockfilter_tests.cpp \
+  test/blockmanager_tests.cpp \
   test/bloom_tests.cpp \
   test/bswap_tests.cpp \
   test/checkqueue_tests.cpp \
@@ -97,6 +98,8 @@ BITCOIN_TESTS =\
   test/fs_tests.cpp \
   test/getarg_tests.cpp \
   test/hash_tests.cpp \
+  test/headers_sync_chainwork_tests.cpp \
+  test/httpserver_tests.cpp \
   test/i2p_tests.cpp \
   test/interfaces_tests.cpp \
   test/key_io_tests.cpp \
@@ -106,11 +109,13 @@ BITCOIN_TESTS =\
   test/merkle_tests.cpp \
   test/merkleblock_tests.cpp \
   test/miner_tests.cpp \
+  test/miniscript_tests.cpp \
   test/minisketch_tests.cpp \
   test/multisig_tests.cpp \
   test/net_peer_eviction_tests.cpp \
   test/net_tests.cpp \
   test/netbase_tests.cpp \
+  test/orphanage_tests.cpp \
   test/pmt_tests.cpp \
   test/policy_fee_tests.cpp \
   test/policyestimator_tests.cpp \
@@ -118,12 +123,16 @@ BITCOIN_TESTS =\
   test/prevector_tests.cpp \
   test/raii_event_tests.cpp \
   test/random_tests.cpp \
+  test/rbf_tests.cpp \
+  test/rest_tests.cpp \
+  test/result_tests.cpp \
   test/reverselock_tests.cpp \
   test/rpc_tests.cpp \
   test/sanity_tests.cpp \
   test/scheduler_tests.cpp \
   test/script_p2sh_tests.cpp \
   test/script_parse_tests.cpp \
+  test/script_segwit_tests.cpp \
   test/script_standard_tests.cpp \
   test/script_tests.cpp \
   test/scriptnum10.h \
@@ -143,6 +152,7 @@ BITCOIN_TESTS =\
   test/transaction_tests.cpp \
   test/txindex_tests.cpp \
   test/txpackage_tests.cpp \
+  test/txreconciliation_tests.cpp \
   test/txrequest_tests.cpp \
   test/txvalidation_tests.cpp \
   test/txvalidationcache_tests.cpp \
@@ -163,15 +173,19 @@ BITCOIN_TESTS =\
 
 if ENABLE_WALLET
 BITCOIN_TESTS += \
+  wallet/test/feebumper_tests.cpp \
   wallet/test/spend_tests.cpp \
   wallet/test/wallet_tests.cpp \
   wallet/test/walletdb_tests.cpp \
   wallet/test/wallet_crypto_tests.cpp \
   wallet/test/wallet_transaction_tests.cpp \
   wallet/test/coinselector_tests.cpp \
+  wallet/test/availablecoins_tests.cpp \
   wallet/test/init_tests.cpp \
   wallet/test/ismine_tests.cpp \
-  wallet/test/scriptpubkeyman_tests.cpp
+  wallet/test/rpc_util_tests.cpp \
+  wallet/test/scriptpubkeyman_tests.cpp \
+  wallet/test/walletload_tests.cpp
 # ELEMENTS: disable PSBT test
 #  wallet/test/psbt_wallet_tests.cpp
 
@@ -183,8 +197,12 @@ if USE_BDB
 BITCOIN_TESTS += wallet/test/db_tests.cpp
 endif
 
-if USE_SQLITE
 FUZZ_WALLET_SRC = \
+ wallet/test/fuzz/coinselection.cpp \
+ wallet/test/fuzz/parse_iso8601.cpp
+
+if USE_SQLITE
+FUZZ_WALLET_SRC += \
  wallet/test/fuzz/notifications.cpp
 endif # USE_SQLITE
 
@@ -198,14 +216,15 @@ BITCOIN_TEST_SUITE += \
 endif # ENABLE_WALLET
 
 test_test_bitcoin_SOURCES = $(BITCOIN_TEST_SUITE) $(BITCOIN_TESTS) $(JSON_TEST_FILES) $(RAW_TEST_FILES)
-test_test_bitcoin_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(TESTDEFS) $(EVENT_CFLAGS)
+test_test_bitcoin_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(TESTDEFS) $(BOOST_CPPFLAGS) $(EVENT_CFLAGS)
 test_test_bitcoin_LDADD = $(LIBTEST_UTIL)
 if ENABLE_WALLET
 test_test_bitcoin_LDADD += $(LIBBITCOIN_WALLET)
+test_test_bitcoin_CPPFLAGS += $(BDB_CPPFLAGS)
 endif
 
 test_test_bitcoin_LDADD += $(LIBBITCOIN_NODE) $(LIBBITCOIN_CLI) $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CONSENSUS) $(LIBBITCOIN_CRYPTO) $(LIBUNIVALUE) \
-  $(LIBLEVELDB) $(LIBLEVELDB_SSE42) $(LIBMEMENV) $(LIBSECP256K1) $(LIBELEMENTSSIMPLICITY) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS) $(MINISKETCH_LIBS)
+  $(LIBLEVELDB) $(LIBMEMENV) $(LIBSECP256K1) $(LIBELEMENTSSIMPLICITY) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS) $(MINISKETCH_LIBS)
 test_test_bitcoin_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 test_test_bitcoin_LDADD += $(BDB_LIBS) $(MINIUPNPC_LIBS) $(NATPMP_LIBS) $(SQLITE_LIBS)
@@ -217,7 +236,7 @@ FUZZ_SUITE_LD_COMMON += $(LIBBITCOIN_ZMQ) $(ZMQ_LIBS)
 endif
 
 if ENABLE_FUZZ_BINARY
-test_fuzz_fuzz_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+test_fuzz_fuzz_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(BOOST_CPPFLAGS)
 test_fuzz_fuzz_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 test_fuzz_fuzz_CFLAGS = $(AM_CFLAGS) $(PIE_FLAGS)
 test_fuzz_fuzz_LDADD = $(FUZZ_SUITE_LD_COMMON)
@@ -232,6 +251,7 @@ test_fuzz_fuzz_SOURCES = \
  test/fuzz/banman.cpp \
  test/fuzz/base_encode_decode.cpp \
  test/fuzz/bech32.cpp \
+ test/fuzz/bitdeque.cpp \
  test/fuzz/block.cpp \
  test/fuzz/block_header.cpp \
  test/fuzz/blockfilter.cpp \
@@ -271,6 +291,7 @@ test_fuzz_fuzz_SOURCES = \
  test/fuzz/locale.cpp \
  test/fuzz/merkleblock.cpp \
  test/fuzz/message.cpp \
+ test/fuzz/miniscript.cpp \
  test/fuzz/minisketch.cpp \
  test/fuzz/muhash.cpp \
  test/fuzz/multiplication_overflow.cpp \
@@ -281,7 +302,6 @@ test_fuzz_fuzz_SOURCES = \
  test/fuzz/node_eviction.cpp \
  test/fuzz/p2p_transport_serialization.cpp \
  test/fuzz/parse_hd_keypath.cpp \
- test/fuzz/parse_iso8601.cpp \
  test/fuzz/parse_numbers.cpp \
  test/fuzz/parse_script.cpp \
  test/fuzz/parse_univalue.cpp \
@@ -328,6 +348,7 @@ test_fuzz_fuzz_SOURCES = \
  test/fuzz/tx_in.cpp \
  test/fuzz/tx_out.cpp \
  test/fuzz/tx_pool.cpp \
+ test/fuzz/txorphan.cpp \
  test/fuzz/txrequest.cpp \
  test/fuzz/utxo_snapshot.cpp \
  test/fuzz/validation_load_mempool.cpp \
@@ -339,7 +360,7 @@ nodist_test_test_bitcoin_SOURCES = $(GENERATED_TEST_FILES)
 
 $(BITCOIN_TESTS): $(GENERATED_TEST_FILES)
 
-CLEAN_BITCOIN_TEST = test/*.gcda test/*.gcno test/fuzz/*.gcda test/fuzz/*.gcno test/util/*.gcda test/util/*.gcno $(GENERATED_TEST_FILES) $(BITCOIN_TESTS:=.log)
+CLEAN_BITCOIN_TEST = test/*.gcda test/*.gcno test/fuzz/*.gcda test/fuzz/*.gcno test/util/*.gcda test/util/*.gcno $(GENERATED_TEST_FILES) $(addsuffix .log,$(basename $(BITCOIN_TESTS)))
 
 CLEANFILES += $(CLEAN_BITCOIN_TEST)
 
@@ -369,14 +390,14 @@ endif
 if TARGET_WINDOWS
 else
 if ENABLE_BENCH
-	@echo "Running bench/bench_bitcoin ..."
-	$(BENCH_BINARY) > /dev/null
+	@echo "Running bench/bench_bitcoin (one iteration sanity check, only high priority)..."
+	$(BENCH_BINARY) -sanity-check -priority-level=high > /dev/null
 endif
 endif
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C secp256k1 check
 
-if !ENABLE_FUZZ
-UNIVALUE_TESTS = univalue/test/object univalue/test/unitester univalue/test/no_nul
+if ENABLE_TESTS
+UNIVALUE_TESTS = univalue/test/object univalue/test/unitester
 noinst_PROGRAMS += $(UNIVALUE_TESTS)
 TESTS += $(UNIVALUE_TESTS)
 
@@ -385,11 +406,6 @@ univalue_test_unitester_LDADD = $(LIBUNIVALUE)
 univalue_test_unitester_CPPFLAGS = -I$(srcdir)/$(UNIVALUE_INCLUDE_DIR_INT) -DJSON_TEST_SRC=\"$(srcdir)/$(UNIVALUE_TEST_DATA_DIR_INT)\"
 univalue_test_unitester_LDFLAGS = -static $(LIBTOOL_APP_LDFLAGS)
 
-univalue_test_no_nul_SOURCES = $(UNIVALUE_TEST_NO_NUL_INT)
-univalue_test_no_nul_LDADD = $(LIBUNIVALUE)
-univalue_test_no_nul_CPPFLAGS = -I$(srcdir)/$(UNIVALUE_INCLUDE_DIR_INT)
-univalue_test_no_nul_LDFLAGS = -static $(LIBTOOL_APP_LDFLAGS)
-
 univalue_test_object_SOURCES = $(UNIVALUE_TEST_OBJECT_INT)
 univalue_test_object_LDADD = $(LIBUNIVALUE)
 univalue_test_object_CPPFLAGS = -I$(srcdir)/$(UNIVALUE_INCLUDE_DIR_INT)
@@ -397,8 +413,19 @@ univalue_test_object_LDFLAGS = -static $(LIBTOOL_APP_LDFLAGS)
 endif
 
 %.cpp.test: %.cpp
-	@echo Running tests: `cat $< | grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1` from $<
-	$(AM_V_at)$(TEST_BINARY) --catch_system_errors=no -l test_suite -t "`cat $< | grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1`" -- DEBUG_LOG_OUT > $<.log 2>&1 || (cat $<.log && false)
+	@echo Running tests: $$(\
+	  cat $< | \
+	  grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | \
+	  cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1\
+	) from $<
+	$(AM_V_at)export TEST_LOGFILE=$(abs_builddir)/$$(\
+	  echo $< | grep -E -o "(wallet/test/.*\.cpp|test/.*\.cpp)" | $(SED) -e s/\.cpp/.log/ \
+	) && \
+	$(TEST_BINARY) --catch_system_errors=no -l test_suite -t "$$(\
+	  cat $< | \
+	  grep -E "(BOOST_FIXTURE_TEST_SUITE\\(|BOOST_AUTO_TEST_SUITE\\()" | \
+	  cut -d '(' -f 2 | cut -d ',' -f 1 | cut -d ')' -f 1\
+	)" -- DEBUG_LOG_OUT > "$$TEST_LOGFILE" 2>&1 || (cat "$$TEST_LOGFILE" && false)
 
 %.json.h: %.json
 	@$(MKDIR_P) $(@D)
@@ -407,14 +434,5 @@ endif
 	 echo "static unsigned const char $(*F)[] = {" && \
 	 $(HEXDUMP) -v -e '8/1 "0x%02x, "' -e '"\n"' $< | $(SED) -e 's/0x  ,//g' && \
 	 echo "};};"; \
-	} > "$@.new" && mv -f "$@.new" "$@"
-	@echo "Generated $@"
-
-%.raw.h: %.raw
-	@$(MKDIR_P) $(@D)
-	@{ \
-	 echo "static unsigned const char $(*F)_raw[] = {" && \
-	 $(HEXDUMP) -v -e '8/1 "0x%02x, "' -e '"\n"' $< | $(SED) -e 's/0x  ,//g' && \
-	 echo "};"; \
 	} > "$@.new" && mv -f "$@.new" "$@"
 	@echo "Generated $@"
