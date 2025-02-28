@@ -50,7 +50,7 @@ static bool CheckProofGeneric(const CBlockHeader& block, const uint32_t max_bloc
         | SCRIPT_VERIFY_SIGPUSHONLY // Witness is push-only
         | SCRIPT_VERIFY_LOW_S // Stop easiest signature fiddling
         | SCRIPT_VERIFY_WITNESS // Witness and to enforce cleanstack
-        | (is_dyna ? 0 : SCRIPT_NO_SIGHASH_BYTE); // Non-dynafed blocks do not have sighash byte
+        | (is_dyna ? SCRIPT_VERIFY_NONE : SCRIPT_NO_SIGHASH_BYTE); // Non-dynafed blocks do not have sighash byte
     return GenericVerifyScript(scriptSig, witness, challenge, proof_flags, block);
 }
 

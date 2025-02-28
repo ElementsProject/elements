@@ -2794,7 +2794,6 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
                     nodestate->fSyncStarted = false;
                     nodestate->m_headers_sync_timeout = 0us;
                 }
-                return;
             }
         }
     }
