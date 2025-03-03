@@ -45,55 +45,6 @@ bool TestLockPointValidity(CChain& active_chain, const LockPoints& lp)
     return true;
 }
 
-CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& tx, CAmount fee,
-                                 int64_t time, unsigned int entry_height,
-                                 bool spends_coinbase, int64_t sigops_cost, LockPoints lp,
-                                 const std::set<std::pair<uint256, COutPoint>>& _setPeginsSpent)
-    : tx{tx},
-      nFee{fee},
-      nTxWeight(GetTransactionWeight(*tx)),
-      nUsageSize{RecursiveDynamicUsage(tx)},
-      nTime{time},
-      entryHeight{entry_height},
-      spendsCoinbase{spends_coinbase},
-      sigOpCost{sigops_cost},
-      m_modified_fee{nFee},
-      lockPoints{lp},
-      nSizeWithDescendants{GetTxSize()},
-      nModFeesWithDescendants{nFee},
-      nSizeWithAncestors{GetTxSize()},
-      nModFeesWithAncestors{nFee},
-      nSigOpCostWithAncestors{sigOpCost},
-      discountSizeWithAncestors{GetDiscountTxSize()},
-      setPeginsSpent(_setPeginsSpent) {}
-
-void CTxMemPoolEntry::UpdateModifiedFee(CAmount fee_diff)
-{
-    nModFeesWithDescendants = SaturatingAdd(nModFeesWithDescendants, fee_diff);
-    nModFeesWithAncestors = SaturatingAdd(nModFeesWithAncestors, fee_diff);
-    m_modified_fee = SaturatingAdd(m_modified_fee, fee_diff);
-}
-
-void CTxMemPoolEntry::UpdateLockPoints(const LockPoints& lp)
-{
-    lockPoints = lp;
-}
-
-size_t CTxMemPoolEntry::GetTxSize() const
-{
-    return GetVirtualTransactionSize(nTxWeight, sigOpCost, ::nBytesPerSigOp);
-}
-
-size_t CTxMemPoolEntry::GetDiscountTxSize() const
-{
-    // discountvsize only differs from vsize if we accept discounted CTs
-    if (Params().GetAcceptDiscountCT()) {
-        return GetDiscountVirtualTransactionSize(*tx, sigOpCost, ::nBytesPerSigOp);
-    } else {
-        return GetVirtualTransactionSize(nTxWeight, sigOpCost, ::nBytesPerSigOp);
-    }
-}
-
 void CTxMemPool::UpdateForDescendants(txiter updateIt, cacheMap& cachedDescendants,
                                       const std::set<uint256>& setExclude, std::set<uint256>& descendants_to_remove)
 {
