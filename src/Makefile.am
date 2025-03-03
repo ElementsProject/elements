@@ -274,7 +274,6 @@ BITCOIN_CORE_H = \
   support/events.h \
   support/lockedpool.h \
   sync.h \
-  threadinterrupt.h \
   threadsafety.h \
   timedata.h \
   torcontrol.h \
@@ -314,6 +313,7 @@ BITCOIN_CORE_H = \
   util/syserror.h \
   util/system.h \
   util/thread.h \
+  util/threadinterrupt.h \
   util/threadnames.h \
   util/time.h \
   util/tokenpipe.h \
@@ -732,7 +732,6 @@ libbitcoin_util_a_SOURCES = \
   rpc/request.cpp \
   support/cleanse.cpp \
   sync.cpp \
-  threadinterrupt.cpp \
   util/asmap.cpp \
   util/bip32.cpp \
   util/bytevectorhash.cpp \
@@ -750,6 +749,7 @@ libbitcoin_util_a_SOURCES = \
   util/readwritefile.cpp \
   util/settings.cpp \
   util/thread.cpp \
+  util/threadinterrupt.cpp \
   util/threadnames.cpp \
   util/serfloat.cpp \
   util/spanparsing.cpp \
