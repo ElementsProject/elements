@@ -34,11 +34,6 @@
     <ClCompile Include="..\..\src\uint256.cpp" />
     <ClCompile Include="..\..\src\util\strencodings.cpp" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\libelementssimplicity\libelementssimplicity.vcxproj">
-      <Project>{abae25f0-d700-46e1-9ef6-5d6ddfcf8b26}</Project>
-    </ProjectReference>
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="..\common.vcxproj" />

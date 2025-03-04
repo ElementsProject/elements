@@ -1,25 +1,11 @@
-*After branching off for a major version release of Bitcoin Core, use this
-template to create the initial release notes draft.*
+23.2 Release Notes
+==================
 
-*The release notes draft is a temporary file that can be added to by anyone. See
-[/doc/developer-notes.md#release-notes](/doc/developer-notes.md#release-notes)
-for the process.*
+Bitcoin Core version 23.2 is now available from:
 
-*Create the draft, named* "*version* Release Notes Draft"
-*(e.g. "23.0 Release Notes Draft"), as a collaborative wiki in:*
+  <https://bitcoincore.org/bin/bitcoin-core-23.2/>
 
-https://github.com/bitcoin-core/bitcoin-devwiki/wiki/
-
-*Before the final release, move the notes back to this git repository.*
-
-*version* Release Notes Draft
-===============================
-
-Bitcoin Core version *version* is now available from:
-
-  <https://bitcoincore.org/bin/bitcoin-core-*version*/>
-
-This release includes new features, various bug fixes and performance
+This release includes various bug fixes and performance
 improvements, as well as updated translations.
 
 Please report bugs using the issue tracker at GitHub:
@@ -35,7 +21,7 @@ How to Upgrade
 
 If you are running an older version, shut it down. Wait until it has completely
 shut down (which might take a few minutes in some cases), then run the
-installer (on Windows) or just copy over `/Applications/Bitcoin-Qt` (on Mac)
+installer (on Windows) or just copy over `/Applications/Bitcoin-Qt` (on macOS)
 or `bitcoind`/`bitcoin-qt` (on Linux).
 
 Upgrading directly from a version of Bitcoin Core that has reached its EOL is
@@ -51,17 +37,36 @@ Core should also work on most other Unix-like systems but is not as
 frequently tested on them.  It is not recommended to use Bitcoin Core on
 unsupported systems.
 
-Notable changes
-===============
+### P2P
 
-Example item
-------------
+- #26909 net: prevent peers.dat corruptions by only serializing once
+- #27608 p2p: Avoid prematurely clearing download state for other peers
+- #27610 Improve performance of p2p inv to send queues
+
+### Build system
+
+- #25436 build: suppress array-bounds errors in libxkbcommon
+- #25763 bdb: disable Werror for format-security
+- #26944 depends: fix systemtap download URL
+- #27462 depends: fix compiling bdb with clang-16 on aarch64
+
+### Miscellaneous
+
+- #25444 ci: macOS task imrovements
+- #26388 ci: Use macos-ventura-xcode:14.1 image for "macOS native" task
+- #26924 refactor: Add missing includes to fix gcc-13 compile error
 
 Credits
 =======
 
 Thanks to everyone who directly contributed to this release:
 
+- Anthony Towns
+- Hennadii Stepanov
+- MacroFake
+- Martin Zumsande
+- Michael Ford
+- Suhas Daftuar
 
 As well as to everyone that helped with translations on
 [Transifex](https://www.transifex.com/bitcoin/bitcoin/).
