@@ -169,18 +169,9 @@ enum : uint32_t {
 
 bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned int flags, ScriptError* serror);
 
-struct SimplicityTransactionDeleter
-{
-    void operator()(transaction* ptr)
-    {
-        simplicity_elements_freeTransaction(ptr);
-    }
-};
-using SimplicityTransactionUniquePtr = std::unique_ptr<transaction, SimplicityTransactionDeleter>;
-
 struct PrecomputedTransactionData
 {
-    SimplicityTransactionUniquePtr m_simplicity_tx_data;
+    transaction* m_simplicity_tx_data = nullptr;
     // BIP341 precomputed data.
     // These are single-SHA256, see https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki#cite_note-15.
     uint256 m_prevouts_single_hash;
@@ -230,6 +221,9 @@ struct PrecomputedTransactionData
 
     template <class T>
     explicit PrecomputedTransactionData(const T& tx);
+    ~PrecomputedTransactionData() {
+        simplicity_elements_freeTransaction(m_simplicity_tx_data);
+    }
 };
 
 enum class SigVersion
