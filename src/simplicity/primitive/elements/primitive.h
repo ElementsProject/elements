@@ -248,7 +248,7 @@ typedef struct tapEnv {
   unsigned char leafVersion;
 } tapEnv;
 
-/* The 'txEnv' structure used by the Elements application of Simplicity.
+/* The 'txEnv' structure used by the Elements application of Simplcity.
  *
  * It includes
  * + the transaction data, which may be shared when Simplicity expressions are used for multiple inputs in the same transaction),
@@ -263,7 +263,7 @@ typedef struct txEnv {
   uint_fast32_t ix;
 } txEnv;
 
-/* Construct a txEnv structure from its components.
+/* Contstruct a txEnv structure from its components.
  * This function will precompute any cached values.
  *
  * Precondition: NULL != tx
