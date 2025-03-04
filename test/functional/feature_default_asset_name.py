@@ -23,6 +23,9 @@ class NamedDefaultAssetTest(BitcoinTestFramework):
         #Set default asset name
         self.extra_args = [["-defaultpeggedassetname=testasset", "-initialfreecoins=2100000000000000", "-anyonecanspendaremine=1", "-con_connect_genesis_outputs=1", "-con_blocksubsidy=0"]]*2
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def setup_network(self, split=False):
         self.setup_nodes()
         self.connect_nodes(0, 1)

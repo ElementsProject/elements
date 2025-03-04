@@ -105,6 +105,8 @@ class TestNode():
             "-debugexclude=rand",
             "-uacomment=testnode%d" % i,
         ]
+        if self.descriptors is None:
+            self.args.append("-disablewallet")
 
         if use_valgrind:
             default_suppressions_file = os.path.join(

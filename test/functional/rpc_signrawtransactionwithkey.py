@@ -42,6 +42,9 @@ class SignRawTransactionWithKeyTest(BitcoinTestFramework):
         combined_args = prefix_args + elements_args
         self.extra_args = [combined_args, combined_args]
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def setup_network(self):
         self.setup_nodes()
         self.connect_nodes(0, 1)

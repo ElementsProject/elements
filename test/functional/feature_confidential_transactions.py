@@ -41,6 +41,9 @@ class CTTest (BitcoinTestFramework):
         self.extra_args = [args] * self.num_nodes
         self.extra_args[0].append("-anyonecanspendaremine=1") # first node gets the coins
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def setup_network(self, split=False):
         self.setup_nodes()
         self.connect_nodes(0, 1)

@@ -22,6 +22,9 @@ class PAKTest (BitcoinTestFramework):
         # First node doesn't enforce PAK, a "HF" of the other two nodes
         self.extra_args[0] = ["-acceptnonstdtxn=1"] + self.extra_args[0][1:]   ## FIXME -acceptnonstdtxn=1 should not be needed
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 

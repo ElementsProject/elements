@@ -33,6 +33,9 @@ class RejectLowDifficultyHeadersTest(BitcoinTestFramework):
         # Node0 has no required chainwork; node1 requires 15 blocks on top of the genesis block; node2 requires 2047
         self.extra_args = [["-minimumchainwork=0x0", "-checkblockindex=0"], ["-minimumchainwork=0x1f", "-checkblockindex=0"], ["-minimumchainwork=0x1000", "-checkblockindex=0"], ["-minimumchainwork=0x1000", "-checkblockindex=0", "-whitelist=noban@127.0.0.1"]]
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def setup_network(self):
         self.setup_nodes()
         self.reconnect_all()
