@@ -27,6 +27,8 @@ import re
 import logging
 import unittest
 
+os.environ["REQUIRE_WALLET_TYPE_SET"] = "1"
+
 # Formatting. Default colors to empty strings.
 DEFAULT, BOLD, GREEN, RED = ("", ""), ("", ""), ("", ""), ("", "")
 try:
@@ -192,10 +194,10 @@ BASE_SCRIPTS = [
     'wallet_avoidreuse.py --descriptors',
     'wallet_avoid_mixing_output_types.py --descriptors',
     'mempool_reorg.py',
-    'mempool_persist.py',
     # ELEMENTS: discounted Confidential Transactions
     'feature_discount_ct.py',
     'feature_discount_ct_ordering.py',
+    'mempool_persist.py --descriptors',
     'p2p_block_sync.py',
     'wallet_multiwallet.py --legacy-wallet',
     'wallet_multiwallet.py --descriptors',
@@ -244,7 +246,7 @@ BASE_SCRIPTS = [
     'wallet_keypool.py --legacy-wallet',
     'wallet_keypool.py --descriptors',
     'wallet_descriptor.py --descriptors',
-    'wallet_miniscript.py',
+    'wallet_miniscript.py --descriptors',
     'feature_maxtipage.py',
     'p2p_nobloomfilter_messages.py',
     'p2p_filter.py',
@@ -261,7 +263,7 @@ BASE_SCRIPTS = [
     'feature_assumevalid.py',
     'example_test.py',
     'wallet_txn_doublespend.py --legacy-wallet',
-    'wallet_multisig_descriptor_psbt.py',
+    'wallet_multisig_descriptor_psbt.py --descriptors',
     'wallet_txn_doublespend.py --descriptors',
     # ELEMENTS: need to point past versions at our own release server
     #'feature_backwards_compatibility.py --legacy-wallet',
@@ -337,8 +339,8 @@ BASE_SCRIPTS = [
     'wallet_sendall.py --legacy-wallet',
     'wallet_sendall.py --descriptors',
     'wallet_create_tx.py --descriptors',
-    'wallet_taproot.py',
-    'wallet_inactive_hdchains.py',
+    'wallet_taproot.py --descriptors',
+    'wallet_inactive_hdchains.py --legacy-wallet',
     'p2p_fingerprint.py',
     'feature_uacomment.py',
     'feature_init.py',
