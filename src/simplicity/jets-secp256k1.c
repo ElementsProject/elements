@@ -714,7 +714,7 @@ bool simplicity_hash_to_curve(frameItem* dst, frameItem src, const txEnv* env) {
   return true;
 }
 
-/* THIS IS NOT A JET.  It doesn't have the type signatue of a jet
+/* THIS IS NOT A JET.  It doesn't have the type signature of a jet
  * This is a generic taptweak jet implementation parameterized by the tag used in the hash.
  * It is designed to be specialized to implement slightly different taptweak operations for Bitcoin and Elements.
  *

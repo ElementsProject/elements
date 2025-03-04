@@ -6,6 +6,7 @@
 from decimal import Decimal
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
+    assert_approx,
     assert_equal,
 )
 
@@ -80,10 +81,12 @@ class CTTest(BitcoinTestFramework):
         assert_equal(len(vout), 3)
         assert_equal(tx['fee']['bitcoin'], Decimal('-0.00000326'))
         assert_equal(decoded['vsize'], 326)
-        assert_equal(decoded['weight'], 1302)
+        # tx weight can be 1301 or 1302, accept both
+        assert_approx(decoded['weight'], 1301.5, 0.5)
         self.generate(node0, 1)
         tx = node1.getrawtransaction(txid, True)
-        assert_equal(tx['discountweight'], 1302)
+        # tx discountweight can be 1301 or 1302, accept both
+        assert_approx(tx['discountweight'], 1301.5, 0.5)
         assert_equal(tx['discountvsize'], 326)
 
         self.log.info("Send confidential tx to node 0")
@@ -98,10 +101,12 @@ class CTTest(BitcoinTestFramework):
         assert_equal(len(vout), 3)
         assert_equal(tx['fee']['bitcoin'], Decimal('-0.00002575'))
         assert_equal(decoded['vsize'], 2575)
-        assert_equal(decoded['weight'], 10300)
+        # tx weight can be 10299 or 10300, accept both
+        assert_approx(decoded['weight'], 10299.5, 0.5)
         self.generate(node0, 1)
         tx = node1.getrawtransaction(txid, True)
-        assert_equal(tx['discountweight'], 1302)
+        # tx discountweight can be 1301 or 1302, accept both
+        assert_approx(tx['discountweight'], 1301.5, 0.5)
         assert_equal(tx['discountvsize'], 326) # node1 has discountvsize
 
         self.log.info("Send explicit tx to node 1")
@@ -116,10 +121,12 @@ class CTTest(BitcoinTestFramework):
         assert_equal(len(vout), 3)
         assert_equal(tx['fee']['bitcoin'], Decimal('-0.00000326'))
         assert_equal(decoded['vsize'], 326)
-        assert_equal(decoded['weight'], 1302)
+        # tx weight can be 1301 or 1302, accept both
+        assert_approx(decoded['weight'], 1301.5, 0.5)
         self.generate(node0, 1)
         tx = node1.getrawtransaction(txid, True)
-        assert_equal(tx['discountweight'], 1302)
+        # tx weight can be 1301 or 1302, accept both
+        assert_approx(tx['discountweight'], 1301.5, 0.5)
         assert_equal(tx['discountvsize'], 326)
 
         self.log.info("Send confidential (undiscounted) tx to node 1")
@@ -134,10 +141,12 @@ class CTTest(BitcoinTestFramework):
         assert_equal(len(vout), 3)
         assert_equal(tx['fee']['bitcoin'], Decimal('-0.00002575'))
         assert_equal(decoded['vsize'], 2575)
-        assert_equal(decoded['weight'], 10300)
+        # tx weight can be 10299 or 10300, accept both
+        assert_approx(decoded['weight'], 10299.5, 0.5)
         self.generate(node0, 1)
         tx = node1.getrawtransaction(txid, True)
-        assert_equal(tx['discountweight'], 1302)
+        # tx discountweight can be 1301 or 1302, accept both
+        assert_approx(tx['discountweight'], 1301.5, 0.5)
         assert_equal(tx['discountvsize'], 326) # node1 has discountvsize
 
         self.log.info("Send confidential (discounted) tx to node 1")
@@ -161,8 +170,10 @@ class CTTest(BitcoinTestFramework):
             else:
                 assert_equal(decoded['fee'][bitcoin], Decimal('0.00000326'))
             assert_equal(decoded['vsize'], 2575)
-            assert_equal(decoded['weight'], 10300)
-            assert_equal(decoded['discountweight'], 1302)
+            # tx weight can be 10299 or 10300, accept both
+            assert_approx(decoded['weight'], 10299.5, 0.5)
+            # tx discountweight can be 1301 or 1302, accept both
+            assert_approx(decoded['discountweight'], 1301.5, 0.5)
             assert_equal(decoded['discountvsize'], 326)
 
         # node0 only has vsize
@@ -191,8 +202,10 @@ class CTTest(BitcoinTestFramework):
             else:
                 assert_equal(decoded['fee'][bitcoin], Decimal('0.00000033'))
             assert_equal(decoded['vsize'], 2575)
-            assert_equal(decoded['weight'], 10300)
-            assert_equal(decoded['discountweight'], 1302)
+            # tx weight can be 10299 or 10300, accept both
+            assert_approx(decoded['weight'], 10299.5, 0.5)
+            # tx discountweight can be 1301 or 1302, accept both
+            assert_approx(decoded['discountweight'], 1301.5, 0.5)
             assert_equal(decoded['discountvsize'], 326)
         # node0 only has vsize
         tx = node0.getrawtransaction(txid, True)
