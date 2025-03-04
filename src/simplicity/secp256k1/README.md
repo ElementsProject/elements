@@ -49,4 +49,4 @@ Lastly, all active uses of normalize are replaced with the variable-time impleme
 
 [^1]: More specifically, the when a point has a very low and odd order, the `ai` values in the `secp256k1_ecmult_odd_multiples_table` can reach infinity, violating libsecp256k1's assumption that `secp256k1_gej_add_ge_var`'s `a` parameter is never infinity.
 The value we set to the `rzr` in this case does not matter since it ends up only being multiplied with zero in `secp256k1_ge_table_set_globalz`.
-It just needs to be set to some value to avoid reading uninitalized memory.
+It just needs to be set to some value to avoid reading uninitialized memory.

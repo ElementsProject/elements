@@ -591,7 +591,7 @@ RIGHT_EXTEND_(32,64)
 
 #define LEFT_SHIFT_(log, bits)                                                            \
 static inline void left_shift_helper_##bits(bool with, frameItem* dst, frameItem *src) {  \
-  static_assert(log <= 8, "Only log parameter upto 8 is supported.");                     \
+  static_assert(log <= 8, "Only log parameter up to 8 is supported.");                    \
   uint_fast8_t amt = simplicity_read##log(src);                                           \
   uint_fast##bits##_t output = simplicity_read##bits(src);                                \
   if (with) output = UINT##bits##_MAX ^ output;                                           \
@@ -625,7 +625,7 @@ LEFT_SHIFT_(8,64)
 
 #define RIGHT_SHIFT_(log, bits)                                                            \
 static inline void right_shift_helper_##bits(bool with, frameItem* dst, frameItem *src) {  \
-  static_assert(log <= 8, "Only log parameter upto 8 is supported.");                      \
+  static_assert(log <= 8, "Only log parameter up to 8 is supported.");                     \
   uint_fast8_t amt = simplicity_read##log(src);                                            \
   uint_fast##bits##_t output = simplicity_read##bits(src);                                 \
   if (with) output = UINT##bits##_MAX ^ output;                                            \
@@ -1046,7 +1046,7 @@ DIVIDES_(64)
 /* Implements the 3n/2n division algorithm for n=32 bits.
  * For more details see "Fast Recursive Division" by Christoph Burnikel and Joachim Ziegler, MPI-I-98-1-022, Oct. 1998.
  *
- * Given a 96 bit (unsigned) value A and a 64 bit value B, set *q and *r to the quotent and remainder of A divided by B.
+ * Given a 96 bit (unsigned) value A and a 64 bit value B, set *q and *r to the quotient and remainder of A divided by B.
  *
  * ah is passed the high 64 bits of A, and al is passed the low 32 bits of A.
  * We say that A = [ah;al] where [ah;al] denotes ah * 2^32 + al.
@@ -1067,7 +1067,7 @@ DIVIDES_(64)
  *
  * Preconditon 2 ensures that this estimate is close to the true value of Q.  In fact Q <= estQ <= Q + 2 (see proof below)
  *
- * There is a corresponding estR value satifying the equation estR = A - estQ * B.
+ * There is a corresponding estR value satisfying the equation estR = A - estQ * B.
  * This estR is one of {R, R - B, R - 2B}.
  * Therefore if estR is non-negative, then estR is equal to the true R value, and hence estQ is equal to the true Q value.
  *
@@ -1085,7 +1085,7 @@ DIVIDES_(64)
  *
  * Lemma 2: estQ < [1;2] (== 2^32 + 2).
  * First note that ah - [bh;0] < [1;0] because
- * ah < B (by precondtion 1)
+ * ah < B (by precondition 1)
  *    < [bh+1;0]
  *    == [bh;0] + [1;0]
  *
@@ -1116,7 +1116,7 @@ static void div_mod_96_64(uint_fast32_t *q, uint_fast64_t *r,
   /* B == b == [bh;bl] */
   uint_fast64_t estQ = ah / bh;
 
-  /* Precondition 1 guarentees Q is 32-bits, if estQ is greater than UINT32_MAX, then reduce our initial estimated quotient to UINT32_MAX. */
+  /* Precondition 1 guarantees Q is 32-bits, if estQ is greater than UINT32_MAX, then reduce our initial estimated quotient to UINT32_MAX. */
   *q = estQ <= UINT32_MAX ? (uint_fast32_t)estQ : UINT32_MAX;
 
   /* *q * bh <= estQ * bh <= ah */
@@ -1131,7 +1131,7 @@ static void div_mod_96_64(uint_fast32_t *q, uint_fast64_t *r,
    * This value is negative when [rh;al] < d.
    * Note that d is 64 bit and thus if rh is greater than UINT32_MAX, then this value cannot be negative.
    */
-  /* This loop is exectued at most twice. */
+  /* This loop is executed at most twice. */
   while (rh <= UINT32_MAX && 0x100000000u*rh + al < d) {
     /* Our estimated remainder, A - *q * B is negative. */
     /* 0 < d == *q * bl and hence 0 < *q, so this decrement does not underflow. */
@@ -1173,7 +1173,7 @@ bool simplicity_div_mod_128_64(frameItem* dst, frameItem src, const txEnv* env) 
      *         RR
      *
      * First divide the high 3 "digit"s (96-bits) of A by the two "digit"s (64-bits) of B,
-     * returning the first "digit" (high 32-bits) of the quotient, and an intermediate remainer consisiting of 2 "digit"s (64-bits).
+     * returning the first "digit" (high 32-bits) of the quotient, and an intermediate remainder consisiting of 2 "digit"s (64-bits).
      */
     div_mod_96_64(&qh, &r, ah, am, b);
     simplicity_debug_assert(r < b);
@@ -1187,8 +1187,8 @@ bool simplicity_div_mod_128_64(frameItem* dst, frameItem src, const txEnv* env) 
      *         ---
      *          RR
      *
-     * Then append the last "digit" of A to the intermidiate remainder and divide that value (96_bits) by the two "digit"s (64-bits) of B,
-     * returning the second "digit" (low 32-bits) of the quotient, and the final remainer consisiting of 2 "digit"s (64-bits).
+     * Then append the last "digit" of A to the intermediate remainder and divide that value (96_bits) by the two "digit"s (64-bits) of B,
+     * returning the second "digit" (low 32-bits) of the quotient, and the final remainder consisiting of 2 "digit"s (64-bits).
      */
     div_mod_96_64(&ql, &r, r, al, b);
     simplicity_write32(dst, qh);

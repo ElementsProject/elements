@@ -25,6 +25,7 @@ from test_framework.util import (
 )
 import os
 import re
+import tempfile
 
 from test_framework.liquid_addr import (
     encode,
@@ -51,7 +52,7 @@ class CTTest (BitcoinTestFramework):
         self.skip_if_no_wallet()
 
     def test_wallet_recovery(self):
-        file_path = "/tmp/blind_details"
+        file_path = os.path.join(tempfile.gettempdir(), "blind_details")
         try:
             os.remove(file_path)
         except OSError:

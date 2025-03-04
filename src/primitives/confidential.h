@@ -149,7 +149,7 @@ public:
             return -1;
         }
 
-        assert(IsExplicit());;
+        assert(IsExplicit());
         return ReadBE64(&vchCommitment[1]);
     }
     void SetToAmount(CAmount nAmount);

@@ -85,12 +85,12 @@ static inline size_t typeSkip(size_t i, const type* type_dag) {
 }
 
 /* Precondition: type type_dag[i] and 'type_dag' is well-formed.
- *               if type_dag[i] is a non-trival 'PRODUCT', then both of its two type arguements are non-trival.
+ *               if type_dag[i] is a non-trival 'PRODUCT', then both of its two type arguments are non-trival.
  * Postconditon: value == type_dag[i]
  */
 static inline void setTypeBack(size_t i, type* type_dag, size_t value) {
   /* .back cannot be used if .skip is in use.
-     Specifically it cannot be a non-trivial 'PRODUCT' type where one of its two type arguements is a trivial type.
+     Specifically it cannot be a non-trivial 'PRODUCT' type where one of its two type arguments is a trivial type.
    */
   simplicity_assert((PRODUCT != type_dag[i].kind ||
                      0 == type_dag[i].bitSize ||

@@ -96,7 +96,7 @@ static SECP256K1_INLINE int secp256k1_memcmp_var(const void *s1, const void *s2,
 # define SECP256K1_INT128_NATIVE 1
 #elif defined(USE_FORCE_WIDEMUL_INT64)
 /* If USE_FORCE_WIDEMUL_INT64 is set, use int64. */
-# error WIDEMUL_INT64 not suported in Simplicity.
+# error WIDEMUL_INT64 not supported in Simplicity.
 #elif defined(UINT128_MAX) || defined(__SIZEOF_INT128__)
 /* If a native 128-bit integer type exists, use int128. */
 # define SECP256K1_WIDEMUL_INT128 1

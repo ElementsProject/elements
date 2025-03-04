@@ -350,7 +350,7 @@ void simplicity_computeCommitmentMerkleRoot(dag_node* dag, uint_fast32_t i);
 void simplicity_computeAnnotatedMerkleRoot(analyses* analysis, const dag_node* dag, const type* type_dag, uint_fast32_t len);
 
 /* Verifies that the 'dag' is in canonical order, meaning that nodes under the left branches have lower indices than nodes under
- * right branches, with the exception that nodes under right braches may (cross-)reference identical nodes that already occur under
+ * right branches, with the exception that nodes under right branches may (cross-)reference identical nodes that already occur under
  * left branches.
  *
  * Returns 'SIMPLICITY_NO_ERROR' if the 'dag' is in canonical order, and returns 'SIMPLICITY_ERR_DATA_OUT_OF_ORDER' if it is not.

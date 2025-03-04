@@ -367,7 +367,7 @@ void simplicity_computeAnnotatedMerkleRoot(analyses* analysis, const dag_node* d
 }
 
 /* Verifies that the 'dag' is in canonical order, meaning that nodes under the left branches have lower indices than nodes under
- * right branches, with the exception that nodes under right braches may (cross-)reference identical nodes that already occur under
+ * right branches, with the exception that nodes under right branches may (cross-)reference identical nodes that already occur under
  * left branches.
  *
  * Returns 'SIMPLICITY_NO_ERROR' if the 'dag' is in canonical order, and returns 'SIMPLICITY_ERR_DATA_OUT_OF_ORDER' if it is not.
@@ -389,7 +389,7 @@ simplicity_err simplicity_verifyCanonicalOrder(dag_node* dag, const uint_fast32_
   /* We use dag[i].aux as a "stack" to manage the traversal of the DAG. */
   dag[top].aux = len; /* We will set top to 'len' to indicate we are finished. */
 
-  /* Each time any particular 'top' value is revisted in this loop, bottom has increased to be strictly larger than the last 'child'
+  /* Each time any particular 'top' value is revisited in this loop, bottom has increased to be strictly larger than the last 'child'
      value examined.  Therefore we will make further progress in the loop the next time around.
      By this reasoning any given 'top' value will be visited no more than numChildren(dag[top].tag) + 1 <= 3 times.
      Thus this loop iterates at most O('len') times.
