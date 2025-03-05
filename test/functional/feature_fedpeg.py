@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import time
+import os
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import BitcoinTestFramework
@@ -152,7 +153,7 @@ class FedPegTest(BitcoinTestFramework):
             else:
                 # Need to specify where to find parent cookie file
                 datadir = get_datadir_path(self.options.tmpdir, n)
-                extra_args.append('-mainchainrpccookiefile='+datadir+"/" + parent_chain + "/.cookie")
+                extra_args.append('-mainchainrpccookiefile='+os.path.join(datadir, parent_chain, ".cookie"))
 
             self.add_nodes(1, [extra_args], chain=["elementsregtest"])
             self.start_node(2+n)
