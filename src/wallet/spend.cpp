@@ -199,15 +199,19 @@ void CoinsResult::Clear() {
     coins.clear();
 }
 
-void CoinsResult::Erase(std::set<COutPoint>& preset_coins)
+void CoinsResult::Erase(const std::unordered_set<COutPoint, SaltedOutpointHasher>& coins_to_remove)
 {
-    for (auto& it : coins) {
-        auto& vec = it.second;
-        auto i = std::find_if(vec.begin(), vec.end(), [&](const COutput &c) { return preset_coins.count(c.outpoint);});
-        if (i != vec.end()) {
-            vec.erase(i);
-            break;
-        }
+    for (auto& [type, vec] : coins) {
+        auto remove_it = std::remove_if(vec.begin(), vec.end(), [&](const COutput& coin) {
+            // remove it if it's on the set
+            if (coins_to_remove.count(coin.outpoint) == 0) return false;
+
+            // update cached amounts
+            total_amount[coin.asset] -= coin.value;
+            if (coin.HasEffectiveValue()) total_effective_amount[coin.asset] -= coin.GetEffectiveValue();
+            return true;
+        });
+        vec.erase(remove_it, vec.end());
     }
 }
 
@@ -221,6 +225,10 @@ void CoinsResult::Shuffle(FastRandomContext& rng_fast)
 void CoinsResult::Add(OutputType type, const COutput& out)
 {
     coins[type].emplace_back(out);
+    total_amount[out.asset] += out.value;
+    if (out.HasEffectiveValue()) {
+    	   total_effective_amount[out.asset] += out.GetEffectiveValue();
+    }
 }
 
 static OutputType GetOutputType(TxoutType type, bool is_from_p2sh)
@@ -440,11 +448,9 @@ CoinsResult AvailableCoins(const CWallet& wallet,
             result.Add(GetOutputType(type, is_from_p2sh),
                        COutput(wallet, wtx, outpoint, output, nDepth, input_bytes, spendable, solvable, safeTx, wtx.GetTxTime(), tx_from_me, feerate));
 
-            // Cache total amount as we go
-            result.total_amount[asset] += outValue;
             // Checks the sum amount of all UTXO's.
             if (params.min_sum_amount != MAX_MONEY) {
-                if (result.total_amount[::policyAsset] >= params.min_sum_amount) { // ELEMENTS: only use mininum sum for policy asset
+                if (result.GetTotalAmount()[::policyAsset] >= params.min_sum_amount) { // ELEMENTS: only use mininum sum for policy asset
                     return result;
                 }
             }
@@ -468,7 +474,7 @@ CoinsResult AvailableCoinsListUnspent(const CWallet& wallet, const CCoinControl*
 CAmountMap GetAvailableBalance(const CWallet& wallet, const CCoinControl* coinControl)
 {
     LOCK(wallet.cs_wallet);
-    return AvailableCoins(wallet, coinControl).total_amount;
+    return AvailableCoins(wallet, coinControl).GetTotalAmount();
 }
 
 const CTxOut& FindNonChangeParentOutput(const CWallet& wallet, const CTransaction& tx, int output) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
@@ -756,6 +762,11 @@ std::optional<SelectionResult> SelectCoins(const CWallet& wallet, CoinsResult& a
         return result;
     }
 
+    CAmountMap available_coins_total_amount = coin_selection_params.m_subtract_fee_outputs ? available_coins.GetTotalAmount() : available_coins.GetEffectiveTotalAmount();
+    if (selection_target > available_coins_total_amount) {
+        return std::nullopt; // Insufficient funds
+    }
+
     // Start wallet Coin Selection procedure
     auto op_selection_result = AutomaticCoinSelection(wallet, available_coins, selection_target, coin_control, coin_selection_params);
     if (!op_selection_result) return op_selection_result;
@@ -782,7 +793,7 @@ std::optional<SelectionResult> AutomaticCoinSelection(const CWallet& wallet, Coi
     const bool fRejectLongChains = gArgs.GetBoolArg("-walletrejectlongchains", DEFAULT_WALLET_REJECT_LONG_CHAINS);
 
     // ELEMENTS: filter coins for assets we are interested in; always keep policyAsset for fees
-    std::set<COutPoint> outpoints;
+    std::unordered_set<COutPoint, SaltedOutpointHasher> outpoints;
     for (const auto& output : available_coins.All()) {
         if (output.asset != ::policyAsset  && value_to_select.find(output.asset) == value_to_select.end()) {
             outpoints.emplace(output.outpoint);
