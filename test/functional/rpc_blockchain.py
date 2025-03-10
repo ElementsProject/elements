@@ -198,7 +198,7 @@ class BlockchainTest(BitcoinTestFramework):
                 'active': False,
                 'bip9': {
                     'status': 'defined',
-                    'status-next': 'defined',
+                    'status_next': 'defined',
                     'start_time': 2147483648,
                     'timeout': 9223372036854775807,
                     'since': 0,
