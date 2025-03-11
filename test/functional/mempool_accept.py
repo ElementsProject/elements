@@ -46,6 +46,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
             '-txindex',
             '-txindex','-permitbaremultisig=0',
             '-multi_data_permitted=1', # Elements test
+            '-dustrelayfee=0.00003000', # ELEMENTS: use the Bitcoin default dust relay fee rate
         ]] * self.num_nodes
         self.supports_cli = False
 
