@@ -89,6 +89,9 @@ static constexpr unsigned int STANDARD_NOT_MANDATORY_VERIFY_FLAGS = STANDARD_SCR
 static constexpr unsigned int STANDARD_LOCKTIME_VERIFY_FLAGS = LOCKTIME_VERIFY_SEQUENCE |
                                                                LOCKTIME_MEDIAN_TIME_PAST;
 
+// ELEMENTS: keep a copy of the upstream default dust relay fee rate
+static const unsigned int DUST_RELAY_TX_FEE_BITCOIN = 3000;
+
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFee);
 
 bool IsDust(const CTxOut& txout, const CFeeRate& dustRelayFee);
