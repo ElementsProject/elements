@@ -2159,7 +2159,9 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
         }
 
         CTransaction tx_tmp(tx);
-        if (!VerifyAmounts(inputs_utxos, tx_tmp, nullptr, false)) {
+        const std::string verify_amounts_result = VerifyAmounts(inputs_utxos, tx_tmp, nullptr, false);
+        if (verify_amounts_result.length() != 0) {
+            WalletLogPrintf("VerifyAmounts error: %s", verify_amounts_result);
             return TransactionError::VALUE_IMBALANCE;
         }
     }
