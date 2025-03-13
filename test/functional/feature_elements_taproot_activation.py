@@ -49,7 +49,7 @@ class TaprootActivationTest(BitcoinTestFramework):
                 assert_equal (decode["versionHex"], "20000000")
 
         assert_equal(rpc.getdeploymentinfo()["deployments"]["taproot"]["bip9"]["status"], "defined")
-        # The 1023rd block does not signal, but changes status-next to "started" from "defined"
+        # The 1023rd block does not signal, but changes status_next to "started" from "defined"
         # bitcoin PR #23508 changed bip9 status to the current block instead of the next block
         blocks = self.generatetoaddress(rpc, 1, rpc.getnewaddress())
         assert_equal(rpc.getdeploymentinfo()["deployments"]["taproot"]["bip9"]["status"], "defined")
