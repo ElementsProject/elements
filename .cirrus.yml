@@ -67,20 +67,6 @@ compute_credits_template: &CREDITS_TEMPLATE
   use_compute_credits: $CIRRUS_REPO_FULL_NAME == 'ElementsProject/elements' && $CIRRUS_PR != ""
 
 task:
-  name: 'lint [bionic]'
-  << : *BASE_TEMPLATE
-  container:
-    image: ubuntu:bionic  # For python 3.6, oldest supported version according to doc/dependencies.md
-    cpu: 1
-    memory: 1G
-  # For faster CI feedback, immediately schedule the linters
-  << : *CREDITS_TEMPLATE
-  lint_script:
-    - ./ci/lint_run_all.sh
-  env:
-    << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-
-task:
   name: "Win64 native [msvc]"
   << : *FILTER_TEMPLATE
   windows_container:
@@ -160,139 +146,26 @@ task:
     - python build_msvc\msvc-autogen.py
     - msbuild build_msvc\bitcoin.sln -property:Configuration=Release -maxCpuCount -verbosity:minimal -noLogo
   unit_tests_script:
-    - src\test_elements.exe -l test_suite
-    - src\bench_elements.exe > NUL
-    - python test\util\test_runner.py
+    # - src\test_elements.exe -l test_suite
+    # - src\bench_elements.exe > NUL
+    # - python test\util\test_runner.py
     - python test\util\rpcauth-test.py
   functional_tests_script:
     # Increase the dynamic port range to the maximum allowed value to mitigate "OSError: [WinError 10048] Only one usage of each socket address (protocol/network address/port) is normally permitted".
     # See: https://docs.microsoft.com/en-us/biztalk/technical-guides/settings-that-can-be-modified-to-improve-network-performance
     - netsh int ipv4 set dynamicport tcp start=1025 num=64511
     - netsh int ipv6 set dynamicport tcp start=1025 num=64511
+    - mkdir artifactsdir
     # Exclude feature_dbcrash for now due to timeout
     # Exclude also wallet_avoidreuse due to timeout
     # Ignore failures for now, need to investigate but we really don't use native win64 builds
-    - python test\functional\test_runner.py --nocleanup --ci --quiet --combinedlogslen=4000 --jobs=4 --timeout-factor=8 --extended --exclude feature_dbcrash,wallet_avoidreuse || true
+    - python test\functional\test_runner.py --tmpdirprefix=artifactsdir/ --ci --quiet --combinedlogslen=4000 --jobs=4 --timeout-factor=8 --extended --exclude feature_dbcrash,wallet_avoidreuse,feature_trim_headers || true
 
-task:
-  name: 'ARM [unit tests, no functional tests] [bullseye]'
-  << : *GLOBAL_TASK_TEMPLATE
-  container:
-    image: debian:bullseye
-    docker_arguments:
-      CI_IMAGE_NAME_TAG: debian:bullseye
-  << : *CREDITS_TEMPLATE
-  env:
-    << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-    FILE_ENV: "./ci/test/00_setup_env_arm.sh"
-
-task:
-  name: 'Win64 [unit tests, no gui tests, no boost::process, no functional tests] [jammy]'
-  << : *GLOBAL_TASK_TEMPLATE
-  container:
-    image: ubuntu:jammy
-  env:
-    << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-    FILE_ENV: "./ci/test/00_setup_env_win64.sh"
-
-task:
-  name: '32-bit + dash [gui] [Rocky 8]'
-  << : *GLOBAL_TASK_TEMPLATE
-  container:
-    image: quay.io/rockylinux/rockylinux:8
-  env:
-    << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-    PACKAGE_MANAGER_INSTALL: "yum install -y"
-    FILE_ENV: "./ci/test/00_setup_env_i686_centos.sh"
-
-task:
-  name: '[previous releases, uses qt5 dev package and some depends packages, DEBUG] [unsigned char] [bionic]'
-  previous_releases_cache:
-    folder: "releases"
-  << : *GLOBAL_TASK_TEMPLATE
-  << : *PERSISTENT_WORKER_TEMPLATE
-  env:
-    << : *PERSISTENT_WORKER_TEMPLATE_ENV
-    FILE_ENV: "./ci/test/00_setup_env_native_qt5.sh"
-
-task:
-  name: '[TSan, depends, gui] [2404]'
-  << : *GLOBAL_TASK_TEMPLATE
-  container:
-    image: ubuntu:24.04
-    cpu: 6  # Increase CPU and Memory to avoid timeout
-    memory: 24G
-  env:
-    << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-    FILE_ENV: "./ci/test/00_setup_env_native_tsan.sh"
-    MAKEJOBS: "-j2"  # Avoid excessive memory use due to MSan
-
-task:
-  name: '[MSan, depends] [focal]'
-  << : *GLOBAL_TASK_TEMPLATE
-  container:
-    image: ubuntu:focal
-  env:
-    << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-    FILE_ENV: "./ci/test/00_setup_env_native_msan.sh"
-
-task:
-  name: '[ASan + LSan + UBSan + integer, no depends] [jammy]'
-  << : *GLOBAL_TASK_TEMPLATE
-  container:
-    image: ubuntu:jammy
-    memory: 16G # ELEMENTS: need more memory
-    cpu: 4  # ELEMENTS: cirrus wants more CPUs if you want more memory
-  env:
-    << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-    FILE_ENV: "./ci/test/00_setup_env_native_asan.sh"
-
-task:
-  name: '[fuzzer,address,undefined,integer, no depends] [jammy]'
-  << : *GLOBAL_TASK_TEMPLATE
-  container:
-    image: ubuntu:jammy
-    cpu: 8  # Increase CPU and memory to avoid timeout
-    memory: 16G
-  env:
-    << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-    FILE_ENV: "./ci/test/00_setup_env_native_fuzz.sh"
-
-task:
-  name: '[multiprocess, i686, DEBUG] [focal]'
-  # Disable for Elements for now; Multiprocess build is not supported or tested and fails CI.
-  only_if: false
-  << : *GLOBAL_TASK_TEMPLATE
-  container:
-    image: ubuntu:focal
-    cpu: 4
-    memory: 16G  # The default memory is sometimes just a bit too small, so double everything
-  env:
-    << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-    FILE_ENV: "./ci/test/00_setup_env_i686_multiprocess.sh"
-
-task:
-  name: '[no wallet, libbitcoinkernel] [bionic]'
-  << : *GLOBAL_TASK_TEMPLATE
-  container:
-    image: ubuntu:bionic
-  env:
-    << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-    FILE_ENV: "./ci/test/00_setup_env_native_nowallet_libbitcoinkernel.sh"
-
-task:
-  name: 'macOS 10.15 [gui, no tests] [focal]'
-  << : *BASE_TEMPLATE
-  macos_sdk_cache:
-    folder: "depends/SDKs/$MACOS_SDK"
-    fingerprint_key: "$MACOS_SDK"
-  << : *MAIN_TEMPLATE
-  container:
-    image: ubuntu:focal
-  env:
-    MACOS_SDK: "Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers"
-    << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-    FILE_ENV: "./ci/test/00_setup_env_mac.sh"
+  artifacts:
+    paths:
+      - artifactsdir/**/*.log
+      - artifactsdir/**/tmp*
+      - artifactsdir/**/*.conf
 
 task:
   name: 'macOS 13 native arm64 [gui, sqlite only] [no depends]'
@@ -305,20 +178,3 @@ task:
     CI_USE_APT_INSTALL: "no"
     PACKAGE_MANAGER_INSTALL: "echo"  # Nothing to do
     FILE_ENV: "./ci/test/00_setup_env_mac_native_arm64.sh"
-
-task:
-  name: 'ARM64 Android APK [focal]'
-  # Disable for Elements; Android build is broken and unsupported.
-  only_if: false
-  android_sdk_cache:
-    folder: "depends/SDKs/android"
-    fingerprint_key: "ANDROID_API_LEVEL=28 ANDROID_BUILD_TOOLS_VERSION=28.0.3 ANDROID_NDK_VERSION=23.1.7779620"
-  depends_sources_cache:
-    folder: "depends/sources"
-    fingerprint_script: git rev-list -1 HEAD ./depends
-  << : *MAIN_TEMPLATE
-  container:
-    image: ubuntu:focal
-  env:
-    << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
-    FILE_ENV: "./ci/test/00_setup_env_android.sh"

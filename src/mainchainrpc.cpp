@@ -158,18 +158,18 @@ bool IsConfirmedBitcoinBlock(const uint256& hash, const int nMinConfirmationDept
         UniValue params(UniValue::VARR);
         params.push_back(hash.GetHex());
         UniValue reply = CallMainChainRPC("getblockheader", params);
-        UniValue errval = find_value(reply, "error");
+        UniValue errval = reply.find_value("error");
         if (!errval.isNull()) {
             LogPrintf("WARNING: Got error reply from bitcoind getblockheader: %s\n", errval.write());
             return false;
         }
-        UniValue result = find_value(reply, "result");
+        UniValue result = reply.find_value("result");
         if (!result.isObject()) {
             LogPrintf("ERROR: bitcoind getblockheader result was malformed (not object): %s\n", result.write());
             return false;
         }
 
-        UniValue confirmations = find_value(result.get_obj(), "confirmations");
+        UniValue confirmations = result.get_obj().find_value("confirmations");
         if (!confirmations.isNum() || confirmations.get_int64() < nMinConfirmationDepth) {
             LogPrintf("Insufficient confirmations (got %s, need at least %d).\n", confirmations.write(), nMinConfirmationDepth);
             return false;
@@ -177,7 +177,7 @@ bool IsConfirmedBitcoinBlock(const uint256& hash, const int nMinConfirmationDept
 
         // Only perform extra test if nbTxs has been provided (non-zero).
         if (nbTxs != 0) {
-            UniValue nTx = find_value(result.get_obj(), "nTx");
+            UniValue nTx = result.get_obj().find_value("nTx");
             if (!nTx.isNum() || nTx.get_int64() != nbTxs) {
                 LogPrintf("ERROR: Invalid number of transactions in merkle block for %s (got %s, need exactly %d)\n",
                         hash.GetHex(), nTx.write(), nbTxs);

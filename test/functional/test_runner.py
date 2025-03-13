@@ -88,6 +88,7 @@ EXTENDED_SCRIPTS = [
 BASE_SCRIPTS = [
     # Scripts that are run by default.
     # vv First elements tests vv
+    'feature_trim_headers.py',
     'example_elements_code_tutorial.py',
     'feature_fedpeg.py --legacy-wallet',
     'feature_fedpeg.py --pre_transition --legacy-wallet',
@@ -113,7 +114,6 @@ BASE_SCRIPTS = [
     'wallet_elements_regression_1172.py --legacy-wallet',
     'wallet_elements_regression_1259.py --legacy-wallet',
     'wallet_elements_21million.py',
-    'feature_trim_headers.py',
     # Longest test should go first, to favor running tests in parallel
     'wallet_hd.py --legacy-wallet',
     'wallet_hd.py --descriptors',
