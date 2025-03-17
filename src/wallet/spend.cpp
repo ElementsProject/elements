@@ -1676,7 +1676,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     if (!coin_selection_params.m_subtract_fee_outputs && fee_needed > map_change_and_fee.at(policyAsset) - change_amount) {
         wallet.WalletLogPrintf("ERROR: not enough coins to cover for fee (needed: %d, total: %d, change: %d)\n",
             fee_needed, map_change_and_fee.at(policyAsset), change_amount);
-        return util::Error{_("Could not cover fee")};
+        return util::Error{Untranslated(STR_INTERNAL_BUG("Fee needed > fee paid"))};
     }
 
     // If there is a change output and we overpay the fees then increase the change to match the fee needed
