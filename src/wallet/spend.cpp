@@ -7,6 +7,8 @@
 #include <consensus/validation.h>
 #include <interfaces/chain.h>
 #include <issuance.h> // ELEMENTS: for GenerateAssetEntropy and others
+#include <algorithm>
+#include <numeric>
 #include <policy/policy.h>
 #include <rpc/util.h>  // for GetDestinationBlindingKey and IsBlindDestination
 #include <script/pegins.h>
@@ -732,14 +734,24 @@ std::optional<SelectionResult> ChooseSelectionResult(const CWallet& wallet, cons
         results.push_back(*knapsack_result);
     }
 
-    if (results.size() == 0) {
+    if (results.empty()) {
         // No solution found
+        return std::nullopt;
+    }
+
+    std::vector<SelectionResult> eligible_results;
+    std::copy_if(results.begin(), results.end(), std::back_inserter(eligible_results), [coin_selection_params](const SelectionResult& result) {
+        const auto initWeight{coin_selection_params.tx_noinputs_size * WITNESS_SCALE_FACTOR};
+        return initWeight + result.GetWeight() <= static_cast<int>(MAX_STANDARD_TX_WEIGHT);
+    });
+
+    if (eligible_results.empty()) {
         return std::nullopt;
     }
 
     // Choose the result with the least waste
     // If the waste is the same, choose the one which spends more inputs.
-    auto& best_result = *std::min_element(results.begin(), results.end());
+    auto& best_result = *std::min_element(eligible_results.begin(), eligible_results.end());
     return best_result;
 }
 
@@ -1253,14 +1265,14 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     const auto change_spend_fee = coin_selection_params.m_discard_feerate.GetFee(coin_selection_params.change_spend_size);
     coin_selection_params.min_viable_change = std::max(change_spend_fee + 1, dust);
 
+    // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 witness overhead (dummy, flag, stack size)
+    coin_selection_params.tx_noinputs_size = 10 + GetSizeOfCompactSize(vecSend.size()); // bytes for output count
+
     // vouts to the payees
-    if (!coin_selection_params.m_subtract_fee_outputs) {
-        coin_selection_params.tx_noinputs_size = 10; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 witness overhead (dummy, flag, stack size)
-        if (g_con_elementsmode) {
-            coin_selection_params.tx_noinputs_size += 46; // fee output: 9 bytes value, 1 byte scriptPubKey, 33 bytes asset, 1 byte nonce, 1 byte each for null rangeproof/surjectionproof
-        }
-        coin_selection_params.tx_noinputs_size += GetSizeOfCompactSize(vecSend.size()); // bytes for output count
+    if (g_con_elementsmode) {
+        coin_selection_params.tx_noinputs_size += 46; // fee output: 9 bytes value, 1 byte scriptPubKey, 33 bytes asset, 1 byte nonce, 1 byte each for null rangeproof/surjectionproof
     }
+
     // ELEMENTS: If we have blinded inputs but no blinded outputs (which, since the wallet
     //  makes an effort to not produce change, is a common case) then we need to add a
     //  dummy output.
@@ -1271,9 +1283,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
         txout.nNonce.vchCommitment = std::vector<unsigned char>(recipient.confidentiality_key.begin(), recipient.confidentiality_key.end());
 
         // Include the fee cost for outputs.
-        if (!coin_selection_params.m_subtract_fee_outputs) {
-            coin_selection_params.tx_noinputs_size += ::GetSerializeSize(txout, PROTOCOL_VERSION);
-        }
+        coin_selection_params.tx_noinputs_size += ::GetSerializeSize(txout, PROTOCOL_VERSION);
 
         if (recipient.asset == policyAsset && IsDust(txout, wallet.chain().relayDustFee()))
         {
@@ -1325,7 +1335,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     }
 
     // Include the fees for things that aren't inputs, excluding the change output
-    const CAmount not_input_fees = coin_selection_params.m_effective_feerate.GetFee(coin_selection_params.tx_noinputs_size);
+    const CAmount not_input_fees = coin_selection_params.m_effective_feerate.GetFee(coin_selection_params.m_subtract_fee_outputs ? 0 : coin_selection_params.tx_noinputs_size);
     CAmountMap map_selection_target = map_recipients_sum;
     map_selection_target[policyAsset] += not_input_fees;
 

@@ -1071,7 +1071,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 #            outputs[recipient.getnewaddress()] = 0.1
 #        wallet.sendmany("", outputs)
 #        self.generate(self.nodes[0], 10)
-#        assert_raises_rpc_error(-4, "Transaction too large", recipient.fundrawtransaction, rawtx)
+#        assert_raises_rpc_error(-4, "Insufficient funds", recipient.fundrawtransaction, rawtx)
 #        self.nodes[0].unloadwallet("large")
 
     def test_external_inputs(self):
@@ -1500,6 +1500,9 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.nodes[0].createwallet("surjection")
         wallet = self.nodes[0].get_wallet_rpc(self.default_wallet_name)
         recipient = self.nodes[0].get_wallet_rpc("surjection")
+
+        self.sync_all()
+        self.generate(self.nodes[0], 1)
 
         # Make 500 0.1 BTC outputs...
         for j in range(0, 10):

@@ -337,7 +337,7 @@ class SendallTest(BitcoinTestFramework):
     def sendall_fails_with_transaction_too_large(self):
         self.log.info("Test that sendall fails if resulting transaction is too large")
         # create many inputs
-        outputs = {self.wallet.getnewaddress(): 0.000025 for _ in range(1500)} # ELEMENTS reduced since our txs are bigger
+        outputs = {self.wallet.getnewaddress(): 0.000025 for _ in range(1490)} # ELEMENTS reduced since our txs are bigger (reduced from coinselection chnages in bitcoin/bitcoin#25729)
         self.def_wallet.sendmany(amounts=outputs)
         self.generate(self.nodes[0], 1)
 
