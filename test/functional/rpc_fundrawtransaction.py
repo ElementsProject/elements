@@ -1511,6 +1511,9 @@ class RawTransactionsTest(BitcoinTestFramework):
                 outputs[recipient.getnewaddress()] = 0.1
             wallet.sendmany("", outputs)
 
+        self.sync_all()
+        self.generate(self.nodes[0], 1)
+
         # ...and try to send them all in one transaction
         # This should fail but we should not see an assertion failure.
         rawtx = recipient.createrawtransaction([], [{wallet.getnewaddress(): 49.99}])

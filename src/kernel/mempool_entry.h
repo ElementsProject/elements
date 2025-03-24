@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_TXMEMPOOL_ENTRY_H
-#define BITCOIN_TXMEMPOOL_ENTRY_H
+#ifndef BITCOIN_KERNEL_MEMPOOL_ENTRY_H
+#define BITCOIN_KERNEL_MEMPOOL_ENTRY_H
 
 #include <chainparams.h> // ELEMENTS
 #include <consensus/amount.h>
@@ -189,4 +189,4 @@ public:
     std::set<std::pair<uint256, COutPoint>> setPeginsSpent;
 };
 
-#endif // BITCOIN_TXMEMPOOL_ENTRY_H
+#endif // BITCOIN_KERNEL_MEMPOOL_ENTRY_H
