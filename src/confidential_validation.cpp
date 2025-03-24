@@ -393,11 +393,11 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
         if (asset.vchCommitment.size() != CConfidentialAsset::nCommittedSize || ptxoutwit->vchSurjectionproof.empty()) {
             return false;
         }
-        if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, asset.vchCommitment.data()) != 1)
+        if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
             return false;
 
         secp256k1_surjectionproof proof;
-        if (secp256k1_surjectionproof_parse(secp256k1_ctx_verify_amounts, &proof, ptxoutwit->vchSurjectionproof.data(), ptxoutwit->vchSurjectionproof.size()) != 1)
+        if (secp256k1_surjectionproof_parse(secp256k1_ctx_verify_amounts, &proof, &ptxoutwit->vchSurjectionproof[0], ptxoutwit->vchSurjectionproof.size()) != 1)
             return false;
 
         if (QueueCheck(checks, new CSurjectionCheck(proof, target_generators, gen, wtxid, store_result)) != SCRIPT_ERR_OK) {
