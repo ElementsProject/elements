@@ -18,6 +18,7 @@ class SimplicityActivationTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
+        self.extra_args = [["-evbparams=dynafed:0:::"]]
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
@@ -36,8 +37,8 @@ class SimplicityActivationTest(BitcoinTestFramework):
             if n < 143:
                 assert_equal (decode["versionHex"], "20000000")
             elif n < 431:
-                # TESTDUMMY deployment: 144 blocks active, 144 blocks locked in
-                assert_equal (decode["versionHex"], "30000000")
+                # TESTDUMMY and DYNAFED deployment: 144 blocks active, 144 blocks locked in
+                assert_equal (decode["versionHex"], "32000000")
             else:
                 assert_equal (decode["versionHex"], "20000000")
 
@@ -103,15 +104,15 @@ class SimplicityActivationTest(BitcoinTestFramework):
             if n < 143:
                 assert_equal (decode["versionHex"], "20000000")
             elif n < 431:
-                # TESTDUMMY deployment: 144 blocks active, 144 blocks locked in
-                assert_equal (decode["versionHex"], "30000000")
+                # TESTDUMMY and DYNAFED deployment: 144 blocks active, 144 blocks locked in
+                assert_equal (decode["versionHex"], "32000000")
             else:
                 assert_equal (decode["versionHex"], "20000000")
 
         # Test activation starting from height 1000
         # Note that for Simplicity this is an illogical combination (Simplicity without
         # Taproot) but for purposes of this test it's fine.
-        self.restart_node(0, ["-evbparams=simplicity:500:::"])
+        self.restart_node(0, ["-evbparams=dynafed:0:::", "-evbparams=simplicity:500:::"])
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(1))
         self.test_activation(self.nodes[0], 500)
 
