@@ -128,9 +128,9 @@ BASE_SCRIPTS = [
     #'mining_getblocktemplate_longpoll.py',
     'feature_maxuploadtarget.py',
     'feature_block.py',
-    'rpc_fundrawtransaction.py --legacy-wallet',
-    'rpc_fundrawtransaction.py --descriptors',
     'wallet_elements_regression_1263.py',
+    'wallet_fundrawtransaction.py --legacy-wallet',
+    'wallet_fundrawtransaction.py --descriptors',
     'p2p_compactblocks.py',
     'p2p_compactblocks_blocksonly.py',
     'feature_segwit.py --legacy-wallet',
@@ -266,8 +266,8 @@ BASE_SCRIPTS = [
     'wallet_multisig_descriptor_psbt.py --descriptors',
     'wallet_txn_doublespend.py --descriptors',
     # ELEMENTS: need to point past versions at our own release server
-    #'feature_backwards_compatibility.py --legacy-wallet',
-    #'feature_backwards_compatibility.py --descriptors',
+    #'wallet_backwards_compatibility.py --legacy-wallet',
+    #'wallet_backwards_compatibility.py --descriptors',
     'wallet_txn_clone.py --mineblock',
     # ELEMENTS: needs to be fixed
     #'feature_notifications.py',
