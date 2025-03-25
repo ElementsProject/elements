@@ -53,7 +53,7 @@ class SimplicityActivationTest(BitcoinTestFramework):
         blocks = self.generatetoaddress(rpc, 127, rpc.getnewaddress())
         for n, block in enumerate(blocks):
             decode = rpc.getblockheader(block)
-            assert_equal (decode["versionHex"], "21000000")
+            assert_equal (decode["versionHex"], "20200000")
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "started")
 
         # Fail to signal on the 128th block. Since the threshold for Simplicity is
@@ -61,7 +61,7 @@ class SimplicityActivationTest(BitcoinTestFramework):
         # 144 (the default), as we have overridden the period for Simplicity. On
         # the main Liquid chain it is overridden to be one week of signalling.
         block = rpc.getnewblockhex()
-        block = block[:7] + "0" + block[8:] # turn off Simplicity signal
+        block = block[:4] + "0" + block[5:] # turn off Simplicity signal
         rpc.submitblock(block)
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "started")
 
@@ -69,22 +69,22 @@ class SimplicityActivationTest(BitcoinTestFramework):
         blocks = self.generatetoaddress(rpc, 127, rpc.getnewaddress())
         for n, block in enumerate(blocks):
             decode = rpc.getblockheader(block)
-            assert_equal (decode["versionHex"], "21000000")
+            assert_equal (decode["versionHex"], "20200000")
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "started")
         # The 128th block then switches from "started" to "locked_in"
         blocks = self.generatetoaddress(rpc, 1, rpc.getnewaddress())
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "started")
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status_next"], "locked_in")
-        assert_equal(rpc.getblockheader(blocks[0])["versionHex"], "21000000")
+        assert_equal(rpc.getblockheader(blocks[0])["versionHex"], "20200000")
 
         # Run through another 128 blocks, which will go from "locked in" to "active" regardless of signalling
         blocks = self.generatetoaddress(rpc, 127, rpc.getnewaddress())
         for n, block in enumerate(blocks):
             decode = rpc.getblockheader(block)
-            assert_equal (decode["versionHex"], "21000000")
+            assert_equal (decode["versionHex"], "20200000")
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "locked_in")
         block = rpc.getnewblockhex()
-        block = block[:7] + "0" + block[8:] # turn off Simplicity signal
+        block = block[:4] + "0" + block[5:] # turn off Simplicity signal
         rpc.submitblock(block)
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "locked_in")
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status_next"], "active")
