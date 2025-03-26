@@ -33,7 +33,20 @@
 #include <script/descriptor.h> // getwalletpakinfo
 #include <rpc/util.h> // IsBlindDestination
 
+namespace {
+    static secp256k1_context *secp256k1_ctx;
 
+    class CSecp256k1Init {
+    public:
+        CSecp256k1Init() {
+            secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
+        }
+        ~CSecp256k1Init() {
+            secp256k1_context_destroy(secp256k1_ctx);
+        }
+    };
+    static CSecp256k1Init instance_of_csecp256k1;
+}
 
 using interfaces::FoundBlock;
 
@@ -1955,6 +1968,7 @@ RPCHelpMan getwalletpakinfo()
                     {
                         {RPCResult::Type::STR, "bip32_counter", "next index to be used by the wallet for `sendtomainchain`"},
                         {RPCResult::Type::STR, "bitcoin_descriptor", "Bitcoin script descriptor loaded in the wallet for pegouts"},
+                        {RPCResult::Type::STR, "pakentry", "PAK entry to be used at network initialization time in the form of: `pak=<bitcoin_pak>:<liquid_pak>`"},
                         {RPCResult::Type::STR_HEX, "liquid_pak", "pubkey corresponding to the Liquid PAK loaded in the wallet for pegouts"},
                         {RPCResult::Type::STR, "liquid_pak_address", "corresponding address for `liquid_pak`. Useful for `dumpprivkey` for wallet backup or transfer"},
                         {RPCResult::Type::ARR_FIXED, "address_lookahead", "the three next Bitcoin addresses the wallet will use for `sendtomainchain` based on the internal counter",
@@ -1987,6 +2001,28 @@ RPCHelpMan getwalletpakinfo()
     const auto& desc = Parse(desc_str, provider, error);
 
     ret.pushKV("bitcoin_descriptor", desc_str);
+    {
+        CPubKey masterpub = pwallet->offline_xpub.pubkey;
+        secp256k1_pubkey masterpub_secp;
+        int secp256k1_ret = secp256k1_ec_pubkey_parse(secp256k1_ctx, &masterpub_secp, masterpub.begin(), masterpub.size());
+        if (secp256k1_ret != 1) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "bitcoin_descriptor could not be parsed.");
+        }
+
+
+        // Negate the pubkey
+        secp256k1_ret = secp256k1_ec_pubkey_negate(secp256k1_ctx, &masterpub_secp);
+
+        std::vector<unsigned char> negatedpubkeybytes;
+        negatedpubkeybytes.resize(33);
+        size_t len = 33;
+        secp256k1_ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx, &negatedpubkeybytes[0], &len, &masterpub_secp, SECP256K1_EC_COMPRESSED);
+        CHECK_NONFATAL(secp256k1_ret == 1);
+        CHECK_NONFATAL(len == 33);
+        CHECK_NONFATAL(negatedpubkeybytes.size() == 33);
+
+        ret.pushKV("pakentry", "pak=" + HexStr(negatedpubkeybytes) + ":" + HexStr(pwallet->online_key));
+    }
     ret.pushKV("liquid_pak", HexStr(pwallet->online_key));
     ret.pushKV("liquid_pak_address", EncodeDestination(PKHash(pwallet->online_key)));
 
