@@ -215,7 +215,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 709632; // Approximately November 12th, 2021
 
         // Simplicity
-        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].bit = 21;
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].bit = 24;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].min_activation_height = 0; // No activation delay
@@ -361,7 +361,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 0; // No activation delay
 
         // Simplicity
-        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].bit = 21;
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].bit = 24;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].min_activation_height = 0; // No activation delay
@@ -527,7 +527,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 0; // No activation delay
 
         // Simplicity
-        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].bit = 21;
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].bit = 24;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].min_activation_height = 0; // No activation delay
@@ -626,7 +626,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nThreshold = 128;
 
         // Simplicity
-        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].bit = 21;
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].bit = 24;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].min_activation_height = 0; // No activation delay
@@ -1288,7 +1288,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nThreshold = 10080; // ...of 100% signalling
 
         // Simplicity
-        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].bit = 21;
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].bit = 24;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].min_activation_height = 0; // No activation delay
