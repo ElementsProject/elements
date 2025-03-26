@@ -106,6 +106,44 @@ class CTTest (BitcoinTestFramework):
         # clean up blind_details
         os.remove(file_path)
 
+    def test_no_surj(self):
+        self.generate(self.nodes[0], 1)
+
+        tx_hex = self.nodes[0].createrawtransaction([], [{self.nodes[1].getnewaddress(): 1000}])
+        tx_hex = self.nodes[0].fundrawtransaction(tx_hex)['hex']
+        tx_hex = self.nodes[0].blindrawtransaction(tx_hex)
+        # coming from initial free coins: no need to sign
+        assert_equal(self.nodes[0].testmempoolaccept([tx_hex])[0]['allowed'], True) # tx is ok
+
+        # remove a surjection proof from the tx
+        tx = CTransaction()
+        tx.deserialize(io.BytesIO(bytes.fromhex(tx_hex)))
+        tx.wit.vtxoutwit[0].vchSurjectionproof = b''
+        tx_hex = tx.serialize().hex()
+
+        # Both of these make the node crash
+        assert_equal(self.nodes[0].testmempoolaccept([tx_hex])[0]['allowed'], False)
+        assert_raises_rpc_error(-26, "bad-txns-in-ne-out", self.nodes[0].sendrawtransaction, tx_hex)
+
+    def test_no_range(self):
+        self.generate(self.nodes[0], 1)
+
+        tx_hex = self.nodes[0].createrawtransaction([], [{self.nodes[1].getnewaddress(): 1000}])
+        tx_hex = self.nodes[0].fundrawtransaction(tx_hex)['hex']
+        tx_hex = self.nodes[0].blindrawtransaction(tx_hex)
+        # coming from initial free coins: no need to sign
+        assert_equal(self.nodes[0].testmempoolaccept([tx_hex])[0]['allowed'], True) # tx is ok
+
+        # remove a surjection proof from the tx
+        tx = CTransaction()
+        tx.deserialize(io.BytesIO(bytes.fromhex(tx_hex)))
+        tx.wit.vtxoutwit[0].vchRangeproof = b''
+        tx_hex = tx.serialize().hex()
+
+        # Both of these make the node crash
+        assert_equal(self.nodes[0].testmempoolaccept([tx_hex])[0]['allowed'], False)
+        assert_raises_rpc_error(-26, "bad-txns-in-ne-out", self.nodes[0].sendrawtransaction, tx_hex)
+
     def test_null_rangeproof_enforcement(self):
         self.generate(self.nodes[0], 1)
 
@@ -159,6 +197,12 @@ class CTTest (BitcoinTestFramework):
         assert_equal(self.nodes[0].testmempoolaccept([hex_tx])[0]['allowed'], False)
 
     def run_test(self):
+
+        print("Testing a transaction with a missing surjection proof")
+        self.test_no_surj()
+
+        print("Testing a transaction with a missing range proof")
+        self.test_no_range()
 
         print("Testing that null issuances must have null rangeproofs")
         self.test_null_rangeproof_enforcement()
