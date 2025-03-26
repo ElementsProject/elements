@@ -363,7 +363,7 @@ static RPCHelpMan createrawtransaction()
 
     std::optional<bool> rbf;
     if (!request.params[3].isNull()) {
-        rbf = request.params[3].isTrue();
+        rbf = request.params[3].get_bool();
     }
     auto tip = WITH_LOCK(::cs_main, return chainman.ActiveChain().Tip());
     CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, tip);
@@ -1894,7 +1894,7 @@ static RPCHelpMan createpsbt()
 
     std::optional<bool> rbf;
     if (!request.params[3].isNull()) {
-        rbf = request.params[3].isTrue();
+        rbf = request.params[3].get_bool();
     }
     std::map<CTxOut, PSBTOutput> psbt_outs;
     auto tip = WITH_LOCK(::cs_main, return chainman.ActiveChain().Tip());

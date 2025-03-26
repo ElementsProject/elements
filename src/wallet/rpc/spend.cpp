@@ -1830,11 +1830,8 @@ RPCHelpMan walletcreatefundedpsbt()
 
     CAmount fee;
     int change_position;
-    bool rbf{wallet.m_signal_rbf};
     const UniValue &replaceable_arg = options["replaceable"];
-    if (!replaceable_arg.isNull()) {
-        rbf = replaceable_arg.isTrue();
-    }
+    const bool rbf{replaceable_arg.isNull() ? wallet.m_signal_rbf : replaceable_arg.get_bool()};
     // It's hard to control the behavior of FundTransaction, so we will wait
     //   until after it's done, then extract the blinding keys from the output
     //   nonces.
