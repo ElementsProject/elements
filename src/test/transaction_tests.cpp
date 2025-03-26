@@ -795,6 +795,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     CheckIsStandard(t);
 
     // Check dust with default relay fee:
+    dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE_BITCOIN); // ELEMENTS: use the Bitcoin default dust relay feerate
     CAmount nDustThreshold = 182 * dustRelayFee.GetFeePerK() / 1000;
     BOOST_CHECK_EQUAL(nDustThreshold, 546);
     // dust:
@@ -830,7 +831,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     // not dust:
     t.vout[0].nValue = 674;
     CheckIsStandard(t);
-    dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE);
+    dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE_BITCOIN); // ELEMENTS: use the Bitcoin default dust relay feerate
 
     t.vout[0].scriptPubKey = CScript() << OP_1;
     CheckIsNotStandard(t, "scriptpubkey");

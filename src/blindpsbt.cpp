@@ -68,11 +68,13 @@ bool CreateAssetSurjectionProof(std::vector<unsigned char>& output_proof, const 
 
 bool VerifyBlindAssetProof(const uint256& asset, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
 {
+    if (conf_asset.vchCommitment.size() != CConfidentialAsset::nCommittedSize || proof.empty()) {
+        return false;
+    }
     secp256k1_surjectionproof surj_proof;
     if (secp256k1_surjectionproof_parse(secp256k1_blind_context, &surj_proof, proof.data(), proof.size()) == 0) {
         return false;
     }
-
     secp256k1_generator blinded_asset_gen;
     if (secp256k1_generator_parse(secp256k1_blind_context, &blinded_asset_gen, conf_asset.vchCommitment.data()) == 0) {
         return false;
