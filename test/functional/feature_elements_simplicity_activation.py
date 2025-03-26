@@ -18,6 +18,7 @@ class SimplicityActivationTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
+        self.extra_args = [["-evbparams=dynafed:0:::"]]
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
@@ -36,8 +37,8 @@ class SimplicityActivationTest(BitcoinTestFramework):
             if n < 143:
                 assert_equal (decode["versionHex"], "20000000")
             elif n < 431:
-                # TESTDUMMY deployment: 144 blocks active, 144 blocks locked in
-                assert_equal (decode["versionHex"], "30000000")
+                # TESTDUMMY and DYNAFED deployment: 144 blocks active, 144 blocks locked in
+                assert_equal (decode["versionHex"], "32000000")
             else:
                 assert_equal (decode["versionHex"], "20000000")
 
@@ -52,7 +53,7 @@ class SimplicityActivationTest(BitcoinTestFramework):
         blocks = self.generatetoaddress(rpc, 127, rpc.getnewaddress())
         for n, block in enumerate(blocks):
             decode = rpc.getblockheader(block)
-            assert_equal (decode["versionHex"], "21000000")
+            assert_equal (decode["versionHex"], "20200000")
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "started")
 
         # Fail to signal on the 128th block. Since the threshold for Simplicity is
@@ -60,7 +61,7 @@ class SimplicityActivationTest(BitcoinTestFramework):
         # 144 (the default), as we have overridden the period for Simplicity. On
         # the main Liquid chain it is overridden to be one week of signalling.
         block = rpc.getnewblockhex()
-        block = block[:7] + "0" + block[8:] # turn off Simplicity signal
+        block = block[:4] + "0" + block[5:] # turn off Simplicity signal
         rpc.submitblock(block)
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "started")
 
@@ -68,22 +69,22 @@ class SimplicityActivationTest(BitcoinTestFramework):
         blocks = self.generatetoaddress(rpc, 127, rpc.getnewaddress())
         for n, block in enumerate(blocks):
             decode = rpc.getblockheader(block)
-            assert_equal (decode["versionHex"], "21000000")
+            assert_equal (decode["versionHex"], "20200000")
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "started")
         # The 128th block then switches from "started" to "locked_in"
         blocks = self.generatetoaddress(rpc, 1, rpc.getnewaddress())
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "started")
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status_next"], "locked_in")
-        assert_equal(rpc.getblockheader(blocks[0])["versionHex"], "21000000")
+        assert_equal(rpc.getblockheader(blocks[0])["versionHex"], "20200000")
 
         # Run through another 128 blocks, which will go from "locked in" to "active" regardless of signalling
         blocks = self.generatetoaddress(rpc, 127, rpc.getnewaddress())
         for n, block in enumerate(blocks):
             decode = rpc.getblockheader(block)
-            assert_equal (decode["versionHex"], "21000000")
+            assert_equal (decode["versionHex"], "20200000")
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "locked_in")
         block = rpc.getnewblockhex()
-        block = block[:7] + "0" + block[8:] # turn off Simplicity signal
+        block = block[:4] + "0" + block[5:] # turn off Simplicity signal
         rpc.submitblock(block)
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status"], "locked_in")
         assert_equal(rpc.getdeploymentinfo()["deployments"]["simplicity"]["bip9"]["status_next"], "active")
@@ -103,15 +104,15 @@ class SimplicityActivationTest(BitcoinTestFramework):
             if n < 143:
                 assert_equal (decode["versionHex"], "20000000")
             elif n < 431:
-                # TESTDUMMY deployment: 144 blocks active, 144 blocks locked in
-                assert_equal (decode["versionHex"], "30000000")
+                # TESTDUMMY and DYNAFED deployment: 144 blocks active, 144 blocks locked in
+                assert_equal (decode["versionHex"], "32000000")
             else:
                 assert_equal (decode["versionHex"], "20000000")
 
         # Test activation starting from height 1000
         # Note that for Simplicity this is an illogical combination (Simplicity without
         # Taproot) but for purposes of this test it's fine.
-        self.restart_node(0, ["-evbparams=simplicity:500:::"])
+        self.restart_node(0, ["-evbparams=dynafed:0:::", "-evbparams=simplicity:500:::"])
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(1))
         self.test_activation(self.nodes[0], 500)
 
