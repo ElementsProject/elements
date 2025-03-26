@@ -9,7 +9,6 @@ src/elements-gui
 src/elements-node
 src/elements-tx
 src/elements-util
-src/elements-chainstate
 src/elements-wallet
 src/test/fuzz/fuzz
 src/test/test_bitcoin

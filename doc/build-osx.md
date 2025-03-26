@@ -4,8 +4,6 @@
 
 This guide describes how to build elementsd, command-line utilities, and GUI on macOS
 
-**Note:** The following is for Intel Macs only!
-
 ## Dependencies
 
 The following dependencies are **required**:
@@ -114,15 +112,11 @@ brew install berkeley-db@4
 
 ###### Descriptor Wallet Support
 
-Note: Apple has included a useable `sqlite` package since macOS 10.14.
-You may not need to install this package.
+`sqlite` is required to support for descriptor wallets.
 
-`sqlite` is required to enable support for descriptor wallets.
-Skip if you don't intend to use descriptor wallets.
+macOS ships with a useable `sqlite` package, meaning you don't need to
+install anything.
 
-``` bash
-brew install sqlite
-```
 ---
 
 #### GUI Dependencies

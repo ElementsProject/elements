@@ -347,36 +347,36 @@ E' possibile firmare solo con indirizzi di tipo "legacy".</translation>
     <message numerus="yes">
         <source>%n second(s)</source>
         <translation type="unfinished">
-            <numerusform />
-            <numerusform />
+            <numerusform>%n secondo</numerusform>
+            <numerusform>%n secondi</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <source>%n minute(s)</source>
         <translation type="unfinished">
-            <numerusform />
-            <numerusform />
+            <numerusform>%n minuto</numerusform>
+            <numerusform>%n minuti</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <source>%n hour(s)</source>
         <translation type="unfinished">
-            <numerusform />
-            <numerusform />
+            <numerusform>%n ora</numerusform>
+            <numerusform>%n ore</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <source>%n day(s)</source>
         <translation type="unfinished">
-            <numerusform />
-            <numerusform />
+            <numerusform>%n giorno</numerusform>
+            <numerusform>%n giorni</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <source>%n week(s)</source>
         <translation type="unfinished">
-            <numerusform />
-            <numerusform />
+            <numerusform>%n settimana</numerusform>
+            <numerusform>%n settimane</numerusform>
         </translation>
     </message>
     <message>
@@ -386,8 +386,8 @@ E' possibile firmare solo con indirizzi di tipo "legacy".</translation>
     <message numerus="yes">
         <source>%n year(s)</source>
         <translation type="unfinished">
-            <numerusform />
-            <numerusform />
+            <numerusform>%n anno</numerusform>
+            <numerusform>%n anni</numerusform>
         </translation>
     </message>
     </context>
@@ -600,6 +600,30 @@ E' possibile firmare solo con indirizzi di tipo "legacy".</translation>
     <message>
         <source>Cannot write to data directory '%s'; check permissions.</source>
         <translation type="unfinished">Impossibile scrivere nella directory dei dati ' %s'; controlla le autorizzazioni.</translation>
+    </message>
+    <message>
+        <source>The -txindex upgrade started by a previous version cannot be completed. Restart with the previous version or run a full -reindex.</source>
+        <translation type="unfinished">L'upgrade -txindex avviato su una versione precedente non può essere completato. Riavviare con la versione precedente o eseguire un -reindex completo.</translation>
+    </message>
+    <message>
+        <source>%s request to listen on port %u. This port is considered "bad" and thus it is unlikely that any Bitcoin Core peers connect to it. See doc/p2p-bad-ports.md for details and a full list.</source>
+        <translation type="unfinished">%s richiede di ascoltare sulla porta %u.  Questa porta è considerata "cattiva" e quindi è improbabile che qualsiasi peer Bitcoin Core si colleghi ad essa. Guardare doc/p2p-bad-ports.md per i dettagli ed un elenco completo.</translation>
+    </message>
+    <message>
+        <source>Cannot provide specific connections and have addrman find outgoing connections at the same time.</source>
+        <translation type="unfinished">Non e' possibile fornire connessioni specifiche e contemporaneamente usare addrman per trovare connessioni uscenti.  </translation>
+    </message>
+    <message>
+        <source>Error loading %s: External signer wallet being loaded without external signer support compiled</source>
+        <translation type="unfinished">Errore caricando %s: il wallet del dispositivo esterno di firma é stato caricato senza che il supporto del dispositivo esterno di firma sia stato compilato.</translation>
+    </message>
+    <message>
+        <source>Failed to rename invalid peers.dat file. Please move or delete it and try again.</source>
+        <translation type="unfinished">Mancata rinominazione del file peers.dat non valido. Per favore spostarlo o eliminarlo e provare di nuovo.</translation>
+    </message>
+    <message>
+        <source>Outbound connections restricted to Tor (-onlynet=onion) but the proxy for reaching the Tor network is not provided (no -proxy= and no -onion= given) or it is explicitly forbidden (-onion=0)</source>
+        <translation type="unfinished">Le connessioni in uscita sono state limitate a Tor (-onlynet=onion) ma il proxy per raggiungere la rete Tor non é stato fornito (ne -proxy= ne -onion= sono stati inseriti) oppure é espressamente vietato (-onion=0)</translation>
     </message>
     <message>
         <source>Config setting for %s only applied on %s network when in [%s] section.</source>
@@ -946,6 +970,10 @@ E' possibile firmare solo con indirizzi di tipo "legacy".</translation>
         <translation type="unfinished">Gli importi di transazione non devono essere negativi</translation>
     </message>
     <message>
+        <source>Transaction change output index out of range</source>
+        <translation type="unfinished">La transazione cambia l' indice dell'output fuori dal limite.</translation>
+    </message>
+    <message>
         <source>Transaction has too long of a mempool chain</source>
         <translation type="unfinished">La transazione ha una sequenza troppo lunga nella mempool</translation>
     </message>
@@ -1236,8 +1264,8 @@ E' possibile firmare solo con indirizzi di tipo "legacy".</translation>
     <message numerus="yes">
         <source>Processed %n block(s) of transaction history.</source>
         <translation type="unfinished">
-            <numerusform />
-            <numerusform />
+            <numerusform>Processato %n blocco dello storico delle transazioni.</numerusform>
+            <numerusform>Processati %n blocchi dello storico delle transazioni.</numerusform>
         </translation>
     </message>
     <message>
@@ -1348,12 +1376,20 @@ E' possibile firmare solo con indirizzi di tipo "legacy".</translation>
         <source>Main Window</source>
         <translation type="unfinished">Finestra principale</translation>
     </message>
+    <message>
+        <source>&amp;Hide</source>
+        <translation type="unfinished">&amp;Nascondi</translation>
+    </message>
+    <message>
+        <source>S&amp;how</source>
+        <translation type="unfinished">S&amp;come</translation>
+    </message>
     <message numerus="yes">
         <source>%n active connection(s) to Bitcoin network.</source>
         <extracomment>A substring of the tooltip.</extracomment>
         <translation type="unfinished">
-            <numerusform />
-            <numerusform />
+            <numerusform>%n connessione(i) attiva alla rete Bitcoin.</numerusform>
+            <numerusform>%n connessione(i) attive alla rete Bitcoin</numerusform>
         </translation>
     </message>
     <message>
@@ -1850,6 +1886,10 @@ E' possibile firmare solo con indirizzi di tipo "legacy".</translation>
 <context>
     <name>Intro</name>
     <message>
+        <source>%1 GB of space available</source>
+        <translation type="unfinished">%1 GB di spazio libero disponibile</translation>
+    </message>
+    <message>
         <source>(of %1 GB needed)</source>
         <translation type="unfinished">(di %1 GB necessari)</translation>
     </message>
@@ -1869,8 +1909,8 @@ E' possibile firmare solo con indirizzi di tipo "legacy".</translation>
         <source>(sufficient to restore backups %n day(s) old)</source>
         <extracomment>Explanatory text on the capability of the current prune target.</extracomment>
         <translation type="unfinished">
-            <numerusform />
-            <numerusform />
+            <numerusform>(sufficiente per ripristinare i backup di %n giorno fa)</numerusform>
+            <numerusform>(sufficiente per ripristinare i backup di %n giorni fa)</numerusform>
         </translation>
     </message>
     <message>
@@ -2091,7 +2131,7 @@ E' possibile firmare solo con indirizzi di tipo "legacy".</translation>
     </message>
     <message>
         <source>Prune &amp;block storage to</source>
-        <translation type="unfinished">Eliminare e bloccare l'archiviazione su</translation>
+        <translation type="unfinished">Modalità "prune": elimina i blocchi dal disco dopo</translation>
     </message>
     <message>
         <source>Reverting this setting requires re-downloading the entire blockchain.</source>
@@ -3607,8 +3647,8 @@ Nota: poiché la commissione è calcolata su base per byte, una commissione di "
     <message numerus="yes">
         <source>Estimated to begin confirmation within %n block(s).</source>
         <translation type="unfinished">
-            <numerusform />
-            <numerusform />
+            <numerusform>Inizio della conferma stimato entro %n blocco.</numerusform>
+            <numerusform>Inizio della conferma stimato entro %n blocchi.</numerusform>
         </translation>
     </message>
     <message>
@@ -3945,8 +3985,8 @@ Nota: poiché la commissione è calcolata su base per byte, una commissione di "
     <message numerus="yes">
         <source>matures in %n more block(s)</source>
         <translation type="unfinished">
-            <numerusform />
-            <numerusform />
+            <numerusform>matura tra %n blocco</numerusform>
+            <numerusform>matura tra %n blocchi</numerusform>
         </translation>
     </message>
     <message>

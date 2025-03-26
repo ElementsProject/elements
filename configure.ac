@@ -1,10 +1,10 @@
 AC_PREREQ([2.69])
 define(_CLIENT_VERSION_MAJOR, 23)
-define(_CLIENT_VERSION_MINOR, 99)
-define(_CLIENT_VERSION_BUILD, 0)
-define(_CLIENT_VERSION_RC, 0)
-define(_CLIENT_VERSION_IS_RELEASE, false)
-define(_COPYRIGHT_YEAR, 2022)
+define(_CLIENT_VERSION_MINOR, 2)
+define(_CLIENT_VERSION_BUILD, 7)
+define(_CLIENT_VERSION_RC, 4)
+define(_CLIENT_VERSION_IS_RELEASE, true)
+define(_COPYRIGHT_YEAR, 2025)
 define(_COPYRIGHT_HOLDERS,[The %s developers])
 define(_COPYRIGHT_HOLDERS_SUBSTITUTION,[[Elements Project]])
 AC_INIT([Elements Core],m4_join([.], _CLIENT_VERSION_MAJOR, _CLIENT_VERSION_MINOR, _CLIENT_VERSION_BUILD)m4_if(_CLIENT_VERSION_RC, [0], [], [rc]_CLIENT_VERSION_RC),[https://github.com/ElementsProject/elements/issues],[elements],[https://elementsproject.org/])
@@ -24,7 +24,6 @@ BITCOIN_GUI_NAME=elements-qt
 BITCOIN_CLI_NAME=elements-cli
 BITCOIN_TX_NAME=elements-tx
 BITCOIN_UTIL_NAME=elements-util
-BITCOIN_CHAINSTATE_NAME=elements-chainstate
 BITCOIN_WALLET_TOOL_NAME=elements-wallet
 dnl Multi Process
 BITCOIN_MP_NODE_NAME=elements-node
@@ -655,12 +654,6 @@ AC_ARG_ENABLE([util-util],
   [build_bitcoin_util=$enableval],
   [build_bitcoin_util=$build_bitcoin_utils])
 
-AC_ARG_ENABLE([experimental-util-chainstate],
-  [AS_HELP_STRING([--enable-experimental-util-chainstate],
-  [build experimental bitcoin-chainstate executable (default=no)])],
-  [build_bitcoin_chainstate=$enableval],
-  [build_bitcoin_chainstate=no])
-
 AC_ARG_WITH([libs],
   [AS_HELP_STRING([--with-libs],
   [build libraries (default=yes)])],
@@ -858,7 +851,7 @@ if test "$use_lcov" = "yes"; then
 
   AX_CHECK_LINK_FLAG([--coverage], [LDFLAGS="$LDFLAGS --coverage"],
     [AC_MSG_ERROR([lcov testing requested but --coverage linker flag does not work])])
-  AX_CHECK_COMPILE_FLAG([--coverage],[CXXFLAGS="$CXXFLAGS --coverage";CFLAGS="$CFLAGS --coverage"],
+  AX_CHECK_COMPILE_FLAG([--coverage],[CXXFLAGS="$CXXFLAGS --coverage"],
     [AC_MSG_ERROR([lcov testing requested but --coverage flag does not work])])
   CXXFLAGS="$CXXFLAGS -Og"
 fi
@@ -1283,7 +1276,6 @@ if test "$enable_fuzz" = "yes"; then
   build_bitcoin_cli=no
   build_bitcoin_tx=no
   build_bitcoin_util=no
-  build_bitcoin_chainstate=no
   build_bitcoin_wallet=no
   build_bitcoind=no
   build_bitcoin_libs=no
@@ -1648,10 +1640,6 @@ AC_MSG_CHECKING([whether to build bitcoin-util])
 AM_CONDITIONAL([BUILD_BITCOIN_UTIL], [test $build_bitcoin_util = "yes"])
 AC_MSG_RESULT($build_bitcoin_util)
 
-AC_MSG_CHECKING([whether to build experimental bitcoin-chainstate])
-AM_CONDITIONAL([BUILD_BITCOIN_CHAINSTATE], [test $build_bitcoin_chainstate = "yes"])
-AC_MSG_RESULT($build_bitcoin_chainstate)
-
 AC_MSG_CHECKING([whether to build libraries])
 AM_CONDITIONAL([BUILD_BITCOIN_LIBS], [test $build_bitcoin_libs = "yes"])
 if test "$build_bitcoin_libs" = "yes"; then
@@ -1872,7 +1860,6 @@ AC_SUBST(BITCOIN_GUI_NAME)
 AC_SUBST(BITCOIN_CLI_NAME)
 AC_SUBST(BITCOIN_TX_NAME)
 AC_SUBST(BITCOIN_UTIL_NAME)
-AC_SUBST(BITCOIN_CHAINSTATE_NAME)
 AC_SUBST(BITCOIN_WALLET_TOOL_NAME)
 AC_SUBST(BITCOIN_MP_NODE_NAME)
 AC_SUBST(BITCOIN_MP_GUI_NAME)

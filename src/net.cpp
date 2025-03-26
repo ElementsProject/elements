@@ -1425,6 +1425,9 @@ bool CConnman::GenerateSelectSet(const std::vector<CNode*>& nodes,
         //   write buffer in this case before receiving more. This avoids
         //   needlessly queueing received data, if the remote peer is not themselves
         //   receiving data. This means properly utilizing TCP flow control signalling.
+        //   This logic can put both nodes in deadlock if they are both "not receiving",
+        //   so there is a special case where we only stop receiving new messages, but
+        //   keep processing the in-progress ones.
         // * Otherwise, if there is space left in the receive buffer, select() for
         //   receiving data.
         // * Hand off all complete messages to the processor, to be handled without
@@ -1445,7 +1448,9 @@ bool CConnman::GenerateSelectSet(const std::vector<CNode*>& nodes,
         error_set.insert(pnode->m_sock->Get());
         if (select_send) {
             send_set.insert(pnode->m_sock->Get());
-            continue;
+            // Only stop receiving new messages, but keep processing incomplete ones
+            if (pnode->m_deserializer->IsEmpty())
+                continue;
         }
         if (select_recv) {
             recv_set.insert(pnode->m_sock->Get());
