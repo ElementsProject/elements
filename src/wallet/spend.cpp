@@ -12,6 +12,7 @@
 #include <policy/policy.h>
 #include <rpc/util.h>  // for GetDestinationBlindingKey and IsBlindDestination
 #include <script/pegins.h>
+#include <primitives/transaction.h>
 #include <script/signingprovider.h>
 #include <util/check.h>
 #include <util/fees.h>
@@ -1075,7 +1076,6 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     AssertLockHeld(wallet.cs_wallet);
 
     // out variables, to be packed into returned result structure
-    CAmount nFeeRet;
     int nChangePosInOut = change_pos;
 
     FastRandomContext rng_fast;
@@ -1614,10 +1614,11 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     if (nBytes == -1) {
         return util::Error{_("Missing solving data for estimating transaction size")};
     }
-    nFeeRet = coin_selection_params.m_effective_feerate.GetFee(nBytes);
 
     // Subtract fee from the change output if not subtracting it from recipient outputs
-    CAmount fee_needed = nFeeRet;
+    CAmount fee_needed = coin_selection_params.m_effective_feerate.GetFee(nBytes);
+    CAmount current_fee = fee_needed;
+
     if (!coin_selection_params.m_subtract_fee_outputs) {
         change_position->nValue = change_position->nValue.GetAmount() - fee_needed;
     }
@@ -1689,9 +1690,14 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
         return util::Error{Untranslated(STR_INTERNAL_BUG("Fee needed > fee paid"))};
     }
 
+    // Sanity check that the fee cannot be negative as that means we have more output value than input value
+    if (current_fee < 0) {
+        return util::Error{Untranslated(STR_INTERNAL_BUG("Fee paid < 0"))};
+    }
+
     // If there is a change output and we overpay the fees then increase the change to match the fee needed
     if (fee_needed <= map_change_and_fee.at(policyAsset) - change_amount) {
-        nFeeRet = map_change_and_fee.at(policyAsset) - change_amount;
+        current_fee = map_change_and_fee.at(policyAsset) - change_amount;
     }
 
     // Reduce output values for subtractFeeFromAmount
@@ -1734,7 +1740,16 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
             }
             ++i;
         }
-        nFeeRet = fee_needed;
+        current_fee = result->GetSelectedValue()[::policyAsset] - CalculateOutputValue(txNew, ::policyAsset);
+        if (fee_needed != current_fee) {
+            return util::Error{Untranslated(STR_INTERNAL_BUG("SFFO: Fee needed != fee paid"))};
+        }
+    }
+
+    // fee_needed should now always be less than or equal to the current fees that we pay.
+    // If it is not, it is a bug.
+    if (fee_needed > current_fee) {
+        return util::Error{Untranslated(STR_INTERNAL_BUG("Fee needed > fee paid"))};
     }
 
     // ELEMENTS: Give up if change keypool ran out and change is required
@@ -1751,7 +1766,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     if (g_con_elementsmode) {
         for (auto& txout : txNew.vout) {
             if (txout.IsFee()) {
-                txout.nValue = nFeeRet;
+                txout.nValue = current_fee;
                 break;
             }
         }
@@ -1838,7 +1853,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
         return util::Error{_("Transaction too large")};
     }
 
-    if (nFeeRet > wallet.m_default_max_tx_fee) {
+    if (current_fee > wallet.m_default_max_tx_fee) {
         return util::Error{TransactionErrorString(TransactionError::MAX_FEE_EXCEEDED)};
     }
 
@@ -1856,14 +1871,14 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     }
 
     wallet.WalletLogPrintf("Fee Calculation: Fee:%d Bytes:%u Tgt:%d (requested %d) Reason:\"%s\" Decay %.5f: Estimation: (%g - %g) %.2f%% %.1f/(%.1f %d mem %.1f out) Fail: (%g - %g) %.2f%% %.1f/(%.1f %d mem %.1f out)\n",
-              nFeeRet, nBytes, feeCalc.returnedTarget, feeCalc.desiredTarget, StringForFeeReason(feeCalc.reason), feeCalc.est.decay,
+              current_fee, nBytes, feeCalc.returnedTarget, feeCalc.desiredTarget, StringForFeeReason(feeCalc.reason), feeCalc.est.decay,
               feeCalc.est.pass.start, feeCalc.est.pass.end,
               (feeCalc.est.pass.totalConfirmed + feeCalc.est.pass.inMempool + feeCalc.est.pass.leftMempool) > 0.0 ? 100 * feeCalc.est.pass.withinTarget / (feeCalc.est.pass.totalConfirmed + feeCalc.est.pass.inMempool + feeCalc.est.pass.leftMempool) : 0.0,
               feeCalc.est.pass.withinTarget, feeCalc.est.pass.totalConfirmed, feeCalc.est.pass.inMempool, feeCalc.est.pass.leftMempool,
               feeCalc.est.fail.start, feeCalc.est.fail.end,
               (feeCalc.est.fail.totalConfirmed + feeCalc.est.fail.inMempool + feeCalc.est.fail.leftMempool) > 0.0 ? 100 * feeCalc.est.fail.withinTarget / (feeCalc.est.fail.totalConfirmed + feeCalc.est.fail.inMempool + feeCalc.est.fail.leftMempool) : 0.0,
               feeCalc.est.fail.withinTarget, feeCalc.est.fail.totalConfirmed, feeCalc.est.fail.inMempool, feeCalc.est.fail.leftMempool);
-    return CreatedTransactionResult(tx, nFeeRet, nChangePosInOut, feeCalc);
+    return CreatedTransactionResult(tx, current_fee, nChangePosInOut, feeCalc);
 }
 
 util::Result<CreatedTransactionResult> CreateTransaction(
