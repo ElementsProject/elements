@@ -109,7 +109,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         self.generate(self.nodes[2], 1)
         self.generate(self.nodes[0], 121)
-        
+
         self.test_add_inputs_default_value()
         self.test_preset_inputs_selection()
         self.test_weight_calculation()
@@ -1056,23 +1056,25 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.log.info("Test fundrawtx where BnB solution would result in a too large transaction, but Knapsack would not")
 # ELEMENTS: FIXME we need to disable this test currently as we cannot have more than 256 inputs
 #  in a transaction. See https://github.com/ElementsProject/elements/issues/880
-#        self.nodes[0].createwallet("large")
-#        wallet = self.nodes[0].get_wallet_rpc(self.default_wallet_name)
-#        recipient = self.nodes[0].get_wallet_rpc("large")
-#        outputs = {}
-#        rawtx = recipient.createrawtransaction([], {wallet.getnewaddress(): 147.99899260})
-#
-#        # Make 1500 0.1 BTC outputs. The amount that we target for funding is in
-#        # the BnB range when these outputs are used.  However if these outputs
-#        # are selected, the transaction will end up being too large, so it
-#        # shouldn't use BnB and instead fall back to Knapsack but that behavior
-#        # is not implemented yet. For now we just check that we get an error.
-#        for _ in range(1500):
-#            outputs[recipient.getnewaddress()] = 0.1
-#        wallet.sendmany("", outputs)
-#        self.generate(self.nodes[0], 10)
-#        assert_raises_rpc_error(-4, "Insufficient funds", recipient.fundrawtransaction, rawtx)
-#        self.nodes[0].unloadwallet("large")
+        # self.nodes[0].createwallet("large")
+        # wallet = self.nodes[0].get_wallet_rpc(self.default_wallet_name)
+        # recipient = self.nodes[0].get_wallet_rpc("large")
+        # outputs = {}
+        # rawtx = recipient.createrawtransaction([], {wallet.getnewaddress(): 147.99899260})
+
+        # # Make 1500 0.1 BTC outputs. The amount that we target for funding is in
+        # # the BnB range when these outputs are used.  However if these outputs
+        # # are selected, the transaction will end up being too large, so it
+        # # shouldn't use BnB and instead fall back to Knapsack but that behavior
+        # # is not implemented yet. For now we just check that we get an error.
+        # # First, force the wallet to bulk-generate the addresses we'll need.
+        # recipient.keypoolrefill(1500)
+        # for _ in range(1500):
+        #     outputs[recipient.getnewaddress()] = 0.1
+        # wallet.sendmany("", outputs)
+        # self.generate(self.nodes[0], 10)
+        # assert_raises_rpc_error(-4, "Insufficient funds", recipient.fundrawtransaction, rawtx)
+        # self.nodes[0].unloadwallet("large")
 
     def test_external_inputs(self):
         self.log.info("Test funding with external inputs")
