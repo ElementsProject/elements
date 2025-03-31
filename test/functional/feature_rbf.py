@@ -6,7 +6,6 @@
 
 from decimal import Decimal
 
-from test_framework.script_util import DUMMY_P2WPKH_SCRIPT
 from test_framework.script import CScript
 from test_framework.messages import (
     MAX_BIP125_RBF_SEQUENCE,
@@ -140,7 +139,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # Extra 0.1 BTC fee
         tx = CTransaction()
         tx.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        tx.vout = [CTxOut(int(0.9 * COIN), DUMMY_P2WPKH_SCRIPT), feeout, feeout]
+        tx.vout = [CTxOut(int(0.9 * COIN), b''), feeout, feeout]
         tx1b_hex = tx.serialize().hex()
         # Works when enabled
         tx1b_txid = self.nodes[0].sendrawtransaction(tx1b_hex, 0)

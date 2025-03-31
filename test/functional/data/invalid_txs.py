@@ -54,10 +54,11 @@ from test_framework.script import (
 #    OP_XOR,
 )
 from test_framework.script_util import (
+    MIN_PADDING,
+    MIN_STANDARD_TX_NONWITNESS_SIZE,
     script_to_p2sh_script,
 )
 basic_p2sh = script_to_p2sh_script(CScript([OP_0]))
-
 
 class BadTxTemplate:
     """Allows simple construction of a certain kind of invalid tx. Base class to be subclassed."""
@@ -117,17 +118,19 @@ class InputMissing(BadTxTemplate):
 # the value and asset size crosses the minimum value
 # The following check prevents exploit of lack of merkle
 # tree depth commitment (CVE-2017-12842)
-#class SizeTooSmall(BadTxTemplate):
-#    reject_reason = "tx-size-small"
-#    expect_disconnect = False
-#    valid_in_block = True
-#
-#    def get_tx(self):
-#        tx = CTransaction()
-#        tx.vin.append(self.valid_txin)
-#        tx.vout.append(CTxOut(0, CScript([OP_TRUE])))
-#        tx.calc_sha256()
-#        return tx
+# class SizeTooSmall(BadTxTemplate):
+#     reject_reason = "tx-size-small"
+#     expect_disconnect = False
+#     valid_in_block = True
+
+#     def get_tx(self):
+#         tx = CTransaction()
+#         tx.vin.append(self.valid_txin)
+#         tx.vout.append(CTxOut(0, CScript([OP_RETURN] + ([OP_0] * (MIN_PADDING - 2)))))
+#         assert len(tx.serialize_without_witness()) == 64
+#         assert MIN_STANDARD_TX_NONWITNESS_SIZE - 1 == 64
+#         tx.calc_sha256()
+#         return tx
 
 
 class BadInputOutpointIndex(BadTxTemplate):
