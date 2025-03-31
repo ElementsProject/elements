@@ -214,7 +214,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             self.options.descriptors = None
         elif self.options.descriptors is None:
             # Some wallet is either required or optionally used by the test.
-            # Prefer BDB unless it isn't available
+            # Prefer SQLite unless it isn't available
+            # ELEMENTS FIXME: continue to prefer BDB for now, until we migrate off legacy wallets
             if self.is_bdb_compiled():
                 self.options.descriptors = False
             elif self.is_sqlite_compiled():
