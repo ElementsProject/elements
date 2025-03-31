@@ -174,9 +174,9 @@ task:
     - python build_msvc\msvc-autogen.py
     - msbuild build_msvc\bitcoin.sln -property:Configuration=Release -maxCpuCount -verbosity:minimal -noLogo
     - ccache --show-stats
-  unit_tests_script:
+  check_script:
     - src\test_elements.exe -l test_suite
-    - src\bench_elements.exe > NUL
+    - src\bench_elements.exe --sanity-check
     - python test\util\test_runner.py
     - python test\util\rpcauth-test.py
   functional_tests_script:
