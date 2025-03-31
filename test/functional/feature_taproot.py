@@ -1336,7 +1336,7 @@ class TaprootTest(BitcoinTestFramework):
         # It is not impossible to fit enough tapscript sigops to hit the old 80k limit without
         # busting txin-level limits. We simply have to account for the p2pk outputs in all
         # transactions.
-        extra_output_script = CScript([OP_CHECKSIG]*((MAX_BLOCK_SIGOPS_WEIGHT - sigops_weight) // WITNESS_SCALE_FACTOR))
+        extra_output_script = CScript(bytes([OP_CHECKSIG]*((MAX_BLOCK_SIGOPS_WEIGHT - sigops_weight) // WITNESS_SCALE_FACTOR)))
         if extra_output_script == CScript():
             extra_output_script = None  ## ELEMENTS: an explicitly empty coinbase scriptpubkey would be rejected with bad-cb-fee
 
