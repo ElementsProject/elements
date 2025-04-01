@@ -162,7 +162,7 @@ static void AvailableCoins(benchmark::Bench& bench, const std::vector<OutputType
 
     // Check available balance
     auto bal = wallet::GetAvailableBalance(wallet); // Cache
-    assert(bal == 50 * COIN * (chain_size - COINBASE_MATURITY));
+    assert(bal[::policyAsset] == 50 * COIN * (chain_size - COINBASE_MATURITY));
 
     bench.epochIterations(2).run([&] {
         LOCK(wallet.cs_wallet);
