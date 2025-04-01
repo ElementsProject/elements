@@ -161,7 +161,9 @@ class PSBTTest(BitcoinTestFramework):
 
         # If inputs are specified, do not automatically add more:
         utxo1 = self.nodes[0].listunspent()[0]
-        assert_raises_rpc_error(-4, "Insufficient funds", self.nodes[0].walletcreatefundedpsbt, [{"txid": utxo1['txid'], "vout": utxo1['vout']}], [{self.get_address(confidential, 2):90}])
+        assert_raises_rpc_error(-4, "The preselected coins total amount does not cover the transaction target. "
+                                    "Please allow other inputs to be automatically selected or include more coins manually",
+                                self.nodes[0].walletcreatefundedpsbt, [{"txid": utxo1['txid'], "vout": utxo1['vout']}], [{self.nodes[2].getnewaddress():90}])
 
         psbtx1 = self.nodes[0].walletcreatefundedpsbt([{"txid": utxo1['txid'], "vout": utxo1['vout']}], [{self.get_address(confidential, 2):90}], 0, {"add_inputs": True})['psbt']
         # ELEMENTS: we are on the edge between 2 and 3 inputs; don't check exact value,
