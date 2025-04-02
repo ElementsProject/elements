@@ -15,6 +15,7 @@
 #include <interfaces/init.h>
 #include <interfaces/ipc.h>
 #include <key_io.h>
+#include <kernel/cs_main.h>
 #include <node/context.h>
 #include <outputtype.h>
 #include <pegins.h>
