@@ -102,7 +102,7 @@ static bool VerifyIssuanceAmount(secp256k1_pedersen_commitment& value_commit, se
 
     // Build value commitment
     if (value.IsExplicit()) {
-        if (asset == consensus_params.pegged_asset && !MoneyRange(value.GetAmount()) || value.GetAmount() <= 0) {
+        if ((asset == consensus_params.pegged_asset && !MoneyRange(value.GetAmount())) || value.GetAmount() <= 0) {
             return false;
         }
         if (!rangeproof.empty()) {
