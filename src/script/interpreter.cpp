@@ -2669,7 +2669,7 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
         simplicityRawTx.version = txTo.nVersion;
         simplicityRawTx.lockTime = txTo.nLockTime;
 
-        m_simplicity_tx_data = SimplicityTransactionUniquePtr(simplicity_elements_mallocTransaction(&simplicityRawTx));
+        m_simplicity_tx_data = SimplicityTxData(&simplicityRawTx);
 
         m_bip341_taproot_ready = true;
     }
