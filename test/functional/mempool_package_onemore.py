@@ -32,9 +32,6 @@ class MempoolPackagesTest(BitcoinTestFramework):
     def run_test(self):
         self.wallet = MiniWallet(self.nodes[0])
 
-        #self.generate(self.wallet, 149)
-        self.wallet.rescan_utxos()
-
         # DEFAULT_ANCESTOR_LIMIT transactions off a confirmed tx should be fine
         chain = []
         utxo = self.wallet.get_utxo()

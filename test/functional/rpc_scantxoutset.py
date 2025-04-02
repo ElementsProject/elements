@@ -37,7 +37,6 @@ class ScantxoutsetTest(BitcoinTestFramework):
         self.wallet = MiniWallet(self.nodes[0], hrp="bcrt")
         self.nodes[0].set_deterministic_priv_key('2Mysp7FKKe52eoC2JmU46irt1dt58TpCvhQ', 'cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ')
         self.wallet.generate(200, invalid_call=False)
-        self.wallet.rescan_utxos()
 
         self.log.info("Test if we find coinbase outputs.")
         assert_equal(sum(u["coinbase"] for u in self.nodes[0].scantxoutset("start", [self.wallet.get_descriptor()])["unspents"]), 200)
