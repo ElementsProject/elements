@@ -226,15 +226,13 @@ static RPCHelpMan getdescriptorinfo()
                 HelpExampleRpc("getdescriptorinfo", "\"" + EXAMPLE_DESCRIPTOR + "\"")
             },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
-    RPCTypeCheck(request.params, {UniValue::VSTR});
-
-    FlatSigningProvider provider;
-    std::string error;
-    auto desc = Parse(request.params[0].get_str(), provider, error);
-    if (!desc) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, error);
-    }
+        {
+            FlatSigningProvider provider;
+            std::string error;
+            auto desc = Parse(request.params[0].get_str(), provider, error);
+            if (!desc) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, error);
+            }
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("descriptor", desc->ToString());
@@ -278,9 +276,8 @@ static RPCHelpMan deriveaddresses()
                 HelpExampleRpc("deriveaddresses", "\"" + EXAMPLE_DESCRIPTOR + "\", \"[0,2]\"")
             },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValueType()}); // Range argument is checked later
-    const std::string desc_str = request.params[0].get_str();
+        {
+            const std::string desc_str = request.params[0].get_str();
 
     int64_t range_begin = 0;
     int64_t range_end = 0;

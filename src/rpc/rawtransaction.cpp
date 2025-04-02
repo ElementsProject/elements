@@ -217,7 +217,7 @@ static std::vector<RPCArg> CreateTxDoc()
                     },
                     },
             },
-            },
+        },
         {"locktime", RPCArg::Type::NUM, RPCArg::Default{0}, "Raw locktime. Non-0 value also locktime-activates inputs"},
         {"replaceable", RPCArg::Type::BOOL, RPCArg::Default{true}, "Marks this transaction as BIP125-replaceable.\n"
                 "Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible."},
@@ -240,7 +240,8 @@ static RPCHelpMan getrawtransaction()
                 "If verbosity is 2, returns a JSON Object with information about the transaction, including fee and prevout information.",
                 {
                     {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                    {"verbosity|verbose", RPCArg::Type::NUM, RPCArg::Default{0}, "0 for hex-encoded data, 1 for a JSON object, and 2 for JSON object with fee and prevout"},
+                    {"verbosity|verbose", RPCArg::Type::NUM, RPCArg::Default{0}, "0 for hex-encoded data, 1 for a JSON object, and 2 for JSON object with fee and prevout",
+                     RPCArgOptions{.skip_type_check = true}},
                     {"blockhash", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The block in which to look for the transaction"},
                 },
                 {
@@ -412,15 +413,6 @@ static RPCHelpMan createrawtransaction()
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
     ChainstateManager& chainman = EnsureAnyChainman(request.context);
-
-    RPCTypeCheck(request.params, {
-        UniValue::VARR,
-        UniValue::VARR,
-        UniValue::VNUM,
-        UniValue::VBOOL,
-        }, true
-    );
-
     std::optional<bool> rbf;
     if (!request.params[3].isNull()) {
         rbf = request.params[3].get_bool();
@@ -457,8 +449,6 @@ static RPCHelpMan decoderawtransaction()
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL});
-
     CMutableTransaction mtx;
 
     bool try_witness = request.params[1].isNull() ? true : request.params[1].get_bool();
@@ -511,8 +501,6 @@ static RPCHelpMan decodescript()
         },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    RPCTypeCheck(request.params, {UniValue::VSTR});
-
     UniValue r(UniValue::VOBJ);
     CScript script;
     if (request.params[0].get_str().size() > 0){
@@ -776,9 +764,6 @@ static RPCHelpMan signrawtransactionwithkey()
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
     ChainstateManager& chainman = EnsureAnyChainman(request.context);
-
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VARR, UniValue::VSTR}, true);
-
     CMutableTransaction mtx;
     if (!DecodeHexTx(mtx, request.params[0].get_str())) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed. Make sure the tx has at least one input.");
@@ -1074,8 +1059,6 @@ static RPCHelpMan decodepsbt()
 {
     if (!g_con_elementsmode)
         throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
-
-    RPCTypeCheck(request.params, {UniValue::VSTR});
 
     // Unserialize the transactions
     PartiallySignedTransaction psbtx;
@@ -1753,8 +1736,6 @@ static RPCHelpMan combinepsbt()
     if (!g_con_elementsmode)
         throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
 
-    RPCTypeCheck(request.params, {UniValue::VARR}, true);
-
     // Unserialize the transactions
     std::vector<PartiallySignedTransaction> psbtxs;
     UniValue txs = request.params[0].get_array();
@@ -1848,8 +1829,6 @@ static RPCHelpMan finalizepsbt()
     if (!g_con_elementsmode)
         throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL}, true);
-
     // Unserialize the transactions
     PartiallySignedTransaction psbtx;
     std::string error;
@@ -1942,15 +1921,6 @@ static RPCHelpMan createpsbt()
         throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
 
     ChainstateManager& chainman = EnsureAnyChainman(request.context);
-
-    RPCTypeCheck(request.params, {
-        UniValue::VARR,
-        UniValue::VARR,
-        UniValue::VNUM,
-        UniValue::VBOOL,
-        UniValue::VNUM,
-        }, true
-    );
 
     std::optional<bool> rbf;
     if (!request.params[3].isNull()) {
@@ -2062,8 +2032,6 @@ static RPCHelpMan converttopsbt()
     if (!g_con_elementsmode)
         throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL, UniValue::VBOOL}, true);
-
     // parse hex string from parameter
     CMutableTransaction tx;
     bool permitsigdata = request.params[1].isNull() ? false : request.params[1].get_bool();
@@ -2128,8 +2096,6 @@ static RPCHelpMan utxoupdatepsbt()
             },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR}, true);
-
     // Unserialize the transactions
     PartiallySignedTransaction psbtx;
     std::string error;
@@ -2219,8 +2185,6 @@ static RPCHelpMan parsepsbt()
             },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    RPCTypeCheck(request.params, {UniValue::VSTR}, true);
-
     // Unserialize the PSBT
     PartiallySignedTransaction psbtx;
     std::string error;
@@ -2259,8 +2223,6 @@ static RPCHelpMan joinpsbts()
             },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    RPCTypeCheck(request.params, {UniValue::VARR}, true);
-
     // Unserialize the transactions
     std::vector<PartiallySignedTransaction> psbtxs;
     UniValue txs = request.params[0].get_array();
@@ -2406,8 +2368,6 @@ static RPCHelpMan analyzepsbt()
             },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    RPCTypeCheck(request.params, {UniValue::VSTR});
-
     // Unserialize the transaction
     PartiallySignedTransaction psbtx;
     std::string error;
@@ -3057,7 +3017,6 @@ static RPCHelpMan calculateasset()
             RPCExamples{""},
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VNUM, UniValue::VSTR, UniValue::VBOOL}, true);
 
     uint256 txid = ParseHashV(request.params[0], "txid");
     uint32_t vout = request.params[1].getInt<int>();
@@ -3110,7 +3069,6 @@ static RPCHelpMan updatepsbtpegin()
     if (!g_con_elementsmode)
         throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VNUM, UniValueType(), UniValue::VSTR, UniValue::VSTR, UniValue::VSTR, UniValue::VSTR}, true);
 
     // Unserialize the transaction
     PartiallySignedTransaction psbtx;

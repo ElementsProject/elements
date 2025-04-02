@@ -1318,8 +1318,6 @@ RPCHelpMan unblindrawtransaction()
     if (!wallet) return NullUniValue;
     CWallet* const pwallet = wallet.get();
 
-    RPCTypeCheck(request.params, {UniValue::VSTR});
-
     CMutableTransaction tx;
     if (!DecodeHexTx(tx, request.params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");

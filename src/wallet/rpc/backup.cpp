@@ -1367,8 +1367,6 @@ RPCHelpMan importmulti()
     // the user could have gotten from another RPC command prior to now
     wallet.BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(mainRequest.params, {UniValue::VARR, UniValue::VOBJ});
-
     EnsureLegacyScriptPubKeyMan(*pwallet, true);
 
     const UniValue& requests = mainRequest.params[0];
@@ -1688,8 +1686,6 @@ RPCHelpMan importdescriptors()
     if (!pwallet->IsWalletFlagSet(WALLET_FLAG_DESCRIPTORS)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "importdescriptors is not available for non-descriptor wallets");
     }
-
-    RPCTypeCheck(main_request.params, {UniValue::VARR, UniValue::VOBJ});
 
     WalletRescanReserver reserver(*pwallet);
     if (!reserver.reserve()) {

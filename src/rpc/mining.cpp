@@ -1080,7 +1080,7 @@ static RPCHelpMan getnewblockhex()
                         {
                             {"", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex encoded string for commit data"},
                         },
-                    },
+                    {RPCArgOptions{.skip_type_check=true}}},
                 },
                 RPCResult{
                     RPCResult::Type::STR_HEX, "blockhex", "the block hex",

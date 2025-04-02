@@ -60,17 +60,12 @@ static RPCHelpMan sendrawtransaction()
             + HelpExampleRpc("sendrawtransaction", "\"signedhex\"")
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
-    RPCTypeCheck(request.params, {
-        UniValue::VSTR,
-        UniValueType(), // VNUM or VSTR, checked inside AmountFromValue()
-    });
-
-    CMutableTransaction mtx;
-    if (!DecodeHexTx(mtx, request.params[0].get_str())) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed. Make sure the tx has at least one input.");
-    }
-    CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
+        {
+            CMutableTransaction mtx;
+            if (!DecodeHexTx(mtx, request.params[0].get_str())) {
+                throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed. Make sure the tx has at least one input.");
+            }
+            CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
 
     const CFeeRate max_raw_tx_fee_rate = request.params[1].isNull() ?
                                              DEFAULT_MAX_RAW_TX_FEE_RATE :
@@ -157,10 +152,6 @@ static RPCHelpMan testmempoolaccept()
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    RPCTypeCheck(request.params, {
-        UniValue::VARR,
-        UniValueType(), // VNUM or VSTR, checked inside AmountFromValue()
-    });
     const UniValue raw_transactions = request.params[0].get_array();
     if (raw_transactions.size() < 1 || raw_transactions.size() > MAX_PACKAGE_COUNT) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -810,9 +801,6 @@ static RPCHelpMan submitpackage()
             if (!Params().IsMockableChain()) {
                 throw std::runtime_error("submitpackage is for regression testing (-regtest mode) only");
             }
-            RPCTypeCheck(request.params, {
-                UniValue::VARR,
-            });
             const UniValue raw_transactions = request.params[0].get_array();
             if (raw_transactions.size() < 1 || raw_transactions.size() > MAX_PACKAGE_COUNT) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER,
