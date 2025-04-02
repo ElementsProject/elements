@@ -258,36 +258,13 @@ static SECP256K1_INLINE void secp256k1_declassify(const secp256k1_context* ctx, 
 }
 
 static int secp256k1_pubkey_load(const secp256k1_context* ctx, secp256k1_ge* ge, const secp256k1_pubkey* pubkey) {
-    if (sizeof(secp256k1_ge_storage) == 64) {
-        /* When the secp256k1_ge_storage type is exactly 64 byte, use its
-         * representation inside secp256k1_pubkey, as conversion is very fast.
-         * Note that secp256k1_pubkey_save must use the same representation. */
-        secp256k1_ge_storage s;
-        memcpy(&s, &pubkey->data[0], sizeof(s));
-        secp256k1_ge_from_storage(ge, &s);
-    } else {
-        /* Otherwise, fall back to 32-byte big endian for X and Y. */
-        secp256k1_fe x, y;
-        ARG_CHECK(secp256k1_fe_set_b32_limit(&x, pubkey->data));
-        ARG_CHECK(secp256k1_fe_set_b32_limit(&y, pubkey->data + 32));
-        secp256k1_ge_set_xy(ge, &x, &y);
-    }
+    secp256k1_ge_from_bytes(ge, pubkey->data);
     ARG_CHECK(!secp256k1_fe_is_zero(&ge->x));
     return 1;
 }
 
 static void secp256k1_pubkey_save(secp256k1_pubkey* pubkey, secp256k1_ge* ge) {
-    if (sizeof(secp256k1_ge_storage) == 64) {
-        secp256k1_ge_storage s;
-        secp256k1_ge_to_storage(&s, ge);
-        memcpy(&pubkey->data[0], &s, sizeof(s));
-    } else {
-        VERIFY_CHECK(!secp256k1_ge_is_infinity(ge));
-        secp256k1_fe_normalize_var(&ge->x);
-        secp256k1_fe_normalize_var(&ge->y);
-        secp256k1_fe_get_b32(pubkey->data, &ge->x);
-        secp256k1_fe_get_b32(pubkey->data + 32, &ge->y);
-    }
+    secp256k1_ge_to_bytes(pubkey->data, ge);
 }
 
 int secp256k1_ec_pubkey_parse(const secp256k1_context* ctx, secp256k1_pubkey* pubkey, const unsigned char *input, size_t inputlen) {
@@ -855,8 +832,12 @@ static void secp256k1_ge_serialize_ext(unsigned char *out33, secp256k1_ge* ge) {
         int ret;
         size_t size = 33;
         ret = secp256k1_eckey_pubkey_serialize(ge, out33, &size, 1);
+#ifdef VERIFY
         /* Serialize must succeed because the point is not at infinity */
         VERIFY_CHECK(ret && size == 33);
+#else
+        (void) ret;
+#endif
     }
 }
 
@@ -865,7 +846,7 @@ static void secp256k1_ge_serialize_ext(unsigned char *out33, secp256k1_ge* ge) {
 static int secp256k1_ge_parse_ext(secp256k1_ge* ge, const unsigned char *in33) {
     unsigned char zeros[33] = { 0 };
 
-    if (memcmp(in33, zeros, sizeof(zeros)) == 0) {
+    if (secp256k1_memcmp_var(in33, zeros, sizeof(zeros)) == 0) {
         secp256k1_ge_set_infinity(ge);
         return 1;
     }
@@ -890,6 +871,10 @@ static int secp256k1_ge_parse_ext(secp256k1_ge* ge, const unsigned char *in33) {
 
 #ifdef ENABLE_MODULE_SCHNORRSIG
 # include "modules/schnorrsig/main_impl.h"
+#endif
+
+#ifdef ENABLE_MODULE_SCHNORRSIG_HALFAGG
+# include "modules/schnorrsig_halfagg/main_impl.h"
 #endif
 
 #ifdef ENABLE_MODULE_ELLSWIFT

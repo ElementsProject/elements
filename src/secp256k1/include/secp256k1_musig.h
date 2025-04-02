@@ -103,7 +103,7 @@ typedef struct {
 /** Parse a signer's public nonce.
  *
  *  Returns: 1 when the nonce could be parsed, 0 otherwise.
- *  Args:    ctx: a secp256k1 context object
+ *  Args:    ctx: pointer to a context object
  *  Out:   nonce: pointer to a nonce object
  *  In:     in66: pointer to the 66-byte nonce to be parsed
  */
@@ -116,7 +116,7 @@ SECP256K1_API int secp256k1_musig_pubnonce_parse(
 /** Serialize a signer's public nonce
  *
  *  Returns: 1 when the nonce could be serialized, 0 otherwise
- *  Args:    ctx: a secp256k1 context object
+ *  Args:    ctx: pointer to a context object
  *  Out:   out66: pointer to a 66-byte array to store the serialized nonce
  *  In:    nonce: pointer to the nonce
  */
@@ -129,7 +129,7 @@ SECP256K1_API int secp256k1_musig_pubnonce_serialize(
 /** Parse an aggregate public nonce.
  *
  *  Returns: 1 when the nonce could be parsed, 0 otherwise.
- *  Args:    ctx: a secp256k1 context object
+ *  Args:    ctx: pointer to a context object
  *  Out:   nonce: pointer to a nonce object
  *  In:     in66: pointer to the 66-byte nonce to be parsed
  */
@@ -142,7 +142,7 @@ SECP256K1_API int secp256k1_musig_aggnonce_parse(
 /** Serialize an aggregate public nonce
  *
  *  Returns: 1 when the nonce could be serialized, 0 otherwise
- *  Args:    ctx: a secp256k1 context object
+ *  Args:    ctx: pointer to a context object
  *  Out:   out66: pointer to a 66-byte array to store the serialized nonce
  *  In:    nonce: pointer to the nonce
  */
@@ -155,7 +155,7 @@ SECP256K1_API int secp256k1_musig_aggnonce_serialize(
 /** Serialize a MuSig partial signature
  *
  *  Returns: 1 when the signature could be serialized, 0 otherwise
- *  Args:    ctx: a secp256k1 context object
+ *  Args:    ctx: pointer to a context object
  *  Out:   out32: pointer to a 32-byte array to store the serialized signature
  *  In:      sig: pointer to the signature
  */
@@ -168,7 +168,7 @@ SECP256K1_API int secp256k1_musig_partial_sig_serialize(
 /** Parse a MuSig partial signature.
  *
  *  Returns: 1 when the signature could be parsed, 0 otherwise.
- *  Args:    ctx: a secp256k1 context object
+ *  Args:    ctx: pointer to a context object
  *  Out:     sig: pointer to a signature object
  *  In:     in32: pointer to the 32-byte signature to be parsed
  *
@@ -234,7 +234,7 @@ SECP256K1_API int secp256k1_musig_pubkey_agg(
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_pubkey_get(
     const secp256k1_context *ctx,
     secp256k1_pubkey *agg_pk,
-    secp256k1_musig_keyagg_cache *keyagg_cache
+    const secp256k1_musig_keyagg_cache *keyagg_cache
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /** Apply plain "EC" tweaking to a public key in a given keyagg_cache by

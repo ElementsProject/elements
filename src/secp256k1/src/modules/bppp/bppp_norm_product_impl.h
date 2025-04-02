@@ -118,7 +118,11 @@ static int secp256k1_bppp_commit(
     secp256k1_scalar v, l_c;
     /* First n_vec_len generators are Gs, rest are Hs*/
     VERIFY_CHECK(g_vec->n == (n_vec_len + l_vec_len));
+#ifdef VERIFY
     VERIFY_CHECK(l_vec_len == c_vec_len);
+#else
+    (void)c_vec_len;
+#endif
 
     /* It is possible to extend to support n_vec and c_vec to not be power of
     two. For the initial iterations of the code, we stick to powers of two for simplicity.*/
@@ -238,17 +242,23 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
     ecmult_r_cb_data r_cb_data;
     size_t g_len = n_vec_len, h_len = l_vec_len;
     const size_t G_GENS_LEN = g_len;
-    size_t log_g_len, log_h_len;
-    size_t num_rounds;
 
-    VERIFY_CHECK(g_len > 0 && h_len > 0);
-    log_g_len = secp256k1_bppp_log2(g_len);
-    log_h_len = secp256k1_bppp_log2(h_len);
-    num_rounds = log_g_len > log_h_len ? log_g_len : log_h_len;
-    /* Check proof sizes.*/
-    VERIFY_CHECK(*proof_len >= 65 * num_rounds + 64);
-    VERIFY_CHECK(g_vec_len == (n_vec_len + l_vec_len) && l_vec_len == c_vec_len);
-    VERIFY_CHECK(secp256k1_is_power_of_two(n_vec_len) && secp256k1_is_power_of_two(c_vec_len));
+#ifdef VERIFY
+    {
+        size_t log_g_len_ver, log_h_len_ver, num_rounds_ver;
+        VERIFY_CHECK(g_len > 0 && h_len > 0); /* Precondition for secp256k1_bppp_log2() */
+        log_g_len_ver = secp256k1_bppp_log2(g_len);
+        log_h_len_ver = secp256k1_bppp_log2(h_len);
+        num_rounds_ver = log_g_len_ver > log_h_len_ver ? log_g_len_ver : log_h_len_ver;
+        /* Check proof sizes.*/
+        VERIFY_CHECK(*proof_len >= 65 * num_rounds_ver + 64);
+        VERIFY_CHECK(g_vec_len == (n_vec_len + l_vec_len) && l_vec_len == c_vec_len);
+        VERIFY_CHECK(secp256k1_is_power_of_two(n_vec_len) && secp256k1_is_power_of_two(c_vec_len));
+    }
+#else
+    (void)g_vec_len;
+    (void)c_vec_len;
+#endif
 
     x_cb_data.n = n_vec;
     x_cb_data.g = g_vec;
@@ -536,9 +546,6 @@ static int secp256k1_bppp_rangeproof_norm_product_verify(
 
     secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
 
-    /* res1 and res2 should be equal. Could not find a simpler way to compare them */
-    secp256k1_gej_neg(&res1, &res1);
-    secp256k1_gej_add_var(&res1, &res1, &res2, NULL);
-    return secp256k1_gej_is_infinity(&res1);
+    return secp256k1_gej_eq_var(&res1, &res2);
 }
 #endif
