@@ -90,7 +90,7 @@ ScriptError QueueCheck(std::vector<CCheck*>* queue, CCheck* check) {
 // Helper function for VerifyAmount(), not exported
 static bool VerifyIssuanceAmount(secp256k1_pedersen_commitment& value_commit, secp256k1_generator& asset_gen,
                     const CAsset& asset, const CConfidentialValue& value, const std::vector<unsigned char>& rangeproof,
-                    std::vector<CCheck*>* checks, const bool store_result)
+                    std::vector<CCheck*>* checks, const bool store_result, const Consensus::Params& consensus_params)
 {
     // This is used to add in the explicit values
     unsigned char explicit_blinds[32];
@@ -102,7 +102,7 @@ static bool VerifyIssuanceAmount(secp256k1_pedersen_commitment& value_commit, se
 
     // Build value commitment
     if (value.IsExplicit()) {
-        if (!MoneyRange(value.GetAmount()) || value.GetAmount() == 0) {
+        if (asset == consensus_params.pegged_asset && !MoneyRange(value.GetAmount()) || value.GetAmount() <= 0) {
             return false;
         }
         if (!rangeproof.empty()) {
@@ -131,7 +131,7 @@ static bool VerifyIssuanceAmount(secp256k1_pedersen_commitment& value_commit, se
     return true;
 }
 
-bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, std::vector<CCheck*>* checks, const bool store_result) {
+bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, const Consensus::Params& consensus_params, std::vector<CCheck*>* checks, const bool store_result) {
     assert(!tx.IsCoinBase());
     assert(inputs.size() == tx.vin.size());
 
@@ -257,7 +257,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             if (i >= tx.witness.vtxinwit.size()) {
                 return false;
             }
-            if (!VerifyIssuanceAmount(commit, gen, assetID, issuance.nAmount, tx.witness.vtxinwit[i].vchIssuanceAmountRangeproof, checks, store_result)) {
+            if (!VerifyIssuanceAmount(commit, gen, assetID, issuance.nAmount, tx.witness.vtxinwit[i].vchIssuanceAmountRangeproof, checks, store_result, consensus_params)) {
                 return false;
             }
             target_generators.push_back(gen);
@@ -283,7 +283,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             if (i >= tx.witness.vtxinwit.size()) {
                 return false;
             }
-            if (!VerifyIssuanceAmount(commit, gen, assetTokenID, issuance.nInflationKeys, tx.witness.vtxinwit[i].vchInflationKeysRangeproof, checks, store_result)) {
+            if (!VerifyIssuanceAmount(commit, gen, assetTokenID, issuance.nInflationKeys, tx.witness.vtxinwit[i].vchInflationKeysRangeproof, checks, store_result, consensus_params)) {
                 return false;
             }
             target_generators.push_back(gen);

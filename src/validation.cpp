@@ -855,7 +855,7 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
 
     // The mempool holds txs for the next block, so pass height+1 to CheckTxInputs
     CAmountMap fee_map;
-    if (!Consensus::CheckTxInputs(tx, state, m_view, m_active_chainstate.m_chain.Height() + 1, fee_map, setPeginsSpent, NULL, true, true, fedpegscripts)) {
+    if (!Consensus::CheckTxInputs(tx, state, m_view, chainparams.GetConsensus(), m_active_chainstate.m_chain.Height() + 1, fee_map, setPeginsSpent, NULL, true, true, fedpegscripts)) {
         return false; // state filled in by CheckTxInputs
     }
 
@@ -2348,7 +2348,7 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
             std::vector<CCheck*> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
             TxValidationState tx_state;
-            if (!Consensus::CheckTxInputs(tx, tx_state, view, pindex->nHeight, fee_map,
+            if (!Consensus::CheckTxInputs(tx, tx_state, view, m_params.GetConsensus(), pindex->nHeight, fee_map,
                         setPeginsSpent == NULL ? setPeginsSpentDummy : *setPeginsSpent,
                         g_parallel_script_checks ? &vChecks : NULL, fCacheResults, fScriptChecks, fedpegscripts)) {
                 // Any transaction validation failure in ConnectBlock is a block consensus failure

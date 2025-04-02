@@ -29,6 +29,8 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
     CKey key2;
     CKey keyDummy;
 
+    Consensus::Params consensusParams = Consensus::Params();
+
     // Any asset id will do
     CAsset bitcoinID(GetRandHash());
     CAsset otherID(GetRandHash());
@@ -72,32 +74,32 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         tx3.vout.push_back(CTxOut(bitcoinID, 100, CScript() << OP_TRUE));
         // Fee outputs are blank scriptpubkeys, and unblinded value/asset
         tx3.vout.push_back(CTxOut(bitcoinID, 22, CScript()));
-        BOOST_CHECK(VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
+        BOOST_CHECK(VerifyAmounts(inputs, CTransaction(tx3), consensusParams, nullptr, false));
 
         // Malleate the output and check for correct handling of bad commitments
         // These will fail IsValid checks
         std::vector<unsigned char> asset_copy(tx3.vout[0].nAsset.vchCommitment);
         std::vector<unsigned char> value_copy(tx3.vout[0].nValue.vchCommitment);
         tx3.vout[0].nAsset.vchCommitment[0] = 122;
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), consensusParams, nullptr, false));
         tx3.vout[0].nAsset.vchCommitment = asset_copy;
         tx3.vout[0].nValue.vchCommitment[0] = 122;
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), consensusParams, nullptr, false));
         tx3.vout[0].nValue.vchCommitment = value_copy;
 
         // Make sure null values are handled correctly
         tx3.vout[0].nAsset.SetNull();
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), consensusParams, nullptr, false));
         tx3.vout[0].nAsset.vchCommitment = asset_copy;
         tx3.vout[0].nValue.SetNull();
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), consensusParams, nullptr, false));
         tx3.vout[0].nValue.vchCommitment = value_copy;
 
         // Bad nonce values will result in failure to deserialize
         tx3.vout[0].nNonce.SetNull();
-        BOOST_CHECK(VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
+        BOOST_CHECK(VerifyAmounts(inputs, CTransaction(tx3), consensusParams, nullptr, false));
         tx3.vout[0].nNonce.vchCommitment = tx3.vout[0].nValue.vchCommitment;
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), consensusParams, nullptr, false));
 
         // Try to blind with a single non-fee output, which fails as its blinding factor ends up being zero.
         std::vector<uint256> input_blinds;
@@ -125,7 +127,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx3) == 2);
         BOOST_CHECK(!tx3.vout[0].nValue.IsExplicit());
         BOOST_CHECK(!tx3.vout[2].nValue.IsExplicit());
-        BOOST_CHECK(VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
+        BOOST_CHECK(VerifyAmounts(inputs, CTransaction(tx3), consensusParams, nullptr, false));
 
         CAmount unblinded_amount;
         BOOST_CHECK(UnblindConfidentialPair(key2, tx3.vout[0].nValue, tx3.vout[0].nAsset, tx3.vout[0].nNonce, op_true, tx3.witness.vtxoutwit[0].vchRangeproof, unblinded_amount, blind3, unblinded_id, asset_blind) == 0);
@@ -144,7 +146,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         blind_ozz = tx3.vout[0];
 
         tx3.vout[1].nValue = CConfidentialValue(tx3.vout[1].nValue.GetAmount() - 1);
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx3), consensusParams, nullptr, false));
     }
 
     {
@@ -162,7 +164,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         tx4.vout.push_back(CTxOut(bitcoinID, 30, CScript() << OP_TRUE));
         tx4.vout.push_back(CTxOut(bitcoinID, 40, CScript() << OP_TRUE));
         tx4.vout.push_back(CTxOut(bitcoinID, 111+100-30-40, CScript()));
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx4), nullptr, false)); // Spends a blinded coin with no blinded outputs to compensate.
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx4), consensusParams, nullptr, false)); // Spends a blinded coin with no blinded outputs to compensate.
 
         std::vector<uint256> input_blinds;
         std::vector<uint256> input_asset_blinds;
@@ -202,7 +204,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         tx4.vout.push_back(CTxOut(bitcoinID, 50, CScript() << OP_TRUE));
         // Fee
         tx4.vout.push_back(CTxOut(bitcoinID, 111+100-30-40-50, CScript()));
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx4), nullptr, false)); // Spends a blinded coin with no blinded outputs to compensate.
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx4), consensusParams, nullptr, false)); // Spends a blinded coin with no blinded outputs to compensate.
 
         std::vector<uint256> input_blinds;
         std::vector<uint256> input_asset_blinds;
@@ -231,7 +233,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(tx4.vout[1].nValue.IsExplicit());
         BOOST_CHECK(!tx4.vout[2].nValue.IsExplicit());
         // This one broken
-        BOOST_CHECK(VerifyAmounts(inputs, CTransaction(tx4), nullptr, false));
+        BOOST_CHECK(VerifyAmounts(inputs, CTransaction(tx4), consensusParams, nullptr, false));
 
         CAmount unblinded_amount;
         CAsset asset_out;
@@ -261,7 +263,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(UnblindConfidentialPair(key2, tx4.vout[2].nValue, tx4.vout[2].nAsset, tx4.vout[2].nNonce, op_true, tx4.witness.vtxoutwit[2].vchRangeproof, unblinded_amount, blind4, asset_out, asset_blinder_out) == 0);
 
         tx4.vout[3].nValue = CConfidentialValue(tx4.vout[3].nValue.GetAmount() - 1);
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx4), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx4), consensusParams, nullptr, false));
 
         // Check wallet borromean-based rangeproof results against expected args
         size_t proof_size = DEFAULT_RANGEPROOF_SIZE;
@@ -298,7 +300,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         tx5.vout.push_back(CTxOut(otherID, 1, CScript()));
 
         // Blinds don't balance
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx5), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(tx5), consensusParams, nullptr, false));
 
         // Blinding setup stuff
         std::vector<uint256> input_blinds;
@@ -324,27 +326,27 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
 
         // No blinding keys for fees, bails out blinding nothing, still invalid due to imbalance
         BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == -1);
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), consensusParams, nullptr, false));
         // Last will be implied blank keys
         output_pubkeys.resize(4);
 
         // Blind transaction, verify amounts
         txtemp = tx5;
         BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == 4);
-        BOOST_CHECK(VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
+        BOOST_CHECK(VerifyAmounts(inputs, CTransaction(txtemp), consensusParams, nullptr, false));
 
         // Transaction may not have spendable 0-value output
         txtemp.vout.push_back(CTxOut(CAsset(), 0, CScript() << OP_TRUE));
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), consensusParams, nullptr, false));
 
         // Create imbalance by removing fees, should still be able to blind
         txtemp = tx5;
         txtemp.vout.resize(5);
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), consensusParams, nullptr, false));
         txtemp.vout.resize(4);
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), consensusParams, nullptr, false));
         BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == 4);
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), consensusParams, nullptr, false));
 
         txtemp = tx5;
         // Remove other input, make surjection proof impossible for 2 "otherID" outputs
@@ -363,9 +365,9 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         t_input_asset_blinds.resize(1);
         t_input_assets.resize(1);
         t_input_amounts.resize(1);
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), consensusParams, nullptr, false));
         BOOST_CHECK(BlindTransaction(t_input_blinds, t_input_asset_blinds, t_input_assets, t_input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == 2);
-        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
+        BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), consensusParams, nullptr, false));
     }
 }
 BOOST_AUTO_TEST_SUITE_END()

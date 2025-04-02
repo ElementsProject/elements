@@ -52,6 +52,8 @@ BOOST_AUTO_TEST_CASE(witness_valid)
 
     std::string err;
 
+    const Consensus::Params& consensusParams = Params().GetConsensus();
+
     std::vector<unsigned char> fedpegscript_bytes = ParseHex(fedpegscript_str);
     CScript fedpegscript(fedpegscript_bytes.begin(), fedpegscript_bytes.end());
     // Test sample was generated as "legacy" with p2sh-p2wsh fedpegscript
@@ -123,7 +125,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     CCoinsViewCache coins(&coinsDummy);
     // Get the latest block index to look up fedpegscripts
     // For these tests, should be genesis-block-hardcoded consensus.fedpegscript
-    BOOST_CHECK(Consensus::CheckTxInputs(tx, state, coins, 0, fee_map, setPeginsSpent, NULL, false, true, fedpegscripts));
+    BOOST_CHECK(Consensus::CheckTxInputs(tx, state, coins, consensusParams, 0, fee_map, setPeginsSpent, NULL, false, true, fedpegscripts));
     BOOST_CHECK(setPeginsSpent.size() == 1);
     setPeginsSpent.clear();
 
@@ -131,7 +133,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     CMutableTransaction mtxn(tx);
     mtxn.witness.vtxinwit[0].m_pegin_witness.SetNull();
     CTransaction tx2(mtxn);
-    BOOST_CHECK(!Consensus::CheckTxInputs(tx2, state, coins, 0, fee_map, setPeginsSpent, NULL, false, true, fedpegscripts));
+    BOOST_CHECK(!Consensus::CheckTxInputs(tx2, state, coins, consensusParams, 0, fee_map, setPeginsSpent, NULL, false, true, fedpegscripts));
     BOOST_CHECK(setPeginsSpent.empty());
 
     // Invalidate peg-in (and spending) authorization by pegin marker.
@@ -140,7 +142,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     CMutableTransaction mtxn2(tx);
     mtxn2.vin[0].m_is_pegin = false;
     CTransaction tx3(mtxn2);
-    BOOST_CHECK(!Consensus::CheckTxInputs(tx3, state, coins, 0, fee_map, setPeginsSpent, NULL, false, true, fedpegscripts));
+    BOOST_CHECK(!Consensus::CheckTxInputs(tx3, state, coins, consensusParams, 0, fee_map, setPeginsSpent, NULL, false, true, fedpegscripts));
     BOOST_CHECK(setPeginsSpent.empty());
 
 

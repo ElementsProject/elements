@@ -2164,7 +2164,7 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
         }
 
         CTransaction tx_tmp(tx);
-        if (!VerifyAmounts(inputs_utxos, tx_tmp, nullptr, false)) {
+        if (!VerifyAmounts(inputs_utxos, tx_tmp, Params().GetConsensus(), nullptr, false)) {
             return TransactionError::VALUE_IMBALANCE;
         }
     }

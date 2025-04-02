@@ -3,6 +3,7 @@
 #define BITCOIN_CONFIDENTIAL_VALIDATION_H
 
 #include <consensus/amount.h>
+#include <consensus/params.h>
 #include <asset.h>
 #include <coins.h>
 #include <primitives/confidential.h>
@@ -89,7 +90,7 @@ public:
 
 ScriptError QueueCheck(std::vector<CCheck*>* queue, CCheck* check);
 
-bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, std::vector<CCheck*>* pvChecks, const bool cacheStore);
+bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, const Consensus::Params& consensusParams, std::vector<CCheck*>* pvChecks, const bool cacheStore);
 
 bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees);
 

@@ -42,6 +42,17 @@ class WalletTest(BitcoinTestFramework):
         self.generate(self.nodes[0], 1)
         assert_equal(self.nodes[0].getbalance()[asset], 200_000_000)
 
+        self.log.info("Issue more than 21 million of a unblinded non-policy asset")
+        issuance = self.nodes[0].issueasset(300_000_000, 100, False)
+        unblinded_asset = issuance['asset']
+        self.generate(self.nodes[0], 1)
+        assert_equal(self.nodes[0].getbalance()[unblinded_asset], 300_000_000)
+
+        self.log.info("Reissue more than 21 million of a unblinded non-policy asset")
+        self.nodes[0].reissueasset(unblinded_asset, 200_000_000)
+        self.generate(self.nodes[0], 1)
+        assert_equal(self.nodes[0].getbalance()[unblinded_asset], 500_000_000)
+
         # send more than 21 million of that asset
         addr = self.nodes[1].getnewaddress()
         self.nodes[0].sendtoaddress(address=addr, amount=22_000_000, assetlabel=asset)
