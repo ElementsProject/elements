@@ -11,7 +11,7 @@ project(libsecp256k1
   # The package (a.k.a. release) version is based on semantic versioning 2.0.0 of
   # the API. All changes in experimental modules are treated as
   # backwards-compatible and therefore at most increase the minor version.
-  VERSION 0.3.3
+  VERSION 0.4.2
   DESCRIPTION "Optimized C library for ECDSA signatures and secret/public key operations on curve secp256k1."
   HOMEPAGE_URL "https://github.com/bitcoin-core/secp256k1"
   LANGUAGES C
@@ -34,9 +34,9 @@ endif()
 # https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
 # All changes in experimental modules are treated as if they don't affect the
 # interface and therefore only increase the revision.
-set(${PROJECT_NAME}_LIB_VERSION_CURRENT 2)
-set(${PROJECT_NAME}_LIB_VERSION_REVISION 3)
-set(${PROJECT_NAME}_LIB_VERSION_AGE 0)
+set(${PROJECT_NAME}_LIB_VERSION_CURRENT 3)
+set(${PROJECT_NAME}_LIB_VERSION_REVISION 2)
+set(${PROJECT_NAME}_LIB_VERSION_AGE 1)
 
 set(CMAKE_C_STANDARD 90)
 set(CMAKE_C_EXTENSIONS OFF)
@@ -51,29 +51,102 @@ endif()
 
 option(SECP256K1_INSTALL "Enable installation." ${PROJECT_IS_TOP_LEVEL})
 
+## Modules
+
+# We declare all options before processing them, to make sure we can express
+# dependendencies while processing.
 option(SECP256K1_ENABLE_MODULE_ECDH "Enable ECDH module." ON)
-if(SECP256K1_ENABLE_MODULE_ECDH)
-  add_compile_definitions(ENABLE_MODULE_ECDH=1)
-endif()
-
 option(SECP256K1_ENABLE_MODULE_RECOVERY "Enable ECDSA pubkey recovery module." OFF)
-if(SECP256K1_ENABLE_MODULE_RECOVERY)
-  add_compile_definitions(ENABLE_MODULE_RECOVERY=1)
-endif()
-
 option(SECP256K1_ENABLE_MODULE_EXTRAKEYS "Enable extrakeys module." ON)
 option(SECP256K1_ENABLE_MODULE_SCHNORRSIG "Enable schnorrsig module." ON)
+option(SECP256K1_ENABLE_MODULE_ELLSWIFT "Enable ElligatorSwift module." ON)
+
+option(SECP256K1_ENABLE_MODULE_GENERATOR "Enable NUMS generator module." ON)
+option(SECP256K1_ENABLE_MODULE_RANGEPROOF "Enable Range proof module." ON)
+option(SECP256K1_ENABLE_MODULE_SURJECTIONPROOF "Enable Surjection proof module." ON)
+option(SECP256K1_ENABLE_MODULE_WHITELIST "Enable key whitelist module." ON)
+option(SECP256K1_ENABLE_MODULE_MUSIG "Enable MuSig module." ON)
+option(SECP256K1_ENABLE_MODULE_ECDSA_ADAPTOR "Enable ecdsa adaptor signatures module." ON)
+option(SECP256K1_ENABLE_MODULE_ECDSA_S2C "Enable ECDSA sign-to-contract module." ON)
+option(SECP256K1_ENABLE_MODULE_BPPP "Enable Bulletproofs++ module." ON)
+
+# Processing must be done in a topological sorting of the dependency graph
+# (dependent module first).
+if(SECP256K1_ENABLE_MODULE_BPPP)
+  if(DEFINED SECP256K1_ENABLE_MODULE_GENERATOR AND NOT SECP256K1_ENABLE_MODULE_GENERATOR)
+    message(FATAL_ERROR "Module dependency error: You have disabled the generator module explicitly, but it is required by the bppp module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_GENERATOR ON)
+  add_compile_definitions(ENABLE_MODULE_BPPP=1)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_ECDSA_S2C)
+  add_compile_definitions(ENABLE_MODULE_ECDSA_S2C=1)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_ECDSA_ADAPTOR)
+  add_compile_definitions(ENABLE_MODULE_ECDSA_ADAPTOR=1)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_MUSIG)
+  if(DEFINED SECP256K1_ENABLE_MODULE_SCHNORRSIG AND NOT SECP256K1_ENABLE_MODULE_SCHNORRSIG)
+    message(FATAL_ERROR "Module dependency error: You have disabled the schnorrsig module explicitly, but it is required by the musig module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_SCHNORRSIG ON)
+  add_compile_definitions(ENABLE_MODULE_MUSIG=1)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_WHITELIST)
+  if(DEFINED SECP256K1_ENABLE_MODULE_RANGEPROOF AND NOT SECP256K1_ENABLE_MODULE_RANGEPROOF)
+    message(FATAL_ERROR "Module dependency error: You have disabled the rangeproof module explicitly, but it is required by the whitelist module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_RANGEPROOF ON)
+  add_compile_definitions(ENABLE_MODULE_WHITELIST=1)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_SURJECTIONPROOF)
+  if(DEFINED SECP256K1_ENABLE_MODULE_RANGEPROOF AND NOT SECP256K1_ENABLE_MODULE_RANGEPROOF)
+    message(FATAL_ERROR "Module dependency error: You have disabled the rangeproof module explicitly, but it is required by the surjectionproof module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_RANGEPROOF ON)
+  add_compile_definitions(ENABLE_MODULE_SURJECTIONPROOF=1)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_RANGEPROOF)
+  if(DEFINED SECP256K1_ENABLE_MODULE_GENERATOR AND NOT SECP256K1_ENABLE_MODULE_GENERATOR)
+    message(FATAL_ERROR "Module dependency error: You have disabled the generator module explicitly, but it is required by the rangeproof module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_GENERATOR ON)
+  add_compile_definitions(ENABLE_MODULE_RANGEPROOF=1)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_GENERATOR)
+  add_compile_definitions(ENABLE_MODULE_GENERATOR=1)
+endif()
+
+
+if(SECP256K1_ENABLE_MODULE_ELLSWIFT)
+  add_compile_definitions(ENABLE_MODULE_ELLSWIFT=1)
+endif()
+
 if(SECP256K1_ENABLE_MODULE_SCHNORRSIG)
+  if(DEFINED SECP256K1_ENABLE_MODULE_EXTRAKEYS AND NOT SECP256K1_ENABLE_MODULE_EXTRAKEYS)
+    message(FATAL_ERROR "Module dependency error: You have disabled the extrakeys module explicitly, but it is required by the schnorrsig module.")
+  endif()
   set(SECP256K1_ENABLE_MODULE_EXTRAKEYS ON)
   add_compile_definitions(ENABLE_MODULE_SCHNORRSIG=1)
 endif()
+
 if(SECP256K1_ENABLE_MODULE_EXTRAKEYS)
   add_compile_definitions(ENABLE_MODULE_EXTRAKEYS=1)
 endif()
 
-option(SECP256K1_ENABLE_MODULE_ELLSWIFT "Enable ElligatorSwift module." ON)
-if(SECP256K1_ENABLE_MODULE_ELLSWIFT)
-  add_compile_definitions(ENABLE_MODULE_ELLSWIFT=1)
+if(SECP256K1_ENABLE_MODULE_RECOVERY)
+  add_compile_definitions(ENABLE_MODULE_RECOVERY=1)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_ECDH)
+  add_compile_definitions(ENABLE_MODULE_ECDH=1)
 endif()
 
 option(SECP256K1_USE_EXTERNAL_DEFAULT_CALLBACKS "Enable external default callback functions." OFF)
@@ -107,7 +180,7 @@ if(SECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY)
 endif()
 mark_as_advanced(FORCE SECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY)
 
-set(SECP256K1_ASM "AUTO" CACHE STRING "Assembly optimizations to use: \"AUTO\", \"OFF\", \"x86_64\" or \"arm32\" (experimental). [default=AUTO]")
+set(SECP256K1_ASM "AUTO" CACHE STRING "Assembly to use: \"AUTO\", \"OFF\", \"x86_64\" or \"arm32\" (experimental). [default=AUTO]")
 set_property(CACHE SECP256K1_ASM PROPERTY STRINGS "AUTO" "OFF" "x86_64" "arm32")
 check_string_option_value(SECP256K1_ASM)
 if(SECP256K1_ASM STREQUAL "arm32")
@@ -117,7 +190,7 @@ if(SECP256K1_ASM STREQUAL "arm32")
   if(HAVE_ARM32_ASM)
     add_compile_definitions(USE_EXTERNAL_ASM=1)
   else()
-    message(FATAL_ERROR "ARM32 assembly optimization requested but not available.")
+    message(FATAL_ERROR "ARM32 assembly requested but not available.")
   endif()
 elseif(SECP256K1_ASM)
   include(CheckX86_64Assembly)
@@ -128,14 +201,14 @@ elseif(SECP256K1_ASM)
   elseif(SECP256K1_ASM STREQUAL "AUTO")
     set(SECP256K1_ASM "OFF")
   else()
-    message(FATAL_ERROR "x86_64 assembly optimization requested but not available.")
+    message(FATAL_ERROR "x86_64 assembly requested but not available.")
   endif()
 endif()
 
 option(SECP256K1_EXPERIMENTAL "Allow experimental configuration options." OFF)
 if(NOT SECP256K1_EXPERIMENTAL)
   if(SECP256K1_ASM STREQUAL "arm32")
-    message(FATAL_ERROR "ARM32 assembly optimization is experimental. Use -DSECP256K1_EXPERIMENTAL=ON to allow.")
+    message(FATAL_ERROR "ARM32 assembly is experimental. Use -DSECP256K1_EXPERIMENTAL=ON to allow.")
   endif()
 endif()
 
@@ -254,9 +327,14 @@ if(SECP256K1_BUILD_BENCHMARK OR SECP256K1_BUILD_TESTS OR SECP256K1_BUILD_EXHAUST
   enable_testing()
 endif()
 
+set(SECP256K1_LATE_CFLAGS "" CACHE STRING "Compiler flags that are added to the command line after all other flags added by the build system.")
+include(AllTargetsCompileOptions)
+
 add_subdirectory(src)
+all_targets_compile_options(src "${SECP256K1_LATE_CFLAGS}")
 if(SECP256K1_BUILD_EXAMPLES)
   add_subdirectory(examples)
+  all_targets_compile_options(examples "${SECP256K1_LATE_CFLAGS}")
 endif()
 
 message("\n")
@@ -276,11 +354,19 @@ message("  ECDSA pubkey recovery ............... ${SECP256K1_ENABLE_MODULE_RECOV
 message("  extrakeys ........................... ${SECP256K1_ENABLE_MODULE_EXTRAKEYS}")
 message("  schnorrsig .......................... ${SECP256K1_ENABLE_MODULE_SCHNORRSIG}")
 message("  ElligatorSwift ...................... ${SECP256K1_ENABLE_MODULE_ELLSWIFT}")
+message("  generator ........................... ${SECP256K1_ENABLE_MODULE_GENERATOR}")
+message("  rangeproof .......................... ${SECP256K1_ENABLE_MODULE_RANGEPROOF}")
+message("  surjectionproof ..................... ${SECP256K1_ENABLE_MODULE_SURJECTIONPROOF}")
+message("  whitelist ........................... ${SECP256K1_ENABLE_MODULE_WHITELIST}")
+message("  musig ............................... ${SECP256K1_ENABLE_MODULE_MUSIG}")
+message("  ecdsa-s2c ........................... ${SECP256K1_ENABLE_MODULE_ECDSA_S2C}")
+message("  ecdsa-adaptor ....................... ${SECP256K1_ENABLE_MODULE_ECDSA_ADAPTOR}")
+message("  bppp ................................ ${SECP256K1_ENABLE_MODULE_BPPP}")
 message("Parameters:")
 message("  ecmult window size .................. ${SECP256K1_ECMULT_WINDOW_SIZE}")
 message("  ecmult gen precision bits ........... ${SECP256K1_ECMULT_GEN_PREC_BITS}")
 message("Optional features:")
-message("  assembly optimization ............... ${SECP256K1_ASM}")
+message("  assembly ............................ ${SECP256K1_ASM}")
 message("  external callbacks .................. ${SECP256K1_USE_EXTERNAL_DEFAULT_CALLBACKS}")
 if(SECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY)
   message("  wide multiplication (test-only) ..... ${SECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY}")
@@ -329,6 +415,9 @@ else()
   message(" - CFLAGS ............................. ${CMAKE_C_FLAGS_DEBUG}")
   message(" - LDFLAGS for executables ............ ${CMAKE_EXE_LINKER_FLAGS_DEBUG}")
   message(" - LDFLAGS for shared libraries ....... ${CMAKE_SHARED_LINKER_FLAGS_DEBUG}")
+endif()
+if(SECP256K1_LATE_CFLAGS)
+  message("SECP256K1_LATE_CFLAGS ................. ${SECP256K1_LATE_CFLAGS}")
 endif()
 message("\n")
 if(SECP256K1_EXPERIMENTAL)

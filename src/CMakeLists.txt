@@ -120,6 +120,31 @@ if(SECP256K1_INSTALL)
     "${PROJECT_SOURCE_DIR}/include/secp256k1.h"
     "${PROJECT_SOURCE_DIR}/include/secp256k1_preallocated.h"
   )
+  if(SECP256K1_ENABLE_MODULE_BPPP)
+    list(APPEND ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/include/secp256k1_bppp.h")
+  endif()
+  if(SECP256K1_ENABLE_MODULE_ECDSA_S2C)
+    list(APPEND ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/include/secp256k1_ecdsa_s2c.h")
+  endif()
+  if(SECP256K1_ENABLE_MODULE_ECDSA_ADAPTOR)
+    list(APPEND ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/include/secp256k1_ecdsa_adaptor.h")
+  endif()
+  if(SECP256K1_ENABLE_MODULE_MUSIG)
+    list(APPEND ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/include/secp256k1_musig.h")
+  endif()
+  if(SECP256K1_ENABLE_MODULE_WHITELIST)
+    list(APPEND ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/include/secp256k1_whitelist.h")
+  endif()
+  if(SECP256K1_ENABLE_MODULE_SURJECTIONPROOF)
+    list(APPEND ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/include/secp256k1_surjectionproof.h")
+  endif()
+  if(SECP256K1_ENABLE_MODULE_RANGEPROOF)
+    list(APPEND ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/include/secp256k1_rangeproof.h")
+  endif()
+  if(SECP256K1_ENABLE_MODULE_GENERATOR)
+    list(APPEND ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/include/secp256k1_generator.h")
+  endif()
+
   if(SECP256K1_ENABLE_MODULE_ECDH)
     list(APPEND ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/include/secp256k1_ecdh.h")
   endif()
@@ -161,5 +186,13 @@ if(SECP256K1_INSTALL)
       ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
       ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
-)
+  )
+
+  include(GeneratePkgConfigFile)
+  generate_pkg_config_file(${PROJECT_SOURCE_DIR}/libsecp256k1.pc.in)
+  install(
+    FILES
+      ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+  )
 endif()

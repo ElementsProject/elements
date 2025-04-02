@@ -13,7 +13,7 @@ print_environment() {
     # does not rely on bash.
     for var in WERROR_CFLAGS MAKEFLAGS BUILD \
             ECMULTWINDOW ECMULTGENPRECISION ASM WIDEMUL WITH_VALGRIND EXTRAFLAGS \
-            EXPERIMENTAL ECDH RECOVERY SCHNORRSIG ELLSWIFT \
+            EXPERIMENTAL ECDH RECOVERY SCHNORRSIG SCHNORRSIG_HALFAGG ELLSWIFT \
             ECDSA_S2C GENERATOR RANGEPROOF WHITELIST MUSIG ECDSAADAPTOR BPPP \
             SECP256K1_TEST_ITERS BENCH SECP256K1_BENCH_ITERS CTIMETESTS\
             EXAMPLES \
@@ -32,17 +32,14 @@ print_environment() {
 }
 print_environment
 
-# Start persistent wineserver if necessary.
-# This speeds up jobs with many invocations of wine (e.g., ./configure with MSVC) tremendously.
-case "$WRAPPER_CMD" in
-    *wine*)
-        # Make sure to shutdown wineserver whenever we exit.
-        trap "wineserver -k || true" EXIT INT HUP
-        wineserver -p
+env >> test_env.log
+
+# If gcc is requested, assert that it's in fact gcc (and not some symlinked Apple clang).
+case "${CC:-undefined}" in
+    *gcc*)
+        $CC -v 2>&1 | grep -q "gcc version" || exit 1;
         ;;
 esac
-
-env >> test_env.log
 
 if [ -n "${CC+x}" ]; then
     # The MSVC compiler "cl" doesn't understand "-v"
@@ -85,13 +82,28 @@ esac
     --enable-module-rangeproof="$RANGEPROOF" --enable-module-whitelist="$WHITELIST" --enable-module-generator="$GENERATOR" \
     --enable-module-schnorrsig="$SCHNORRSIG"  --enable-module-musig="$MUSIG" --enable-module-ecdsa-adaptor="$ECDSAADAPTOR" \
     --enable-module-schnorrsig="$SCHNORRSIG" \
+    --enable-module-schnorrsig-halfagg="$SCHNORRSIG_HALFAGG" \
     --enable-examples="$EXAMPLES" \
     --enable-ctime-tests="$CTIMETESTS" \
     --with-valgrind="$WITH_VALGRIND" \
     --host="$HOST" $EXTRAFLAGS
 
 # We have set "-j<n>" in MAKEFLAGS.
-make
+build_exit_code=0
+make > make.log 2>&1 || build_exit_code=$?
+cat make.log
+if [ $build_exit_code -ne 0 ]; then
+    case "${CC:-undefined}" in
+        *snapshot*)
+            # Ignore internal compiler errors in gcc-snapshot and clang-snapshot
+            grep -e "internal compiler error:" -e "PLEASE submit a bug report" make.log
+            return $?;
+            ;;
+        *)
+            return 1;
+            ;;
+    esac
+fi
 
 # Print information about binaries so that we can see that the architecture is correct
 file *tests* || true
