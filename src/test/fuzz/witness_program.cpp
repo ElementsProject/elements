@@ -21,12 +21,7 @@ public:
     DummySigChecker(const CMutableTransaction* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn, const PrecomputedTransactionData& txdataIn, MissingDataBehavior mdb) : MutableTransactionSignatureChecker{txToIn, nInIn, amountIn, txdataIn, mdb} {}
 };
 
-void initialize_witness_program()
-{
-    static const ECCVerifyHandle verify_handle;
-}
-
-FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
+FUZZ_TARGET(witness_program)
 {
     CDataStream ds(buffer, SER_NETWORK, INIT_PROTO_VERSION);
     try {
