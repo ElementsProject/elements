@@ -288,7 +288,7 @@ BASE_SCRIPTS = [
     'rpc_invalidateblock.py',
     'feature_utxo_set_hash.py',
     'feature_rbf.py',
-    'mempool_packages.py',
+    'mempool_packages.py --descriptors', # ELEMENTS: specify descriptors until it's default
     'mempool_package_onemore.py',
     'mempool_package_limits.py',
     # ELEMENTS: no versionbits in use
