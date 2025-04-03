@@ -699,8 +699,9 @@ libbitcoin_common_a_SOURCES = \
   policy/policy.cpp \
   protocol.cpp \
   psbt.cpp \
-  rpc/rawtransaction_util.cpp \
   rpc/external_signer.cpp \
+  rpc/rawtransaction_util.cpp \
+  rpc/request.cpp \
   rpc/util.cpp \
   scheduler.cpp \
   script/descriptor.cpp \
@@ -729,7 +730,6 @@ libbitcoin_util_a_SOURCES = \
   logging.cpp \
   random.cpp \
   randomenv.cpp \
-  rpc/request.cpp \
   support/cleanse.cpp \
   sync.cpp \
   util/asmap.cpp \
