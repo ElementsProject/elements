@@ -191,7 +191,7 @@ task:
     # Exclude feature_dbcrash for now due to timeout
     # Exclude also wallet_avoidreuse due to timeout
     # Ignore failures for now, need to investigate but we really don't use native win64 builds
-    - python test\functional\test_runner.py --nocleanup --ci --quiet --combinedlogslen=4000 --jobs=4 --timeout-factor=8 --extended --exclude feature_dbcrash,wallet_avoidreuse || true
+    - python test\functional\test_runner.py --nocleanup --ci --quiet --combinedlogslen=99999999 --jobs=4 --timeout-factor=8 --extended --exclude feature_dbcrash,wallet_avoidreuse || true
 
 task:
   name: 'ARM [unit tests, no functional tests] [bullseye]'
