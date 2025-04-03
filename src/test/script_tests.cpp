@@ -1891,7 +1891,14 @@ BOOST_AUTO_TEST_CASE(bip341_keypath_test_vectors)
         }
 
     }
+}
 
+BOOST_AUTO_TEST_CASE(compute_tapbranch)
+{
+    uint256 hash1 = uint256S("8ad69ec7cf41c2a4001fd1f738bf1e505ce2277acdcaa63fe4765192497f47a7");
+    uint256 hash2 = uint256S("f224a923cd0021ab202ab139cc56802ddb92dcfc172b9212261a539df79a112a");
+    uint256 result = uint256S("8f71e71303a3ce935970febcd23dc34ad1f5b0be503c64016b73da318163beab"); // ELEMENTS
+    BOOST_CHECK_EQUAL(ComputeTapbranchHash(hash1, hash2), result);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
