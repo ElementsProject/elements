@@ -284,8 +284,7 @@ Q_SIGNALS:
 
 BitcoinAmountField::BitcoinAmountField(std::set<CAsset> allowed_assets, QWidget *parent) :
     QWidget(parent),
-    m_allowed_assets(allowed_assets),
-    amount(nullptr)
+    m_allowed_assets(allowed_assets)
 {
     amount = new AmountSpinBox(this);
     amount->setLocale(QLocale::c());

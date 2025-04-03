@@ -25,7 +25,6 @@
 SendCoinsEntry::SendCoinsEntry(const PlatformStyle *_platformStyle, QWidget *parent) :
     QWidget(parent),
     ui(new Ui::SendCoinsEntry),
-    model(nullptr),
     platformStyle(_platformStyle)
 {
     ui->setupUi(this);

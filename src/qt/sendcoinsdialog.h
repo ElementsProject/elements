@@ -63,13 +63,13 @@ Q_SIGNALS:
 
 private:
     Ui::SendCoinsDialog *ui;
-    ClientModel *clientModel;
-    WalletModel *model;
+    ClientModel* clientModel{nullptr};
+    WalletModel* model{nullptr};
     std::unique_ptr<wallet::CCoinControl> m_coin_control;
     std::unique_ptr<WalletModelTransaction> m_current_transaction;
     std::unique_ptr<wallet::BlindDetails> m_current_blind_details;
-    bool fNewRecipientAllowed;
-    bool fFeeMinimized;
+    bool fNewRecipientAllowed{true};
+    bool fFeeMinimized{true};
     const PlatformStyle *platformStyle;
 
     // Copy PSBT to clipboard and offer to save it.

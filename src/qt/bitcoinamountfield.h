@@ -85,7 +85,7 @@ protected:
 private:
     std::set<CAsset> m_allowed_assets;
     CAsset asset;
-    AmountSpinBox *amount;
+    AmountSpinBox* amount{nullptr};
     QComboBox *unit;
 
     bool hasAssetChoice(const CAsset&) const;
