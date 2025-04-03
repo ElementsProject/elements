@@ -104,7 +104,6 @@ CAmountMap GetAvailableBalance(const CWallet& wallet, const CCoinControl* coinCo
 /**
  * Find non-change parent output.
  */
-const CTxOut& FindNonChangeParentOutput(const CWallet& wallet, const CTransaction& tx, int output) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 const CTxOut& FindNonChangeParentOutput(const CWallet& wallet, const COutPoint& outpoint) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 
 /**
