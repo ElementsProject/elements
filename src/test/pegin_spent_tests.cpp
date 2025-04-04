@@ -33,13 +33,13 @@ public:
     }
 
     CCoinsMap mapCoinsWritten;
-    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) override {
+    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock, bool erase) override {
         mapCoinsWritten.clear();
         for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end(); it = mapCoins.erase(it)) {
             mapCoinsWritten[it->first] = it->second;
         }
         //mapCoinsWritten = mapCoins;
-        return CCoinsView::BatchWrite(mapCoins, hashBlock);
+        return CCoinsView::BatchWrite(mapCoins, hashBlock, erase);
     }
 
     CCoinsViewTester() {}
