@@ -889,7 +889,8 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
 #endif
 
         // Get cursor
-        if (!m_batch->StartCursor())
+        std::unique_ptr<DatabaseCursor> cursor = m_batch->GetNewCursor();
+        if (!cursor)
         {
             pwallet->WalletLogPrintf("Error getting wallet database cursor\n");
             return DBErrors::CORRUPT;
@@ -900,14 +901,11 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
             // Read next record
             CDataStream ssKey(SER_DISK, CLIENT_VERSION);
             CDataStream ssValue(SER_DISK, CLIENT_VERSION);
-            bool complete;
-            bool ret = m_batch->ReadAtCursor(ssKey, ssValue, complete);
-            if (complete) {
+            DatabaseCursor::Status status = cursor->Next(ssKey, ssValue);
+            if (status == DatabaseCursor::Status::DONE) {
                 break;
-            }
-            else if (!ret)
-            {
-                m_batch->CloseCursor();
+            } else if (status == DatabaseCursor::Status::FAIL) {
+                cursor.reset();
                 pwallet->WalletLogPrintf("Error reading next record from wallet database\n");
                 return DBErrors::CORRUPT;
             }
@@ -955,7 +953,6 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
     } catch (...) {
         result = DBErrors::CORRUPT;
     }
-    m_batch->CloseCursor();
 
     // Set the active ScriptPubKeyMans
     for (auto spk_man_pair : wss.m_active_external_spks) {
@@ -1073,7 +1070,8 @@ DBErrors WalletBatch::FindWalletTxHashes(std::vector<uint256>& tx_hashes)
         }
 
         // Get cursor
-        if (!m_batch->StartCursor())
+        std::unique_ptr<DatabaseCursor> cursor = m_batch->GetNewCursor();
+        if (!cursor)
         {
             LogPrintf("Error getting wallet database cursor\n");
             return DBErrors::CORRUPT;
@@ -1084,12 +1082,10 @@ DBErrors WalletBatch::FindWalletTxHashes(std::vector<uint256>& tx_hashes)
             // Read next record
             CDataStream ssKey(SER_DISK, CLIENT_VERSION);
             CDataStream ssValue(SER_DISK, CLIENT_VERSION);
-            bool complete;
-            bool ret = m_batch->ReadAtCursor(ssKey, ssValue, complete);
-            if (complete) {
+            DatabaseCursor::Status status = cursor->Next(ssKey, ssValue);
+            if (status == DatabaseCursor::Status::DONE) {
                 break;
-            } else if (!ret) {
-                m_batch->CloseCursor();
+            } else if (status == DatabaseCursor::Status::FAIL) {
                 LogPrintf("Error reading next record from wallet database\n");
                 return DBErrors::CORRUPT;
             }
@@ -1105,7 +1101,6 @@ DBErrors WalletBatch::FindWalletTxHashes(std::vector<uint256>& tx_hashes)
     } catch (...) {
         result = DBErrors::CORRUPT;
     }
-    m_batch->CloseCursor();
 
     return result;
 }
@@ -1198,7 +1193,8 @@ bool WalletBatch::WriteWalletFlags(const uint64_t flags)
 bool WalletBatch::EraseRecords(const std::unordered_set<std::string>& types)
 {
     // Get cursor
-    if (!m_batch->StartCursor())
+    std::unique_ptr<DatabaseCursor> cursor = m_batch->GetNewCursor();
+    if (!cursor)
     {
         return false;
     }
@@ -1209,14 +1205,10 @@ bool WalletBatch::EraseRecords(const std::unordered_set<std::string>& types)
         // Read next record
         CDataStream key(SER_DISK, CLIENT_VERSION);
         CDataStream value(SER_DISK, CLIENT_VERSION);
-        bool complete;
-        bool ret = m_batch->ReadAtCursor(key, value, complete);
-        if (complete) {
+        DatabaseCursor::Status status = cursor->Next(key, value);
+        if (status == DatabaseCursor::Status::DONE) {
             break;
-        }
-        else if (!ret)
-        {
-            m_batch->CloseCursor();
+        } else if (status == DatabaseCursor::Status::FAIL) {
             return false;
         }
 
@@ -1230,7 +1222,6 @@ bool WalletBatch::EraseRecords(const std::unordered_set<std::string>& types)
             m_batch->Erase(key_data);
         }
     }
-    m_batch->CloseCursor();
     return true;
 }
 
