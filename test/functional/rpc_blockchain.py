@@ -26,6 +26,7 @@ from decimal import Decimal
 import http.client
 import os
 import subprocess
+import textwrap
 
 from test_framework.blocktools import (
     MAX_FUTURE_BLOCK_TIME,
@@ -34,6 +35,8 @@ from test_framework.blocktools import (
     create_coinbase,
 )
 from test_framework.messages import (
+    CBlockHeader,
+    from_hex,
     msg_block,
 )
 from test_framework.p2p import P2PInterface
@@ -43,6 +46,7 @@ from test_framework.util import (
     assert_equal,
     assert_greater_than,
     assert_greater_than_or_equal,
+    assert_is_hex_string,
     assert_raises,
     assert_raises_rpc_error,
     assert_is_hash_string,
@@ -421,6 +425,42 @@ class BlockchainTest(BitcoinTestFramework):
         assert_equal(header['mediantime'], TIME_RANGE_MTP)
         assert isinstance(header['version'], int)
         assert isinstance(int(header['versionHex'], 16), int)
+        # assert isinstance(header['difficulty'], Decimal) # ELEMENTS: no difficulty
+
+        # Test with verbose=False, which should return the header as hex.
+        header_hex = node.getblockheader(blockhash=besthash, verbose=False)
+        assert_is_hex_string(header_hex)
+
+        header = from_hex(CBlockHeader(), header_hex)
+        header.calc_sha256()
+        assert_equal(header.hash, besthash)
+
+        assert 'previousblockhash' not in node.getblockheader(node.getblockhash(0))
+        assert 'nextblockhash' not in node.getblockheader(node.getbestblockhash())
+
+    def _test_getdifficulty(self):
+        self.log.info("Test getdifficulty")
+        difficulty = self.nodes[0].getdifficulty()
+        # 1 hash in 2 should be valid, so difficulty should be 1/2**31
+        # binary => decimal => binary math is why we do this check
+        assert abs(difficulty * 2**31 - 1) < 0.0001
+
+    def _test_getnetworkhashps(self):
+        self.log.info("Test getnetworkhashps")
+        hashes_per_second = self.nodes[0].getnetworkhashps()
+        assert_raises_rpc_error(
+            -3,
+            textwrap.dedent("""
+            Wrong type passed:
+            {
+                "Position 1 (nblocks)": "JSON value of type string is not of expected type number",
+                "Position 2 (height)": "JSON value of type array is not of expected type number"
+            }
+            """).strip(),
+            lambda: self.nodes[0].getnetworkhashps("a", []),
+        )
+        # This should be 2 hashes every 10 minutes or 1/300
+        assert abs(hashes_per_second * 300 - 1) < 0.0001
 
     def _test_stopatheight(self):
         self.log.info("Test stopping at height")
