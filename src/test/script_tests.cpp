@@ -1901,4 +1901,14 @@ BOOST_AUTO_TEST_CASE(compute_tapbranch)
     BOOST_CHECK_EQUAL(ComputeTapbranchHash(hash1, hash2), result);
 }
 
+BOOST_AUTO_TEST_CASE(compute_tapleaf)
+{
+    const uint8_t script[6] = {'f','o','o','b','a','r'};
+    uint256 tlc0 = uint256S("f2c2d48816d7a294ad43828e60fd374a92c2a2b43bc56a8e8ef585e5f5f4f1c2"); // ELEMENTS
+    uint256 tlc2 = uint256S("76323ff8f6c8085e8199fef73d3b0571b1e150fd3008f1f8abe6bd8ac91455ba"); // ELEMENTS
+
+    BOOST_CHECK_EQUAL(ComputeTapleafHash(0xc0, Span(script)), tlc0);
+    BOOST_CHECK_EQUAL(ComputeTapleafHash(0xc2, Span(script)), tlc2);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
