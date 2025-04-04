@@ -672,8 +672,8 @@ static RPCHelpMan getblockheader()
     if (!fVerbose)
     {
         LOCK(cs_main);
-        CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
-        CBlockIndex tmpBlockIndexFull;
+    CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+	CBlockIndex tmpBlockIndexFull;
         const CBlockIndex* pblockindexfull=pblockindex->untrim_to(&tmpBlockIndexFull);
         ssBlock << pblockindexfull->GetBlockHeader();
         std::string strHex = HexStr(ssBlock);
