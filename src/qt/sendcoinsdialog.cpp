@@ -712,7 +712,7 @@ void SendCoinsDialog::setBalance(const interfaces::WalletBalances& balances)
         CAmount balance = valueFor(balances.balance, ::policyAsset);
         if (model->wallet().hasExternalSigner()) {
             ui->labelBalanceName->setText(tr("External balance:"));
-        } else if (model->wallet().privateKeysDisabled()) {
+        } else if (model->wallet().isLegacy() && model->wallet().privateKeysDisabled()) {
             balance = valueFor(balances.watch_only_balance, ::policyAsset);
             ui->labelBalanceName->setText(tr("Watch-only balance:"));
         }
