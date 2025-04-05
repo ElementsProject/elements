@@ -36,7 +36,7 @@ size_t CCoinsViewBacked::EstimateSize() const { return base->EstimateSize(); }
 // ELEMENTS:
 bool CCoinsViewBacked::IsPeginSpent(const std::pair<uint256, COutPoint> &outpoint) const { return base->IsPeginSpent(outpoint); }
 
-CCoinsViewCache::CCoinsViewCache(CCoinsView *baseIn) : CCoinsViewBacked(baseIn), cachedCoinsUsage(0) {}
+CCoinsViewCache::CCoinsViewCache(CCoinsView* baseIn) : CCoinsViewBacked(baseIn) {}
 
 size_t CCoinsViewCache::DynamicMemoryUsage() const {
     return memusage::DynamicUsage(cacheCoins) + cachedCoinsUsage;
