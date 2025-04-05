@@ -252,7 +252,7 @@ protected:
      * on the command line or in a network-specific section in the
      * config file.
      */
-    const std::set<std::string> GetUnsuitableSectionOnlyArgs() const;
+    std::set<std::string> GetUnsuitableSectionOnlyArgs() const;
 
     struct Command {
         /** The command (if one has been registered with AddCommand), or empty */

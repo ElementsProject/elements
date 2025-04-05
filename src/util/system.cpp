@@ -259,7 +259,7 @@ static std::optional<util::SettingsValue> InterpretValue(const KeyInfo& key, con
 ArgsManager::ArgsManager() = default;
 ArgsManager::~ArgsManager() = default;
 
-const std::set<std::string> ArgsManager::GetUnsuitableSectionOnlyArgs() const
+std::set<std::string> ArgsManager::GetUnsuitableSectionOnlyArgs() const
 {
     std::set<std::string> unsuitables;
 
