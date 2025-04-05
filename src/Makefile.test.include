@@ -166,6 +166,7 @@ BITCOIN_TESTS =\
   test/validation_tests.cpp \
   test/validationinterface_tests.cpp \
   test/versionbits_tests.cpp \
+  test/xoroshiro128plusplus_tests.cpp \
   test/pegin_spent_tests.cpp \
   test/dynafed_tests.cpp \
   test/blind_tests.cpp
