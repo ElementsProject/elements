@@ -186,14 +186,14 @@ UniValue EncodeHexScriptWitness(const CScriptWitness& witness)
 }
 
 // ELEMENTS:
-static void SidechainScriptPubKeyToJSON(const CScript& script, UniValue& out, bool include_hex, bool include_addresses, bool is_parent_chain)
+static void SidechainScriptPubKeyToJSON(const CScript& script, UniValue& out, bool include_hex, bool include_addresses, bool is_parent_chain, const SigningProvider* provider)
 {
     const std::string prefix = is_parent_chain ? "pegout_" : "";
     CTxDestination address;
 
     out.pushKV(prefix + "asm", ScriptToAsmStr(script));
     if (include_addresses) {
-        out.pushKV(prefix + "desc", InferDescriptor(script, DUMMY_SIGNING_PROVIDER)->ToString());
+        out.pushKV("desc", InferDescriptor(script, provider ? *provider : DUMMY_SIGNING_PROVIDER)->ToString());
     }
     if (include_hex) {
         out.pushKV(prefix + "hex", HexStr(script));
@@ -212,15 +212,15 @@ static void SidechainScriptPubKeyToJSON(const CScript& script, UniValue& out, bo
     out.pushKV(prefix + "type", GetTxnOutputType(type));
 }
 
-void ScriptToUniv(const CScript& script, UniValue& out, bool include_hex, bool include_addresses)
+void ScriptToUniv(const CScript& script, UniValue& out, bool include_hex, bool include_addresses, const SigningProvider* provider)
 {
-    SidechainScriptPubKeyToJSON(script, out, include_hex, include_addresses, false);
+    SidechainScriptPubKeyToJSON(script, out, include_hex, include_addresses, false, provider);
 
     uint256 pegout_chain;
     CScript pegout_scriptpubkey;
     if (script.IsPegoutScript(pegout_chain, pegout_scriptpubkey)) {
         out.pushKV("pegout_chain", pegout_chain.GetHex());
-        SidechainScriptPubKeyToJSON(pegout_scriptpubkey, out, include_hex, include_addresses, true);
+        SidechainScriptPubKeyToJSON(pegout_scriptpubkey, out, include_hex, include_addresses, true, provider);
     }
 }
 
