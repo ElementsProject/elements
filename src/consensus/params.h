@@ -13,6 +13,7 @@
 #include <chrono>
 #include <limits>
 #include <map>
+#include <vector>
 
 #include <script/script.h> // mandatory_coinbase_destination
 #include <consensus/amount.h> // genesis_subsidy
