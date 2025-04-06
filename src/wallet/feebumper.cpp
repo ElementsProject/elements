@@ -156,7 +156,7 @@ bool TransactionCanBeBumped(const CWallet& wallet, const uint256& txid)
 }
 
 Result CreateRateBumpTransaction(CWallet& wallet, const uint256& txid, const CCoinControl& coin_control, std::vector<bilingual_str>& errors,
-                                 CAmount& old_fee, CAmount& new_fee, CMutableTransaction& mtx, bool require_mine)
+                                 CAmount& old_fee, CAmount& new_fee, CMutableTransaction& mtx, bool require_mine, const std::vector<CTxOut>& outputs)
 {
     // We are going to modify coin control later, copy to re-use
     CCoinControl new_coin_control(coin_control);

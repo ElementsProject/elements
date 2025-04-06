@@ -145,28 +145,13 @@ void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, Sidechain::B
     CreatePegInInputInner(mtx, input_idx, tx_btc, merkle_block, claim_scripts, txData, txOutProofData, active_chain_tip);
 }
 
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, std::optional<bool> rbf, const CBlockIndex* active_chain_tip, std::map<CTxOut, PSBTOutput>* outputs_aux, bool allow_peg_in, bool allow_issuance)
+void AddInputs(CMutableTransaction& rawTx, const UniValue& inputs_in, std::optional<bool> rbf, const CBlockIndex* active_chain_tip, bool allow_peg_in, bool allow_issuance)
 {
-    if (outputs_in.isNull()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output argument must be non-null");
-    }
-
     UniValue inputs;
     if (inputs_in.isNull()) {
         inputs = UniValue::VARR;
     } else {
         inputs = inputs_in.get_array();
-    }
-
-    const UniValue& outputs = outputs_in.get_array();
-
-    CMutableTransaction rawTx;
-
-    if (!locktime.isNull()) {
-        int64_t nLockTime = locktime.getInt<int64_t>();
-        if (nLockTime < 0 || nLockTime > LOCKTIME_MAX)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, locktime out of range");
-        rawTx.nLockTime = nLockTime;
     }
 
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
@@ -279,6 +264,16 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         }
 
     }
+}
+
+void AddOutputs(CMutableTransaction& rawTx, const UniValue& outputs_in, std::map<CTxOut, PSBTOutput>* outputs_aux)
+{
+    if (outputs_in.isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output argument must be non-null");
+    }
+
+    const bool outputs_is_obj = outputs_in.isObject();
+    UniValue outputs = outputs_is_obj ? outputs_in.get_obj() : outputs_in.get_array();
 
     // Keep track of the fee output so we can add it in the very end of the transaction.
     CTxOut fee_out;
@@ -383,6 +378,21 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             outputs_aux->insert(std::make_pair(rawTx.vout[i], psbt_outs[i]));
         }
     }
+}
+
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, std::optional<bool> rbf, const CBlockIndex* active_chain_tip, std::map<CTxOut, PSBTOutput>* outputs_aux, bool allow_peg_in, bool allow_issuance)
+{
+    CMutableTransaction rawTx;
+
+    if (!locktime.isNull()) {
+        int64_t nLockTime = locktime.getInt<int64_t>();
+        if (nLockTime < 0 || nLockTime > LOCKTIME_MAX)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, locktime out of range");
+        rawTx.nLockTime = nLockTime;
+    }
+
+    AddInputs(rawTx, inputs_in, rbf, active_chain_tip, allow_peg_in, allow_issuance);
+    AddOutputs(rawTx, outputs_in, outputs_aux);
 
     if (rbf.has_value() && rbf.value() && rawTx.vin.size() > 0 && !SignalsOptInRBF(CTransaction(rawTx))) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter combination: Sequence number(s) contradict replaceable option");
