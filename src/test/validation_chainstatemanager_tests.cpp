@@ -375,6 +375,7 @@ struct SnapshotTestSetup : TestChain100Setup {
             BOOST_CHECK_EQUAL(chainman.GetAll().size(), 0);
             const ChainstateManager::Options chainman_opts{
                 .chainparams = ::Params(),
+                .datadir = m_args.GetDataDirNet(),
                 .adjusted_time_callback = GetAdjustedTime,
                 .minimum_chain_work = std::nullopt,
                 .assumed_valid_block = std::nullopt,

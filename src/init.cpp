@@ -1119,6 +1119,7 @@ bool AppInitParameterInteraction(const ArgsManager& args, bool use_syscall_sandb
     {
         ChainstateManager::Options chainman_opts_dummy{
             .chainparams = chainparams,
+            .datadir = args.GetDataDirNet(),
             .minimum_chain_work = UintToArith256(chainparams.GetConsensus().nMinimumChainWork),
             .assumed_valid_block = chainparams.GetConsensus().defaultAssumeValid,
         };
@@ -1583,6 +1584,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
     bool fReindexChainState = args.GetBoolArg("-reindex-chainstate", false);
     ChainstateManager::Options chainman_opts{
         .chainparams = chainparams,
+        .datadir = args.GetDataDirNet(),
         .adjusted_time_callback = GetAdjustedTime,
         .minimum_chain_work = UintToArith256(chainparams.GetConsensus().nMinimumChainWork),
         .assumed_valid_block = chainparams.GetConsensus().defaultAssumeValid,
