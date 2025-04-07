@@ -49,7 +49,7 @@ RPCHelpMan getnewaddress()
 
     OutputType output_type = pwallet->m_default_address_type;
     // default blinding to the blindedaddresses setting
-    bool add_blinding_key = gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode);
+    bool add_blinding_key = pwallet->blinded_addresses;
 
     if (!request.params[1].isNull()) {
         std::optional<OutputType> parsed = ParseOutputType(request.params[1].get_str());
@@ -120,7 +120,7 @@ RPCHelpMan getrawchangeaddress()
         output_type = parsed.value();
     }
 
-    bool add_blinding_key = force_blind || gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode);
+    bool add_blinding_key = force_blind || pwallet->blinded_addresses;
     auto op_dest = pwallet->GetNewChangeDestination(output_type, add_blinding_key);
     if (!op_dest) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, util::ErrorString(op_dest).original);
