@@ -1911,6 +1911,15 @@ util::Result<CreatedTransactionResult> CreateTransaction(
         TRACE1(coin_selection, attempting_aps_create_tx, wallet.GetName().c_str());
         CCoinControl tmp_cc = coin_control;
         tmp_cc.m_avoid_partial_spends = true;
+
+        // ELEMENTS: only for unblinded transactions
+        // Re-use the change destination from the first creation attempt to avoid skipping BIP44 indexes
+        const int ungrouped_change_pos = txr_ungrouped.change_pos;
+        if (ungrouped_change_pos != -1 && !blind_details) {
+            const CAsset& asset = txr_ungrouped.tx->vout[ungrouped_change_pos].nAsset.GetAsset();
+            ExtractDestination(txr_ungrouped.tx->vout[ungrouped_change_pos].scriptPubKey, tmp_cc.destChange[asset]);
+        }
+
         BlindDetails blind_details2;
         BlindDetails *blind_details2_ptr = blind_details ? &blind_details2 : nullptr;
         auto txr_grouped = CreateTransactionInternal(wallet, vecSend, change_pos, tmp_cc, sign, blind_details2_ptr, issuance_details);
@@ -1922,7 +1931,7 @@ util::Result<CreatedTransactionResult> CreateTransaction(
             wallet.WalletLogPrintf("Fee non-grouped = %lld, grouped = %lld, using %s\n",
                 txr_ungrouped.fee, txr_grouped->fee, use_aps ? "grouped" : "non-grouped");
             if (use_aps) {
-                if (blind_details) { // ELEMENTS FIXME: is this if statement + body still needed?
+                if (blind_details) {
                     *blind_details = blind_details2;
                 }
                 return txr_grouped;
