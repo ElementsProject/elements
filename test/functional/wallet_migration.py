@@ -457,7 +457,7 @@ class WalletMigrationTest(BitcoinTestFramework):
 
         wallet.unloadwallet()
 
-        wallet_file_path = os.path.join(self.nodes[0].datadir, "regtest", "wallets", "notloaded2")
+        wallet_file_path = os.path.join(self.nodes[0].datadir, "elementsregtest", "wallets", "notloaded2")
         self.nodes[0].migratewallet(wallet_file_path)
 
         # Because we gave the name by full path, the loaded wallet's name is that path too.
