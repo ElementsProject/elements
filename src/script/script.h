@@ -625,6 +625,15 @@ public:
             (g_con_elementsmode && size() == 0 /* Elements rule for fee outputs */);
     }
 
+    /**
+     * ELEMENTS: Returns whether the script is guaranteed to fail at execution,
+     * regardless of the initial stack, but is not an Elements fee output. 
+     */
+    bool IsUnspendableNotFee() const
+    {
+        return (size() > 0 && *begin() == OP_RETURN) || (size() > MAX_SCRIPT_SIZE);
+    }    
+
     void clear()
     {
         // The default prevector::clear() does not release memory
