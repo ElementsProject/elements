@@ -1042,6 +1042,9 @@ public:
     std::map<uint256, std::pair<CAsset, CAsset> > GetReissuanceTokenTypes() const;
 
     // END ELEMENTS
+
+    //! Whether the (external) signer performs R-value signature grinding
+    bool CanGrindR() const;
 };
 
 /**
@@ -1099,7 +1102,7 @@ bool AddWalletSetting(interfaces::Chain& chain, const std::string& wallet_name);
 //! Remove wallet name from persistent configuration so it will not be loaded on startup.
 bool RemoveWalletSetting(interfaces::Chain& chain, const std::string& wallet_name);
 
-bool DummySignInput(const SigningProvider& provider, CMutableTransaction& tx, const size_t nIn, const CTxOut& txout, const CCoinControl* coin_control = nullptr);
+bool DummySignInput(const SigningProvider& provider, CMutableTransaction& tx, const size_t nIn, const CTxOut& txout, bool can_grind_r, const CCoinControl* coin_control);
 
 bool FillInputToWeight(CMutableTransaction& mtx, size_t nIn, int64_t target_weight);
 

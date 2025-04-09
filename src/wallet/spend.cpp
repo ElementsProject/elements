@@ -34,99 +34,10 @@ using interfaces::FoundBlock;
 namespace wallet {
 static constexpr size_t OUTPUT_GROUP_MAX_ENTRIES{100};
 
-// Helper for producing a max-sized low-S low-R signature (eg 71 bytes)
-// or a max-sized low-S signature (e.g. 72 bytes) if use_max_sig is true
-bool DummySignInput(const SigningProvider& provider, CMutableTransaction& tx, const size_t nIn, const CTxOut& txout, const CCoinControl* coin_control) {
-    // Fill in dummy signatures for fee calculation.
-    const CScript& scriptPubKey = txout.scriptPubKey;
-    SignatureData sigdata;
-
-    // Use max sig if watch only inputs were used or if this particular input is an external input
-    // to ensure a sufficient fee is attained for the requested feerate.
-    const CTxIn& tx_in = tx.vin[nIn];
-    const bool use_max_sig = coin_control && (coin_control->fAllowWatchOnly || coin_control->IsExternalSelected(tx_in.prevout));
-    if (!ProduceSignature(provider, use_max_sig ? DUMMY_MAXIMUM_SIGNATURE_CREATOR : DUMMY_SIGNATURE_CREATOR, scriptPubKey, sigdata)) {
-        return false;
-    }
-    UpdateTransaction(tx, nIn, sigdata);
-    return true;
-}
-
-// Helper for producing a bunch of max-sized low-S low-R signatures (eg 71 bytes)
-bool CWallet::DummySignTx(CMutableTransaction &txNew, const std::vector<CTxOut> &txouts, const CCoinControl* coin_control) const
-{
-    // Fill in dummy signatures for fee calculation.
-    int nIn = 0;
-    for (const auto& txout : txouts)
-    {
-        CTxIn& txin = txNew.vin[nIn];
-        // If weight was provided, fill the input to that weight
-        if (coin_control && coin_control->HasInputWeight(txin.prevout)) {
-            if (!FillInputToWeight(txNew, nIn, coin_control->GetInputWeight(txin.prevout))) {
-                return false;
-            }
-            nIn++;
-            continue;
-        }
-        const std::unique_ptr<SigningProvider> provider = GetSolvingProvider(txout.scriptPubKey);
-        if (!provider || !DummySignInput(*provider, txNew, nIn, txout, coin_control)) {
-            if (!coin_control || !DummySignInput(coin_control->m_external_provider, txNew, nIn, txout, coin_control)) {
-                return false;
-            }
-        }
-
-        nIn++;
-    }
-    return true;
-}
-
-bool FillInputToWeight(CMutableTransaction& mtx, size_t nIn, int64_t target_weight)
-{
-    assert(mtx.vin[nIn].scriptSig.empty());
-    assert(mtx.witness.vtxinwit[nIn].scriptWitness.IsNull());
-
-    int64_t txin_weight = GetTransactionInputWeight(CTransaction(mtx), nIn);
-
-    // Do nothing if the weight that should be added is less than the weight that already exists
-    if (target_weight < txin_weight) {
-        return false;
-    }
-    if (target_weight == txin_weight) {
-        return true;
-    }
-
-    // Subtract current txin weight, which should include empty witness stack
-    int64_t add_weight = target_weight - txin_weight;
-    assert(add_weight > 0);
-
-    // We will want to subtract the size of the Compact Size UInt that will also be serialized.
-    // However doing so when the size is near a boundary can result in a problem where it is not
-    // possible to have a stack element size and combination to exactly equal a target.
-    // To avoid this possibility, if the weight to add is less than 10 bytes greater than
-    // a boundary, the size will be split so that 2/3rds will be in one stack element, and
-    // the remaining 1/3rd in another. Using 3rds allows us to avoid additional boundaries.
-    // 10 bytes is used because that accounts for the maximum size. This does not need to be super precise.
-    if ((add_weight >= 253 && add_weight < 263)
-        || (add_weight > std::numeric_limits<uint16_t>::max() && add_weight <= std::numeric_limits<uint16_t>::max() + 10)
-        || (add_weight > std::numeric_limits<uint32_t>::max() && add_weight <= std::numeric_limits<uint32_t>::max() + 10)) {
-        int64_t first_weight = add_weight / 3;
-        add_weight -= first_weight;
-
-        first_weight -= GetSizeOfCompactSize(first_weight);
-        mtx.witness.vtxinwit[nIn].scriptWitness.stack.emplace(mtx.witness.vtxinwit[nIn].scriptWitness.stack.end(), first_weight, 0);
-    }
-
-    add_weight -= GetSizeOfCompactSize(add_weight);
-    mtx.witness.vtxinwit[nIn].scriptWitness.stack.emplace(mtx.witness.vtxinwit[nIn].scriptWitness.stack.end(), add_weight, 0);
-    assert(GetTransactionInputWeight(CTransaction(mtx), nIn) == target_weight);
-
-    return true;
-}
-
-int CalculateMaximumSignedInputSize(const CTxOut& txout, const COutPoint outpoint, const SigningProvider* provider, const CCoinControl* coin_control) {
+int CalculateMaximumSignedInputSize(const CTxOut& txout, const COutPoint outpoint, const SigningProvider* provider, bool can_grind_r, const CCoinControl* coin_control) {
     CMutableTransaction txn;
     txn.vin.push_back(CTxIn(outpoint));
-    if (!provider || !DummySignInput(*provider, txn, 0, txout, coin_control)) {
+    if (!provider || !DummySignInput(*provider, txn, 0, txout, can_grind_r, coin_control)) {
         return -1;
     }
     return GetVirtualTransactionInputSize(CTransaction(txn));
@@ -135,7 +46,7 @@ int CalculateMaximumSignedInputSize(const CTxOut& txout, const COutPoint outpoin
 int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* wallet, const CCoinControl* coin_control)
 {
     const std::unique_ptr<SigningProvider> provider = wallet->GetSolvingProvider(txout.scriptPubKey);
-    return CalculateMaximumSignedInputSize(txout, COutPoint(), provider.get(), coin_control);
+    return CalculateMaximumSignedInputSize(txout, COutPoint(), provider.get(), wallet->CanGrindR(), coin_control);
 }
 
 // Returns pair of vsize and weight
@@ -259,6 +170,7 @@ util::Result<PreSelectedInputs> FetchSelectedInputs(const CWallet& wallet, const
     PreSelectedInputs result;
     std::vector<COutPoint> vPresetInputs;
     coin_control.ListSelected(vPresetInputs);
+    const bool can_grind_r = wallet.CanGrindR();
     for (const COutPoint& outpoint : vPresetInputs) {
         int input_bytes = -1;
         CTxOut txout;
@@ -277,7 +189,7 @@ util::Result<PreSelectedInputs> FetchSelectedInputs(const CWallet& wallet, const
         }
 
         if (input_bytes == -1) {
-            input_bytes = CalculateMaximumSignedInputSize(txout, outpoint, &coin_control.m_external_provider, &coin_control);
+            input_bytes = CalculateMaximumSignedInputSize(txout, outpoint, &coin_control.m_external_provider, can_grind_r, &coin_control);
             // ELEMENTS: one more try to get a signed input size: for pegins,
             //  the outpoint is provided as external data but the information
             //  needed to spend is in the wallet (not the external provider,
@@ -326,6 +238,7 @@ CoinsResult AvailableCoins(const CWallet& wallet,
     const int min_depth = {coinControl ? coinControl->m_min_depth : DEFAULT_MIN_DEPTH};
     const int max_depth = {coinControl ? coinControl->m_max_depth : DEFAULT_MAX_DEPTH};
     const bool only_safe = {coinControl ? !coinControl->m_include_unsafe_inputs : true};
+    const bool can_grind_r = wallet.CanGrindR();
 
     std::set<uint256> trusted_parents;
     for (const auto& entry : wallet.mapWallet)
@@ -423,7 +336,7 @@ CoinsResult AvailableCoins(const CWallet& wallet,
 
             std::unique_ptr<SigningProvider> provider = wallet.GetSolvingProvider(output.scriptPubKey);
 
-            int input_bytes = CalculateMaximumSignedInputSize(output, COutPoint(), provider.get(), coinControl);
+            int input_bytes = CalculateMaximumSignedInputSize(output, COutPoint(), provider.get(), can_grind_r, coinControl);
             bool solvable = provider ? InferDescriptor(output.scriptPubKey, *provider)->IsSolvable() : false;
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
 
@@ -1211,7 +1124,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     }
 
     // Get size of spending the change output
-    int change_spend_size = CalculateMaximumSignedInputSize(change_prototype_txout, &wallet);
+    int change_spend_size = CalculateMaximumSignedInputSize(change_prototype_txout, &wallet, /*coin_control=*/nullptr);
     // If the wallet doesn't know how to sign change output, assume p2sh-p2wpkh
     // as lower-bound to allow BnB to do it's thing
     if (change_spend_size == -1) {
