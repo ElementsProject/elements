@@ -77,10 +77,11 @@ static void CoinSelection(benchmark::Bench& bench)
         /*tx_noinputs_size=*/ 0,
         /*avoid_partial=*/ false,
     };
+    auto group = wallet::GroupOutputs(wallet, available_coins, coin_selection_params, {{filter_standard}})[filter_standard];
     bench.run([&] {
         CAmountMap mapValue;
         mapValue[::policyAsset] = 1003 * COIN;
-        auto result = AttemptSelection(wallet, mapValue, filter_standard, available_coins, coin_selection_params, /*allow_mixed_output_types=*/true);
+        auto result = AttemptSelection(mapValue, group, coin_selection_params, /*allow_mixed_output_types=*/true);
         assert(result);
         assert(result->GetSelectedValue() == mapValue);
         assert(result->GetInputSet().size() == 2);
@@ -109,7 +110,7 @@ static void add_coin(const CAmount& nValue, int nInput, std::vector<OutputGroup>
     CWalletTx wtx(MakeTransactionRef(tx), TxStateInactive{});
     COutput output(COutPoint(wtx.GetHash(), nInput), wtx.tx->vout.at(nInput), /*depth=*/ 0, /*input_bytes=*/ -1, /*spendable=*/ true, /*solvable=*/ true, /*safe=*/ true, /*time=*/ 0, /*from_me=*/ true, /*fees=*/ 0);
     set.emplace_back();
-    set.back().Insert(output, /*ancestors=*/ 0, /*descendants=*/ 0, /*positive_only=*/ false);
+    set.back().Insert(std::make_shared<COutput>(output), /*ancestors=*/ 0, /*descendants=*/ 0);
 }
 // Copied from src/wallet/test/coinselector_tests.cpp
 static CAmount make_hard_case(int utxos, std::vector<OutputGroup>& utxo_pool)

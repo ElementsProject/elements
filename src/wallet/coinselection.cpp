@@ -391,14 +391,14 @@ std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, 
         // - no groups that are already used in the input set
         for (const OutputGroup& g : groups) {
             bool add = true;
-            for (const COutput& c : g.m_outputs) {
+            for (const std::shared_ptr<wallet::COutput>& c : g.m_outputs) {
                 auto input_set = result.GetInputSet();
                 if (input_set.find(c) != input_set.end()) {
                     add = false;
                     break;
                 }
 
-                if (c.asset != it->first) {
+                if (c->asset != it->first) {
                     add = false;
                     break;
                 }
@@ -416,8 +416,8 @@ std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, 
 
         if (auto inner_result = KnapsackSolver(inner_groups, it->second, change_target, rng, it->first)) {
             auto set = inner_result->GetInputSet();
-            for (const COutput& ic : set) {
-                non_policy_effective_value += ic.GetEffectiveValue();
+            for (const std::shared_ptr<wallet::COutput>& ic : set) {
+                non_policy_effective_value += ic->GetEffectiveValue();
             }
             result.AddInput(inner_result.value());
         } else {
@@ -440,14 +440,14 @@ std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, 
         // - no groups that are already used in setCoinsRet
         for (const OutputGroup& g : groups) {
             bool add = true;
-            for (const COutput& c : g.m_outputs) {
+            for (const std::shared_ptr<wallet::COutput>& c : g.m_outputs) {
                 auto set = result.GetInputSet();
                 if (set.find(c) != set.end()) {
                     add = false;
                     break;
                 }
 
-                if (c.asset != ::policyAsset) {
+                if (c->asset != ::policyAsset) {
                     add = false;
                     break;
                 }
@@ -557,12 +557,9 @@ std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, 
 
  ******************************************************************************/
 
-void OutputGroup::Insert(const COutput& output, size_t ancestors, size_t descendants, bool positive_only) {
-    // Filter for positive only here before adding the coin
-    if (positive_only && output.GetEffectiveValue() <= 0) return;
-
+void OutputGroup::Insert(const std::shared_ptr<COutput>& output, size_t ancestors, size_t descendants) {
     m_outputs.push_back(output);
-    COutput& coin = m_outputs.back();
+    auto& coin = *m_outputs.back();
 
     fee += coin.GetFee();
 
@@ -573,7 +570,7 @@ void OutputGroup::Insert(const COutput& output, size_t ancestors, size_t descend
 
     m_from_me &= coin.from_me;
     m_value += coin.value;
-    m_depth = std::min(m_depth, output.depth);
+    m_depth = std::min(m_depth, output->depth);
     // ancestors here express the number of ancestors the new coin will end up having, which is
     // the sum, rather than the max; this will overestimate in the cases where multiple inputs
     // have common ancestors
@@ -582,8 +579,8 @@ void OutputGroup::Insert(const COutput& output, size_t ancestors, size_t descend
     // coin itself; thus, this value is counted as the max, not the sum
     m_descendants = std::max(m_descendants, descendants);
 
-    if (output.input_bytes > 0) {
-        m_weight += output.input_bytes * WITNESS_SCALE_FACTOR;
+    if (output->input_bytes > 0) {
+        m_weight += output->input_bytes * WITNESS_SCALE_FACTOR;
     }
 }
 
@@ -598,13 +595,35 @@ CAmount OutputGroup::GetSelectionAmount() const
 {
     // ELEMENTS: non-policy assets always use `m_value`. Their (negative)
     //  `effective_value` will be added to the target for the policy asset
-    if (!m_outputs.empty() && m_outputs[0].asset != ::policyAsset) {
+    if (!m_outputs.empty() && m_outputs[0]->asset != ::policyAsset) {
         return m_value;
     }
     return m_subtract_fee_outputs ? m_value : effective_value;
 }
 
-CAmount GetSelectionWaste(const std::set<COutput>& inputs, CAmount change_cost, CAmount target, bool use_effective_value)
+void OutputGroupTypeMap::Push(const OutputGroup& group, OutputType type, bool insert_positive, bool insert_mixed)
+{
+    if (group.m_outputs.empty()) return;
+
+    Groups& groups = groups_by_type[type];
+    if (insert_positive && group.GetSelectionAmount() > 0) {
+        groups.positive_group.emplace_back(group);
+        all_groups.positive_group.emplace_back(group);
+    }
+    if (insert_mixed) {
+        groups.mixed_group.emplace_back(group);
+        all_groups.mixed_group.emplace_back(group);
+    }
+}
+
+std::optional<Groups> OutputGroupTypeMap::Find(OutputType type)
+{
+    auto it_by_type = groups_by_type.find(type);
+    if (it_by_type == groups_by_type.end()) return std::nullopt;
+    return it_by_type->second;
+}
+
+CAmount GetSelectionWaste(const std::set<std::shared_ptr<COutput>>& inputs, CAmount change_cost, CAmount target, bool use_effective_value)
 {
     // This function should not be called with empty inputs as that would mean the selection failed
     assert(!inputs.empty());
@@ -612,7 +631,8 @@ CAmount GetSelectionWaste(const std::set<COutput>& inputs, CAmount change_cost, 
     // Always consider the cost of spending an input now vs in the future.
     CAmount waste = 0;
     CAmount selected_effective_value = 0;
-    for (const COutput& coin : inputs) {
+    for (const auto& coin_ptr : inputs) {
+        const COutput& coin = *coin_ptr;
         waste += coin.GetFee() - coin.long_term_fee;
         selected_effective_value += use_effective_value ? coin.GetEffectiveValue() : coin.value;
     }
@@ -632,21 +652,21 @@ CAmount GetSelectionWaste(const std::set<COutput>& inputs, CAmount change_cost, 
 }
 
 // ELEMENTS:
-CAmount GetSelectionWaste(const std::set<COutput>& inputs, CAmount change_cost, const CAmountMap& target_map, bool use_effective_value)
+CAmount GetSelectionWaste(const std::set<std::shared_ptr<COutput>>& inputs, CAmount change_cost, const CAmountMap& target_map, bool use_effective_value)
 {
     // This function should not be called with empty inputs as that would mean the selection failed
     assert(!inputs.empty());
 
     // create a map of asset -> coins from the inputs set
     std::map<CAsset, std::set<COutput>> coinset_map;
-    for(auto it = inputs.begin(); it != inputs.end(); ++it) {
-        auto asset = it->asset;
+    for(const auto& coin_ptr : inputs) {
+        auto asset = coin_ptr->asset;
         auto search = coinset_map.find(asset);
         if (search != coinset_map.end()) {
-            search->second.insert(*it);
+            search->second.insert(*coin_ptr);
         } else {
             std::set<COutput> coinset;
-            coinset.insert(*it);
+            coinset.insert(*coin_ptr);
             coinset_map.insert({asset, coinset});
         }
     }
@@ -714,12 +734,12 @@ CAmount SelectionResult::GetWaste() const
 
 CAmountMap SelectionResult::GetSelectedValue() const
 {
-    return std::accumulate(m_selected_inputs.cbegin(), m_selected_inputs.cend(), CAmountMap{}, [](CAmountMap sum, const auto& coin) { return sum + CAmountMap{{coin.asset, coin.value}}; });
+    return std::accumulate(m_selected_inputs.cbegin(), m_selected_inputs.cend(), CAmountMap{}, [](CAmountMap sum, const auto& coin) { return sum + CAmountMap{{coin->asset, coin->value}}; });
 }
 
 CAmountMap SelectionResult::GetSelectedEffectiveValue() const
 {
-    return std::accumulate(m_selected_inputs.cbegin(), m_selected_inputs.cend(), CAmountMap{}, [](CAmountMap sum, const auto& coin) { return sum + CAmountMap{{coin.asset, coin.GetEffectiveValue()}}; });
+    return std::accumulate(m_selected_inputs.cbegin(), m_selected_inputs.cend(), CAmountMap{}, [](CAmountMap sum, const auto& coin) { return sum + CAmountMap{{coin->asset, coin->GetEffectiveValue()}}; });
 }
 
 void SelectionResult::Clear()
@@ -738,14 +758,14 @@ void SelectionResult::AddInput(const OutputGroup& group)
     m_weight += group.m_weight;
 }
 
-void SelectionResult::AddInputs(const std::set<COutput>& inputs, bool subtract_fee_outputs)
+void SelectionResult::AddInputs(const std::set<std::shared_ptr<COutput>>& inputs, bool subtract_fee_outputs)
 {
     // As it can fail, combine inputs first
     InsertInputs(inputs);
     m_use_effective = !subtract_fee_outputs;
 
     m_weight += std::accumulate(inputs.cbegin(), inputs.cend(), 0, [](int sum, const auto& coin) {
-        return sum + std::max(coin.input_bytes, 0) * WITNESS_SCALE_FACTOR;
+        return sum + std::max(coin->input_bytes, 0) * WITNESS_SCALE_FACTOR;
     });
 }
 
@@ -753,7 +773,7 @@ void SelectionResult::AddInputs(const std::set<COutput>& inputs, bool subtract_f
 void SelectionResult::AddInput(const SelectionResult& result) {
     util::insert(m_selected_inputs, result.GetInputSet());
     m_weight += std::accumulate(result.GetInputSet().cbegin(), result.GetInputSet().cend(), 0, [](int sum, const auto& coin) {
-        return sum + std::max(coin.input_bytes, 0) * WITNESS_SCALE_FACTOR;
+        return sum + std::max(coin->input_bytes, 0) * WITNESS_SCALE_FACTOR;
     });
 }
 
@@ -771,14 +791,14 @@ void SelectionResult::Merge(const SelectionResult& other)
     m_weight += other.m_weight;
 }
 
-const std::set<COutput>& SelectionResult::GetInputSet() const
+const std::set<std::shared_ptr<COutput>>& SelectionResult::GetInputSet() const
 {
     return m_selected_inputs;
 }
 
-std::vector<COutput> SelectionResult::GetShuffledInputVector() const
+std::vector<std::shared_ptr<COutput>> SelectionResult::GetShuffledInputVector() const
 {
-    std::vector<COutput> coins(m_selected_inputs.begin(), m_selected_inputs.end());
+    std::vector<std::shared_ptr<COutput>> coins(m_selected_inputs.begin(), m_selected_inputs.end());
     Shuffle(coins.begin(), coins.end(), FastRandomContext());
     return coins;
 }
