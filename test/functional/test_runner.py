@@ -89,6 +89,8 @@ EXTENDED_SCRIPTS = [
     'feature_trim_headers.py',
     'wallet_elements_regression_fundrawtransaction.py --legacy-wallet', # ELEMENTS FIXME
     'wallet_pruning.py --legacy-wallet',
+    'wallet_transactiontime_rescan.py --descriptors', # ELEMENTS FIXME: move back to base scripts
+    'wallet_transactiontime_rescan.py --legacy-wallet', # ELEMENTS FIXME: move back to base scripts
 ]
 
 BASE_SCRIPTS = [
@@ -245,8 +247,6 @@ BASE_SCRIPTS = [
     'wallet_signrawtransactionwithwallet.py --descriptors',
     'rpc_signrawtransactionwithkey.py',
     'rpc_rawtransaction.py --legacy-wallet',
-    'wallet_transactiontime_rescan.py --descriptors',
-    'wallet_transactiontime_rescan.py --legacy-wallet',
     'p2p_addrv2_relay.py',
     'p2p_compactblocks_hb.py',
     'p2p_disconnect_ban.py',
