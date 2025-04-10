@@ -28,6 +28,7 @@ from test_framework.script_util import (
 )
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
+    assert_approx,
     assert_equal,
     assert_greater_than_or_equal,
 )
@@ -58,11 +59,11 @@ class BytesPerSigOpTest(BitcoinTestFramework):
         tx.vin = [CTxIn(COutPoint(int(txid, 16), vout))]
         tx.wit.vtxinwit = [CTxInWitness()]
         tx.wit.vtxinwit[0].scriptWitness.stack = [bytes(witness_script)]
-        tx.vout = [CTxOut(500000, output_script)]
+        tx.vout = [CTxOut(500000, output_script), CTxOut(500000, b'')] # ELEMENTS fee
         return tx
 
     def test_sigops_limit(self, bytes_per_sigop, num_sigops):
-        sigop_equivalent_vsize = ceil(num_sigops * bytes_per_sigop / WITNESS_SCALE_FACTOR)
+        sigop_equivalent_vsize = ceil(num_sigops * bytes_per_sigop / WITNESS_SCALE_FACTOR) + 64 # ELEMENTS
         self.log.info(f"- {num_sigops} sigops (equivalent size of {sigop_equivalent_vsize} vbytes)")
 
         # create a template tx with the specified sigop cost in the witness script
@@ -84,7 +85,7 @@ class BytesPerSigOpTest(BitcoinTestFramework):
         assert_greater_than_or_equal(sigop_equivalent_vsize, tx.get_vsize())
         vsize_to_pad = sigop_equivalent_vsize - tx.get_vsize()
         tx.vout[0].scriptPubKey = CScript([OP_RETURN, b'X'*(256+vsize_to_pad)])
-        assert_equal(sigop_equivalent_vsize, tx.get_vsize())
+        assert_equal(sigop_equivalent_vsize, tx.get_vsize()) # ELEMENTS
 
         res = self.nodes[0].testmempoolaccept([tx.serialize().hex()])[0]
         assert_equal(res['allowed'], True)
@@ -104,7 +105,7 @@ class BytesPerSigOpTest(BitcoinTestFramework):
         tx.vout[0].scriptPubKey = CScript([OP_RETURN, b'X'*(256+vsize_to_pad-1)])
         res = self.nodes[0].testmempoolaccept([tx.serialize().hex()])[0]
         assert_equal(res['allowed'], True)
-        assert_equal(res['vsize'], sigop_equivalent_vsize)
+        assert_approx(res['vsize'], sigop_equivalent_vsize - 1, 1) # ELEMENTS
 
     def run_test(self):
         self.wallet = MiniWallet(self.nodes[0])
