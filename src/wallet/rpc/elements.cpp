@@ -207,7 +207,7 @@ RPCHelpMan getpeginaddress()
         .minimum_chain_work = UintToArith256(consensus.nMinimumChainWork),
         .assumed_valid_block = consensus.defaultAssumeValid,
     };
-    if (!DeploymentActiveAfter(pwallet->chain().getTip(), ChainstateManager(opts), Consensus::DEPLOYMENT_DYNA_FED) ||
+    if (!DeploymentActiveAfter(pwallet->chain().getTip(), ChainstateManager(opts, {}), Consensus::DEPLOYMENT_DYNA_FED) ||
                 fedpegscripts.front().first.IsPayToScriptHash()) {
         mainchain_dest = ScriptHash(GetScriptForDestination(mainchain_dest));
     }
