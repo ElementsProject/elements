@@ -11,6 +11,7 @@
 #include <util/threadnames.h>
 
 #include <algorithm>
+#include <iterator>
 #include <vector>
 
 template <typename T>
@@ -111,9 +112,9 @@ private:
                 // * Try to account for idle jobs which will instantly start helping.
                 // * Don't do batches smaller than 1 (duh), or larger than nBatchSize.
                 nNow = std::max(1U, std::min(nBatchSize, (unsigned int)queue.size() / (nTotal + nIdle + 1)));
-                vChecks.clear();
-                vChecks.insert(vChecks.end(), queue.end() - nNow, queue.end());
-                queue.resize(queue.size() - nNow);
+                auto start_it = queue.end() - nNow;
+                vChecks.assign(std::make_move_iterator(start_it), std::make_move_iterator(queue.end()));
+                queue.erase(start_it, queue.end());
                 // Check whether we need to do work at all
                 fOk = fAllOk;
             }
@@ -173,7 +174,7 @@ public:
 
         {
             LOCK(m_mutex);
-            queue.insert(queue.end(), vChecks.begin(), vChecks.end());
+            queue.insert(queue.end(), std::make_move_iterator(vChecks.begin()), std::make_move_iterator(vChecks.end()));
             nTodo += vChecks.size();
         }
 
@@ -239,8 +240,9 @@ public:
 
     void Add(std::vector<T*> vChecks)
     {
-        if (pqueue != nullptr)
-            pqueue->Add(vChecks);
+        if (pqueue != nullptr) {
+            pqueue->Add(std::move(vChecks));
+        }
     }
 
     ~CCheckQueueControl()
