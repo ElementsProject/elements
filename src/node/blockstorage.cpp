@@ -6,13 +6,13 @@
 
 #include <block_proof.h>
 #include <chain.h>
-#include <chainparams.h>
 #include <clientversion.h>
 #include <consensus/validation.h>
 #include <flatfile.h>
 #include <fs.h>
 #include <hash.h>
 #include <logging.h>
+#include <kernel/chainparams.h>
 #include <pow.h>
 #include <reverse_iterator.h>
 #include <shutdown.h>

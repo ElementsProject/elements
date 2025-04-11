@@ -14,11 +14,11 @@
 #include <attributes.h>
 #include <chain.h>
 #include <confidential_validation.h>
-#include <chainparams.h>
-#include <kernel/chainstatemanager_opts.h>
 #include <consensus/amount.h>
 #include <deploymentstatus.h>
 #include <fs.h>
+#include <kernel/chainparams.h>
+#include <kernel/chainstatemanager_opts.h>
 #include <kernel/cs_main.h> // IWYU pragma: export
 #include <node/blockstorage.h>
 #include <policy/feerate.h>
