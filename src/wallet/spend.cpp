@@ -1269,6 +1269,12 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     CAmountMap map_selection_target = map_recipients_sum;
     map_selection_target[policyAsset] += not_input_fees;
 
+    // This can only happen if feerate is 0, and requested destinations are value of 0 (e.g. OP_RETURN)
+    // and no pre-selected inputs. This will result in 0-input transaction, which is consensus-invalid anyways
+    if (map_selection_target == CAmountMap{} && !coin_control.HasSelected()) {
+        return util::Error{_("Transaction requires one destination of non-0 value, a non-0 feerate, or a pre-selected input")};
+    }
+
     // Fetch manually selected coins
     PreSelectedInputs preset_inputs;
     if (coin_control.HasSelected()) {
