@@ -273,7 +273,7 @@ task:
     FILE_ENV: "./ci/test/00_setup_env_native_asan.sh"
 
 task:
-  name: '[fuzzer,address,undefined,integer, no depends] [jammy]'
+  name: '[fuzzer,address,undefined,integer, no depends] [lunar]'
   << : *GLOBAL_TASK_TEMPLATE
   container:
     image: ubuntu:jammy
