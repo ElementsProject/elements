@@ -189,12 +189,12 @@ static RPCHelpMan createmultisig()
     result.pushKV("redeemScript", HexStr(inner));
     result.pushKV("descriptor", descriptor->ToString());
 
-    UniValue warnings(UniValue::VARR);
-    if (descriptor->GetOutputType() != output_type) {
-        // Only warns if the user has explicitly chosen an address type we cannot generate
-        warnings.push_back("Unable to make chosen address type, please ensure no uncompressed public keys are present.");
-    }
-    if (!warnings.empty()) result.pushKV("warnings", warnings);
+            UniValue warnings(UniValue::VARR);
+            if (descriptor->GetOutputType() != output_type) {
+                // Only warns if the user has explicitly chosen an address type we cannot generate
+                warnings.push_back("Unable to make chosen address type, please ensure no uncompressed public keys are present.");
+            }
+            PushWarnings(warnings, result);
 
     return result;
 },

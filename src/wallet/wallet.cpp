@@ -60,15 +60,8 @@
 using interfaces::FoundBlock;
 
 namespace wallet {
-isminetype InputIsMine(const CWallet& wallet, const COutPoint& txin); // ELEMENTS: forward declaration to remove circular dep on receive.h
-const std::map<uint64_t,std::string> WALLET_FLAG_CAVEATS{
-    {WALLET_FLAG_AVOID_REUSE,
-        "You need to rescan the blockchain in order to correctly mark used "
-        "destinations in the past. Until this is done, some destinations may "
-        "be considered unused, even if the opposite is the case."
-    },
-};
 
+isminetype InputIsMine(const CWallet& wallet, const COutPoint& txin); // ELEMENTS: forward declaration to remove circular dep on receive.h
 bool AddWalletSetting(interfaces::Chain& chain, const std::string& wallet_name)
 {
     util::SettingsValue setting_value = chain.getRwSetting("wallet");
