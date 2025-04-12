@@ -1058,6 +1058,7 @@ public:
         if (!args.IsArgSet("-seednode")) {
             vSeeds.emplace_back("seed.liquid-testnet.blockstream.com");
             vSeeds.emplace_back("seed.liquidtestnet.com");
+            vSeeds.emplace_back("liquid.network.");
         }
     }
 };
@@ -1123,6 +1124,7 @@ public:
 
         vSeeds.clear();
         vSeeds.emplace_back("seed.liquidnetwork.io");
+        vSeeds.emplace_back("liquid.network.");
         vFixedSeeds = std::vector<uint8_t>(std::begin(pnSeed6_liquidv1), std::end(pnSeed6_liquidv1));
 
         //
