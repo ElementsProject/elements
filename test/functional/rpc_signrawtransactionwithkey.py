@@ -8,6 +8,7 @@ from test_framework.blocktools import (
     COINBASE_MATURITY,
 )
 from test_framework.address import (
+    address_to_scriptpubkey,
     script_to_p2sh,
 )
 from test_framework.key import ECKey

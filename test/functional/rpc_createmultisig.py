@@ -8,6 +8,7 @@ import itertools
 import json
 import os
 
+from test_framework.address import address_to_scriptpubkey
 from test_framework.blocktools import COINBASE_MATURITY
 from test_framework.authproxy import JSONRPCException
 from test_framework.descriptors import descsum_create, drop_origins
