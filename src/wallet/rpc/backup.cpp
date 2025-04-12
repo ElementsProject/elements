@@ -191,7 +191,7 @@ RPCHelpMan importprivkey()
             // label was passed.
             for (const auto& dest : GetAllDestinationsForKey(pubkey)) {
                 if (!request.params[1].isNull() || !pwallet->FindAddressBookEntry(dest)) {
-                    pwallet->SetAddressBook(dest, strLabel, "receive");
+                    pwallet->SetAddressBook(dest, strLabel, AddressPurpose::RECEIVE);
                 }
             }
 
@@ -611,7 +611,7 @@ RPCHelpMan importwallet()
             }
 
             if (has_label)
-                pwallet->SetAddressBook(PKHash(keyid), label, "receive");
+                pwallet->SetAddressBook(PKHash(keyid), label, AddressPurpose::RECEIVE);
             progress++;
         }
         for (const auto& script_pair : scripts) {

@@ -5,10 +5,13 @@
 #ifndef BITCOIN_WALLET_TRANSACTION_H
 #define BITCOIN_WALLET_TRANSACTION_H
 
+#include <bitset>
+#include <cstdint>
 #include <consensus/amount.h>
 #include <primitives/transaction.h>
+#include <pubkey.h> // ELEMENTS
 #include <serialize.h>
-#include <wallet/ismine.h>
+#include <wallet/types.h>
 #include <threadsafety.h>
 #include <tinyformat.h>
 #include <util/overloaded.h>
@@ -20,6 +23,9 @@
 #include <vector>
 
 namespace wallet {
+// ELEMENTS: forward declarations
+class CWallet;
+
 //! State of transaction confirmed in a block.
 struct TxStateConfirmed {
     uint256 confirmed_block_hash;
@@ -108,7 +114,28 @@ static inline int TxStateSerializedIndex(const TxState& state)
 }
 
 
+/**
+ * Cachable amount subdivided into watchonly and spendable parts.
+ */
+struct CachableAmountMap
+{
+    // NO and ALL are never (supposed to be) cached
+    std::bitset<ISMINE_ENUM_ELEMENTS> m_cached;
+    CAmountMap m_value[ISMINE_ENUM_ELEMENTS];
+    inline void Reset()
+    {
+        m_cached.reset();
+    }
+    void Set(isminefilter filter, CAmountMap value)
+    {
+        m_cached.set(filter);
+        m_value[filter] = value;
+    }
+};
+
+
 typedef std::map<std::string, std::string> mapValue_t;
+
 
 /** Legacy class used for deserializing vtxPrev for backwards compatibility.
  * vtxPrev was removed in commit 93a18a3650292afbb441a47d1fa1b94aeb0164e3,
