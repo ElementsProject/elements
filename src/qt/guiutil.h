@@ -6,12 +6,12 @@
 #define BITCOIN_QT_GUIUTIL_H
 
 #include <consensus/amount.h>
-#include <fs.h>
 #include <net.h>
 #include <qt/bitcoinunits.h>
 #include <asset.h>
 #include <netaddress.h>
 #include <util/check.h>
+#include <util/fs.h>
 
 #include <QApplication>
 #include <QEvent>

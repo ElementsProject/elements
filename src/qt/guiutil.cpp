@@ -14,7 +14,6 @@
 #include <base58.h>
 #include <assetsdir.h>
 #include <chainparams.h>
-#include <fs.h>
 #include <interfaces/node.h>
 #include <key_io.h>
 #include <policy/policy.h>
@@ -23,6 +22,8 @@
 #include <script/script.h>
 #include <script/standard.h>
 #include <util/exception.h>
+#include <util/fs.h>
+#include <util/fs_helpers.h>
 #include <util/system.h>
 #include <util/time.h>
 

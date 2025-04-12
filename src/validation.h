@@ -16,7 +16,6 @@
 #include <confidential_validation.h>
 #include <consensus/amount.h>
 #include <deploymentstatus.h>
-#include <fs.h>
 #include <kernel/chainparams.h>
 #include <kernel/chainstatemanager_opts.h>
 #include <kernel/cs_main.h> // IWYU pragma: export
@@ -31,6 +30,7 @@
 #include <txmempool.h> // For CTxMemPool::cs
 #include <uint256.h>
 #include <util/check.h>
+#include <util/fs.h>
 #include <util/hasher.h>
 #include <util/translation.h>
 #include <versionbits.h>
