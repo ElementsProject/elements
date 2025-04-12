@@ -102,7 +102,7 @@ static void WalletCreateTx(benchmark::Bench& bench, const OutputType output_type
     }
 
     // Check available balance
-    auto bal = wallet::GetAvailableBalance(wallet); // Cache
+    auto bal = WITH_LOCK(wallet.cs_wallet, return wallet::AvailableCoins(wallet).GetTotalAmount()); // Cache
     CAmountMap expected{{::policyAsset, (50 * COIN * (chain_size - COINBASE_MATURITY))}};
     assert(bal == expected);
 
@@ -162,7 +162,7 @@ static void AvailableCoins(benchmark::Bench& bench, const std::vector<OutputType
     }
 
     // Check available balance
-    auto bal = wallet::GetAvailableBalance(wallet); // Cache
+    auto bal = WITH_LOCK(wallet.cs_wallet, return wallet::AvailableCoins(wallet).GetTotalAmount()); // Cache
     assert(bal[::policyAsset] == 50 * COIN * (chain_size - COINBASE_MATURITY));
 
     bench.epochIterations(2).run([&] {
