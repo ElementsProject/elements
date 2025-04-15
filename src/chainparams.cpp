@@ -795,6 +795,7 @@ class CCustomParams : public CRegTestParams {
 protected:
     std::string default_magic_str = "5319F20E";
     std::string default_signblockscript = "51";
+    bool use_invalid_seeds = true;
     void UpdateFromArgs(const ArgsManager& args)
     {
         UpdateActivationParametersFromArgs(args);
@@ -862,7 +863,9 @@ protected:
         std::copy(begin(magic_byte), end(magic_byte), pchMessageStart);
 
         vSeeds.clear();
-        vSeeds.emplace_back("dummySeed.invalid.");
+        if (use_invalid_seeds) {
+            vSeeds.emplace_back("dummySeed.invalid.");
+        }
         if (args.IsArgSet("-seednode")) {
             const auto seednodes = args.GetArgs("-seednode");
             if (seednodes.size() != 1 || seednodes[0] != "0") {
@@ -1044,6 +1047,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = 0;
 
         nDefaultPort = 18891;
+        use_invalid_seeds = false;
         vSeeds.clear();
         vFixedSeeds = std::vector<uint8_t>(std::begin(pnSeed6_liquidtestnet), std::end(pnSeed6_liquidtestnet));
 
