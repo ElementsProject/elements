@@ -1295,7 +1295,7 @@ public:
 
         // Simplicity
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].bit = 21;
-        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
+        consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = 3333333; // April 14, 2025
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].min_activation_height = 0; // No activation delay
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nPeriod = 10080; // one week...
