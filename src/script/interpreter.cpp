@@ -2644,7 +2644,7 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
         simplicityRawTx.version = txTo.nVersion;
         simplicityRawTx.lockTime = txTo.nLockTime;
 
-        m_simplicity_tx_data = simplicity_elements_mallocTransaction(&simplicityRawTx);
+        m_simplicity_tx_data = SimplicityTransactionUniquePtr(simplicity_elements_mallocTransaction(&simplicityRawTx));
 
         m_bip341_taproot_ready = true;
     }
@@ -3096,7 +3096,7 @@ bool GenericTransactionSignatureChecker<T>::CheckSimplicity(const valtype& progr
 
     assert(txdata->m_simplicity_tx_data);
     assert(simplicityTapEnv);
-    if (!simplicity_elements_execSimplicity(&error, nullptr, txdata->m_simplicity_tx_data, nIn, simplicityTapEnv, txdata->m_hash_genesis_block.data(), budget, nullptr, program.data(), program.size(), witness.data(), witness.size())) {
+    if (!simplicity_elements_execSimplicity(&error, 0, txdata->m_simplicity_tx_data.get(), nIn, simplicityTapEnv, txdata->m_hash_genesis_block.data(), budget, 0, program.data(), program.size(), witness.data(), witness.size())) {
         assert(!"simplicity_elements_execSimplicity internal error");
     }
     simplicity_elements_freeTapEnv(simplicityTapEnv);
