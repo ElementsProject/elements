@@ -21,7 +21,7 @@ FUZZ_TARGET(tx_out)
         return;
     }
 
-    const CFeeRate dust_relay_fee{DUST_RELAY_TX_FEE};
+    const CFeeRate dust_relay_fee{DUST_RELAY_TX_FEE_BITCOIN};
     (void)GetDustThreshold(tx_out, dust_relay_fee);
     (void)IsDust(tx_out, dust_relay_fee);
     (void)RecursiveDynamicUsage(tx_out);

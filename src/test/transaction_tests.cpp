@@ -39,7 +39,7 @@
 
 typedef std::vector<unsigned char> valtype;
 
-static CFeeRate g_dust{DUST_RELAY_TX_FEE};
+static CFeeRate g_dust{DUST_RELAY_TX_FEE_BITCOIN}; // ELEMENTS: use the Bitcoin default dust relay feerate
 static bool g_bare_multi{DEFAULT_PERMIT_BAREMULTISIG};
 
 static std::map<std::string, unsigned int> mapFlagNames = {
@@ -830,7 +830,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     // not dust:
     t.vout[0].nValue = 674;
     CheckIsStandard(t);
-    g_dust = CFeeRate{DUST_RELAY_TX_FEE};
+    g_dust = CFeeRate{DUST_RELAY_TX_FEE_BITCOIN};
 
     t.vout[0].scriptPubKey = CScript() << OP_1;
     CheckIsNotStandard(t, "scriptpubkey");
