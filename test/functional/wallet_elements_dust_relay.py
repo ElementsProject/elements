@@ -23,6 +23,9 @@ class WalletTest(BitcoinTestFramework):
             args + ["-dustrelayfee=0.00003000"], # second node uses default upstream dustrelayfee
         ]
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
