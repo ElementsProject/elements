@@ -121,6 +121,7 @@ BASE_SCRIPTS = [
     'wallet_elements_regression_1172.py --legacy-wallet',
     'wallet_elements_regression_1259.py --legacy-wallet',
     'wallet_elements_21million.py',
+    'wallet_elements_dust_relay.py',
     # Longest test should go first, to favor running tests in parallel
     # vv Tests less than 5m vv
     # 'feature_fee_estimation.py', # ELEMENTS FIXME: in extended tests
