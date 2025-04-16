@@ -24,6 +24,7 @@ class GetblockstatsTest(BitcoinTestFramework):
     max_stat_pos = 2
 
     def add_options(self, parser):
+        self.add_wallet_options(parser)
         parser.add_argument('--gen-test-data', dest='gen_test_data',
                             default=False, action='store_true',
                             help='Generate test data')
@@ -43,6 +44,10 @@ class GetblockstatsTest(BitcoinTestFramework):
     def generate_test_data(self, filename):
         mocktime = 1525107225
         self.nodes[0].setmocktime(mocktime)
+        self.nodes[0].createwallet(wallet_name='test')
+        privkey = self.nodes[0].get_deterministic_priv_key().key
+        self.nodes[0].importprivkey(privkey)
+
         self.generate(self.nodes[0], COINBASE_MATURITY + 1)
 
         address = self.nodes[0].get_deterministic_priv_key().address
@@ -53,6 +58,8 @@ class GetblockstatsTest(BitcoinTestFramework):
         self.nodes[0].sendtoaddress(address=address, amount=10, subtractfeefromamount=False)
         self.nodes[0].settxfee(amount=0.003)
         self.nodes[0].sendtoaddress(address=address, amount=1, subtractfeefromamount=True)
+        # Send to OP_RETURN output to test its exclusion from statistics
+        self.nodes[0].send(outputs=[{"data": "21"}])
         self.sync_all()
         self.generate(self.nodes[0], 1)
 
@@ -154,13 +161,29 @@ class GetblockstatsTest(BitcoinTestFramework):
         assert_raises_rpc_error(-8, f"Invalid selected statistic 'aaa{inv_sel_stat}'",
                                 self.nodes[0].getblockstats, hash_or_height=1, stats=['minfee', f'aaa{inv_sel_stat}'])
         # Mainchain's genesis block shouldn't be found on regtest
+        # ELEMENTS: Liquid genesis block
         assert_raises_rpc_error(-5, 'Block not found', self.nodes[0].getblockstats,
-                                hash_or_height='000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f')
+                                hash_or_height='1466275836220db2944ca059a3a10ef6fd2ea684b0688d2c379296888a206003')
 
         # Invalid number of args
         assert_raises_rpc_error(-1, 'getblockstats hash_or_height ( stats )', self.nodes[0].getblockstats, '00', 1, 2)
         assert_raises_rpc_error(-1, 'getblockstats hash_or_height ( stats )', self.nodes[0].getblockstats)
 
+        self.log.info('Test block height 0')
+        genesis_stats = self.nodes[0].getblockstats(0)
+        # ELEMENTS: Elements Regtest genesis block hash
+        assert_equal(genesis_stats["blockhash"], "cd179c84c35f51825f20a3b91a18d45f0c53b5ceb744a5b6ef8f0babe809396f")
+        assert_equal(genesis_stats["utxo_increase"], 1)
+        assert_equal(genesis_stats["utxo_size_inc"], 86)
+        assert_equal(genesis_stats["utxo_increase_actual"], 0)
+        assert_equal(genesis_stats["utxo_size_inc_actual"], 0)
+
+        self.log.info('Test tip including OP_RETURN')
+        tip_stats = self.nodes[0].getblockstats(tip)
+        assert_equal(tip_stats["utxo_increase"], 10)
+        assert_equal(tip_stats["utxo_size_inc"], 1000)
+        assert_equal(tip_stats["utxo_increase_actual"], 4)
+        assert_equal(tip_stats["utxo_size_inc_actual"], 449)
 
 if __name__ == '__main__':
     GetblockstatsTest().main()

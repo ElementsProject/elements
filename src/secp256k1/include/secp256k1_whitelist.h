@@ -40,9 +40,9 @@ typedef struct {
 /** Parse a whitelist signature
  *
  *  Returns: 1 when the signature could be parsed, 0 otherwise.
- *  Args: ctx:    a secp256k1 context object
- *  Out:  sig:    a pointer to a signature object
- *  In:   input:  a pointer to the array to parse
+ *  Args: ctx:    pointer to a context object
+ *  Out:  sig:    pointer to a signature object
+ *  In:   input:  pointer to the array to parse
  *    input_len:  the length of the above array
  *
  *  The signature must consist of a 1-byte n_keys value, followed by a 32-byte
@@ -67,7 +67,7 @@ SECP256K1_API int secp256k1_whitelist_signature_parse(
 /** Returns the number of keys a signature expects to have.
  *
  *  Returns: the number of keys for the given signature
- *  In: sig: a pointer to a signature object
+ *  In: sig: pointer to a signature object
  */
 SECP256K1_API size_t secp256k1_whitelist_signature_n_keys(
     const secp256k1_whitelist_signature *sig
@@ -76,10 +76,10 @@ SECP256K1_API size_t secp256k1_whitelist_signature_n_keys(
 /** Serialize a whitelist signature
  *
  *  Returns: 1
- *  Args:   ctx:        a secp256k1 context object
- *  Out:    output64:   a pointer to an array to store the serialization
+ *  Args:   ctx:        pointer to a context object
+ *  Out:    output64:   pointer to an array to store the serialization
  *  In/Out: output_len: length of the above array, updated with the actual serialized length
- *  In:     sig:        a pointer to an initialized signature object
+ *  In:     sig:        pointer to an initialized signature object
  *
  *  See secp256k1_whitelist_signature_parse for details about the encoding.
  */

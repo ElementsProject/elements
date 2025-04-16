@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2015-2021 The Bitcoin Core developers
+# Copyright (c) 2015-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test bitcoind with different proxy configuration.
@@ -30,6 +30,13 @@ addnode connect to generic DNS name
 addnode connect to a CJDNS address
 
 - Test getnetworkinfo for each node
+
+- Test passing invalid -proxy
+- Test passing invalid -onion
+- Test passing invalid -i2psam
+- Test passing -onlynet=onion without -proxy or -onion
+- Test passing -onlynet=onion with -onion=0 and with -noonion
+- Test passing unknown -onlynet
 """
 
 import socket
@@ -234,7 +241,15 @@ class ProxyTest(BitcoinTestFramework):
             return r
 
         self.log.info("Test RPC getnetworkinfo")
-        n0 = networks_dict(self.nodes[0].getnetworkinfo())
+        nodes_network_info = []
+
+        self.log.debug("Test that setting -proxy disables local address discovery, i.e. -discover=0")
+        for node in self.nodes:
+            network_info = node.getnetworkinfo()
+            assert_equal(network_info["localaddresses"], [])
+            nodes_network_info.append(network_info)
+
+        n0 = networks_dict(nodes_network_info[0])
         assert_equal(NETWORKS, n0.keys())
         for net in NETWORKS:
             if net == NET_I2P:
@@ -249,7 +264,7 @@ class ProxyTest(BitcoinTestFramework):
         assert_equal(n0['i2p']['reachable'], False)
         assert_equal(n0['cjdns']['reachable'], False)
 
-        n1 = networks_dict(self.nodes[1].getnetworkinfo())
+        n1 = networks_dict(nodes_network_info[1])
         assert_equal(NETWORKS, n1.keys())
         for net in ['ipv4', 'ipv6']:
             assert_equal(n1[net]['proxy'], f'{self.conf1.addr[0]}:{self.conf1.addr[1]}')
@@ -261,14 +276,15 @@ class ProxyTest(BitcoinTestFramework):
         assert_equal(n1['i2p']['proxy_randomize_credentials'], False)
         assert_equal(n1['i2p']['reachable'], True)
 
-        n2 = networks_dict(self.nodes[2].getnetworkinfo())
+        n2 = networks_dict(nodes_network_info[2])
         assert_equal(NETWORKS, n2.keys())
+        proxy = f'{self.conf2.addr[0]}:{self.conf2.addr[1]}'
         for net in NETWORKS:
             if net == NET_I2P:
                 expected_proxy = ''
                 expected_randomize = False
             else:
-                expected_proxy = f'{self.conf2.addr[0]}:{self.conf2.addr[1]}'
+                expected_proxy = proxy
                 expected_randomize = True
             assert_equal(n2[net]['proxy'], expected_proxy)
             assert_equal(n2[net]['proxy_randomize_credentials'], expected_randomize)
@@ -277,20 +293,18 @@ class ProxyTest(BitcoinTestFramework):
         assert_equal(n2['cjdns']['reachable'], False)
 
         if self.have_ipv6:
-            n3 = networks_dict(self.nodes[3].getnetworkinfo())
+            n3 = networks_dict(nodes_network_info[3])
             assert_equal(NETWORKS, n3.keys())
+            proxy = f'[{self.conf3.addr[0]}]:{self.conf3.addr[1]}'
             for net in NETWORKS:
-                if net == NET_I2P or net == NET_ONION:
-                    expected_proxy = ''
-                else:
-                    expected_proxy = f'[{self.conf3.addr[0]}]:{self.conf3.addr[1]}'
+                expected_proxy = '' if net == NET_I2P or net == NET_ONION else proxy
                 assert_equal(n3[net]['proxy'], expected_proxy)
                 assert_equal(n3[net]['proxy_randomize_credentials'], False)
             assert_equal(n3['onion']['reachable'], False)
             assert_equal(n3['i2p']['reachable'], False)
             assert_equal(n3['cjdns']['reachable'], False)
 
-        n4 = networks_dict(self.nodes[4].getnetworkinfo())
+        n4 = networks_dict(nodes_network_info[4])
         assert_equal(NETWORKS, n4.keys())
         for net in NETWORKS:
             if net == NET_I2P:
@@ -304,6 +318,74 @@ class ProxyTest(BitcoinTestFramework):
         assert_equal(n4['onion']['reachable'], True)
         assert_equal(n4['i2p']['reachable'], False)
         assert_equal(n4['cjdns']['reachable'], True)
+
+        self.stop_node(1)
+
+        self.log.info("Test passing invalid -proxy hostname raises expected init error")
+        self.nodes[1].extra_args = ["-proxy=abc..abc:23456"]
+        msg = "Error: Invalid -proxy address or hostname: 'abc..abc:23456'"
+        self.nodes[1].assert_start_raises_init_error(expected_msg=msg)
+
+        self.log.info("Test passing invalid -proxy port raises expected init error")
+        self.nodes[1].extra_args = ["-proxy=192.0.0.1:def"]
+        msg = "Error: Invalid port specified in -proxy: '192.0.0.1:def'"
+        self.nodes[1].assert_start_raises_init_error(expected_msg=msg)
+
+        self.log.info("Test passing invalid -onion hostname raises expected init error")
+        self.nodes[1].extra_args = ["-onion=xyz..xyz:23456"]
+        msg = "Error: Invalid -onion address or hostname: 'xyz..xyz:23456'"
+        self.nodes[1].assert_start_raises_init_error(expected_msg=msg)
+
+        self.log.info("Test passing invalid -onion port raises expected init error")
+        self.nodes[1].extra_args = ["-onion=192.0.0.1:def"]
+        msg = "Error: Invalid port specified in -onion: '192.0.0.1:def'"
+        self.nodes[1].assert_start_raises_init_error(expected_msg=msg)
+
+        self.log.info("Test passing invalid -i2psam hostname raises expected init error")
+        self.nodes[1].extra_args = ["-i2psam=def..def:23456"]
+        msg = "Error: Invalid -i2psam address or hostname: 'def..def:23456'"
+        self.nodes[1].assert_start_raises_init_error(expected_msg=msg)
+
+        self.log.info("Test passing invalid -i2psam port raises expected init error")
+        self.nodes[1].extra_args = ["-i2psam=192.0.0.1:def"]
+        msg = "Error: Invalid port specified in -i2psam: '192.0.0.1:def'"
+        self.nodes[1].assert_start_raises_init_error(expected_msg=msg)
+
+        self.log.info("Test passing invalid -onlynet=i2p without -i2psam raises expected init error")
+        self.nodes[1].extra_args = ["-onlynet=i2p"]
+        msg = "Error: Outbound connections restricted to i2p (-onlynet=i2p) but -i2psam is not provided"
+        self.nodes[1].assert_start_raises_init_error(expected_msg=msg)
+
+        self.log.info("Test passing invalid -onlynet=cjdns without -cjdnsreachable raises expected init error")
+        self.nodes[1].extra_args = ["-onlynet=cjdns"]
+        msg = "Error: Outbound connections restricted to CJDNS (-onlynet=cjdns) but -cjdnsreachable is not provided"
+        self.nodes[1].assert_start_raises_init_error(expected_msg=msg)
+
+        self.log.info("Test passing -onlynet=onion with -onion=0/-noonion raises expected init error")
+        msg = (
+            "Error: Outbound connections restricted to Tor (-onlynet=onion) but "
+            "the proxy for reaching the Tor network is explicitly forbidden: -onion=0"
+        )
+        for arg in ["-onion=0", "-noonion"]:
+            self.nodes[1].extra_args = ["-onlynet=onion", arg]
+            self.nodes[1].assert_start_raises_init_error(expected_msg=msg)
+
+        self.log.info("Test passing -onlynet=onion without -proxy, -onion or -listenonion raises expected init error")
+        self.nodes[1].extra_args = ["-onlynet=onion", "-listenonion=0"]
+        msg = (
+            "Error: Outbound connections restricted to Tor (-onlynet=onion) but the proxy for "
+            "reaching the Tor network is not provided: none of -proxy, -onion or -listenonion is given"
+        )
+        self.nodes[1].assert_start_raises_init_error(expected_msg=msg)
+
+        self.log.info("Test passing -onlynet=onion without -proxy or -onion but with -listenonion=1 is ok")
+        self.start_node(1, extra_args=["-onlynet=onion", "-listenonion=1"])
+        self.stop_node(1)
+
+        self.log.info("Test passing unknown network to -onlynet raises expected init error")
+        self.nodes[1].extra_args = ["-onlynet=abc"]
+        msg = "Error: Unknown network specified in -onlynet: 'abc'"
+        self.nodes[1].assert_start_raises_init_error(expected_msg=msg)
 
 
 if __name__ == '__main__':

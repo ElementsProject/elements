@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2021 The Bitcoin Core developers
+// Copyright (c) 2011-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -67,8 +67,7 @@ public:
         AmountWithFeeExceedsBalance,
         DuplicateAddress,
         TransactionCreationFailed, // Error returned when wallet is still locked
-        AbsurdFee,
-        PaymentRequestExpired
+        AbsurdFee
     };
 
     enum EncryptionStatus
@@ -79,16 +78,16 @@ public:
         Unlocked      // wallet->IsCrypted() && !wallet->IsLocked()
     };
 
-    OptionsModel *getOptionsModel();
-    AddressTableModel *getAddressTableModel();
-    TransactionTableModel *getTransactionTableModel();
-    RecentRequestsTableModel *getRecentRequestsTableModel();
+    OptionsModel* getOptionsModel() const;
+    AddressTableModel* getAddressTableModel() const;
+    TransactionTableModel* getTransactionTableModel() const;
+    RecentRequestsTableModel* getRecentRequestsTableModel() const;
 
     std::set<CAsset> getAssetTypes() const;
     EncryptionStatus getEncryptionStatus() const;
 
     // Check address for validity
-    bool validateAddress(const QString &address);
+    bool validateAddress(const QString& address) const;
 
     // Return status record for SendCoins, contains error id + information
     struct SendCoinsReturn
@@ -106,7 +105,7 @@ public:
     SendCoinsReturn prepareTransaction(WalletModelTransaction &transaction, wallet::BlindDetails *blind_details, const wallet::CCoinControl& coinControl);
 
     // Send coins to a list of recipients
-    SendCoinsReturn sendCoins(WalletModelTransaction &transaction, wallet::BlindDetails *blind_details);
+    void sendCoins(WalletModelTransaction& transaction, wallet::BlindDetails *blind_details);
 
     // Wallet encryption
     bool setWalletEncrypted(const SecureString& passphrase);
@@ -114,7 +113,7 @@ public:
     bool setWalletLocked(bool locked, const SecureString &passPhrase=SecureString());
     bool changePassphrase(const SecureString &oldPass, const SecureString &newPass);
 
-    // RAI object for unlocking wallet, returned by requestUnlock()
+    // RAII object for unlocking wallet, returned by requestUnlock()
     class UnlockContext
     {
     public:
@@ -123,24 +122,22 @@ public:
 
         bool isValid() const { return valid; }
 
-        // Copy constructor is disabled.
+        // Disable unused copy/move constructors/assignments explicitly.
         UnlockContext(const UnlockContext&) = delete;
-        // Move operator and constructor transfer the context
-        UnlockContext(UnlockContext&& obj) { CopyFrom(std::move(obj)); }
-        UnlockContext& operator=(UnlockContext&& rhs) { CopyFrom(std::move(rhs)); return *this; }
+        UnlockContext(UnlockContext&&) = delete;
+        UnlockContext& operator=(const UnlockContext&) = delete;
+        UnlockContext& operator=(UnlockContext&&) = delete;
+
     private:
         WalletModel *wallet;
-        bool valid;
-        mutable bool relock; // mutable, as it can be set to false by copying
-
-        UnlockContext& operator=(const UnlockContext&) = default;
-        void CopyFrom(UnlockContext&& rhs);
+        const bool valid;
+        const bool relock;
     };
 
     UnlockContext requestUnlock();
 
     bool bumpFee(uint256 hash, uint256& new_hash);
-    bool displayAddress(std::string sAddress);
+    bool displayAddress(std::string sAddress) const;
 
     static bool isWalletEnabled();
 
@@ -152,13 +149,18 @@ public:
     QString getWalletName() const;
     QString getDisplayName() const;
 
-    bool isMultiwallet();
-
-    AddressTableModel* getAddressTableModel() const { return addressTableModel; }
+    bool isMultiwallet() const;
 
     void refresh(bool pk_hash_only = false);
 
     uint256 getLastBlockProcessed() const;
+
+    // Retrieve the cached wallet balance
+    interfaces::WalletBalances getCachedBalance() const;
+
+    // If coin control has selected outputs, searches the total amount inside the wallet.
+    // Otherwise, uses the wallet's cached available balance.
+    CAmountMap getAvailableBalance(const wallet::CCoinControl* control);
 
 private:
     std::unique_ptr<interfaces::Wallet> m_wallet;
@@ -179,14 +181,14 @@ private:
     // (transaction fee, for example)
     OptionsModel *optionsModel;
 
-    AddressTableModel *addressTableModel;
-    TransactionTableModel *transactionTableModel;
-    RecentRequestsTableModel *recentRequestsTableModel;
+    AddressTableModel* addressTableModel{nullptr};
+    TransactionTableModel* transactionTableModel{nullptr};
+    RecentRequestsTableModel* recentRequestsTableModel{nullptr};
 
     // Cache some values to be able to detect changes
     interfaces::WalletBalances m_cached_balances;
     std::set<CAsset> cached_asset_types;
-    EncryptionStatus cachedEncryptionStatus;
+    EncryptionStatus cachedEncryptionStatus{Unencrypted};
     QTimer* timer;
 
     // Block hash denoting when the last balance update was done.
@@ -240,7 +242,7 @@ public Q_SLOTS:
     /* New transaction, or transaction changed status */
     void updateTransaction();
     /* New, updated or removed address book entry */
-    void updateAddressBook(const QString &address, const QString &label, bool isMine, const QString &purpose, int status);
+    void updateAddressBook(const QString &address, const QString &label, bool isMine, wallet::AddressPurpose purpose, int status);
     /* Watch-only added */
     void updateWatchOnlyFlag(bool fHaveWatchonly);
     /* Current, immature or unconfirmed balance might have changed - emit 'balanceChanged' if so */

@@ -1,13 +1,14 @@
-// Copyright (c) 2019-2020 The Bitcoin Core developers
+// Copyright (c) 2019-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <sstream>
-#include <stdio.h>
 #include <tinyformat.h>
 #include <util/bip32.h>
 #include <util/strencodings.h>
 
+#include <cstdint>
+#include <cstdio>
+#include <sstream>
 
 bool ParseHDKeypath(const std::string& keypath_str, std::vector<uint32_t>& keypath)
 {
@@ -24,7 +25,7 @@ bool ParseHDKeypath(const std::string& keypath_str, std::vector<uint32_t>& keypa
         }
         // Finds whether it is hardened
         uint32_t path = 0;
-        size_t pos = item.find("'");
+        size_t pos = item.find('\'');
         if (pos != std::string::npos) {
             // The hardened tick can only be in the last index of the string
             if (pos != item.size() - 1) {

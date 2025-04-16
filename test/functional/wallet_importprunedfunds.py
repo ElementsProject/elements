@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2014-2021 The Bitcoin Core developers
+# Copyright (c) 2014-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the importprunedfunds and removeprunedfunds RPCs."""
@@ -8,6 +8,10 @@ from decimal import Decimal
 from test_framework.blocktools import COINBASE_MATURITY
 from test_framework import liquid_addr
 from test_framework.key import ECKey
+from test_framework.messages import (
+    CMerkleBlock,
+    from_hex,
+)
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.script import hash160
 from test_framework.util import (
@@ -16,7 +20,11 @@ from test_framework.util import (
 )
 from test_framework.wallet_util import bytes_to_wif
 
+
 class ImportPrunedFundsTest(BitcoinTestFramework):
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
@@ -133,6 +141,19 @@ class ImportPrunedFundsTest(BitcoinTestFramework):
 
         w1.removeprunedfunds(txnid3)
         assert not [tx for tx in w1.listtransactions(include_watchonly=True) if tx['txid'] == txnid3]
+
+        # Check various RPC parameter validation errors
+        assert_raises_rpc_error(-22, "TX decode failed", w1.importprunedfunds, b'invalid tx'.hex(), proof1)
+        assert_raises_rpc_error(-5, "Transaction given doesn't exist in proof", w1.importprunedfunds, rawtxn2, proof1)
+
+        mb = from_hex(CMerkleBlock(), proof1)
+        mb.header.hashMerkleRoot = 0xdeadbeef  # cause mismatch between merkle root and merkle block
+        assert_raises_rpc_error(-5, "Something wrong with merkleblock", w1.importprunedfunds, rawtxn1, mb.serialize().hex())
+
+        mb = from_hex(CMerkleBlock(), proof1)
+        mb.header.nTime += 1  # modify arbitrary block header field to change block hash
+        assert_raises_rpc_error(-5, "Block not found in chain", w1.importprunedfunds, rawtxn1, mb.serialize().hex())
+
 
 if __name__ == '__main__':
     ImportPrunedFundsTest().main()

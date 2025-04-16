@@ -37,7 +37,7 @@ struct secure_allocator : public std::allocator<T> {
         typedef secure_allocator<_Other> other;
     };
 
-    T* allocate(std::size_t n, const void* hint = 0)
+    T* allocate(std::size_t n, const void* hint = nullptr)
     {
         T* allocation = static_cast<T*>(LockedPoolManager::Instance().alloc(sizeof(T) * n));
         if (!allocation) {
@@ -56,6 +56,7 @@ struct secure_allocator : public std::allocator<T> {
 };
 
 // This is exactly like std::string, but with a custom allocator.
+// TODO: Consider finding a way to make incoming RPC request.params[i] mlock()ed as well
 typedef std::basic_string<char, std::char_traits<char>, secure_allocator<char> > SecureString;
 
 #endif // BITCOIN_SUPPORT_ALLOCATORS_SECURE_H

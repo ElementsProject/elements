@@ -56,9 +56,9 @@ typedef struct {
 /** Parse a surjection proof
  *
  *  Returns: 1 when the proof could be parsed, 0 otherwise.
- *  Args: ctx:    a secp256k1 context object
- *  Out:  proof:  a pointer to a proof object
- *  In:   input:  a pointer to the array to parse
+ *  Args: ctx:      pointer to a context object
+ *  Out:  proof:    pointer to a proof object
+ *  In:   input:    pointer to the array to parse
  *        inputlen: length of the array pointed to by input
  *
  *  The proof must consist of:
@@ -79,12 +79,11 @@ SECP256K1_API int secp256k1_surjectionproof_parse(
 /** Serialize a surjection proof
  *
  *  Returns: 1 if enough space was available to serialize, 0 otherwise
- *  Args:   ctx:        a secp256k1 context object
- *  Out:    output:     a pointer to an array to store the serialization
- *  In/Out: outputlen:  a pointer to an integer which is initially set to the
- *                      size of output, and is overwritten with the written
- *                      size.
- *  In:     proof:      a pointer to an initialized proof object
+ *  Args:   ctx:        pointer to a context object
+ *  Out:    output:     pointer to an array to store the serialization
+ *  In/Out: outputlen:  pointer to an integer which is initially set to the size
+ *                      of output, and is overwritten with the written size.
+ *  In:     proof:      pointer to an initialized proof object
  *
  *  See secp256k1_surjectionproof_parse for details about the encoding.
  */
@@ -109,7 +108,7 @@ typedef struct {
  *
  * Returns: the number of inputs for the given proof
  * In:   ctx: pointer to a context object
- *     proof: a pointer to a proof object
+ *     proof: pointer to a proof object
  */
 SECP256K1_API size_t secp256k1_surjectionproof_n_total_inputs(
   const secp256k1_context *ctx,
@@ -120,7 +119,7 @@ SECP256K1_API size_t secp256k1_surjectionproof_n_total_inputs(
  *
  * Returns: the number of inputs for the given proof
  * In:   ctx: pointer to a context object
- *     proof: a pointer to a proof object
+ *     proof: pointer to a proof object
  */
 SECP256K1_API size_t secp256k1_surjectionproof_n_used_inputs(
   const secp256k1_context *ctx,
@@ -131,7 +130,7 @@ SECP256K1_API size_t secp256k1_surjectionproof_n_used_inputs(
  *
  * Returns: the total size
  * In:   ctx: pointer to a context object
- *     proof: a pointer to a proof object
+ *     proof: pointer to a proof object
  */
 SECP256K1_API size_t secp256k1_surjectionproof_serialized_size(
   const secp256k1_context *ctx,
@@ -156,7 +155,7 @@ SECP256K1_API size_t secp256k1_surjectionproof_serialized_size(
  *                        limited to 256 the probability of giving up is smaller than
  *                        (255/256)^(n_input_tags_to_use*max_n_iterations).
  *
- *         random_seed32: a random seed to be used for input selection
+ *         random_seed32: random seed to be used for input selection
  * Out:            proof: The proof whose bitvector will be initialized. In case of failure,
  *                        the state of the proof is undefined.
  *          input_index: The index of the actual input that is secretly mapped to the output
@@ -179,8 +178,8 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_surjectionproof_initial
  *         n: inputs were selected after n iterations of random selection
  *
  * In:               ctx: pointer to a context object
- *           proof_out_p: a pointer to a pointer to `secp256k1_surjectionproof*`.
- *                        the newly-allocated struct pointer will be saved here.
+ *           proof_out_p: pointer to a pointer to `secp256k1_surjectionproof*`.
+ *                        The newly-allocated struct pointer will be saved here.
  *      fixed_input_tags: fixed input tags `A_i` for all inputs. (If the fixed tag is not known,
  *                        e.g. in a coinjoin with others' inputs, an ephemeral tag can be given;
  *                        this won't match the output tag but might be used in the anonymity set.)
@@ -192,8 +191,8 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_surjectionproof_initial
  *                        limited to 256 the probability of giving up is smaller than
  *                        (255/256)^(n_input_tags_to_use*max_n_iterations).
  *
- *         random_seed32: a random seed to be used for input selection
- * Out:      proof_out_p: The pointer to newly-allocated proof whose bitvector will be initialized.
+ *         random_seed32: random seed to be used for input selection
+ * Out:      proof_out_p: pointer to newly-allocated proof whose bitvector will be initialized.
  *                        In case of failure, the pointer will be NULL.
  *          input_index: The index of the actual input that is secretly mapped to the output
  */

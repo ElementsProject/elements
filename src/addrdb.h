@@ -6,9 +6,9 @@
 #ifndef BITCOIN_ADDRDB_H
 #define BITCOIN_ADDRDB_H
 
-#include <fs.h>
 #include <net_types.h> // For banmap_t
 #include <univalue.h>
+#include <util/fs.h>
 
 #include <optional>
 #include <vector>
@@ -18,6 +18,7 @@ class ArgsManager;
 class AddrMan;
 class CAddress;
 class CDataStream;
+class NetGroupManager;
 struct bilingual_str;
 
 bool DumpPeerAddresses(const ArgsManager& args, const AddrMan& addr);
@@ -49,7 +50,7 @@ public:
 };
 
 /** Returns an error string on failure */
-std::optional<bilingual_str> LoadAddrman(const std::vector<bool>& asmap, const ArgsManager& args, std::unique_ptr<AddrMan>& addrman);
+std::optional<bilingual_str> LoadAddrman(const NetGroupManager& netgroupman, const ArgsManager& args, std::unique_ptr<AddrMan>& addrman);
 
 /**
  * Dump the anchor IP address database (anchors.dat)

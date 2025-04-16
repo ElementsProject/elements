@@ -54,6 +54,7 @@ class FedPegTest(BitcoinTestFramework):
                             help="Run test in dynafed activated chain, without a transition")
         parser.add_argument("--post_transition", dest="post_transition", default=False, action="store_true",
                             help="Run test in dynafed activated chain, after transition and additional epoch to invalidate old fedpegscript")
+        self.add_wallet_options(parser)
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()

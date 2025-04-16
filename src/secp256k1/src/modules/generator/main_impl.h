@@ -24,7 +24,7 @@
     import hashlib
     F = FiniteField (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F)
     G = '0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8'
-    H = EllipticCurve ([F (0), F (7)]).lift_x(F(int(hashlib.sha256(G.decode('hex')).hexdigest(),16)))
+    H = EllipticCurve ([F (0), F (7)]).lift_x(F(int(hashlib.sha256(bytes.fromhex(G)).hexdigest(),16)))
     print('%x %x' % H.xy())
  */
 static const secp256k1_generator secp256k1_generator_h_internal = {{
@@ -107,61 +107,78 @@ static void shallue_van_de_woestijne(secp256k1_ge* ge, const secp256k1_fe* t) {
        x2 = -(x1 + 1)
        x3 = 1 + 1/w^2
 
-       To avoid the 2 divisions, compute the above in numerator/denominator form:
-       wn = c * t
-       wd = 1 + 7 + t^2
-       x1n = d*wd - t*wn
-       x1d = wd
-       x2n = -(x1n + wd)
-       x2d = wd
-       x3n = wd^2 + c^2 + t^2
-       x3d = (c * t)^2
+       To avoid the 2 divisions, compute the joint denominator j = wd * x3d, where
+       wd = 1 + b + t^2
+       x3d = c^2 * t^2 = -3 * t^2
 
-       The joint denominator j = wd * c^2 * t^2, and
-       1 / x1d = 1/j * c^2 * t^2
-       1 / x2d = x3d = 1/j * wd
+       so that if j != 0, then
+
+       1 / wd = 1/j * x3d
+       1 / x3d = 1/j * wd
+
+       x1 = d - c * t^2 * x3d / j
+       x3 = 1 + wd^3 / j
+
+       If j = 0, the function outputs the point (d, f(d)). This point is equal
+       to (x1, f(x1)) as defined above if division by 0 is defined to be 0. In
+       below code this is not special-cased because secp256k1_fe_inv returns 0
+       on input 0.
+
+       j = 0 happens only when t = 0 (since wd != 0 as -8 is not a square).
     */
 
-    static const secp256k1_fe c = SECP256K1_FE_CONST(0x0a2d2ba9, 0x3507f1df, 0x233770c2, 0xa797962c, 0xc61f6d15, 0xda14ecd4, 0x7d8d27ae, 0x1cd5f852);
+    static const secp256k1_fe negc = SECP256K1_FE_CONST(0xf5d2d456, 0xcaf80e20, 0xdcc88f3d, 0x586869d3, 0x39e092ea, 0x25eb132b, 0x8272d850, 0xe32a03dd);
     static const secp256k1_fe d = SECP256K1_FE_CONST(0x851695d4, 0x9a83f8ef, 0x919bb861, 0x53cbcb16, 0x630fb68a, 0xed0a766a, 0x3ec693d6, 0x8e6afa40);
-    static const secp256k1_fe b = SECP256K1_FE_CONST(0, 0, 0, 0, 0, 0, 0, 7);
-    static const secp256k1_fe b_plus_one = SECP256K1_FE_CONST(0, 0, 0, 0, 0, 0, 0, 8);
 
-    secp256k1_fe wn, wd, x1n, x2n, x3n, x3d, jinv, tmp, x1, x2, x3, alphain, betain, gammain, y1, y2, y3;
+    secp256k1_fe wd, x3d, jinv, tmp, x1, x2, x3, alphain, betain, gammain, y1, y2, y3;
     int alphaquad, betaquad;
 
-    secp256k1_fe_mul(&wn, &c, t); /* mag 1 */
+    /* wd = t^2 */
     secp256k1_fe_sqr(&wd, t); /* mag 1 */
-    secp256k1_fe_add(&wd, &b_plus_one); /* mag 2 */
-    secp256k1_fe_mul(&tmp, t, &wn); /* mag 1 */
-    secp256k1_fe_negate(&tmp, &tmp, 1); /* mag 2 */
-    secp256k1_fe_mul(&x1n, &d, &wd); /* mag 1 */
-    secp256k1_fe_add(&x1n, &tmp); /* mag 3 */
-    x2n = x1n; /* mag 3 */
-    secp256k1_fe_add(&x2n, &wd); /* mag 5 */
-    secp256k1_fe_negate(&x2n, &x2n, 5); /* mag 6 */
-    secp256k1_fe_mul(&x3d, &c, t); /* mag 1 */
-    secp256k1_fe_sqr(&x3d, &x3d); /* mag 1 */
-    secp256k1_fe_sqr(&x3n, &wd); /* mag 1 */
-    secp256k1_fe_add(&x3n, &x3d); /* mag 2 */
-    secp256k1_fe_mul(&jinv, &x3d, &wd); /* mag 1 */
+    /* x1 = -c * t^2 */
+    secp256k1_fe_mul(&x1, &negc, &wd); /* mag 1 */
+    /* x3d = t^2 */
+    x3d = wd; /* mag 1 */
+    /* x3d = 3 * t^2 */
+    secp256k1_fe_mul_int(&x3d, 3); /* mag 3 */
+    /* x3d = -3 * t^2 */
+    secp256k1_fe_negate(&x3d, &x3d, 3); /* mag 4 */
+    /* wd = 1 + b + t^2 */
+    secp256k1_fe_add_int(&wd, SECP256K1_B + 1); /* mag 2 */
+    /* jinv = wd * x3d */
+    secp256k1_fe_mul(&jinv, &wd, &x3d); /* mag 1 */
+    /* jinv = 1/(wd * x3d) */
     secp256k1_fe_inv(&jinv, &jinv); /* mag 1 */
-    secp256k1_fe_mul(&x1, &x1n, &x3d); /* mag 1 */
+    /* x1 = -c * t^2 * x3d */
+    secp256k1_fe_mul(&x1, &x1, &x3d); /* mag 1 */
+    /* x1 = -c * t^2 * x3d * 1/j */
     secp256k1_fe_mul(&x1, &x1, &jinv); /* mag 1 */
-    secp256k1_fe_mul(&x2, &x2n, &x3d); /* mag 1 */
-    secp256k1_fe_mul(&x2, &x2, &jinv); /* mag 1 */
-    secp256k1_fe_mul(&x3, &x3n, &wd); /* mag 1 */
+    /* x1 = d + -c * t^2 * x3d * 1/j */
+    secp256k1_fe_add(&x1, &d); /* mag 2 */
+    /* x2 = x1 */
+    x2 = x1; /* mag 2 */
+    /* x2 = x1 + 1 */
+    secp256k1_fe_add_int(&x2, 1); /* mag 3 */
+    /* x2 = - (x1 + 1) */
+    secp256k1_fe_negate(&x2, &x2, 3); /* mag 4 */
+    /* x3 = wd^2 */
+    secp256k1_fe_sqr(&x3, &wd); /* mag 1 */
+    /* x3 = wd^3 */
+    secp256k1_fe_mul(&x3, &x3, &wd); /* mag 1 */
+    /* x3 = wd^3 * 1/j */
     secp256k1_fe_mul(&x3, &x3, &jinv); /* mag 1 */
+    /* x3 = 1 + (wd^3 * 1/j) */
+    secp256k1_fe_add_int(&x3, 1); /* mag 2 */
 
     secp256k1_fe_sqr(&alphain, &x1); /* mag 1 */
     secp256k1_fe_mul(&alphain, &alphain, &x1); /* mag 1 */
-    secp256k1_fe_add(&alphain, &b); /* mag 2 */
+    secp256k1_fe_add_int(&alphain, SECP256K1_B); /* mag 2 */
     secp256k1_fe_sqr(&betain, &x2); /* mag 1 */
     secp256k1_fe_mul(&betain, &betain, &x2); /* mag 1 */
-    secp256k1_fe_add(&betain, &b); /* mag 2 */
+    secp256k1_fe_add_int(&betain, SECP256K1_B); /* mag 2 */
     secp256k1_fe_sqr(&gammain, &x3); /* mag 1 */
     secp256k1_fe_mul(&gammain, &gammain, &x3); /* mag 1 */
-    secp256k1_fe_add(&gammain, &b); /* mag 2 */
+    secp256k1_fe_add_int(&gammain, SECP256K1_B); /* mag 2 */
 
     alphaquad = secp256k1_fe_sqrt(&y1, &alphain);
     betaquad = secp256k1_fe_sqrt(&y2, &betain);
@@ -259,7 +276,6 @@ static void secp256k1_pedersen_commitment_save(secp256k1_pedersen_commitment* co
 
 int secp256k1_pedersen_commitment_parse(const secp256k1_context* ctx, secp256k1_pedersen_commitment* commit, const unsigned char *input) {
     secp256k1_fe x;
-    secp256k1_ge ge;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(commit != NULL);
@@ -268,28 +284,20 @@ int secp256k1_pedersen_commitment_parse(const secp256k1_context* ctx, secp256k1_
 
     if ((input[0] & 0xFE) != 8 ||
         !secp256k1_fe_set_b32_limit(&x, &input[1]) ||
-        !secp256k1_ge_set_xquad(&ge, &x)) {
+        !secp256k1_ge_x_on_curve_var(&x)) {
         return 0;
     }
-    if (input[0] & 1) {
-        secp256k1_ge_neg(&ge, &ge);
-    }
-    secp256k1_pedersen_commitment_save(commit, &ge);
+
+    memcpy(commit->data, input, 33);
     return 1;
 }
 
 int secp256k1_pedersen_commitment_serialize(const secp256k1_context* ctx, unsigned char *output, const secp256k1_pedersen_commitment* commit) {
-    secp256k1_ge ge;
-
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(output != NULL);
     ARG_CHECK(commit != NULL);
 
-    secp256k1_pedersen_commitment_load(&ge, commit);
-
-    output[0] = 9 ^ secp256k1_fe_is_square_var(&ge.y);
-    secp256k1_fe_normalize_var(&ge.x);
-    secp256k1_fe_get_b32(&output[1], &ge.x);
+    memcpy(output, commit->data, 33);
     return 1;
 }
 

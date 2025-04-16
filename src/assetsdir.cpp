@@ -29,7 +29,7 @@ void CAssetsDir::SetHex(const std::string& assetHex, const std::string& label)
         throw std::runtime_error("The asset must be hex string of length 64");
 
     const std::vector<std::string> protectedLabels = {"", "*", "bitcoin", "Bitcoin", "btc"};
-    for (std::string proLabel : protectedLabels) {
+    for (const std::string& proLabel : protectedLabels) {
         if (label == proLabel) {
             throw std::runtime_error(strprintf("'%s' label is protected", proLabel));
         }
@@ -110,4 +110,3 @@ void ClearGlobalAssetDir()
 {
     _gAssetsDir = CAssetsDir();
 }
-

@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021 The Bitcoin Core developers
+// Copyright (c) 2020-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -823,7 +823,6 @@ bool SetupSyscallSandbox(bool log_syscall_violation_before_terminating)
             return false;
         }
     }
-    SetSyscallSandboxPolicy(SyscallSandboxPolicy::INITIALIZATION);
     return true;
 }
 

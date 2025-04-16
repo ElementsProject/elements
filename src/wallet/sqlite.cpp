@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021 The Bitcoin Core developers
+// Copyright (c) 2020-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -8,8 +8,8 @@
 #include <crypto/common.h>
 #include <logging.h>
 #include <sync.h>
+#include <util/fs_helpers.h>
 #include <util/strencodings.h>
-#include <util/system.h>
 #include <util/translation.h>
 #include <wallet/db.h>
 
@@ -23,9 +23,6 @@
 namespace wallet {
 static constexpr int32_t WALLET_SCHEMA_VERSION = 0;
 
-static Mutex g_sqlite_mutex;
-static int g_sqlite_count GUARDED_BY(g_sqlite_mutex) = 0;
-
 static void ErrorLogCallback(void* arg, int code, const char* msg)
 {
     // From sqlite3_config() documentation for the SQLITE_CONFIG_LOG option:
@@ -35,6 +32,22 @@ static void ErrorLogCallback(void* arg, int code, const char* msg)
     // Assert that this is the case:
     assert(arg == nullptr);
     LogPrintf("SQLite Error. Code: %d. Message: %s\n", code, msg);
+}
+
+static bool BindBlobToStatement(sqlite3_stmt* stmt,
+                                int index,
+                                Span<const std::byte> blob,
+                                const std::string& description)
+{
+    int res = sqlite3_bind_blob(stmt, index, blob.data(), blob.size(), SQLITE_STATIC);
+    if (res != SQLITE_OK) {
+        LogPrintf("Unable to bind %s to statement: %s\n", description, sqlite3_errstr(res));
+        sqlite3_clear_bindings(stmt);
+        sqlite3_reset(stmt);
+        return false;
+    }
+
+    return true;
 }
 
 static std::optional<int> ReadPragmaInteger(sqlite3* db, const std::string& key, const std::string& description, bilingual_str& error)
@@ -67,8 +80,11 @@ static void SetPragma(sqlite3* db, const std::string& key, const std::string& va
     }
 }
 
-SQLiteDatabase::SQLiteDatabase(const fs::path& dir_path, const fs::path& file_path, bool mock)
-    : WalletDatabase(), m_mock(mock), m_dir_path(fs::PathToString(dir_path)), m_file_path(fs::PathToString(file_path))
+Mutex SQLiteDatabase::g_sqlite_mutex;
+int SQLiteDatabase::g_sqlite_count = 0;
+
+SQLiteDatabase::SQLiteDatabase(const fs::path& dir_path, const fs::path& file_path, const DatabaseOptions& options, bool mock)
+    : WalletDatabase(), m_mock(mock), m_dir_path(fs::PathToString(dir_path)), m_file_path(fs::PathToString(file_path)), m_use_unsafe_sync(options.use_unsafe_sync)
 {
     {
         LOCK(g_sqlite_mutex);
@@ -109,7 +125,6 @@ void SQLiteBatch::SetupSQLStatements()
         {&m_insert_stmt, "INSERT INTO main VALUES(?, ?)"},
         {&m_overwrite_stmt, "INSERT or REPLACE into main values(?, ?)"},
         {&m_delete_stmt, "DELETE FROM main WHERE key = ?"},
-        {&m_cursor_stmt, "SELECT key, value FROM main"},
     };
 
     for (const auto& [stmt_prepared, stmt_text] : statements) {
@@ -130,6 +145,8 @@ SQLiteDatabase::~SQLiteDatabase()
 
 void SQLiteDatabase::Cleanup() noexcept
 {
+    AssertLockNotHeld(g_sqlite_mutex);
+
     Close();
 
     LOCK(g_sqlite_mutex);
@@ -239,7 +256,7 @@ void SQLiteDatabase::Open()
     // Enable fullfsync for the platforms that use it
     SetPragma(m_db, "fullfsync", "true", "Failed to enable fullfsync");
 
-    if (gArgs.GetBoolArg("-unsafesqlitesync", false)) {
+    if (m_use_unsafe_sync) {
         // Use normal synchronous mode for the journal
         LogPrintf("WARNING SQLite is configured to not wait for data to be flushed to disk. Data loss and corruption may occur.\n");
         SetPragma(m_db, "synchronous", "OFF", "Failed to set synchronous mode to OFF");
@@ -358,7 +375,6 @@ void SQLiteBatch::Close()
         {&m_insert_stmt, "insert"},
         {&m_overwrite_stmt, "overwrite"},
         {&m_delete_stmt, "delete"},
-        {&m_cursor_stmt, "cursor"},
     };
 
     for (const auto& [stmt_prepared, stmt_description] : statements) {
@@ -371,20 +387,14 @@ void SQLiteBatch::Close()
     }
 }
 
-bool SQLiteBatch::ReadKey(CDataStream&& key, CDataStream& value)
+bool SQLiteBatch::ReadKey(DataStream&& key, DataStream& value)
 {
     if (!m_database.m_db) return false;
     assert(m_read_stmt);
 
     // Bind: leftmost parameter in statement is index 1
-    int res = sqlite3_bind_blob(m_read_stmt, 1, key.data(), key.size(), SQLITE_STATIC);
-    if (res != SQLITE_OK) {
-        LogPrintf("%s: Unable to bind statement: %s\n", __func__, sqlite3_errstr(res));
-        sqlite3_clear_bindings(m_read_stmt);
-        sqlite3_reset(m_read_stmt);
-        return false;
-    }
-    res = sqlite3_step(m_read_stmt);
+    if (!BindBlobToStatement(m_read_stmt, 1, key, "key")) return false;
+    int res = sqlite3_step(m_read_stmt);
     if (res != SQLITE_ROW) {
         if (res != SQLITE_DONE) {
             // SQLITE_DONE means "not found", don't log an error in that case.
@@ -395,7 +405,7 @@ bool SQLiteBatch::ReadKey(CDataStream&& key, CDataStream& value)
         return false;
     }
     // Leftmost column in result is index 0
-    const std::byte* data{BytePtr(sqlite3_column_blob(m_read_stmt, 0))};
+    const std::byte* data{AsBytePtr(sqlite3_column_blob(m_read_stmt, 0))};
     size_t data_size(sqlite3_column_bytes(m_read_stmt, 0));
     value.write({data, data_size});
 
@@ -404,7 +414,7 @@ bool SQLiteBatch::ReadKey(CDataStream&& key, CDataStream& value)
     return true;
 }
 
-bool SQLiteBatch::WriteKey(CDataStream&& key, CDataStream&& value, bool overwrite)
+bool SQLiteBatch::WriteKey(DataStream&& key, DataStream&& value, bool overwrite)
 {
     if (!m_database.m_db) return false;
     assert(m_insert_stmt && m_overwrite_stmt);
@@ -418,23 +428,11 @@ bool SQLiteBatch::WriteKey(CDataStream&& key, CDataStream&& value, bool overwrit
 
     // Bind: leftmost parameter in statement is index 1
     // Insert index 1 is key, 2 is value
-    int res = sqlite3_bind_blob(stmt, 1, key.data(), key.size(), SQLITE_STATIC);
-    if (res != SQLITE_OK) {
-        LogPrintf("%s: Unable to bind key to statement: %s\n", __func__, sqlite3_errstr(res));
-        sqlite3_clear_bindings(stmt);
-        sqlite3_reset(stmt);
-        return false;
-    }
-    res = sqlite3_bind_blob(stmt, 2, value.data(), value.size(), SQLITE_STATIC);
-    if (res != SQLITE_OK) {
-        LogPrintf("%s: Unable to bind value to statement: %s\n", __func__, sqlite3_errstr(res));
-        sqlite3_clear_bindings(stmt);
-        sqlite3_reset(stmt);
-        return false;
-    }
+    if (!BindBlobToStatement(stmt, 1, key, "key")) return false;
+    if (!BindBlobToStatement(stmt, 2, value, "value")) return false;
 
     // Execute
-    res = sqlite3_step(stmt);
+    int res = sqlite3_step(stmt);
     sqlite3_clear_bindings(stmt);
     sqlite3_reset(stmt);
     if (res != SQLITE_DONE) {
@@ -443,22 +441,16 @@ bool SQLiteBatch::WriteKey(CDataStream&& key, CDataStream&& value, bool overwrit
     return res == SQLITE_DONE;
 }
 
-bool SQLiteBatch::EraseKey(CDataStream&& key)
+bool SQLiteBatch::EraseKey(DataStream&& key)
 {
     if (!m_database.m_db) return false;
     assert(m_delete_stmt);
 
     // Bind: leftmost parameter in statement is index 1
-    int res = sqlite3_bind_blob(m_delete_stmt, 1, key.data(), key.size(), SQLITE_STATIC);
-    if (res != SQLITE_OK) {
-        LogPrintf("%s: Unable to bind statement: %s\n", __func__, sqlite3_errstr(res));
-        sqlite3_clear_bindings(m_delete_stmt);
-        sqlite3_reset(m_delete_stmt);
-        return false;
-    }
+    if (!BindBlobToStatement(m_delete_stmt, 1, key, "key")) return false;
 
     // Execute
-    res = sqlite3_step(m_delete_stmt);
+    int res = sqlite3_step(m_delete_stmt);
     sqlite3_clear_bindings(m_delete_stmt);
     sqlite3_reset(m_delete_stmt);
     if (res != SQLITE_DONE) {
@@ -467,64 +459,63 @@ bool SQLiteBatch::EraseKey(CDataStream&& key)
     return res == SQLITE_DONE;
 }
 
-bool SQLiteBatch::HasKey(CDataStream&& key)
+bool SQLiteBatch::HasKey(DataStream&& key)
 {
     if (!m_database.m_db) return false;
     assert(m_read_stmt);
 
     // Bind: leftmost parameter in statement is index 1
-    bool ret = false;
-    int res = sqlite3_bind_blob(m_read_stmt, 1, key.data(), key.size(), SQLITE_STATIC);
-    if (res == SQLITE_OK) {
-        res = sqlite3_step(m_read_stmt);
-        if (res == SQLITE_ROW) {
-            ret = true;
-        }
-    }
-
+    if (!BindBlobToStatement(m_read_stmt, 1, key, "key")) return false;
+    int res = sqlite3_step(m_read_stmt);
     sqlite3_clear_bindings(m_read_stmt);
     sqlite3_reset(m_read_stmt);
-    return ret;
+    return res == SQLITE_ROW;
 }
 
-bool SQLiteBatch::StartCursor()
+DatabaseCursor::Status SQLiteCursor::Next(DataStream& key, DataStream& value)
 {
-    assert(!m_cursor_init);
-    if (!m_database.m_db) return false;
-    m_cursor_init = true;
-    return true;
-}
-
-bool SQLiteBatch::ReadAtCursor(CDataStream& key, CDataStream& value, bool& complete)
-{
-    complete = false;
-
-    if (!m_cursor_init) return false;
-
     int res = sqlite3_step(m_cursor_stmt);
     if (res == SQLITE_DONE) {
-        complete = true;
-        return true;
+        return Status::DONE;
     }
     if (res != SQLITE_ROW) {
-        LogPrintf("SQLiteBatch::ReadAtCursor: Unable to execute cursor step: %s\n", sqlite3_errstr(res));
-        return false;
+        LogPrintf("%s: Unable to execute cursor step: %s\n", __func__, sqlite3_errstr(res));
+        return Status::FAIL;
     }
 
     // Leftmost column in result is index 0
-    const std::byte* key_data{BytePtr(sqlite3_column_blob(m_cursor_stmt, 0))};
+    const std::byte* key_data{AsBytePtr(sqlite3_column_blob(m_cursor_stmt, 0))};
     size_t key_data_size(sqlite3_column_bytes(m_cursor_stmt, 0));
     key.write({key_data, key_data_size});
-    const std::byte* value_data{BytePtr(sqlite3_column_blob(m_cursor_stmt, 1))};
+    const std::byte* value_data{AsBytePtr(sqlite3_column_blob(m_cursor_stmt, 1))};
     size_t value_data_size(sqlite3_column_bytes(m_cursor_stmt, 1));
     value.write({value_data, value_data_size});
-    return true;
+    return Status::MORE;
 }
 
-void SQLiteBatch::CloseCursor()
+SQLiteCursor::~SQLiteCursor()
 {
     sqlite3_reset(m_cursor_stmt);
-    m_cursor_init = false;
+    int res = sqlite3_finalize(m_cursor_stmt);
+    if (res != SQLITE_OK) {
+        LogPrintf("%s: cursor closed but could not finalize cursor statement: %s\n",
+                  __func__, sqlite3_errstr(res));
+    }
+}
+
+std::unique_ptr<DatabaseCursor> SQLiteBatch::GetNewCursor()
+{
+    if (!m_database.m_db) return nullptr;
+    auto cursor = std::make_unique<SQLiteCursor>();
+
+    const char* stmt_text = "SELECT key, value FROM main";
+    int res = sqlite3_prepare_v2(m_database.m_db, stmt_text, -1, &cursor->m_cursor_stmt, nullptr);
+    if (res != SQLITE_OK) {
+        throw std::runtime_error(strprintf(
+            "%s: Failed to setup cursor SQL statement: %s\n", __func__, sqlite3_errstr(res)));
+    }
+
+    return cursor;
 }
 
 bool SQLiteBatch::TxnBegin()
@@ -561,7 +552,7 @@ std::unique_ptr<SQLiteDatabase> MakeSQLiteDatabase(const fs::path& path, const D
 {
     try {
         fs::path data_file = SQLiteDataFile(path);
-        auto db = std::make_unique<SQLiteDatabase>(data_file.parent_path(), data_file);
+        auto db = std::make_unique<SQLiteDatabase>(data_file.parent_path(), data_file, options);
         if (options.verify && !db->Verify(error)) {
             status = DatabaseStatus::FAILED_VERIFY;
             return nullptr;

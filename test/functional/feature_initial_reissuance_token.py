@@ -23,6 +23,9 @@ class InitialReissuanceTokenTest(BitcoinTestFramework):
         #Set number of initial reissuance tokens and also set initial free coins less than max so we can reissue more later
         self.extra_args = [["-initialreissuancetokens=200000000", "-initialfreecoins=2000000000000000", "-anyonecanspendaremine=1", "-con_connect_genesis_outputs=1", "-con_blocksubsidy=0", "-blindedaddresses=1"]]*2
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 

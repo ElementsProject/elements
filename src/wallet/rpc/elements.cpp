@@ -15,24 +15,13 @@
 #include <script/generic.hpp>
 #include <script/pegins.h>
 #include <secp256k1.h>
+#include <timedata.h>
 #include <wallet/coincontrol.h>
 #include <wallet/fees.h>
 #include <wallet/rpc/util.h>
 #include <wallet/receive.h>
 #include <wallet/spend.h>
 #include <wallet/wallet.h>
-
-using wallet::BlindDetails;
-using wallet::CAddressBookData;
-using wallet::CCoinControl;
-using wallet::CRecipient;
-using wallet::CWallet;
-using wallet::CWalletTx;
-using wallet::GetMinimumFee;
-using wallet::GetWalletForJSONRPCRequest;
-using wallet::IssuanceDetails;
-using wallet::mapValue_t;
-using wallet::LegacyScriptPubKeyMan;
 
 // forward declarations
 namespace wallet {
@@ -64,7 +53,7 @@ RPCHelpMan signblock()
                 "\nSigns a block proposal, checking that it would be accepted first. Errors if it cannot sign the block. Note that this call adds the witnessScript to your wallet for signing purposes! This function is intended for QA and testing.\n",
                 {
                     {"blockhex", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded block from getnewblockhex"},
-                    {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The hex-encoded witness script. Required for dynamic federation blocks. Argument is \"\" when the block is P2WPKH."},
+                    {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The hex-encoded witness script. Required for dynamic federation blocks. Argument is \"\" when the block is P2WPKH."},
                 },
                 RPCResult{
                     RPCResult::Type::ARR, "", "",
@@ -188,19 +177,20 @@ RPCHelpMan getpeginaddress()
     }
 
     // Use native witness destination
-    CTxDestination dest;
-    bilingual_str error;
-    if (!pwallet->GetNewDestination(OutputType::BECH32, "", dest, error)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
+    auto dest = pwallet->GetNewDestination(OutputType::BECH32, "");
+    if (!dest) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, util::ErrorString(dest).original);
     }
 
-    CScript dest_script = GetScriptForDestination(dest);
+    CScript dest_script = GetScriptForDestination(*dest);
 
     // Also add raw scripts to index to recognize later.
     spk_man->AddCScript(dest_script);
 
     // Get P2CH deposit address on mainchain from most recent fedpegscript.
-    const auto& fedpegscripts = GetValidFedpegScripts(pwallet->chain().getTip(), Params().GetConsensus(), true /* nextblock_validation */);
+    const CChainParams& chainparams = Params();
+    const Consensus::Params& consensus = chainparams.GetConsensus();
+    const auto& fedpegscripts = GetValidFedpegScripts(pwallet->chain().getTip(), consensus, true /* nextblock_validation */);
     if (fedpegscripts.empty()) {
         std::string message = "No valid fedpegscripts.";
         if (!g_con_elementsmode) {
@@ -211,7 +201,13 @@ RPCHelpMan getpeginaddress()
     CTxDestination mainchain_dest(WitnessV0ScriptHash(calculate_contract(fedpegscripts.front().second, dest_script)));
     // P2SH-wrapped is the only valid choice for non-dynafed chains but still an
     // option for dynafed-enabled ones as well
-    if (!DeploymentActiveAfter(pwallet->chain().getTip(), Params().GetConsensus(), Consensus::DEPLOYMENT_DYNA_FED) ||
+    ChainstateManager::Options opts{
+        .chainparams = chainparams,
+        .adjusted_time_callback = GetAdjustedTime,
+        .minimum_chain_work = UintToArith256(consensus.nMinimumChainWork),
+        .assumed_valid_block = consensus.defaultAssumeValid,
+    };
+    if (!DeploymentActiveAfter(pwallet->chain().getTip(), ChainstateManager(opts, {}), Consensus::DEPLOYMENT_DYNA_FED) ||
                 fedpegscripts.front().first.IsPayToScriptHash()) {
         mainchain_dest = ScriptHash(GetScriptForDestination(mainchain_dest));
     }
@@ -239,7 +235,7 @@ bool DerivePubTweak(const std::vector<uint32_t>& vPath, const CPubKey& keyMaster
         if ((vPath[i] >> 31) != 0) {
             return false;
         }
-        keyParent.Derive(keyChild, ccChild, vPath[i], ccParent, &tweak);
+        if (!keyParent.Derive(keyChild, ccChild, vPath[i], ccParent, &tweak)) return false;
         CHECK_NONFATAL(tweak.size() == 32);
         ccParent = ccChild;
         keyParent = keyChild;
@@ -264,7 +260,7 @@ RPCHelpMan initpegoutwallet()
                 {
                     {"bitcoin_descriptor", RPCArg::Type::STR, RPCArg::Optional::NO, "The Bitcoin descriptor that includes a single extended pubkey. Must be one of the following: pkh(<xpub>), sh(wpkh(<xpub>)), or wpkh(<xpub>). This is used as the destination chain for the Bitcoin destination wallet. The derivation path from the xpub is given by the descriptor, typically `0/k`, reflecting the external chain of the wallet. DEPRECATED: If a plain xpub is given, pkh(<xpub>) is assumed, with the `0/k` derivation from that xpub. See link for more details on script descriptors: https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md"},
                     {"bip32_counter", RPCArg::Type::NUM , RPCArg::Default{0}, "The `k` in `0/k` to be set as the next address to derive from the `bitcoin_descriptor`. This will be stored in the wallet and incremented on each successful `sendtomainchain` invocation."},
-                    {"liquid_pak", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The Liquid wallet pubkey in hex to be used as the Liquid PAK for pegout authorization. The private key must be in the wallet if argument is given. If this argument is not provided one will be generated and stored in the wallet automatically and returned."}
+                    {"liquid_pak", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The Liquid wallet pubkey in hex to be used as the Liquid PAK for pegout authorization. The private key must be in the wallet if argument is given. If this argument is not provided one will be generated and stored in the wallet automatically and returned."}
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
@@ -321,14 +317,14 @@ RPCHelpMan initpegoutwallet()
     // Parse offline counter
     int counter = 0;
     if (request.params.size() > 1) {
-        counter = request.params[1].get_int();
+        counter = request.params[1].getInt<int>();
         if (counter < 0 || counter > 1000000000) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "bip32_counter must be between 0 and 1,000,000,000, inclusive.");
         }
     }
 
     std::string bitcoin_desc = request.params[0].get_str();
-    std::string xpub_str = "";
+    std::string xpub_str;
 
     // First check for naked xpub, and impute it as pkh(<xpub>/0/*) for backwards compat
     CExtPubKey xpub = DecodeExtPubKey(bitcoin_desc);
@@ -832,10 +828,9 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
         pwallet->TopUpKeyPool();
 
     // Generate a new key that is added to wallet
-    CTxDestination wpkhash;
-    bilingual_str error;
-    if (!pwallet->GetNewDestination(OutputType::BECH32, "", wpkhash, error)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
+    auto wpkhash = pwallet->GetNewDestination(OutputType::BECH32, "");
+    if (!wpkhash) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, util::ErrorString(wpkhash).original);
     }
 
     // Get value for output
@@ -845,7 +840,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     }
 
     // one wallet output and one fee output
-    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(wpkhash)));
+    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(*wpkhash)));
     mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, 0, CScript()));
 
     // Estimate fee for transaction, decrement fee output(including witness data)
@@ -892,7 +887,7 @@ RPCHelpMan createrawpegin()
                 {
                     {"bitcoin_tx", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress"},
                     {"txoutproof", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A rawtxoutproof (in hex) generated by the mainchain daemon's `gettxoutproof` containing a proof of only bitcoin_tx"},
-                    {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The witness program generated by getpeginaddress. Only needed if not in wallet."},
+                    {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The witness program generated by getpeginaddress. Only needed if not in wallet."},
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
@@ -941,7 +936,7 @@ RPCHelpMan claimpegin()
                 {
                     {"bitcoin_tx", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress"},
                     {"txoutproof", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A rawtxoutproof (in hex) generated by the mainchain daemon's `gettxoutproof` containing a proof of only bitcoin_tx"},
-                    {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The witness program generated by getpeginaddress. Only needed if not in wallet."},
+                    {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The witness program generated by getpeginaddress. Only needed if not in wallet."},
                 },
                 RPCResult{
                     RPCResult::Type::STR_HEX, "txid", "txid of the resulting sidechain transaction",
@@ -1137,7 +1132,7 @@ RPCHelpMan blindrawtransaction()
                 {
                     {"hexstring", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A hex-encoded raw transaction."},
                     {"ignoreblindfail", RPCArg::Type::BOOL , RPCArg::Default{true}, "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
-                    {"asset_commitments", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "An array of input asset generators. If provided, this list must be empty, or match the final input commitment list, including ordering, to make a valid surjection proof. This list does not include generators for issuances, as these assets are inherently unblinded.",
+                    {"asset_commitments", RPCArg::Type::ARR, RPCArg::Optional::OMITTED, "An array of input asset generators. If provided, this list must be empty, or match the final input commitment list, including ordering, to make a valid surjection proof. This list does not include generators for issuances, as these assets are inherently unblinded.",
                         {
                             {"assetcommitment", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A hex-encoded asset commitment, one for each input."
             "                        Null commitments must be \"\"."},
@@ -1216,7 +1211,7 @@ RPCHelpMan blindrawtransaction()
             continue;
         }
 
-        std::map<uint256, CWalletTx>::iterator it = pwallet->mapWallet.find(prevout.hash);
+        const auto& it = pwallet->mapWallet.find(prevout.hash);
         if (it == pwallet->mapWallet.end() || InputIsMine(*pwallet, tx.vin[nIn]) == wallet::ISMINE_NO) {
             // For inputs we don't own, input assetcommitments for the surjection must be supplied.
             if (auxiliary_generators.size() > 0) {
@@ -1290,7 +1285,7 @@ RPCHelpMan blindrawtransaction()
         }
     }
 
-    if (BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, asset_keys, token_keys, tx, (auxiliary_generators.size() ? &auxiliary_generators : NULL)) != num_pubkeys) {
+    if (BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, asset_keys, token_keys, tx, (auxiliary_generators.size() ? &auxiliary_generators : nullptr)) != num_pubkeys) {
         // TODO Have more rich return values, communicating to user what has been blinded
         // User may be ok not blinding something that for instance has no corresponding type on input
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?");
@@ -1322,8 +1317,6 @@ RPCHelpMan unblindrawtransaction()
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     if (!wallet) return NullUniValue;
     CWallet* const pwallet = wallet.get();
-
-    RPCTypeCheck(request.params, {UniValue::VSTR});
 
     CMutableTransaction tx;
     if (!DecodeHexTx(tx, request.params[0].get_str()))
@@ -1372,21 +1365,20 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
         vecSend.push_back(recipient);
     }
 
-    CAmount nFeeRequired;
-    int nChangePosRet = -1;
+    constexpr int RANDOM_CHANGE_POSITION = -1;
     bilingual_str error;
-    FeeCalculation fee_calc_out;
     CCoinControl dummy_control;
     BlindDetails blind_details;
-    CTransactionRef tx_ref;
-    if (!CreateTransaction(*pwallet, vecSend, tx_ref, nFeeRequired, nChangePosRet, error, dummy_control, fee_calc_out, true, &blind_details, issuance_details)) {
+    util::Result<CreatedTransactionResult> txr = CreateTransaction(*pwallet, vecSend, RANDOM_CHANGE_POSITION,
+                dummy_control, true, &blind_details, issuance_details);
+    if (!txr) {
         throw JSONRPCError(RPC_WALLET_ERROR, error.original);
     }
 
     mapValue_t map_value;
-    pwallet->CommitTransaction(tx_ref, std::move(map_value), {} /* orderForm */, &blind_details);
+    pwallet->CommitTransaction((*txr).tx, std::move(map_value), {} /* orderForm */, &blind_details);
 
-    return tx_ref;
+    return (*txr).tx;
 }
 
 RPCHelpMan issueasset()
@@ -1446,29 +1438,35 @@ RPCHelpMan issueasset()
     // Generate a new key that is added to wallet
     bilingual_str error;
     CPubKey newKey;
-    CTxDestination asset_dest;
-    CTxDestination token_dest;
+    util::Result<CTxDestination> asset_dest{util::Error{}};
+    util::Result<CTxDestination> token_dest{util::Error{}};
+    CScript asset_script;
+    CScript token_script;
     CPubKey asset_dest_blindpub;
     CPubKey token_dest_blindpub;
 
     if (nAmount > 0) {
-        if (!pwallet->GetNewDestination(OutputType::BECH32, "", asset_dest, error)) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
+        asset_dest = pwallet->GetNewDestination(OutputType::BECH32, "");
+        if (!asset_dest) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, util::ErrorString(asset_dest).original);
         }
-        asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
+        asset_script = GetScriptForDestination(*asset_dest);
+        asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(*asset_dest));
     }
     if (nTokens > 0) {
-        if (!pwallet->GetNewDestination(OutputType::BECH32, "", token_dest, error)) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
+        token_dest = pwallet->GetNewDestination(OutputType::BECH32, "");
+        if (!token_dest) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, util::ErrorString(token_dest).original);
         }
-        token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
+        token_script = GetScriptForDestination(*token_dest);
+        token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(*token_dest));
     }
 
     CAsset dummyasset;
     IssuanceDetails issuance_details;
     issuance_details.blind_issuance = blind_issuances;
     issuance_details.contract_hash = contract_hash;
-    CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, nTokens, &issuance_details, pwallet);
+    CTransactionRef tx_ref = SendGenerationTransaction(asset_script, asset_dest_blindpub, token_script, token_dest_blindpub, nAmount, nTokens, &issuance_details, pwallet);
 
     // Calculate asset type, assumes first vin is used for issuance
     CAsset asset;
@@ -1486,6 +1484,7 @@ RPCHelpMan issueasset()
     ret.pushKV("token", token.GetHex());
     return ret;
 },
+
     };
 }
 
@@ -1552,21 +1551,21 @@ RPCHelpMan reissueasset()
 
     // Add destination for the to-be-created asset
     bilingual_str error;
-    CTxDestination asset_dest;
-    if (!pwallet->GetNewDestination(OutputType::BECH32, "", asset_dest, error)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
+    auto asset_dest = pwallet->GetNewDestination(OutputType::BECH32, "");
+    if (!asset_dest) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, util::ErrorString(asset_dest).original);
     }
-    CPubKey asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
+    CPubKey asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(*asset_dest));
 
     // Add destination for tokens we are moving
-    CTxDestination token_dest;
-    if (!pwallet->GetNewDestination(OutputType::BECH32, "", token_dest, error)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
+    auto token_dest = pwallet->GetNewDestination(OutputType::BECH32, "");
+    if (!token_dest) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, util::ErrorString(token_dest).original);
     }
-    CPubKey token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
+    CPubKey token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(*token_dest));
 
     // Attempt a send.
-    CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, -1, &issuance_details, pwallet);
+    CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(*asset_dest), asset_dest_blindpub, GetScriptForDestination(*token_dest), token_dest_blindpub, nAmount, -1, &issuance_details, pwallet);
     CHECK_NONFATAL(!tx_ref->vin.empty());
 
     UniValue obj(UniValue::VOBJ);
@@ -1684,7 +1683,7 @@ RPCHelpMan destroyamount()
                 {
                     {"asset", RPCArg::Type::STR, RPCArg::Optional::NO, "Hex asset id or asset label to destroy."},
                     {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount to destroy (8 decimals above the minimal unit)."},
-                    {"comment", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "A comment used to store what the transaction is for.\n"
+                    {"comment", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "A comment used to store what the transaction is for.\n"
             "                             This is not part of the transaction, just kept in your wallet."},
                     {"verbose", RPCArg::Type::BOOL, RPCArg::Default{false}, "If true, return extra information about the transaction."},
                 },
@@ -1846,7 +1845,7 @@ RPCHelpMan getpegoutkeys()
                 "\n(DEPRECATED) Please see `initpegoutwallet` and `sendtomainchain` for best-supported and easiest workflow. This call is for the Liquid network participants' `offline` wallet ONLY. Returns `sumkeys` corresponding to the sum of the Offline PAK and the imported Bitcoin key. The wallet must have the Offline private PAK to succeed. The output will be used in `generatepegoutproof` and `sendtomainchain`. Care is required to keep the bitcoin private key, as well as the `sumkey` safe, as a leak of both results in the leak of your `offlinekey`. Therefore it is recommended to create Bitcoin keys and do Bitcoin transaction signing directly on an offline wallet co-located with your offline Liquid wallet.\n",
                 {
                     {"btcprivkey", RPCArg::Type::STR, RPCArg::Optional::NO, "Base58 Bitcoin private key that will be combined with the offline privkey"},
-                    {"offlinepubkey", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "Hex pubkey of key to combine with btcprivkey. Primarily intended for integration testing."},
+                    {"offlinepubkey", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Hex pubkey of key to combine with btcprivkey. Primarily intended for integration testing."},
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",

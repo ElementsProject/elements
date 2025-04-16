@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-# Copyright (c) 2018-2021 The Bitcoin Core developers
+# Copyright (c) 2018-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the scantxoutset rpc call."""
+from test_framework.address import address_to_scriptpubkey
 from test_framework.messages import COIN
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 from test_framework.wallet import (
     MiniWallet,
-    address_to_scriptpubkey,
     getnewdestination,
 )
 
@@ -37,7 +37,9 @@ class ScantxoutsetTest(BitcoinTestFramework):
         self.wallet = MiniWallet(self.nodes[0], hrp="bcrt")
         self.nodes[0].set_deterministic_priv_key('2Mysp7FKKe52eoC2JmU46irt1dt58TpCvhQ', 'cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ')
         self.wallet.generate(200, invalid_call=False)
-        self.wallet.rescan_utxos()
+
+        self.log.info("Test if we find coinbase outputs.")
+        assert_equal(sum(u["coinbase"] for u in self.nodes[0].scantxoutset("start", [self.wallet.get_descriptor()])["unspents"]), 200)
 
         self.log.info("Create UTXOs...")
         pubk1, spk_P2SH_SEGWIT, addr_P2SH_SEGWIT = getnewdestination("p2sh-segwit", prefix=196)

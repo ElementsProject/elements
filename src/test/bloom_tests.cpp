@@ -1,4 +1,4 @@
-// Copyright (c) 2012-2021 The Bitcoin Core developers
+// Copyright (c) 2012-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -12,6 +12,7 @@
 #include <random.h>
 #include <serialize.h>
 #include <streams.h>
+#include <test/util/random.h>
 #include <test/util/setup_common.h>
 #include <uint256.h>
 #include <util/strencodings.h>
@@ -39,7 +40,7 @@ BOOST_AUTO_TEST_CASE(bloom_create_insert_serialize)
     filter.insert(ParseHex("b9300670b4c5366e95b2699e8b18bc75e5f729c5"));
     BOOST_CHECK_MESSAGE(filter.contains(ParseHex("b9300670b4c5366e95b2699e8b18bc75e5f729c5")), "Bloom filter doesn't contain just-inserted object (3)!");
 
-    CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
+    DataStream stream{};
     stream << filter;
 
     std::vector<uint8_t> expected = ParseHex("03614e9b050000000000000001");
@@ -66,7 +67,7 @@ BOOST_AUTO_TEST_CASE(bloom_create_insert_serialize_with_tweak)
     filter.insert(ParseHex("b9300670b4c5366e95b2699e8b18bc75e5f729c5"));
     BOOST_CHECK_MESSAGE(filter.contains(ParseHex("b9300670b4c5366e95b2699e8b18bc75e5f729c5")), "Bloom filter doesn't contain just-inserted object (3)!");
 
-    CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
+    DataStream stream{};
     stream << filter;
 
     std::vector<uint8_t> expected = ParseHex("03ce4299050000000100008001");
@@ -87,7 +88,7 @@ BOOST_AUTO_TEST_CASE(bloom_create_insert_key)
     uint160 hash = pubkey.GetID();
     filter.insert(hash);
 
-    CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
+    DataStream stream{};
     stream << filter;
 
     std::vector<unsigned char> expected = ParseHex("038fc16b080000000000000001");

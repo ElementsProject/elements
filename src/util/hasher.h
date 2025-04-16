@@ -1,13 +1,19 @@
-// Copyright (c) 2019-2021 The Bitcoin Core developers
+// Copyright (c) 2019-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_UTIL_HASHER_H
 #define BITCOIN_UTIL_HASHER_H
 
+#include <crypto/common.h>
 #include <crypto/siphash.h>
 #include <primitives/transaction.h>
 #include <uint256.h>
+
+#include <cstdint>
+#include <cstring>
+
+template <typename C> class Span;
 
 // For PEGIN entries, the first is the genesis hash, the second is the outpoint.
 // For ~PEGIN entries, the first is zero, the second is the outpoint.
@@ -34,7 +40,7 @@ private:
     const uint64_t k0, k1;
 
 public:
-    SaltedOutpointHasher();
+    SaltedOutpointHasher(bool deterministic = false);
 
     /**
      * Having the hash noexcept allows libstdc++'s unordered_map to recalculate

@@ -4,8 +4,7 @@ set -eux
 
 export LC_ALL=C
 
-# Print commit and relevant CI environment to allow reproducing the job outside of CI.
-git show --no-patch
+# Print relevant CI environment to allow reproducing the job outside of CI.
 print_environment() {
     # Turn off -x because it messes up the output
     set +x
@@ -13,8 +12,7 @@ print_environment() {
     # does not rely on bash.
     for var in WERROR_CFLAGS MAKEFLAGS BUILD \
             ECMULTWINDOW ECMULTGENPRECISION ASM WIDEMUL WITH_VALGRIND EXTRAFLAGS \
-            EXPERIMENTAL ECDH RECOVERY SCHNORRSIG ELLSWIFT \
-            ECDSA_S2C GENERATOR RANGEPROOF WHITELIST MUSIG ECDSAADAPTOR BPPP \
+            EXPERIMENTAL ECDH RECOVERY SCHNORRSIG \
             SECP256K1_TEST_ITERS BENCH SECP256K1_BENCH_ITERS CTIMETESTS\
             EXAMPLES \
             HOST WRAPPER_CMD \
@@ -38,7 +36,8 @@ case "$WRAPPER_CMD" in
     *wine*)
         # Make sure to shutdown wineserver whenever we exit.
         trap "wineserver -k || true" EXIT INT HUP
-        wineserver -p
+        # This is apparently only reliable when we run a dummy command such as "hh.exe" afterwards.
+        wineserver -p && wine hh.exe
         ;;
 esac
 
@@ -55,22 +54,6 @@ if [ -n "$WRAPPER_CMD" ]; then
     $WRAPPER_CMD --version
 fi
 
-# Workaround for https://bugs.kde.org/show_bug.cgi?id=452758 (fixed in valgrind 3.20.0).
-case "${CC:-undefined}" in
-    clang*)
-        if [ "$CTIMETESTS" = "yes" ] && [ "$WITH_VALGRIND" = "yes" ]
-        then
-            export CFLAGS="${CFLAGS:+$CFLAGS }-gdwarf-4"
-        else
-            case "$WRAPPER_CMD" in
-                valgrind*)
-                    export CFLAGS="${CFLAGS:+$CFLAGS }-gdwarf-4"
-                    ;;
-            esac
-        fi
-        ;;
-esac
-
 ./autogen.sh
 
 ./configure \
@@ -79,11 +62,6 @@ esac
     --with-ecmult-window="$ECMULTWINDOW" \
     --with-ecmult-gen-precision="$ECMULTGENPRECISION" \
     --enable-module-ecdh="$ECDH" --enable-module-recovery="$RECOVERY" \
-    --enable-module-ellswift="$ELLSWIFT" \
-    --enable-module-ecdsa-s2c="$ECDSA_S2C" \
-    --enable-module-bppp="$BPPP" \
-    --enable-module-rangeproof="$RANGEPROOF" --enable-module-whitelist="$WHITELIST" --enable-module-generator="$GENERATOR" \
-    --enable-module-schnorrsig="$SCHNORRSIG"  --enable-module-musig="$MUSIG" --enable-module-ecdsa-adaptor="$ECDSAADAPTOR" \
     --enable-module-schnorrsig="$SCHNORRSIG" \
     --enable-examples="$EXAMPLES" \
     --enable-ctime-tests="$CTIMETESTS" \
@@ -116,10 +94,6 @@ then
         $EXEC ./bench_ecmult
         $EXEC ./bench_internal
         $EXEC ./bench
-        if [ "$BPPP" = "yes" ]
-        then
-            $EXEC ./bench_bppp
-        fi
     } >> bench.log 2>&1
 fi
 
@@ -135,8 +109,8 @@ fi
 # Rebuild precomputed files (if not cross-compiling).
 if [ -z "$HOST" ]
 then
-    make clean-precomp clean-testvectors
-    make precomp testvectors
+    make clean-precomp
+    make precomp
 fi
 
 # Check that no repo files have been modified by the build.

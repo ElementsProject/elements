@@ -82,8 +82,12 @@ SECP256K1_INLINE static int secp256k1_surjection_compute_public_keys(secp256k1_g
             j++;
         }
     }
+#ifdef VERIFY
     /* Caller needs to ensure that the number of set bits in used_tags (which we counted in j) equals n_pubkeys. */
     VERIFY_CHECK(j == n_pubkeys);
+#else
+    (void)n_pubkeys;
+#endif
     return 1;
 }
 

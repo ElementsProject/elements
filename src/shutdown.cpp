@@ -1,16 +1,18 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <shutdown.h>
 
+#if defined(HAVE_CONFIG_H)
+#include <config/bitcoin-config.h>
+#endif
+
 #include <logging.h>
-#include <node/ui_interface.h>
+#include <node/interface_ui.h>
 #include <util/tokenpipe.h>
 #include <warnings.h>
-
-#include <config/bitcoin-config.h>
 
 #include <assert.h>
 #include <atomic>
@@ -25,7 +27,7 @@ bool AbortNode(const std::string& strMessage, bilingual_str user_message)
     if (user_message.empty()) {
         user_message = _("A fatal internal error occurred, see debug.log for details");
     }
-    AbortError(user_message);
+    InitError(user_message);
     StartShutdown();
     return false;
 }

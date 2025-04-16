@@ -2,6 +2,7 @@
 # Copyright (c) 2016 The Bitcoin Core developers
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
+from time import sleep
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error, Decimal, assert_greater_than
 
@@ -21,6 +22,9 @@ class PAKTest (BitcoinTestFramework):
         self.extra_args = [["-enforce_pak=1", "-evbparams=dynafed:-1:::", "-initialfreecoins=210000000000000", "-anyonecanspendaremine=1", "-parent_bech32_hrp=lol", "-pubkeyprefix=112", "-scriptprefix=197", "-con_connect_genesis_outputs=1"] for i in range(self.num_nodes)]
         # First node doesn't enforce PAK, a "HF" of the other two nodes
         self.extra_args[0] = ["-acceptnonstdtxn=1"] + self.extra_args[0][1:]   ## FIXME -acceptnonstdtxn=1 should not be needed
+
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
@@ -108,7 +112,6 @@ class PAKTest (BitcoinTestFramework):
 
         # Node 1 will now make a PAK peg-out, accepted in all mempools and blocks
         pegout_info = self.nodes[1].sendtomainchain("", 1)
-        print(pegout_info)
         raw_node1_pegout = self.nodes[1].gettransaction(pegout_info["txid"])["hex"]
         self.sync_all() # mempool sync
         self.generatetoaddress(self.nodes[1], 1, self.nodes[0].getnewaddress(), sync_fun=self.no_op)
@@ -223,7 +226,6 @@ class PAKTest (BitcoinTestFramework):
 
         peg_out_found = False
         for output in wpkh_raw["vout"]:
-            print(output)
             if "pegout_address" in output["scriptPubKey"]:
                 if output["scriptPubKey"]["pegout_address"] == wpkh_info["address_lookahead"][0]:
                     peg_out_found = True
@@ -257,6 +259,7 @@ class PAKTest (BitcoinTestFramework):
         # since it's pak-less
         nopak_pegout_txid = self.nodes[0].sendtomainchain("n3NkSZqoPMCQN5FENxUBw4qVATbytH6FDK", 1)
         raw_pakless_pegout = self.nodes[0].gettransaction(nopak_pegout_txid)["hex"]
+        sleep(1) # hacky fix for flaky timing where getrawmempool doesn't have nopak_pegout_txid yet
         assert nopak_pegout_txid in self.nodes[0].getrawmempool()
 
         assert_raises_rpc_error(-26, "invalid-pegout-proof", self.nodes[1].sendrawtransaction, raw_pakless_pegout)

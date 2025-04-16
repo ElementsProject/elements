@@ -4,9 +4,9 @@
 
 #include <util/settings.h>
 
-#include <fs.h>
 #include <test/util/setup_common.h>
 #include <test/util/str.h>
+#include <util/fs.h>
 
 
 #include <boost/test/unit_test.hpp>
@@ -80,7 +80,7 @@ BOOST_AUTO_TEST_CASE(ReadWrite)
     BOOST_CHECK(values.empty());
     BOOST_CHECK(errors.empty());
 
-    // Check duplicate keys not allowed
+    // Check duplicate keys not allowed and that values returns empty if a duplicate is found.
     WriteText(path, R"({
         "dupe": "string",
         "dupe": "dupe"
@@ -88,6 +88,7 @@ BOOST_AUTO_TEST_CASE(ReadWrite)
     BOOST_CHECK(!util::ReadSettings(path, values, errors));
     std::vector<std::string> dup_keys = {strprintf("Found duplicate key dupe in settings file %s", fs::PathToString(path))};
     BOOST_CHECK_EQUAL_COLLECTIONS(errors.begin(), errors.end(), dup_keys.begin(), dup_keys.end());
+    BOOST_CHECK(values.empty());
 
     // Check non-kv json files not allowed
     WriteText(path, R"("non-kv")");
@@ -105,7 +106,7 @@ BOOST_AUTO_TEST_CASE(ReadWrite)
 //! Check settings struct contents against expected json strings.
 static void CheckValues(const util::Settings& settings, const std::string& single_val, const std::string& list_val)
 {
-    util::SettingsValue single_value = GetSetting(settings, "section", "name", false, false);
+    util::SettingsValue single_value = GetSetting(settings, "section", "name", false, false, false);
     util::SettingsValue list_value(util::SettingsValue::VARR);
     for (const auto& item : GetSettingsList(settings, "section", "name", false)) {
         list_value.push_back(item);
@@ -141,9 +142,9 @@ BOOST_AUTO_TEST_CASE(NullOverride)
 {
     util::Settings settings;
     settings.command_line_options["name"].push_back("value");
-    BOOST_CHECK_EQUAL(R"("value")", GetSetting(settings, "section", "name", false, false).write().c_str());
+    BOOST_CHECK_EQUAL(R"("value")", GetSetting(settings, "section", "name", false, false, false).write().c_str());
     settings.forced_settings["name"] = {};
-    BOOST_CHECK_EQUAL(R"(null)", GetSetting(settings, "section", "name", false, false).write().c_str());
+    BOOST_CHECK_EQUAL(R"(null)", GetSetting(settings, "section", "name", false, false, false).write().c_str());
 }
 
 // Test different ways settings can be merged, and verify results. This test can
@@ -224,7 +225,7 @@ BOOST_FIXTURE_TEST_CASE(Merge, MergeTestingSetup)
         }
 
         desc += " || ";
-        desc += GetSetting(settings, network, name, ignore_default_section_config, /* get_chain_name= */ false).write();
+        desc += GetSetting(settings, network, name, ignore_default_section_config, /*ignore_nonpersistent=*/false, /*get_chain_name=*/false).write();
         desc += " |";
         for (const auto& s : GetSettingsList(settings, network, name, ignore_default_section_config)) {
             desc += " ";

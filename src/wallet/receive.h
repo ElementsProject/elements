@@ -1,4 +1,4 @@
-// Copyright (c) 2021 The Bitcoin Core developers
+// Copyright (c) 2021-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -6,8 +6,8 @@
 #define BITCOIN_WALLET_RECEIVE_H
 
 #include <consensus/amount.h>
-#include <wallet/ismine.h>
 #include <wallet/transaction.h>
+#include <wallet/types.h>
 #include <wallet/wallet.h>
 
 namespace wallet {
@@ -27,21 +27,15 @@ CAmountMap TxGetChange(const CWallet& wallet, const CWalletTx& wtx);
 CAmountMap GetCredit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 CAmountMap GetChange(const CWallet& wallet, const CWalletTx& wtx) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 
-CAmountMap CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter);
+CAmountMap CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter)
+    EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 //! filter decides which addresses will count towards the debit
 CAmountMap CachedTxGetDebit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter);
-// TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
-// annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The
-// annotation "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid
-// having to resolve the issue of member access into incomplete type CWallet.
 CAmountMap CachedTxGetChange(const CWallet& wallet, const CWalletTx& wtx) NO_THREAD_SAFETY_ANALYSIS;
-CAmountMap CachedTxGetImmatureCredit(const CWallet& wallet, const CWalletTx& wtx, bool fUseCache = true);
-CAmountMap CachedTxGetImmatureWatchOnlyCredit(const CWallet& wallet, const CWalletTx& wtx, const bool fUseCache = true);
-// TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
-// annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The
-// annotation "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid
-// having to resolve the issue of member access into incomplete type CWallet.
-CAmountMap CachedTxGetAvailableCredit(const CWallet& wallet, const CWalletTx& wtx, bool fUseCache = true, const isminefilter& filter = ISMINE_SPENDABLE) NO_THREAD_SAFETY_ANALYSIS;
+CAmountMap CachedTxGetImmatureCredit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter)
+    EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
+CAmountMap CachedTxGetAvailableCredit(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter = ISMINE_SPENDABLE)
+    EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 struct COutputEntry
 {
     CTxDestination destination;
@@ -54,7 +48,8 @@ struct COutputEntry
 void CachedTxGetAmounts(const CWallet& wallet, const CWalletTx& wtx,
                         std::list<COutputEntry>& listReceived,
                         std::list<COutputEntry>& listSent,
-                        CAmount& nFee, const isminefilter& filter);
+                        CAmount& nFee, const isminefilter& filter,
+                        bool include_change);
 bool CachedTxIsFromMe(const CWallet& wallet, const CWalletTx& wtx, const isminefilter& filter);
 bool CachedTxIsTrusted(const CWallet& wallet, const CWalletTx& wtx, std::set<uint256>& trusted_parents) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 bool CachedTxIsTrusted(const CWallet& wallet, const CWalletTx& wtx);

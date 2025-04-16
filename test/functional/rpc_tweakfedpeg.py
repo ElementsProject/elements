@@ -29,6 +29,9 @@ class TweakFedpegTest(BitcoinTestFramework):
             "-evbparams=dynafed:0:::", # test dynafed derivation
         ]]
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def setup_network(self):
         self.setup_nodes()
 

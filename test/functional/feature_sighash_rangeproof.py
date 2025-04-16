@@ -59,6 +59,9 @@ class SighashRangeproofTest(BitcoinTestFramework):
         ]] * self.num_nodes
         self.extra_args[0].append("-anyonecanspendaremine=1") # first node gets the coins
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 

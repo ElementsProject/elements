@@ -1,45 +1,32 @@
-// Copyright (c) 2020-2021 The Bitcoin Core developers
+// Copyright (c) 2020-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 //
 #include <chainparams.h>
-#include <random.h>
-#include <uint256.h>
 #include <consensus/validation.h>
-#include <sync.h>
+#include <random.h>
 #include <rpc/blockchain.h>
+#include <sync.h>
 #include <test/util/chainstate.h>
+#include <test/util/coins.h>
+#include <test/util/random.h>
 #include <test/util/setup_common.h>
+#include <uint256.h>
 #include <validation.h>
 
 #include <vector>
 
 #include <boost/test/unit_test.hpp>
 
-BOOST_FIXTURE_TEST_SUITE(validation_chainstate_tests, TestingSetup)
+BOOST_FIXTURE_TEST_SUITE(validation_chainstate_tests, ChainTestingSetup)
 
-//! Test resizing coins-related CChainState caches during runtime.
+//! Test resizing coins-related Chainstate caches during runtime.
 //!
 BOOST_AUTO_TEST_CASE(validation_chainstate_resize_caches)
 {
-    ChainstateManager manager;
-    WITH_LOCK(::cs_main, manager.m_blockman.m_block_tree_db = std::make_unique<CBlockTreeDB>(1 << 20, true));
-    CTxMemPool mempool;
-
-    //! Create and add a Coin with DynamicMemoryUsage of 80 bytes to the given view.
-    auto add_coin = [](CCoinsViewCache& coins_view) -> COutPoint {
-        Coin newcoin;
-        uint256 txid = InsecureRand256();
-        COutPoint outp{txid, 0};
-        newcoin.nHeight = 1;
-        newcoin.out.nValue = InsecureRand32();
-        newcoin.out.scriptPubKey.assign((uint32_t)56, 1);
-        coins_view.AddCoin(outp, std::move(newcoin), false);
-
-        return outp;
-    };
-
-    CChainState& c1 = WITH_LOCK(cs_main, return manager.InitializeChainstate(&mempool));
+    ChainstateManager& manager = *Assert(m_node.chainman);
+    CTxMemPool& mempool = *Assert(m_node.mempool);
+    Chainstate& c1 = WITH_LOCK(cs_main, return manager.InitializeChainstate(&mempool));
     c1.InitCoinsDB(
         /*cache_size_bytes=*/1 << 23, /*in_memory=*/true, /*should_wipe=*/false);
     WITH_LOCK(::cs_main, c1.InitCoinsCache(1 << 23));
@@ -48,7 +35,7 @@ BOOST_AUTO_TEST_CASE(validation_chainstate_resize_caches)
     // Add a coin to the in-memory cache, upsize once, then downsize.
     {
         LOCK(::cs_main);
-        auto outpoint = add_coin(c1.CoinsTip());
+        const auto outpoint = AddTestCoin(c1.CoinsTip());
 
         // Set a meaningless bestblock value in the coinsview cache - otherwise we won't
         // flush during ResizecoinsCaches() and will subsequently hit an assertion.
@@ -72,9 +59,6 @@ BOOST_AUTO_TEST_CASE(validation_chainstate_resize_caches)
         // The view cache should be empty since we had to destruct to downsize.
         BOOST_CHECK(!c1.CoinsTip().HaveCoinInCache(outpoint));
     }
-
-    // Avoid triggering the address sanitizer.
-    WITH_LOCK(::cs_main, manager.Unload());
 }
 
 //! Test UpdateTip behavior for both active and background chainstates.
@@ -93,10 +77,11 @@ BOOST_FIXTURE_TEST_CASE(chainstate_update_tip, TestChain100Setup)
     // After adding some blocks to the tip, best block should have changed.
     BOOST_CHECK(::g_best_block != curr_tip);
 
-    BOOST_REQUIRE(CreateAndActivateUTXOSnapshot(m_node, m_path_root));
+    BOOST_REQUIRE(CreateAndActivateUTXOSnapshot(
+        this, NoMalleation, /*reset_chainstate=*/ true));
 
     // Ensure our active chain is the snapshot chainstate.
-    BOOST_CHECK(chainman.IsSnapshotActive());
+    BOOST_CHECK(WITH_LOCK(::cs_main, return chainman.IsSnapshotActive()));
 
     curr_tip = ::g_best_block;
 
@@ -110,8 +95,8 @@ BOOST_FIXTURE_TEST_CASE(chainstate_update_tip, TestChain100Setup)
 
     BOOST_CHECK_EQUAL(chainman.GetAll().size(), 2);
 
-    CChainState& background_cs{*[&] {
-        for (CChainState* cs : chainman.GetAll()) {
+    Chainstate& background_cs{*[&] {
+        for (Chainstate* cs : chainman.GetAll()) {
             if (cs != &chainman.ActiveChainstate()) {
                 return cs;
             }
@@ -136,7 +121,7 @@ BOOST_FIXTURE_TEST_CASE(chainstate_update_tip, TestChain100Setup)
         bool checked = CheckBlock(*pblock, state, chainparams.GetConsensus());
         BOOST_CHECK(checked);
         bool accepted = background_cs.AcceptBlock(
-            pblock, state, &pindex, true, nullptr, &newblock);
+            pblock, state, &pindex, true, nullptr, &newblock, true);
         BOOST_CHECK(accepted);
     }
     // UpdateTip is called here

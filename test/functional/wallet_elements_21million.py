@@ -15,6 +15,9 @@ class WalletTest(BitcoinTestFramework):
         self.num_nodes = 3
         self.extra_args = [['-blindedaddresses=1']] * self.num_nodes
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def setup_network(self, split=False):
         self.setup_nodes()
         self.connect_nodes(0, 1)

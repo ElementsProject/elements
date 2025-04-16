@@ -87,6 +87,9 @@ class DynaFedTest(BitcoinTestFramework):
         # Make sure nothing breaks if peers have a different activation.
         self.extra_args[1][0] = "-evbparams=dynafed:937:::"
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 

@@ -824,13 +824,6 @@ static void test_ecdsa_adaptor_api(void) {
     unsigned char deckey[32];
 
     /** setup **/
-    int ecount;
-
-    secp256k1_context_set_error_callback(CTX, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_error_callback(STATIC_CTX, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(CTX, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(STATIC_CTX, counting_illegal_callback_fn, &ecount);
-
     secp256k1_testrand256(sk);
     secp256k1_testrand256(msg);
     secp256k1_testrand256(deckey);
@@ -839,70 +832,37 @@ static void test_ecdsa_adaptor_api(void) {
     memset(&zero_pk, 0, sizeof(zero_pk));
 
     /** main test body **/
-    ecount = 0;
     CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, asig, sk, &enckey, msg, NULL, NULL) == 1);
-    CHECK(ecount == 0);
-    CHECK(secp256k1_ecdsa_adaptor_encrypt(STATIC_CTX, asig, sk, &enckey, msg, NULL, NULL) == 0);
-    CHECK(ecount == 1);
-    CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, NULL, sk, &enckey, msg, NULL, NULL) == 0);
-    CHECK(ecount == 2);
-    CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, asig, sk, &enckey, NULL, NULL, NULL) == 0);
-    CHECK(ecount == 3);
-    CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, asig, NULL, &enckey, msg, NULL, NULL) == 0);
-    CHECK(ecount == 4);
-    CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, asig, sk, NULL, msg, NULL, NULL) == 0);
-    CHECK(ecount == 5);
-    CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, asig, sk, &zero_pk, msg, NULL, NULL) == 0);
-    CHECK(ecount == 6);
+    CHECK_ILLEGAL(STATIC_CTX, secp256k1_ecdsa_adaptor_encrypt(STATIC_CTX, asig, sk, &enckey, msg, NULL, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_encrypt(CTX, NULL, sk, &enckey, msg, NULL, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_encrypt(CTX, asig, sk, &enckey, NULL, NULL, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_encrypt(CTX, asig, NULL, &enckey, msg, NULL, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_encrypt(CTX, asig, sk, NULL, msg, NULL, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_encrypt(CTX, asig, sk, &zero_pk, msg, NULL, NULL));
 
-    ecount = 0;
     CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, asig, sk, &enckey, msg, NULL, NULL) == 1);
     CHECK(secp256k1_ecdsa_adaptor_verify(CTX, asig, &pubkey, msg, &enckey) == 1);
-    CHECK(ecount == 0);
-    CHECK(secp256k1_ecdsa_adaptor_verify(CTX, NULL, &pubkey, msg, &enckey) == 0);
-    CHECK(ecount == 1);
-    CHECK(secp256k1_ecdsa_adaptor_verify(CTX, asig, &pubkey, NULL, &enckey) == 0);
-    CHECK(ecount == 2);
-    CHECK(secp256k1_ecdsa_adaptor_verify(CTX, asig, &pubkey, msg, NULL) == 0);
-    CHECK(ecount == 3);
-    CHECK(secp256k1_ecdsa_adaptor_verify(CTX, asig, NULL, msg, &enckey) == 0);
-    CHECK(ecount == 4);
-    CHECK(secp256k1_ecdsa_adaptor_verify(CTX, asig, &zero_pk, msg, &enckey) == 0);
-    CHECK(ecount == 5);
-    CHECK(secp256k1_ecdsa_adaptor_verify(CTX, asig, &pubkey, msg, &zero_pk) == 0);
-    CHECK(ecount == 6);
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_verify(CTX, NULL, &pubkey, msg, &enckey));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_verify(CTX, asig, &pubkey, NULL, &enckey));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_verify(CTX, asig, &pubkey, msg, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_verify(CTX, asig, NULL, msg, &enckey));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_verify(CTX, asig, &zero_pk, msg, &enckey));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_verify(CTX, asig, &pubkey, msg, &zero_pk));
 
-    ecount = 0;
     CHECK(secp256k1_ecdsa_adaptor_decrypt(CTX, &sig, deckey, asig) == 1);
     CHECK(secp256k1_ecdsa_adaptor_decrypt(CTX, &sig, deckey, asig) == 1);
-    CHECK(secp256k1_ecdsa_adaptor_decrypt(CTX, NULL, deckey, asig) == 0);
-    CHECK(ecount == 1);
-    CHECK(secp256k1_ecdsa_adaptor_decrypt(CTX, &sig, NULL, asig) == 0);
-    CHECK(ecount == 2);
-    CHECK(secp256k1_ecdsa_adaptor_decrypt(CTX, &sig, deckey, NULL) == 0);
-    CHECK(ecount == 3);
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_decrypt(CTX, NULL, deckey, asig));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_decrypt(CTX, &sig, NULL, asig));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_decrypt(CTX, &sig, deckey, NULL));
 
-    ecount = 0;
     CHECK(secp256k1_ecdsa_adaptor_decrypt(CTX, &sig, deckey, asig) == 1);
     CHECK(secp256k1_ecdsa_adaptor_recover(CTX, deckey, &sig, asig, &enckey) == 1);
-    CHECK(ecount == 0);
-    CHECK(secp256k1_ecdsa_adaptor_recover(STATIC_CTX, deckey, &sig, asig, &enckey) == 0);
-    CHECK(ecount == 1);
-    CHECK(secp256k1_ecdsa_adaptor_recover(CTX, NULL, &sig, asig, &enckey) == 0);
-    CHECK(ecount == 2);
-    CHECK(secp256k1_ecdsa_adaptor_recover(CTX, deckey, NULL, asig, &enckey) == 0);
-    CHECK(ecount == 3);
-    CHECK(secp256k1_ecdsa_adaptor_recover(CTX, deckey, &sig, NULL, &enckey) == 0);
-    CHECK(ecount == 4);
-    CHECK(secp256k1_ecdsa_adaptor_recover(CTX, deckey, &sig, asig, NULL) == 0);
-    CHECK(ecount == 5);
-    CHECK(secp256k1_ecdsa_adaptor_recover(CTX, deckey, &sig, asig, &zero_pk) == 0);
-    CHECK(ecount == 6);
-
-    secp256k1_context_set_error_callback(CTX, NULL, NULL);
-    secp256k1_context_set_error_callback(STATIC_CTX, NULL, NULL);
-    secp256k1_context_set_illegal_callback(CTX, NULL, NULL);
-    secp256k1_context_set_illegal_callback(STATIC_CTX, NULL, NULL);
+    CHECK_ILLEGAL(STATIC_CTX, secp256k1_ecdsa_adaptor_recover(STATIC_CTX, deckey, &sig, asig, &enckey));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_recover(CTX, NULL, &sig, asig, &enckey));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_recover(CTX, deckey, NULL, asig, &enckey));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_recover(CTX, deckey, &sig, NULL, &enckey));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_recover(CTX, deckey, &sig, asig, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_recover(CTX, deckey, &sig, asig, &zero_pk));
 }
 
 static void adaptor_tests(void) {

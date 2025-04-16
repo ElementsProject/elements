@@ -29,7 +29,7 @@ SECP256K1_API const secp256k1_generator *secp256k1_generator_h;
 /** Parse a 33-byte generator byte sequence into a generator object.
  *
  *  Returns: 1 if input contains a valid generator.
- *  Args: ctx:      a secp256k1 context object.
+ *  Args: ctx:      pointer to a context object
  *  Out:  gen:      pointer to the output generator object
  *  In:   input:    pointer to a 33-byte serialized generator
  */
@@ -42,9 +42,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_parse(
 /** Serialize a 33-byte generator into a serialized byte sequence.
  *
  *  Returns: 1 always.
- *  Args:   ctx:        a secp256k1 context object.
- *  Out:    output:     a pointer to a 33-byte byte array
- *  In:     gen:        a pointer to a generator
+ *  Args:   ctx:        pointer to a context object
+ *  Out:    output:     pointer to a 33-byte byte array
+ *  In:     gen:        pointer to a generator object
  */
 SECP256K1_API int secp256k1_generator_serialize(
     const secp256k1_context *ctx,
@@ -56,9 +56,9 @@ SECP256K1_API int secp256k1_generator_serialize(
  *
  *  Returns: 0 in the highly unlikely case the seed is not acceptable,
  *           1 otherwise.
- *  Args: ctx:     a secp256k1 context object
- *  Out:  gen:     a generator object
- *  In:   seed32:  a 32-byte seed
+ *  Args: ctx:     pointer to a context object
+ *  Out:  gen:     pointer to a the new generator object
+ *  In:   seed32:  32-byte seed
  *
  *  If successful a valid generator will be placed in gen. The produced
  *  generators are distributed uniformly over the curve, and will not have a
@@ -75,10 +75,10 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_generate(
  *
  *  Returns: 0 in the highly unlikely case the seed is not acceptable or when
  *           blind is out of range. 1 otherwise.
- *  Args: ctx:     a secp256k1 context object (not secp256k1_context_static)
- *  Out:  gen:     a generator object
- *  In:   seed32:  a 32-byte seed
- *        blind32: a 32-byte secret value to blind the generator with.
+ *  Args: ctx:     pointer to a context object (not secp256k1_context_static)
+ *  Out:  gen:     pointer to a generator object
+ *  In:   seed32:  32-byte seed
+ *        blind32: 32-byte secret value to blind the generator with.
  *
  *  The result is equivalent to first calling secp256k1_generator_generate,
  *  converting the result to a public key, calling secp256k1_ec_pubkey_tweak_add,
@@ -107,7 +107,7 @@ typedef struct {
 /** Parse a 33-byte commitment into a commitment object.
  *
  *  Returns: 1 if input contains a valid commitment.
- *  Args: ctx:      a secp256k1 context object.
+ *  Args: ctx:      pointer to a context object
  *  Out:  commit:   pointer to the output commitment object
  *  In:   input:    pointer to a 33-byte serialized commitment key
  */
@@ -120,9 +120,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commitment_par
 /** Serialize a commitment object into a serialized byte sequence.
  *
  *  Returns: 1 always.
- *  Args:   ctx:        a secp256k1 context object.
- *  Out:    output:     a pointer to a 33-byte byte array
- *  In:     commit:     a pointer to a secp256k1_pedersen_commitment containing an
+ *  Args:   ctx:        pointer to a context object
+ *  Out:    output:     pointer to a 33-byte byte array
+ *  In:     commit:     pointer to a secp256k1_pedersen_commitment containing an
  *                      initialized commitment
  */
 SECP256K1_API int secp256k1_pedersen_commitment_serialize(

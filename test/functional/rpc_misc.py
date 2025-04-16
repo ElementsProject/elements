@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2019-2021 The Bitcoin Core developers
+# Copyright (c) 2019-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test RPC misc output."""
@@ -27,7 +27,7 @@ class RpcMiscTest(BitcoinTestFramework):
         self.log.info("test CHECK_NONFATAL")
         assert_raises_rpc_error(
             -1,
-            'Internal bug detected: \'request.params[9].get_str() != "trigger_internal_bug"\'',
+            'Internal bug detected: "request.params[9].get_str() != "trigger_internal_bug""',
             lambda: node.echo(arg9='trigger_internal_bug'),
         )
 

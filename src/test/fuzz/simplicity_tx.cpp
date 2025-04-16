@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <span.h>
+#include <kernel/validation_cache_sizes.h>
 #include <primitives/transaction.h>
 #include <script/sigcache.h>
 #include <validation.h>
@@ -42,10 +43,11 @@ void initialize_simplicity_tx()
 {
     g_con_elementsmode = true;
     // Copied from init.cpp AppInitMain
-    InitSignatureCache();
-    InitScriptExecutionCache();
-    InitRangeproofCache();
-    InitSurjectionproofCache();
+    kernel::ValidationCacheSizes validation_cache_sizes{};
+    Assert(InitSignatureCache(validation_cache_sizes.signature_cache_bytes));
+    Assert(InitScriptExecutionCache(validation_cache_sizes.script_execution_cache_bytes));
+    Assert(InitRangeproofCache(validation_cache_sizes.rangeproof_cache_bytes));
+    Assert(InitSurjectionproofCache(validation_cache_sizes.surjectionproof_execution_cache_bytes));
 
     GENESIS_HASH = uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206");
 

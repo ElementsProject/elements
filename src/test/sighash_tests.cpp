@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2021 The Bitcoin Core developers
+// Copyright (c) 2013-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -10,6 +10,8 @@
 #include <serialize.h>
 #include <streams.h>
 #include <test/data/sighash.json.h>
+#include <test/util/json.h>
+#include <test/util/random.h>
 #include <test/util/setup_common.h>
 #include <util/strencodings.h>
 #include <util/system.h>
@@ -20,8 +22,6 @@
 #include <boost/test/unit_test.hpp>
 
 #include <univalue.h>
-
-UniValue read_json(const std::string& jsondata);
 
 // Old script.cpp SignatureHash function
 uint256 static SignatureHashOld(CScript scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType)
@@ -110,7 +110,7 @@ void static RandomTransaction(CMutableTransaction& tx, bool fSingle)
     for (int out = 0; out < outs; out++) {
         tx.vout.push_back(CTxOut());
         CTxOut &txout = tx.vout.back();
-        txout.nValue = InsecureRandRange(100000000);
+        txout.nValue = InsecureRandMoneyAmount();
         RandomScript(txout.scriptPubKey);
     }
 }
@@ -166,7 +166,7 @@ BOOST_AUTO_TEST_CASE(sighash_from_data)
     UniValue tests = read_json(std::string(json_tests::sighash, json_tests::sighash + sizeof(json_tests::sighash)));
 
     for (unsigned int idx = 0; idx < tests.size(); idx++) {
-        UniValue test = tests[idx];
+        const UniValue& test = tests[idx];
         std::string strTest = test.write();
         if (test.size() < 1) // Allow for extra stuff (useful for comments)
         {
@@ -185,8 +185,8 @@ BOOST_AUTO_TEST_CASE(sighash_from_data)
           // deserialize test data
           raw_tx = test[0].get_str();
           raw_script = test[1].get_str();
-          nIn = test[2].get_int();
-          nHashType = test[3].get_int();
+          nIn = test[2].getInt<int>();
+          nHashType = test[3].getInt<int>();
           sigHashHex = test[4].get_str();
 
           CDataStream stream(ParseHex(raw_tx), SER_NETWORK, PROTOCOL_VERSION);
