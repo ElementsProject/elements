@@ -193,7 +193,7 @@ static void SidechainScriptPubKeyToJSON(const CScript& script, UniValue& out, bo
 
     out.pushKV(prefix + "asm", ScriptToAsmStr(script));
     if (include_addresses) {
-        out.pushKV("desc", InferDescriptor(script, provider ? *provider : DUMMY_SIGNING_PROVIDER)->ToString());
+        out.pushKV(prefix + "desc", InferDescriptor(script, provider ? *provider : DUMMY_SIGNING_PROVIDER)->ToString());
     }
     if (include_hex) {
         out.pushKV(prefix + "hex", HexStr(script));

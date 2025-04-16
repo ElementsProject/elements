@@ -171,6 +171,11 @@ desirable for building Bitcoin Core release binaries."
     (search-our-patches "vmov-alignment.patch"
                         "gcc-broken-longjmp.patch")))
 
+(define (make-mingw-w64-cross-gcc cross-gcc)
+  (package-with-extra-patches cross-gcc
+    (search-our-patches "vmov-alignment.patch"
+                        "gcc-broken-longjmp.patch")))
+
 (define (make-mingw-pthreads-cross-toolchain target)
   "Create a cross-compilation toolchain package for TARGET"
   (let* ((xbinutils (cross-binutils target))
