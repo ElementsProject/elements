@@ -390,6 +390,9 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
         }
         if (!ptxoutwit)
             return false;
+        if (asset.vchCommitment.size() != CConfidentialAsset::nCommittedSize || ptxoutwit->vchSurjectionproof.empty()) {
+            return false;
+        }
         if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
             return false;
 
