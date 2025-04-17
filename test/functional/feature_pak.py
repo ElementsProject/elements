@@ -72,7 +72,7 @@ class PAKTest (BitcoinTestFramework):
         new_init = self.nodes[1].initpegoutwallet(xpub, 2)
         assert_equal(self.nodes[1].getwalletpakinfo()["bip32_counter"], "2")
         assert_equal(new_init["address_lookahead"][0], init_results[1]["address_lookahead"][2])
-        assert(new_init["liquid_pak"] != init_results[1]["liquid_pak"])
+        assert new_init["liquid_pak"] != init_results[1]["liquid_pak"]
 
         # Restart and connect peers to check wallet persistence
         self.stop_nodes()

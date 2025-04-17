@@ -509,9 +509,9 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
 template<typename TxType>
 inline CAmount CalculateOutputValue(const TxType& tx, CAsset policyAsset)
 {
-    return std::accumulate(tx.vout.cbegin(), tx.vout.cend(), CAmount{0}, 
-        [&policyAsset](CAmount sum, const auto& txout) { 
-            return txout.nAsset.GetAsset() == policyAsset ? sum + txout.nValue.GetAmount() : sum; 
+    return std::accumulate(tx.vout.cbegin(), tx.vout.cend(), CAmount{0},
+        [&policyAsset](CAmount sum, const auto& txout) {
+            return txout.nAsset.GetAsset() == policyAsset ? sum + txout.nValue.GetAmount() : sum;
         });
 }
 

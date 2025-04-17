@@ -673,8 +673,8 @@ static RPCHelpMan getblockheader()
     if (!fVerbose)
     {
         LOCK(cs_main);
-    CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
-	CBlockIndex tmpBlockIndexFull;
+        CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+        CBlockIndex tmpBlockIndexFull;
         const CBlockIndex* pblockindexfull=pblockindex->untrim_to(&tmpBlockIndexFull);
         ssBlock << pblockindexfull->GetBlockHeader();
         std::string strHex = HexStr(ssBlock);
@@ -2092,7 +2092,7 @@ static RPCHelpMan getblockstats()
                 for (const CTxOut& out : tx->vout) {
                     tx_total_out += out.nValue.GetAmount();
 
-		    size_t out_size = GetSerializeSize(out, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
+                    size_t out_size = GetSerializeSize(out, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
                     utxo_size_inc += out_size;
 
                     // The Genesis block and the repeated BIP30 block coinbases don't change the UTXO

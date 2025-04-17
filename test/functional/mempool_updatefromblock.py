@@ -56,7 +56,6 @@ class MempoolUpdateFromBlockTest(BitcoinTestFramework):
 
             # Prepare outputs.
             tx_count = i + 1
-            outputs_value = 0
             if tx_count < size:
                 # Transaction tx[K] is an ancestor of each of subsequent transactions tx[K+1]..tx[N-1].
                 n_outputs = size - tx_count

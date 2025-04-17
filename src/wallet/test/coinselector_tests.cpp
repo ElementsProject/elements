@@ -406,7 +406,7 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
         PreSelectedInputs selected_input;
         selected_input.Insert(select_coin, coin_selection_params_bnb.m_subtract_fee_outputs);
         available_coins.Erase({(++available_coins.coins[OutputType::BECH32].begin())->outpoint});
-	const auto result13 = SelectCoins(*wallet, available_coins, selected_input, mapTargetValue, coin_control, coin_selection_params_bnb);
+        const auto result13 = SelectCoins(*wallet, available_coins, selected_input, mapTargetValue, coin_control, coin_selection_params_bnb);
         BOOST_CHECK(EquivalentResult(expected_result, *result13));
     }
 }

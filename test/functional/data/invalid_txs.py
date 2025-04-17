@@ -54,8 +54,8 @@ from test_framework.script import (
 #    OP_XOR,
 )
 from test_framework.script_util import (
-    MIN_PADDING,
-    MIN_STANDARD_TX_NONWITNESS_SIZE,
+    # MIN_PADDING,
+    # MIN_STANDARD_TX_NONWITNESS_SIZE,
     script_to_p2sh_script,
 )
 basic_p2sh = script_to_p2sh_script(CScript([OP_0]))

@@ -4,7 +4,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test dust limit mempool policy (`-dustrelayfee` parameter)"""
 
-from copy import deepcopy
+# from copy import deepcopy
 from decimal import Decimal
 
 from test_framework.key import ECKey

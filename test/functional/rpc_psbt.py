@@ -108,7 +108,7 @@ class PSBTTest(BitcoinTestFramework):
         utxos = wonline.listunspent(addresses=[offline_addr])
         raw = wonline.createrawtransaction([{"txid":utxos[0]["txid"], "vout":utxos[0]["vout"]}],[{online_addr:0.9999},{"fee":0.0001}])
         psbt = wonline.walletprocesspsbt(online_node.converttopsbt(raw))["psbt"]
-        assert not "not_witness_utxo" in mining_node.decodepsbt(psbt)["inputs"][0]
+        assert "not_witness_utxo" not in mining_node.decodepsbt(psbt)["inputs"][0]
 
         # ELEMENTS FIXME: psbt parsing
         # add non-witness UTXO manually
@@ -266,7 +266,7 @@ class PSBTTest(BitcoinTestFramework):
         final_tx = self.nodes[0].finalizepsbt(signed_tx)['hex']
         if confidential:
             # Can't use assert_equal because there may or may not be change
-            assert(self.num_blinded_outputs(final_tx) > 0)
+            assert self.num_blinded_outputs(final_tx) > 0
         self.nodes[0].sendrawtransaction(final_tx)
 
         # Manually selected inputs can be locked:
@@ -500,7 +500,7 @@ class PSBTTest(BitcoinTestFramework):
         hex_tx = self.nodes[2].finalizepsbt(walletsignpsbt_out['psbt'])['hex']
         if confidential:
             # Can't use assert_equal because there may or may not be change
-            assert(self.num_blinded_outputs(hex_tx) > 0)
+            assert self.num_blinded_outputs(hex_tx) > 0
         self.nodes[2].sendrawtransaction(hex_tx)
 
         # check that walletprocesspsbt fails to decode a non-psbt

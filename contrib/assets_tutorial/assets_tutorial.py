@@ -63,7 +63,7 @@ try:
     e1.getinfo()
     print ("ERROR: was able to start an elementsd without a working bitcoind")
     sys.exit(1)
-except:
+except Exception:
     pass
 
 # 1b. Start bitcoind, then elementsd. Initially, the bitcoind may be warming up and
@@ -716,4 +716,3 @@ signedtx = e1.signrawtransactionwithwallet(blindedtx)
 txid = e1.sendrawtransaction(signedtx["hex"])
 
 print ("Finished!")
-

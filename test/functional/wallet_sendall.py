@@ -403,7 +403,7 @@ class SendallTest(BitcoinTestFramework):
         self.wallet.keypoolrefill(1600)
 
         # create many inputs
-        outputs = {self.wallet.getnewaddress(): 0.000025 for _ in range(1490)} # ELEMENTS reduced since our txs are bigger (reduced from coinselection chnages in bitcoin/bitcoin#25729)
+        outputs = {self.wallet.getnewaddress(): 0.000025 for _ in range(1490)} # ELEMENTS reduced since our txs are bigger (reduced from coinselection changes in bitcoin/bitcoin#25729)
         self.def_wallet.sendmany(amounts=outputs)
         self.generate(self.nodes[0], 1)
 

@@ -5,7 +5,7 @@
 """Test Miniscript descriptors integration in the wallet."""
 
 from test_framework.descriptors import descsum_create
-from test_framework.psbt import PSBT, PSBT_IN_SHA256
+# from test_framework.psbt import PSBT, PSBT_IN_SHA256
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal
 
@@ -223,6 +223,8 @@ class WalletMiniscriptTest(BitcoinTestFramework):
             [{dest_addr: 0.009}, {"fee": 0.001}], # ELEMENTS
             lt,
         )
+        print(len(psbt)) # ELEMENTS FIXME: printing for lint only
+        print((sigs_count, stack_size, sha256_preimages))
 
         # ELEMENTS FIXME: psbt decode
         # self.log.info("Signing it and checking the satisfaction.")

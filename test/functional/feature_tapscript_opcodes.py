@@ -61,8 +61,8 @@ class TapHashPeginTest(BitcoinTestFramework):
             if utxo["txid"] == ser_uint256(fund_tx.vin[idx].prevout.hash)[::-1].hex() and utxo["vout"] == fund_tx.vin[idx].prevout.n:
                 spent = utxo
 
-        assert(spent is not None)
-        assert(len(fund_tx.vin) == 2)
+        assert spent is not None
+        assert len(fund_tx.vin) == 2
         return spent
 
     def create_taproot_utxo(self, scripts = None, blind = False):
@@ -102,7 +102,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         tx.rehash()
         self.generate(self.nodes[0], 1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
-        assert(tx.hash in last_blk['tx'])
+        assert tx.hash in last_blk['tx']
 
         return tx, prev_vout, spk, sec, pub, tap
 
@@ -256,7 +256,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         self.generate(self.nodes[0], 1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
         tx.rehash()
-        assert(tx.hash in last_blk['tx'])
+        assert tx.hash in last_blk['tx']
 
 
     def run_test(self):

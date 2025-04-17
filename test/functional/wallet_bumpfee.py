@@ -709,9 +709,11 @@ def test_feerate_checks_replaced_outputs(self, rbf_node, peer_node):
     # RPC gives us fee as negative
     min_fee = (-tx_details["fee"]["bitcoin"] + get_fee(est_bumped_size, inc_fee_rate)) * Decimal(1e8)
     min_fee_rate = (min_fee / est_bumped_size).quantize(Decimal("1.000"))
+    print(min_fee_rate) # ELEMENTS FIXME: lint
 
     # Attempt to bumpfee and replace all outputs with a single one using a feerate slightly less than the minimum
     new_outputs = [{rbf_node.getnewaddress(address_type="bech32"): 49}]
+    print(len(new_outputs)) # ELEMENTS FIXME: lint
     # assert_raises_rpc_error(-8, "Insufficient total fee", rbf_node.bumpfee, tx_res["txid"], {"fee_rate": min_fee_rate - 1, "outputs": new_outputs}) # ELEMENTS FIXME
 
     # Bumpfee and replace all outputs with a single one using the minimum feerate

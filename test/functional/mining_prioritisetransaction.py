@@ -217,7 +217,7 @@ class PrioritiseTransactionTest(BitcoinTestFramework):
         # ELEMENTS: cannot have a 0 fee output (unlike bitcoin), so we need to set it
         #           manually to the lowest possible value (1 satoshi)
         tx = tx_res['tx']
-        assert(tx.vout[1].is_fee())
+        assert tx.vout[1].is_fee()
         tx.vout[0].nValue.setToAmount(tx.vout[0].nValue.getAmount() - 1)
         tx.vout[1].nValue.setToAmount(1)
 

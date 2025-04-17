@@ -7,7 +7,7 @@
 import os
 from typing import List
 
-from test_framework.address import address_to_scriptpubkey
+# from test_framework.address import address_to_scriptpubkey
 from test_framework.descriptors import descsum_create
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_node import TestNode
@@ -52,7 +52,7 @@ class WalletFastRescanTest(BitcoinTestFramework):
         assert_equal(len(descriptors), NUM_DESCRIPTORS)
         w.backupwallet(WALLET_BACKUP_FILENAME)
 
-        self.log.info(f"Create txs sending to end range address of each descriptor, triggering top-ups")
+        self.log.info("Create txs sending to end range address of each descriptor, triggering top-ups")
         for i in range(NUM_BLOCKS):
             self.log.info(f"Block {i+1}/{NUM_BLOCKS}")
             for desc_info in w.listdescriptors()['descriptors']:

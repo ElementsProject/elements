@@ -141,7 +141,7 @@ void CoinsResult::Add(OutputType type, const COutput& out)
     coins[type].emplace_back(out);
     total_amount[out.asset] += out.value;
     if (out.HasEffectiveValue()) {
-    	   total_effective_amount[out.asset] += out.GetEffectiveValue();
+        total_effective_amount[out.asset] += out.GetEffectiveValue();
     }
 }
 
@@ -364,7 +364,7 @@ CoinsResult AvailableCoins(const CWallet& wallet,
 
             // Checks the sum amount of all UTXO's.
             if (params.min_sum_amount != MAX_MONEY) {
-                if (result.GetTotalAmount()[::policyAsset] >= params.min_sum_amount) { // ELEMENTS: only use mininum sum for policy asset
+                if (result.GetTotalAmount()[::policyAsset] >= params.min_sum_amount) { // ELEMENTS: only use minimum sum for policy asset
                     return result;
                 }
             }

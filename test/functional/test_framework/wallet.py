@@ -13,7 +13,7 @@ from typing import (
     Optional,
 )
 from test_framework.address import (
-    address_to_scriptpubkey,
+    # address_to_scriptpubkey,
     create_deterministic_address_bcrt1_p2tr_op_true,
     key_to_p2pkh,
     key_to_p2sh_p2wpkh,
@@ -311,7 +311,7 @@ class MiniWallet:
 
         # ELEMENTS: add fee output as final output
         fee = inputs_value_total - outputs_value_total + extra_output_value
-        assert(fee >= 0)
+        assert fee >= 0
 
         # create tx
         tx = CTransaction()

@@ -15,10 +15,10 @@ from test_framework.p2p import P2PTxInvStore
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
-    assert_greater_than,
+    # assert_greater_than,
     assert_raises_rpc_error,
 )
-import time
+# import time
 from test_framework.wallet import MiniWallet
 
 # custom limits for node1

@@ -394,13 +394,13 @@ class AddressTypeTest(BitcoinTestFramework):
 
         # test blech32 addresses
         info_unblinded = self.nodes[0].getaddressinfo(self.nodes[0].getnewaddress("", "bech32"))
-        assert(len(info_unblinded["confidential_key"]) == 0)
+        assert len(info_unblinded["confidential_key"]) == 0
         # getnewaddress
         info1 = self.nodes[0].getaddressinfo(self.nodes[0].getnewaddress("", "blech32"))
-        assert(len(info1["confidential_key"]) > 0)
+        assert len(info1["confidential_key"]) > 0
         # getrawchangeaddress
         info2 = self.nodes[0].getaddressinfo(self.nodes[0].getrawchangeaddress("blech32"))
-        assert(len(info2["confidential_key"]) > 0)
+        assert len(info2["confidential_key"]) > 0
 
         # taproot (segwit v1) address parsing test
         # We will use a hardcoded placeholder for now, until we can have the test use the wallet to generate one.
@@ -408,7 +408,7 @@ class AddressTypeTest(BitcoinTestFramework):
         tap_addr = "el1pqwp9ze75659cn5ad0hw25nt2kv7j882gudn636hnh4qvjcmjh6jq5ca0d4cgl009m5rn5w0n3k2cqa3ths2qf7s8q6x2xplwgvlfhg0atxwjah9089tf"
         info3 = self.nodes[0].getaddressinfo(tap_addr)
         assert_equal(tap_addr, info3["address"])
-        assert(len(info3["confidential_key"]) > 0)
+        assert len(info3["confidential_key"]) > 0
 
 if __name__ == '__main__':
     AddressTypeTest().main()

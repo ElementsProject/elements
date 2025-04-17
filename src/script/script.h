@@ -627,12 +627,12 @@ public:
 
     /**
      * ELEMENTS: Returns whether the script is guaranteed to fail at execution,
-     * regardless of the initial stack, but is not an Elements fee output. 
+     * regardless of the initial stack, but is not an Elements fee output.
      */
     bool IsUnspendableNotFee() const
     {
         return (size() > 0 && *begin() == OP_RETURN) || (size() > MAX_SCRIPT_SIZE);
-    }    
+    }
 
     void clear()
     {
