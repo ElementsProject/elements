@@ -943,8 +943,7 @@ bitcoin_chainstate_SOURCES += \
   script/pegins.cpp \
   script/sign.cpp \
   script/signingprovider.cpp \
-  support/events.h \
-  util/url.cpp
+  support/events.h
 
 
 # $(LIBTOOL_APP_LDFLAGS) deliberately omitted here so that we can test linking

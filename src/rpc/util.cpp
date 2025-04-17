@@ -971,8 +971,8 @@ UniValue RPCResult::MatchesType(const UniValue& result) const
     //     return true;
     // }
 
-    // const auto exp_type = ExpectedType(m_type);
-    // if (!exp_type) return true; // can be any type, so nothing to check
+    const auto exp_type = ExpectedType(m_type);
+    if (!exp_type) return true; // can be any type, so nothing to check
 
     // if (*exp_type != result.getType()) {
     //     return strprintf("returned type is %s, but declared as %s in doc", uvTypeName(result.getType()), uvTypeName(*exp_type));

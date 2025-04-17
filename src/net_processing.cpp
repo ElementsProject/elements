@@ -2803,8 +2803,8 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
     // If we are already too far ahead of where we want to be on headers, discard
     //   the received headers. We can still get ahead by up to a single maximum-sized
     //   headers message here, but never further, so that's fine.
-    if (m_chainman.m_best_header) {
-        int64_t headers_ahead = m_chainman.m_best_header->nHeight - WITH_LOCK(::cs_main, return m_chainman.ActiveHeight());
+    if (WITH_LOCK(::cs_main, return m_chainman.m_best_header)) {
+        int64_t headers_ahead = WITH_LOCK(::cs_main, return m_chainman.m_best_header->nHeight - m_chainman.ActiveHeight());
         bool too_far_ahead = node::fTrimHeaders && (headers_ahead >= node::nHeaderDownloadBuffer);
         if (too_far_ahead) {
             LOCK(cs_main);
