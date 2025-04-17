@@ -2226,7 +2226,7 @@ std::vector<AddedNodeInfo> CConnman::GetAddedNodeInfo() const
     }
 
     for (const std::string& strAddNode : lAddresses) {
-        CService service(LookupNumeric(strAddNode, Params().GetDefaultPort(strAddNode)));
+        CService service{MaybeFlipIPv6toCJDNS(LookupNumeric(strAddNode, Params().GetDefaultPort(strAddNode)))};
         AddedNodeInfo addedNode{strAddNode, CService(), false, false};
         if (service.IsValid()) {
             // strAddNode is an IP:port
