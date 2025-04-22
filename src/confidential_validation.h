@@ -28,10 +28,10 @@ CAmountMap GetFeeMap(const CTransaction& tx);
 class CCheck
  {
  protected:
-     ScriptError error;
+     ScriptError error{SCRIPT_ERR_UNKNOWN_ERROR};
 
  public:
-     CCheck() : error(SCRIPT_ERR_UNKNOWN_ERROR) {}
+     CCheck() {}
      virtual ~CCheck() {}
 
      virtual bool operator()() = 0;

@@ -9,6 +9,9 @@
 
 #include <string>
 
+// ELEMENTS
+bool g_con_elementsmode = false;
+
 std::string GetOpName(opcodetype opcode)
 {
     switch (opcode)

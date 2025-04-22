@@ -32,7 +32,7 @@ QList<BitcoinUnit> BitcoinUnits::availableUnits()
 // ELEMENTS
 std::string peggedAssetWithUnit(BitcoinUnits::Unit unit)
 {
-    const std::string default_asset_name = gArgs.GetArg("-defaultpeggedassetname", "");
+    std::string default_asset_name = gArgs.GetArg("-defaultpeggedassetname", "");
     if (default_asset_name != "") {
         switch(unit)
         {

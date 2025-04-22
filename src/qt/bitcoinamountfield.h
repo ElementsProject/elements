@@ -29,10 +29,10 @@ class BitcoinAmountField: public QWidget
     Q_PROPERTY(qint64 value READ value WRITE setValue NOTIFY valueChanged USER true)
 
 public:
-    explicit BitcoinAmountField(std::set<CAsset> allowed_assets, QWidget *parent = 0);
+    explicit BitcoinAmountField(std::set<CAsset> allowed_assets, QWidget *parent = nullptr);
     explicit BitcoinAmountField(QWidget *parent = nullptr);
 
-    std::pair<CAsset, CAmount> fullValue(bool *valid=0) const;
+    std::pair<CAsset, CAmount> fullValue(bool *valid = nullptr) const;
     void setFullValue(const CAsset& asset, const CAmount& value);
 
     CAmount value(bool *value=nullptr) const;

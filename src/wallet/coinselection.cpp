@@ -830,7 +830,7 @@ CAmountMap SelectionResult::GetChange(const CAmount min_viable_change, const CAm
     //  - input fees are covered by GetSelectedEffectiveValue()
     //  - non_input_fee is included in m_target
     //  - change_fee
-    const CAmountMap change = m_use_effective
+    CAmountMap change = m_use_effective
                            ? GetSelectedEffectiveValue() - m_target - CAmountMap{{::policyAsset, change_fee}}
                            : GetSelectedValue() - m_target;
 

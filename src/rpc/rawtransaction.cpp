@@ -1759,10 +1759,10 @@ static RPCHelpMan combinepsbt()
     // Find if (and which) psbt has all the output blinding stuff set
     unsigned int base_psbt_index = 0;
     bool has_fully_blinded = false;
+    int unblinded_count = 0;
     for (unsigned int i = 0; i < psbtxs.size(); ++i) {
         const auto& psbt = psbtxs[i];
         bool is_fully_blinded = true;
-        int unblinded_count = 0;
         for (const auto& psbt_out : psbt.outputs) {
             if (psbt_out.IsBlinded()) {
                 is_fully_blinded &= psbt_out.IsFullyBlinded();
@@ -1797,6 +1797,7 @@ static RPCHelpMan combinepsbt()
             }
         }
         if (is_fully_blinded) {
+            LogPrintf("Cannot combine PSETs. Num unblinded outputs: %d\n", unblinded_count);
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Cannot combine PSETs as the values and blinders would become imbalanced");
         }
     }

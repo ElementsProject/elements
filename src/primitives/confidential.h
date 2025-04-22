@@ -10,8 +10,6 @@
 #include <uint256.h>
 #include <util/strencodings.h>
 
-extern bool g_con_elementsmode;
-
 /**
  * Confidential assets, values, and nonces all share enough code in common
  * that it makes sense to define a common abstract base class. */

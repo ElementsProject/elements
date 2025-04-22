@@ -1495,9 +1495,9 @@ static RPCHelpMan finalizecompactblock()
     PartiallyDownloadedBlock partialBlock(&dummy_pool);
 
     // "Extra" list is really our combined list that will be put into place using InitData
-    std::vector<std::pair<uint256, CTransactionRef>> extra_txn;
+    std::vector<std::pair<uint256, CTransactionRef>> extra_txn(found.size());
     for (const auto& found_tx : found) {
-        extra_txn.push_back(std::make_pair(found_tx->GetWitnessHash(), found_tx));
+        extra_txn.emplace_back(found_tx->GetWitnessHash(), found_tx);
     }
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
     if (partialBlock.InitData(cmpctblock, extra_txn) != READ_STATUS_OK) {
