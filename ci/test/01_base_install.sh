@@ -17,7 +17,7 @@ if [ -n "$DPKG_ADD_ARCH" ]; then
   dpkg --add-architecture "$DPKG_ADD_ARCH"
 fi
 
-if [[ $CI_IMAGE_NAME_TAG == *centos* ]]; then
+if [[ $CI_IMAGE_NAME_TAG == *centos* ]] || [[ $CI_IMAGE_NAME_TAG == *rocky* ]]; then
   ${CI_RETRY_EXE} bash -c "dnf -y install epel-release"
   ${CI_RETRY_EXE} bash -c "dnf -y --allowerasing install $CI_BASE_PACKAGES $PACKAGES"
 elif [ "$CI_USE_APT_INSTALL" != "no" ]; then
@@ -38,7 +38,7 @@ fi
 
 if [ -n "$PIP_PACKAGES" ]; then
   if [ "$CI_OS_NAME" == "macos" ]; then
-    sudo -H pip3 install --upgrade pip
+    sudo -H pip3 install --upgrade --break-system-packages pip
     # shellcheck disable=SC2086
     IN_GETOPT_BIN="$(brew --prefix gnu-getopt)/bin/getopt" ${CI_RETRY_EXE} pip3 install --user $PIP_PACKAGES
   else
