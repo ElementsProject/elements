@@ -9,10 +9,6 @@
 #include <assert.h>
 #include <string.h>
 
-#if defined HAVE_CONFIG_H
-#include "../../libsecp256k1-config.h"
-#endif
-
 #include "../../../include/secp256k1_rangeproof.h"
 #include "../../../include/secp256k1_surjectionproof.h"
 #include "../rangeproof/borromean.h"

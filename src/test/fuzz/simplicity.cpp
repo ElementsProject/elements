@@ -208,7 +208,7 @@ FUZZ_TARGET_INIT(simplicity, initialize_simplicity)
 
     // 4. Main test
     unsigned char imr_out[32];
-    unsigned char *imr = mtx.vin[0].prevout.hash.data()[2] & 2 ? imr_out : NULL;
+    unsigned char *imr = mtx.vin[0].prevout.hash.data()[2] & 2 ? imr_out : nullptr;
 
     const transaction* tx = txdata.m_simplicity_tx_data.get();
     tapEnv* taproot = simplicity_elements_mallocTapEnv(&simplicityRawTap);

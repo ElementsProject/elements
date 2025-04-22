@@ -53,6 +53,7 @@ unsigned-integer-overflow:policy/fees.cpp
 unsigned-integer-overflow:prevector.h
 unsigned-integer-overflow:script/interpreter.cpp
 unsigned-integer-overflow:txmempool.cpp
+unsigned-integer-overflow:xoroshiro128plusplus.h
 implicit-integer-sign-change:compat/stdin.cpp
 implicit-integer-sign-change:compressor.h
 implicit-integer-sign-change:crypto/
@@ -62,7 +63,6 @@ implicit-integer-sign-change:script/bitcoinconsensus.cpp
 implicit-integer-sign-change:script/interpreter.cpp
 implicit-integer-sign-change:serialize.h
 implicit-integer-sign-change:txmempool.cpp
-implicit-signed-integer-truncation:addrman.cpp
 implicit-signed-integer-truncation:crypto/
 implicit-unsigned-integer-truncation:crypto/
 shift-base:arith_uint256.cpp
@@ -70,6 +70,7 @@ shift-base:crypto/
 shift-base:hash.cpp
 shift-base:streams.h
 shift-base:util/bip32.cpp
+shift-base:xoroshiro128plusplus.h
 
 # ELEMENTS
 # copied from bech32.cpp above

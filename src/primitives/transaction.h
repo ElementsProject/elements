@@ -1,20 +1,29 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_PRIMITIVES_TRANSACTION_H
 #define BITCOIN_PRIMITIVES_TRANSACTION_H
 
-#include <stdint.h>
 #include <consensus/amount.h>
+#include <prevector.h>
 #include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>
 #include <primitives/confidential.h>
 #include <primitives/txwitness.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <ios>
+#include <limits>
+#include <memory>
+#include <numeric>
+#include <string>
 #include <tuple>
+#include <utility>
+#include <vector>
 
 /**
  * A flag that is ORed into the protocol version to designate that a transaction
@@ -497,6 +506,14 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
     }
 }
 
+template<typename TxType>
+inline CAmount CalculateOutputValue(const TxType& tx, CAsset policyAsset)
+{
+    return std::accumulate(tx.vout.cbegin(), tx.vout.cend(), CAmount{0}, 
+        [&policyAsset](CAmount sum, const auto& txout) { 
+            return txout.nAsset.GetAsset() == policyAsset ? sum + txout.nValue.GetAmount() : sum; 
+        });
+}
 
 /** The basic transaction that is broadcasted on the network and contained in
  * blocks.  A transaction can contain multiple inputs and outputs.
@@ -530,7 +547,7 @@ private:
 public:
     /** Convert a CMutableTransaction into a CTransaction. */
     explicit CTransaction(const CMutableTransaction& tx);
-    CTransaction(CMutableTransaction&& tx);
+    explicit CTransaction(CMutableTransaction&& tx);
 
     template <typename Stream>
     inline void Serialize(Stream& s) const {
@@ -594,7 +611,7 @@ struct CMutableTransaction
     // For elements we need to keep track of some extra state for script witness outside of vin
     CTxWitness witness;
 
-    CMutableTransaction();
+    explicit CMutableTransaction();
     explicit CMutableTransaction(const CTransaction& tx);
 
     template <typename Stream>

@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -11,18 +11,19 @@
 #include <chainparams.h>
 #include <chainparamsbase.h>
 #include <clientversion.h>
+#include <compat/compat.h>
 #include <core_io.h>
 #include <streams.h>
+#include <util/exception.h>
 #include <util/system.h>
 #include <util/translation.h>
+#include <version.h>
 
 #include <atomic>
 #include <cstdio>
 #include <functional>
 #include <memory>
 #include <thread>
-
-#include <boost/algorithm/string.hpp>
 
 static const int CONTINUE_EXECUTION=-1;
 
@@ -82,13 +83,12 @@ static int AppInitUtil(ArgsManager& args, int argc, char* argv[])
     return CONTINUE_EXECUTION;
 }
 
-static void grind_task(uint32_t nBits, CBlockHeader& header_orig, uint32_t offset, uint32_t step, std::atomic<bool>& found)
+static void grind_task(uint32_t nBits, CBlockHeader header, uint32_t offset, uint32_t step, std::atomic<bool>& found, uint32_t& proposed_nonce)
 {
     arith_uint256 target;
     bool neg, over;
     target.SetCompact(nBits, &neg, &over);
     if (target == 0 || neg || over) return;
-    CBlockHeader header = header_orig; // working copy
     header.nNonce = offset;
 
     uint32_t finish = std::numeric_limits<uint32_t>::max() - step;
@@ -99,7 +99,7 @@ static void grind_task(uint32_t nBits, CBlockHeader& header_orig, uint32_t offse
         do {
             if (UintToArith256(header.GetHash()) <= target) {
                 if (!found.exchange(true)) {
-                    header_orig.nNonce = header.nNonce;
+                    proposed_nonce = header.nNonce;
                 }
                 return;
             }
@@ -123,16 +123,20 @@ static int Grind(const std::vector<std::string>& args, std::string& strPrint)
 
     uint32_t nBits = header.nBits;
     std::atomic<bool> found{false};
+    uint32_t proposed_nonce{};
 
     std::vector<std::thread> threads;
     int n_tasks = std::max(1u, std::thread::hardware_concurrency());
+    threads.reserve(n_tasks);
     for (int i = 0; i < n_tasks; ++i) {
-        threads.emplace_back( grind_task, nBits, std::ref(header), i, n_tasks, std::ref(found) );
+        threads.emplace_back(grind_task, nBits, header, i, n_tasks, std::ref(found), std::ref(proposed_nonce));
     }
     for (auto& t : threads) {
         t.join();
     }
-    if (!found) {
+    if (found) {
+        header.nNonce = proposed_nonce;
+    } else {
         strPrint = "Could not satisfy difficulty target";
         return EXIT_FAILURE;
     }
@@ -143,16 +147,7 @@ static int Grind(const std::vector<std::string>& args, std::string& strPrint)
     return EXIT_SUCCESS;
 }
 
-#ifdef WIN32
-// Export main() and ensure working ASLR on Windows.
-// Exporting a symbol will prevent the linker from stripping
-// the .reloc section from the binary, which is a requirement
-// for ASLR. This is a temporary workaround until a fixed
-// version of binutils is used for releases.
-__declspec(dllexport) int main(int argc, char* argv[])
-#else
-int main(int argc, char* argv[])
-#endif
+MAIN_FUNCTION
 {
     ArgsManager& args = gArgs;
     SetupEnvironment();

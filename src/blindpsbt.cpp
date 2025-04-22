@@ -42,7 +42,7 @@ bool CreateAssetSurjectionProof(std::vector<unsigned char>& output_proof, const 
     // 1 to 3 targets
     size_t inputs_to_select = std::min(num_targets, fixed_input_tags.size());
     unsigned char randseed[32];
-    GetStrongRandBytes(randseed, 32);
+    GetStrongRandBytes(Span<unsigned char>(randseed, 32));
     size_t input_index;
     secp256k1_surjectionproof proof;
     secp256k1_fixed_asset_tag fixed_output_tag;
@@ -116,7 +116,7 @@ bool CreateValueRangeProof(std::vector<unsigned char>& rangeproof, const uint256
     int ct_bits = (int)gArgs.GetIntArg("-ct_bits", 52);
     // If min_value is 0, scriptPubKey must be unspendable
     uint64_t min_value = scriptPubKey.IsUnspendable() ? 0 : 1;
-    int res = secp256k1_rangeproof_sign(secp256k1_blind_context, rangeproof.data(), &rangeproof_len, min_value, &value_commit, value_blinder.begin(), nonce.begin(), ct_exponent, ct_bits, amount, asset_message, sizeof(asset_message), scriptPubKey.size() ? &scriptPubKey.front() : NULL, scriptPubKey.size(), &gen);
+    int res = secp256k1_rangeproof_sign(secp256k1_blind_context, rangeproof.data(), &rangeproof_len, min_value, &value_commit, value_blinder.begin(), nonce.begin(), ct_exponent, ct_bits, amount, asset_message, sizeof(asset_message), scriptPubKey.size() ? &scriptPubKey.front() : nullptr, scriptPubKey.size(), &gen);
     rangeproof.resize(rangeproof_len);
     return (res == 1);
 }
@@ -130,7 +130,7 @@ static bool CreateBlindValueProof(std::vector<unsigned char>& rangeproof, const 
 
     // Generate a new random nonce
     uint256 nonce;
-    GetStrongRandBytes(nonce.begin(), nonce.size());
+    GetStrongRandBytes(Span<unsigned char>(nonce.begin(), nonce.size()));
 
     // Make the rangeproof
     int res = secp256k1_rangeproof_sign(secp256k1_blind_context, rangeproof.data(), &rangeproof_len, /* min_value */ amount, &value_commit, value_blinder.begin(), nonce.begin(), /* exp */ -1, /* min_bits */ 0, amount, /* message */ nullptr, /* message_len */ 0, /* extra_commit */ nullptr, /* extra_commit_len */ 0, &gen);
@@ -511,8 +511,8 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
         // Generate the blinders
         uint256 value_blinder;
         uint256 asset_blinder;
-        GetStrongRandBytes(value_blinder.begin(), value_blinder.size());
-        GetStrongRandBytes(asset_blinder.begin(), asset_blinder.size());
+        GetStrongRandBytes(Span<unsigned char>(value_blinder.begin(), value_blinder.size()));
+        GetStrongRandBytes(Span<unsigned char>(asset_blinder.begin(), asset_blinder.size()));
 
         // Compute the scalar for this blinding and add to the output scalar
         if (!ComputeAndAddToScalarOffset(output_scalar, *output.amount, asset_blinder, value_blinder)) return BlindingStatus::SCALAR_UNABLE;

@@ -35,15 +35,15 @@ class Secp256k1Ctx
 {
 public:
     Secp256k1Ctx() {
-        assert(secp256k1_ctx_validation == NULL);
+        assert(secp256k1_ctx_validation == nullptr);
         secp256k1_ctx_validation = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
-        assert(secp256k1_ctx_validation != NULL);
+        assert(secp256k1_ctx_validation != nullptr);
     }
 
     ~Secp256k1Ctx() {
-        assert(secp256k1_ctx_validation != NULL);
+        assert(secp256k1_ctx_validation != nullptr);
         secp256k1_context_destroy(secp256k1_ctx_validation);
-        secp256k1_ctx_validation = NULL;
+        secp256k1_ctx_validation = nullptr;
     }
 };
 static Secp256k1Ctx instance_of_secp256k1ctx;

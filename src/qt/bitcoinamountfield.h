@@ -7,6 +7,7 @@
 
 #include <asset.h>
 #include <consensus/amount.h>
+#include <qt/bitcoinunits.h>
 
 #include <set>
 #include <QWidget>
@@ -61,7 +62,7 @@ public:
 
     /** Change unit used to display amount. */
     void setDisplayUnit(const CAsset&);
-    void setDisplayUnit(int unit);
+    void setDisplayUnit(BitcoinUnit new_unit);
 
     /** Make field empty and ready for new input. */
     void clear();
@@ -84,7 +85,7 @@ protected:
 private:
     std::set<CAsset> m_allowed_assets;
     CAsset asset;
-    AmountSpinBox *amount;
+    AmountSpinBox* amount{nullptr};
     QComboBox *unit;
 
     bool hasAssetChoice(const CAsset&) const;

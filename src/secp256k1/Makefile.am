@@ -39,7 +39,6 @@ noinst_HEADERS += src/field_10x26_impl.h
 noinst_HEADERS += src/field_5x52.h
 noinst_HEADERS += src/field_5x52_impl.h
 noinst_HEADERS += src/field_5x52_int128_impl.h
-noinst_HEADERS += src/field_5x52_asm_impl.h
 noinst_HEADERS += src/modinv32.h
 noinst_HEADERS += src/modinv32_impl.h
 noinst_HEADERS += src/modinv64.h
@@ -48,6 +47,7 @@ noinst_HEADERS += src/precomputed_ecmult.h
 noinst_HEADERS += src/precomputed_ecmult_gen.h
 noinst_HEADERS += src/assumptions.h
 noinst_HEADERS += src/checkmem.h
+noinst_HEADERS += src/testutil.h
 noinst_HEADERS += src/util.h
 noinst_HEADERS += src/int128.h
 noinst_HEADERS += src/int128_impl.h
@@ -264,6 +264,10 @@ EXTRA_DIST += sage/weierstrass_prover.sage
 EXTRA_DIST += src/wycheproof/WYCHEPROOF_COPYING
 EXTRA_DIST += src/wycheproof/ecdsa_secp256k1_sha256_bitcoin_test.json
 EXTRA_DIST += tools/tests_wycheproof_generate.py
+
+if ENABLE_MODULE_SCHNORRSIG_HALFAGG
+include src/modules/schnorrsig_halfagg/Makefile.am.include
+endif
 
 if ENABLE_MODULE_BPPP
 include src/modules/bppp/Makefile.am.include

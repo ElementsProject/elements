@@ -1,14 +1,14 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <wallet/load.h>
 
-#include <fs.h>
 #include <interfaces/chain.h>
 #include <scheduler.h>
 #include <util/check.h>
+#include <util/fs.h>
 #include <util/string.h>
 #include <util/system.h>
 #include <util/translation.h>
@@ -57,6 +57,7 @@ bool VerifyWallets(WalletContext& context)
     if (!args.IsArgSet("wallet")) {
         DatabaseOptions options;
         DatabaseStatus status;
+        ReadDatabaseArgs(args, options);
         bilingual_str error_string;
         options.require_existing = true;
         options.verify = false;
@@ -84,6 +85,7 @@ bool VerifyWallets(WalletContext& context)
 
         DatabaseOptions options;
         DatabaseStatus status;
+        ReadDatabaseArgs(args, options);
         options.require_existing = true;
         options.verify = true;
         bilingual_str error_string;
@@ -112,6 +114,7 @@ bool LoadWallets(WalletContext& context)
             }
             DatabaseOptions options;
             DatabaseStatus status;
+            ReadDatabaseArgs(*context.args, options);
             options.require_existing = true;
             options.verify = false; // No need to verify, assuming verified earlier in VerifyWallets()
             bilingual_str error;
@@ -148,7 +151,7 @@ void StartWallets(WalletContext& context, CScheduler& scheduler)
     if (context.args->GetBoolArg("-flushwallet", DEFAULT_FLUSHWALLET)) {
         scheduler.scheduleEvery([&context] { MaybeCompactWalletDB(context); }, std::chrono::milliseconds{500});
     }
-    scheduler.scheduleEvery([&context] { MaybeResendWalletTxs(context); }, std::chrono::milliseconds{1000});
+    scheduler.scheduleEvery([&context] { MaybeResendWalletTxs(context); }, 1min);
 }
 
 void FlushWallets(WalletContext& context)

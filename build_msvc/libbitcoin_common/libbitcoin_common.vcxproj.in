@@ -12,6 +12,7 @@
     <ClCompile Include="..\..\src\psbt.cpp" />
     <ClCompile Include="..\..\src\primitives\bitcoin\transaction.cpp" />
     <ClCompile Include="..\..\src\primitives\transaction.cpp" />
+    <ClCompile Include="..\..\src\common\url.cpp" />
 @SOURCE_FILES@
   </ItemGroup>
   <ItemGroup>

@@ -23,6 +23,9 @@ class ProgressTest(BitcoinTestFramework):
         self.num_nodes = 2
         self.extra_args = [["-debug", "-con_npowtargetspacing=1", "-maxtimeadjustment=0"]] * self.num_nodes
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 

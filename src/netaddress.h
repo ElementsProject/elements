@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -9,8 +9,7 @@
 #include <config/bitcoin-config.h>
 #endif
 
-#include <attributes.h>
-#include <compat.h>
+#include <compat/compat.h>
 #include <crypto/siphash.h>
 #include <prevector.h>
 #include <random.h>
@@ -112,6 +111,8 @@ static constexpr size_t ADDR_INTERNAL_SIZE = 10;
 /// SAM 3.1 and earlier do not support specifying ports and force the port to 0.
 static constexpr uint16_t I2P_SAM31_PORT{0};
 
+std::string OnionToString(Span<const uint8_t> addr);
+
 /**
  * Network address.
  */
@@ -192,8 +193,7 @@ public:
     bool IsAddrV1Compatible() const;
 
     enum Network GetNetwork() const;
-    std::string ToString() const;
-    std::string ToStringIP() const;
+    std::string ToStringAddr() const;
     bool GetInAddr(struct in_addr* pipv4Addr) const;
     Network GetNetClass() const;
 
@@ -202,12 +202,6 @@ public:
     //! Whether this address has a linked IPv4 address (see GetLinkedIPv4()).
     bool HasLinkedIPv4() const;
 
-    // The AS on the BGP path to the node we use to diversify
-    // peers in AddrMan bucketing based on the AS infrastructure.
-    // The ip->AS mapping depends on how asmap is constructed.
-    uint32_t GetMappedAS(const std::vector<bool>& asmap) const;
-
-    std::vector<unsigned char> GetGroup(const std::vector<bool>& asmap) const;
     std::vector<unsigned char> GetAddrBytes() const;
     int GetReachabilityFrom(const CNetAddr* paddrPartner = nullptr) const;
 
@@ -481,8 +475,6 @@ protected:
     /// Is this value valid? (only used to signal parse errors)
     bool valid;
 
-    bool SanityCheck() const;
-
 public:
     /**
      * Construct an invalid subnet (empty, `Match()` always returns false).
@@ -541,9 +533,7 @@ public:
     friend bool operator!=(const CService& a, const CService& b) { return !(a == b); }
     friend bool operator<(const CService& a, const CService& b);
     std::vector<unsigned char> GetKey() const;
-    std::string ToString() const;
-    std::string ToStringPort() const;
-    std::string ToStringIPPort() const;
+    std::string ToStringAddrPort() const;
 
     CService(const struct in6_addr& ipv6Addr, uint16_t port);
     explicit CService(const struct sockaddr_in6& addr);
@@ -562,8 +552,8 @@ class CServiceHash
 {
 public:
     CServiceHash()
-        : m_salt_k0{GetRand(std::numeric_limits<uint64_t>::max())},
-          m_salt_k1{GetRand(std::numeric_limits<uint64_t>::max())}
+        : m_salt_k0{GetRand<uint64_t>()},
+          m_salt_k1{GetRand<uint64_t>()}
     {
     }
 

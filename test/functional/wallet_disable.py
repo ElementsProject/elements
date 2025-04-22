@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2015-2021 The Bitcoin Core developers
+# Copyright (c) 2015-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test a node with the -disablewallet option.
@@ -26,10 +26,5 @@ class DisableWalletTest (BitcoinTestFramework):
         x = self.nodes[0].validateaddress('CTEsjYXANAynYYMzu5BUyvfNAVToxGh3s17kjZvELXuBG37qsfzz65vfhxEocbo55AnrvGbWBuMbJMCz')
         assert x['isvalid'] == True
 
-        # Checking mining to an address without a wallet. Generating to a valid address should succeed
-        # but generating to an invalid address will fail.
-        self.generatetoaddress(self.nodes[0], 1, 'CTEsjYXANAynYYMzu5BUyvfNAVToxGh3s17kjZvELXuBG37qsfzz65vfhxEocbo55AnrvGbWBuMbJMCz')
-        assert_raises_rpc_error(-5, "Invalid address", self.generatetoaddress, self.nodes[0], 1, '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy')
-
 if __name__ == '__main__':
-    DisableWalletTest ().main ()
+    DisableWalletTest().main()

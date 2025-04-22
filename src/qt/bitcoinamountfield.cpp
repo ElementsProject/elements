@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2021 The Bitcoin Core developers
+// Copyright (c) 2011-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -17,6 +17,9 @@
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLineEdit>
+#include <QVariant>
+
+#include <cassert>
 
 Q_DECLARE_METATYPE(CAsset)
 
@@ -29,9 +32,7 @@ class AmountSpinBox: public QAbstractSpinBox
 
 public:
     explicit AmountSpinBox(QWidget *parent):
-        QAbstractSpinBox(parent),
-        currentUnit(BitcoinUnits::BTC),
-        singleStep(0)
+        QAbstractSpinBox(parent)
     {
         current_asset = Params().GetConsensus().pegged_asset;
 
@@ -66,12 +67,12 @@ public:
         if(valid)
         {
             val = qBound(m_min_amount, val, m_max_amount);
-            input = GUIUtil::formatAssetAmount(current_asset, val, currentUnit, BitcoinUnits::SeparatorStyle::ALWAYS, false);
+            input = GUIUtil::formatAssetAmount(current_asset, val, std::make_optional(currentUnit), BitcoinUnits::SeparatorStyle::ALWAYS, false);
             lineEdit()->setText(input);
         }
     }
 
-    int currentPeggedUnit() const
+    BitcoinUnit currentPeggedUnit() const
     {
         assert(current_asset == Params().GetConsensus().pegged_asset);
         return currentUnit;
@@ -146,7 +147,7 @@ public:
         Q_EMIT valueChanged();
     }
 
-    void setDisplayUnit(int unit)
+    void setDisplayUnit(BitcoinUnit unit)
     {
         bool valid = false;
         std::pair<CAsset, CAmount> val = value(&valid);
@@ -183,7 +184,7 @@ public:
 
             const QFontMetrics fm(fontMetrics());
             int h = lineEdit()->minimumSizeHint().height();
-            int w = GUIUtil::TextWidth(fm, BitcoinUnits::format(BitcoinUnits::BTC, BitcoinUnits::maxMoney(), false, BitcoinUnits::SeparatorStyle::ALWAYS));
+            int w = GUIUtil::TextWidth(fm, BitcoinUnits::format(BitcoinUnit::BTC, BitcoinUnits::maxMoney(), false, BitcoinUnits::SeparatorStyle::ALWAYS));
             w += 2; // cursor blinking space
 
             QStyleOptionSpinBox opt;
@@ -202,15 +203,14 @@ public:
 
             opt.rect = rect();
 
-            cachedMinimumSizeHint = style()->sizeFromContents(QStyle::CT_SpinBox, &opt, hint, this)
-                                    .expandedTo(QApplication::globalStrut());
+            cachedMinimumSizeHint = style()->sizeFromContents(QStyle::CT_SpinBox, &opt, hint, this);
         }
         return cachedMinimumSizeHint;
     }
 
 private:
     CAsset current_asset;
-    int currentUnit{BitcoinUnits::BTC};
+    BitcoinUnit currentUnit{BitcoinUnit::BTC};
     CAmount singleStep{CAmount(100000)}; // satoshis
     mutable QSize cachedMinimumSizeHint;
     bool m_allow_empty{true};
@@ -284,8 +284,7 @@ Q_SIGNALS:
 
 BitcoinAmountField::BitcoinAmountField(std::set<CAsset> allowed_assets, QWidget *parent) :
     QWidget(parent),
-    m_allowed_assets(allowed_assets),
-    amount(nullptr)
+    m_allowed_assets(allowed_assets)
 {
     amount = new AmountSpinBox(this);
     amount->setLocale(QLocale::c());
@@ -479,11 +478,11 @@ void BitcoinAmountField::unitChanged(int idx)
         amount->setDisplayUnit(asset);
     } else {
         // Determine new unit ID
-        int newUnit = userdata.toInt();
+        QVariant new_unit = unit->currentData(BitcoinUnits::UnitRole);
+        assert(new_unit.isValid());
+        unit->setToolTip(BitcoinUnits::description(new_unit.value<BitcoinUnit>()));
 
-        unit->setToolTip(BitcoinUnits::description(newUnit));
-
-        amount->setDisplayUnit(newUnit);
+        amount->setDisplayUnit(new_unit.value<BitcoinUnit>());
     }
 
     if (!(m_allowed_assets.count(previous_asset) || amount->value().first == previous_asset)) {
@@ -503,12 +502,12 @@ void BitcoinAmountField::setDisplayUnit(const CAsset& asset)
     unit->setCurrentIndex(unit->findData(QVariant::fromValue(asset), Qt::UserRole));
 }
 
-void BitcoinAmountField::setDisplayUnit(int newUnit)
+void BitcoinAmountField::setDisplayUnit(BitcoinUnit new_unit)
 {
     if (!hasAssetChoice(Params().GetConsensus().pegged_asset)) {
         addAssetChoice(Params().GetConsensus().pegged_asset);
     }
-    unit->setCurrentIndex(unit->findData(newUnit, Qt::UserRole));
+    unit->setCurrentIndex(unit->findData(QVariant::fromValue(new_unit), Qt::UserRole));
 }
 
 void BitcoinAmountField::setSingleStep(const CAmount& step)

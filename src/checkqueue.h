@@ -1,4 +1,4 @@
-// Copyright (c) 2012-2021 The Bitcoin Core developers
+// Copyright (c) 2012-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -11,6 +11,7 @@
 #include <util/threadnames.h>
 
 #include <algorithm>
+#include <iterator>
 #include <vector>
 
 template <typename T>
@@ -66,7 +67,7 @@ private:
     bool m_request_stop GUARDED_BY(m_mutex){false};
 
     /** Internal function that does bulk of the verification work. */
-    bool Loop(bool fMaster)
+    bool Loop(bool fMaster) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
     {
         std::condition_variable& cond = fMaster ? m_master_cv : m_worker_cv;
         std::vector<T*> vChecks;
@@ -111,9 +112,9 @@ private:
                 // * Try to account for idle jobs which will instantly start helping.
                 // * Don't do batches smaller than 1 (duh), or larger than nBatchSize.
                 nNow = std::max(1U, std::min(nBatchSize, (unsigned int)queue.size() / (nTotal + nIdle + 1)));
-                vChecks.clear();
-                vChecks.insert(vChecks.end(), queue.end() - nNow, queue.end());
-                queue.resize(queue.size() - nNow);
+                auto start_it = queue.end() - nNow;
+                vChecks.assign(std::make_move_iterator(start_it), std::make_move_iterator(queue.end()));
+                queue.erase(start_it, queue.end());
                 // Check whether we need to do work at all
                 fOk = fAllOk;
             }
@@ -140,7 +141,7 @@ public:
     }
 
     //! Create a pool of new worker threads.
-    void StartWorkerThreads(const int threads_num)
+    void StartWorkerThreads(const int threads_num) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
     {
         {
             LOCK(m_mutex);
@@ -159,13 +160,13 @@ public:
     }
 
     //! Wait until execution finishes, and return whether all evaluations were successful.
-    bool Wait()
+    bool Wait() EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
     {
         return Loop(true /* master thread */);
     }
 
     //! Add a batch of checks to the queue
-    void Add(const std::vector<T*> vChecks)
+    void Add(const std::vector<T*> vChecks) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
     {
         if (vChecks.empty()) {
             return;
@@ -173,7 +174,7 @@ public:
 
         {
             LOCK(m_mutex);
-            queue.insert(queue.end(), vChecks.begin(), vChecks.end());
+            queue.insert(queue.end(), std::make_move_iterator(vChecks.begin()), std::make_move_iterator(vChecks.end()));
             nTodo += vChecks.size();
         }
 
@@ -185,7 +186,7 @@ public:
     }
 
     //! Stop all of the worker threads.
-    void StopWorkerThreads()
+    void StopWorkerThreads() EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
     {
         WITH_LOCK(m_mutex, m_request_stop = true);
         m_worker_cv.notify_all();
@@ -196,12 +197,13 @@ public:
         WITH_LOCK(m_mutex, m_request_stop = false);
     }
 
+    bool HasThreads() const { return !m_worker_threads.empty(); }
+
     ~CCheckQueue()
     {
         for (auto remaining : queue) delete remaining;
         assert(m_worker_threads.empty());
     }
-
 };
 
 /**
@@ -238,8 +240,9 @@ public:
 
     void Add(std::vector<T*> vChecks)
     {
-        if (pqueue != nullptr)
-            pqueue->Add(vChecks);
+        if (pqueue != nullptr) {
+            pqueue->Add(std::move(vChecks));
+        }
     }
 
     ~CCheckQueueControl()
