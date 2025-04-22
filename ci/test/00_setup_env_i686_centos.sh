@@ -15,3 +15,4 @@ export NO_WERROR=1 # GCC 8
 export BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-reduce-exports"
 export CONFIG_SHELL="/bin/dash"
 export TEST_RUNNER_ENV="LC_ALL=en_US.UTF-8"
+export PACKAGE_MANAGER_INSTALL="yum install -y"
