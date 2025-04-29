@@ -253,11 +253,11 @@ task:
     MAKEJOBS: "-j2"  # Avoid excessive memory use due to MSan
 
 task:
-  name: '[MSan, depends] [23.04]'
+  name: '[MSan, depends] [24.04]'
   << : *GLOBAL_TASK_TEMPLATE
   container:
     docker_arguments:
-      CI_IMAGE_NAME_TAG: ubuntu:23.04
+      CI_IMAGE_NAME_TAG: ubuntu:24.04
       FILE_ENV: "./ci/test/00_setup_env_native_msan.sh"
   env:
     << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
