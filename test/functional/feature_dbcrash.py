@@ -186,17 +186,18 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
             assert_equal(nodei_utxo_hash, node3_utxo_hash)
 
     def generate_small_transactions(self, node, count, utxo_list):
-        FEE = 1000  # TODO: replace this with node relay fee based calculation
         num_transactions = 0
         random.shuffle(utxo_list)
         while len(utxo_list) >= 2 and num_transactions < count:
+            fee = 1000
             tx = CTransaction()
             input_amount = 0
             for _ in range(2):
                 utxo = utxo_list.pop()
                 tx.vin.append(CTxIn(COutPoint(int(utxo['txid'], 16), utxo['vout'])))
                 input_amount += int(utxo['amount'] * COIN)
-            output_amount = (input_amount - FEE) // 3
+            output_amount = (input_amount - fee) // 3
+            fee = input_amount - (3 * output_amount)
 
             if output_amount <= 0:
                 # Sanity check -- if we chose inputs that are too small, skip
@@ -204,6 +205,9 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
 
             for _ in range(3):
                 tx.vout.append(CTxOut(output_amount, bytes.fromhex(utxo['scriptPubKey'])))
+
+            # ELEMENTS: add fee output
+            tx.vout.append(CTxOut(fee))
 
             # Sign and send the transaction to get into the mempool
             tx_signed_hex = node.signrawtransactionwithwallet(tx.serialize().hex())['hex']
@@ -234,10 +238,13 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
         # Main test loop:
         # each time through the loop, generate a bunch of transactions,
         # and then either mine a single new block on the tip, or some-sized reorg.
-        for i in range(40):
-            self.log.info(f"Iteration {i}, generating 2500 transactions {self.restart_counts}")
+        # ELEMENTS: modified to only run until successfully testing a node crash on restart
+        # with a maximum of 10 iterations
+        i = 0
+        while self.crashed_on_restart < 1:
+            self.log.info(f"Iteration {i}, generating 3000 transactions {self.restart_counts}")
             # Generate a bunch of small-ish transactions
-            self.generate_small_transactions(self.nodes[3], 2500, utxo_list)
+            self.generate_small_transactions(self.nodes[3], 3000, utxo_list)
             # Pick a random block between current tip, and starting tip
             current_height = self.nodes[3].getblockcount()
             random_height = random.randint(starting_tip_height, current_height)
@@ -264,6 +271,11 @@ class ChainstateWriteCrashTest(BitcoinTestFramework):
             self.sync_node3blocks(block_hashes)
             utxo_list = self.nodes[3].listunspent()
             self.log.debug(f"Node3 utxo count: {len(utxo_list)}")
+
+            if i >= 11:
+                raise AssertionError(f"12 iterations without node crash, this should not happen")
+            else:
+                i += 1
 
         # Check that the utxo hashes agree with node3
         # Useful side effect: each utxo cache gets flushed here, so that we
