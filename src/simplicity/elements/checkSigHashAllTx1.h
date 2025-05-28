@@ -1,9 +1,9 @@
-#ifndef SIMPLICITY_PRIMITIVE_ELEMENTS_CHECKSIGHASHALLTX1_H
-#define SIMPLICITY_PRIMITIVE_ELEMENTS_CHECKSIGHASHALLTX1_H
+#ifndef SIMPLICITY_ELEMENTS_CHECKSIGHASHALLTX1_H
+#define SIMPLICITY_ELEMENTS_CHECKSIGHASHALLTX1_H
 
 #include <stddef.h>
 #include <stdint.h>
-#include "../../bounded.h"
+#include "../bounded.h"
 
 /* A length-prefixed encoding of the following Simplicity program:
  *     Simplicity.Programs.CheckSig.Lib.checkSigVerify' Simplicity.Elements.Programs.SigHash.Lib.sigAllHash
