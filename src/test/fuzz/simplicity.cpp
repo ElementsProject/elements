@@ -5,7 +5,7 @@
 #include <cstdio>
 #include <primitives/transaction.h>
 extern "C" {
-#include <simplicity/cmr.h>
+#include <simplicity/elements/cmr.h>
 #include <simplicity/elements/env.h>
 #include <simplicity/elements/exec.h>
 }
@@ -31,9 +31,9 @@ static std::vector<unsigned char> TAPROOT_ANNEX(99, 0x50);
 
 // Defined in simplicity_compute_amr.c
 extern "C" {
-bool simplicity_computeAmr( simplicity_err* error, unsigned char* amr
-                          , const unsigned char* program, size_t program_len
-                          , const unsigned char* witness, size_t witness_len);
+bool simplicity_elements_computeAmr( simplicity_err* error, unsigned char* amr
+                                   , const unsigned char* program, size_t program_len
+                                   , const unsigned char* witness, size_t witness_len);
 }
 
 void initialize_simplicity()
@@ -149,8 +149,8 @@ FUZZ_TARGET_INIT(simplicity, initialize_simplicity)
     simplicity_err error;
     unsigned char cmr[32];
     unsigned char amr[32];
-    assert(simplicity_computeAmr(&error, amr, prog_data, prog_data_len, wit_data, wit_data_len));
-    assert(simplicity_computeCmr(&error, cmr, prog_data, prog_data_len));
+    assert(simplicity_elements_computeAmr(&error, amr, prog_data, prog_data_len, wit_data, wit_data_len));
+    assert(simplicity_elements_computeCmr(&error, cmr, prog_data, prog_data_len));
 
     // The remainder is just copy/pasted from the original fuzztest
 
@@ -196,7 +196,7 @@ FUZZ_TARGET_INIT(simplicity, initialize_simplicity)
     }
 
     // 5. Set up Simplicity environment and tx environment
-    rawTapEnv simplicityRawTap;
+    rawElementsTapEnv simplicityRawTap;
     simplicityRawTap.controlBlock = TAPROOT_CONTROL.data();
     simplicityRawTap.pathLen = (TAPROOT_CONTROL.size() - TAPROOT_CONTROL_BASE_SIZE) / TAPROOT_CONTROL_NODE_SIZE;
     simplicityRawTap.scriptCMR = cmr;
@@ -210,15 +210,15 @@ FUZZ_TARGET_INIT(simplicity, initialize_simplicity)
     unsigned char imr_out[32];
     unsigned char *imr = mtx.vin[0].prevout.hash.data()[2] & 2 ? imr_out : NULL;
 
-    const transaction* tx = txdata.m_simplicity_tx_data.get();
-    tapEnv* taproot = simplicity_elements_mallocTapEnv(&simplicityRawTap);
-    simplicity_elements_execSimplicity(&error, imr, tx, nIn, taproot, GENESIS_HASH.data(), budget, amr, prog_bytes.data(), prog_bytes.size(), wit_bytes.data(), wit_bytes.size());
+    const elementsTransaction* tx = txdata.m_simplicity_tx_data.get();
+    elementsTapEnv* taproot = simplicity_elements_mallocTapEnv(&simplicityRawTap);
+    simplicity_elements_execSimplicity(&error, imr, tx, nIn, taproot, GENESIS_HASH.data(), 0, budget, amr, prog_bytes.data(), prog_bytes.size(), wit_bytes.data(), wit_bytes.size());
 
     // 5. Secondary test -- try flipping a bunch of bits and check that this doesn't mess things up
     for (size_t j = 0; j < 8 * prog_bytes.size(); j++) {
         if (j > 32 && j % 23 != 0) continue; // skip most bits so this test doesn't overwhelm the fuzz time
         prog_bytes.data()[j / 8] ^= (1 << (j % 8));
-        simplicity_elements_execSimplicity(&error, imr, tx, nIn, taproot, GENESIS_HASH.data(), budget, amr, prog_bytes.data(), prog_bytes.size(), wit_bytes.data(), wit_bytes.size());
+        simplicity_elements_execSimplicity(&error, imr, tx, nIn, taproot, GENESIS_HASH.data(), 0, budget, amr, prog_bytes.data(), prog_bytes.size(), wit_bytes.data(), wit_bytes.size());
     }
 
     // 6. Cleanup
