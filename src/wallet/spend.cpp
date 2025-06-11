@@ -1449,10 +1449,15 @@ static bool CreateTransactionInternal(
         // Update the change position to the new tx
         change_position = txNew.vout.begin() + nChangePosInOut;
 
-        int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds, blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, tx_blinded);
-        assert(ret != -1);
-        if (ret != blind_details->num_to_blind) {
-            error = _("Unable to blind the transaction properly. This should not happen.");
+        auto info = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds, blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, tx_blinded);
+        assert(info.status == BlindStatus::SUCCESS || (info.status == BlindStatus::ERR_SINGLE_ATTEMPT_WITH_NO_INPUT_BLINDS && blind_details->num_to_blind == 0));
+        if (info.num_blinded != blind_details->num_to_blind) {
+            auto message = strprintf("Unable to blind transaction: Number to blind: %d. Number blinded: %d.", blind_details->num_to_blind, info.num_blinded);
+            auto num_inputs = result->GetInputSet().size();
+            if (num_inputs > 256) {
+                message = strprintf("Unable to blind transaction. Only 256 inputs can be blinded at once. Transaction has %d inputs.", num_inputs);
+            }
+            error = Untranslated(message);
             return false;
         }
 
@@ -1654,11 +1659,17 @@ static bool CreateTransactionInternal(
         }
 
         if (sign) {
-            int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
-            assert(ret != -1);
-            if (ret != blind_details->num_to_blind) {
-                wallet.WalletLogPrintf("ERROR: tried to blind %d outputs but only blinded %d\n", (int) blind_details->num_to_blind, (int) ret);
-                error = _("Unable to blind the transaction properly. This should not happen.");
+            auto info = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
+            assert(info.status == BlindStatus::SUCCESS || (info.status == BlindStatus::ERR_SINGLE_ATTEMPT_WITH_NO_INPUT_BLINDS && blind_details->num_to_blind == 0));
+            if (info.num_blinded != blind_details->num_to_blind) {
+                auto status = BlindStatusString(info.status);
+                auto message = strprintf("Unable to blind transaction: %s Number of blinded outputs: %d.", status, info.num_blinded);
+                auto num_inputs = result->GetInputSet().size();
+                wallet.WalletLogPrintf("ERROR: tried to blind %d outputs but only blinded %d. Number of inputs: %d. Blind status: %s\n", (int)blind_details->num_to_blind, info.num_blinded, num_inputs, status);
+                if (num_inputs > 256) {
+                    message = strprintf("Unable to blind transaction. Only 256 inputs can be blinded at once. Transaction has %d inputs.", num_inputs);
+                }
+                error = Untranslated(message);
                 return false;
             }
         }
