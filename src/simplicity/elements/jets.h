@@ -1,9 +1,9 @@
 /* This module defines primitives and jets that are specific to the Elements application for Simplicity.
  */
-#ifndef SIMPLICITY_PRIMITIVE_ELEMENTS_JETS_H
-#define SIMPLICITY_PRIMITIVE_ELEMENTS_JETS_H
+#ifndef SIMPLICITY_ELEMENTS_JETS_H
+#define SIMPLICITY_ELEMENTS_JETS_H
 
-#include "../../jets.h"
+#include "../jets.h"
 
 /* Jets for the Elements application of Simplicity. */
 bool simplicity_version(frameItem* dst, frameItem src, const txEnv* env);
