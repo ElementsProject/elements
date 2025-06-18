@@ -1,9 +1,9 @@
 #include "elementsJets.h"
 
 #include "ops.h"
-#include "primitive.h"
-#include "../../taptweak.h"
-#include "../../simplicity_assert.h"
+#include "txEnv.h"
+#include "../taptweak.h"
+#include "../simplicity_assert.h"
 
 /* Read a 256-bit hash value from the 'src' frame, advancing the cursor 256 cells.
  *
@@ -145,19 +145,19 @@ static void issuanceTokenAmt(frameItem* dst, const assetIssuance* issuance) {
   }
 }
 
-static uint_fast32_t lockHeight(const transaction* tx) {
+static uint_fast32_t lockHeight(const elementsTransaction* tx) {
   return !tx->isFinal && tx->lockTime < 500000000U ? tx->lockTime : 0;
 }
 
-static uint_fast32_t lockTime(const transaction* tx) {
+static uint_fast32_t lockTime(const elementsTransaction* tx) {
   return !tx->isFinal && 500000000U <= tx->lockTime ? tx->lockTime : 0;
 }
 
-static uint_fast16_t lockDistance(const transaction* tx) {
+static uint_fast16_t lockDistance(const elementsTransaction* tx) {
   return 2 <= tx->version ? tx->lockDistance : 0;
 }
 
-static uint_fast16_t lockDuration(const transaction* tx) {
+static uint_fast16_t lockDuration(const elementsTransaction* tx) {
   return 2 <= tx->version ? tx->lockDuration : 0;
 }
 
