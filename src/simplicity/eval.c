@@ -571,6 +571,7 @@ typedef struct boundsAnalysis {
  * When maxCells < UBOUNDED_MAX, if the bounds on the number of cells needed for evaluation of 'dag' on an idealized Bit Machine exceeds maxCells,
  * then return SIMPLICITY_ERR_EXEC_MEMORY.
  * When maxCost < UBOUNDED_MAX, if the bounds on the dag's CPU cost exceeds 'maxCost', then return SIMPLICITY_ERR_EXEC_BUDGET.
+ * If the bounds on the dag's CPU cost is less than or equal to 'minCost', then return SIMPLICITY_ERR_OVERWEIGHT.
  * Otherwise returns SIMPLICITY_NO_ERR.
  *
  * Precondition: NULL != cellsBound
@@ -583,11 +584,9 @@ typedef struct boundsAnalysis {
  *                 and if maxCells < UBOUNDED_MAX then '*cellsBound' bounds the number of cells needed for evaluation of 'dag' on an idealized Bit Machine
  *                 and if maxCells < UBOUNDED_MAX then '*UWORDBound' bounds the number of UWORDs needed for the frames during evaluation of 'dag'
  *                 and if maxCells < UBOUNDED_MAX then '*frameBound' bounds the number of stack frames needed during execution of 'dag'.
- *
- * :TODO: The cost calculations below are estimated and need to be replaced by experimental data.
  */
 simplicity_err simplicity_analyseBounds( ubounded *cellsBound, ubounded *UWORDBound, ubounded *frameBound, ubounded *costBound
-                            , ubounded maxCells, ubounded maxCost, const dag_node* dag, const type* type_dag, const size_t len) {
+                                       , ubounded maxCells, ubounded minCost, ubounded maxCost, const dag_node* dag, const type* type_dag, const size_t len) {
   static_assert(DAG_LEN_MAX <= SIZE_MAX / sizeof(boundsAnalysis), "bound array too large.");
   static_assert(1 <= DAG_LEN_MAX, "DAG_LEN_MAX is zero.");
   static_assert(DAG_LEN_MAX - 1 <= UINT32_MAX, "bound array index does not fit in uint32_t.");
@@ -741,6 +740,7 @@ simplicity_err simplicity_analyseBounds( ubounded *cellsBound, ubounded *UWORDBo
    */
   return (maxCells < *cellsBound) ? SIMPLICITY_ERR_EXEC_MEMORY
        : (maxCost < *costBound) ? SIMPLICITY_ERR_EXEC_BUDGET
+       : (*costBound <= minCost) ? SIMPLICITY_ERR_OVERWEIGHT
        : SIMPLICITY_NO_ERROR;
 }
 
@@ -748,10 +748,15 @@ simplicity_err simplicity_analyseBounds( ubounded *cellsBound, ubounded *UWORDBo
  * If bitSize(A) > 0, initialize the active read frame's data with 'input[ROUND_UWORD(bitSize(A))]'.
  *
  * If malloc fails, returns 'SIMPLICITY_ERR_MALLOC'.
- * When a budget is given, if static analysis results determines the bound on cpu requirements exceed the allowed budget, returns 'SIMPLICITY_ERR_EXEC_BUDGET'
- * If static analysis results determines the bound on memory allocation requirements exceed the allowed limits, returns 'SIMPLICITY_ERR_EXEC_MEMORY'
+ * When a budget is given, if static analysis results determines the bound on cpu requirements exceed the allowed budget, returns 'SIMPLICITY_ERR_EXEC_BUDGET'.
+ * If static analysis results determines the bound on cpu requirements is less than or equal to the minCost, returns 'SIMPLICITY_ERR_OVERWEIGHT'.
+ * If static analysis results determines the bound on memory allocation requirements exceed the allowed limits, returns 'SIMPLICITY_ERR_EXEC_MEMORY'.
  * If during execution some jet execution fails, returns 'SIMPLICITY_ERR_EXEC_JET'.
  * If during execution some 'assertr' or 'assertl' combinator fails, returns 'SIMPLICITY_ERR_EXEC_ASESRT'.
+ *
+ * Note that minCost and budget parameters are in WU, while the cost analysis will be performed in milliWU.
+ * Thus the minCost and budget specify a half open interval (minCost, budget] of acceptable cost values in milliWU.
+ * Setting minCost to 0 effectively disables the minCost check as every Simplicity program has a non-zero cost analysis.
  *
  * If none of the above conditions fail and bitSize(B) > 0, then a copy the final active write frame's data is written to 'output[roundWord(bitSize(B))]'.
  *
@@ -764,19 +769,25 @@ simplicity_err simplicity_analyseBounds( ubounded *cellsBound, ubounded *UWORDBo
  *               bitSize(A) == 0 or UWORD input[ROUND_UWORD(bitSize(A))];
  *               bitSize(B) == 0 or UWORD output[ROUND_UWORD(bitSize(B))];
  *               if NULL != budget then *budget <= BUDGET_MAX
+ *               if NULL != budget then minCost <= *budget
+ *               minCost <= BUDGET_MAX
  *               if 'dag[len]' represents a Simplicity expression with primitives then 'NULL != env';
  */
 simplicity_err simplicity_evalTCOExpression( flags_type anti_dos_checks, UWORD* output, const UWORD* input
-                                , const dag_node* dag, type* type_dag, size_t len, const ubounded* budget, const txEnv* env
-                                ) {
+                                           , const dag_node* dag, type* type_dag, size_t len, ubounded minCost, const ubounded* budget, const txEnv* env
+                                           ) {
   simplicity_assert(1 <= len);
   simplicity_assert(len <= DAG_LEN_MAX);
-  if (budget) { simplicity_assert(*budget <= BUDGET_MAX); }
+  if (budget) {
+    simplicity_assert(*budget <= BUDGET_MAX);
+    simplicity_assert(minCost <= *budget);
+  }
+  simplicity_assert(minCost <= BUDGET_MAX);
   static_assert(1 <= UBOUNDED_MAX, "UBOUNDED_MAX is zero.");
   static_assert(BUDGET_MAX <= (UBOUNDED_MAX - 1) / 1000, "BUDGET_MAX is too large.");
   static_assert(CELLS_MAX < UBOUNDED_MAX, "CELLS_MAX is too large.");
   ubounded cellsBound, UWORDBound, frameBound, costBound;
-  simplicity_err result = simplicity_analyseBounds(&cellsBound, &UWORDBound, &frameBound, &costBound, CELLS_MAX, budget ? *budget*1000 : UBOUNDED_MAX, dag, type_dag, len);
+  simplicity_err result = simplicity_analyseBounds(&cellsBound, &UWORDBound, &frameBound, &costBound, CELLS_MAX, minCost*1000, budget ? *budget*1000 : UBOUNDED_MAX, dag, type_dag, len);
   if (!IS_OK(result)) return result;
 
   /* frameBound is at most 2*len. */
