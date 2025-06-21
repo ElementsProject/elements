@@ -6,7 +6,7 @@
 # Install libdb4.8 (Berkeley DB).
 
 export LC_ALL=C
-set -e
+set -ex
 
 if [ -z "${1}" ]; then
   echo "Usage: $0 <base-dir> [<extra-bdb-configure-flag> ...]"
