@@ -169,6 +169,15 @@ task:
       - artifactsdir/**/*.conf
 
 task:
+  name: '[MSan, depends] [focal]'
+  << : *GLOBAL_TASK_TEMPLATE
+  container:
+    image: ubuntu:focal
+  env:
+    << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
+    FILE_ENV: "./ci/test/00_setup_env_native_msan.sh"
+
+task:
   name: 'macOS 13 native arm64 [gui, sqlite only] [no depends]'
   macos_instance:
     # Use latest image, but hardcode version to avoid silent upgrades (and breaks)
