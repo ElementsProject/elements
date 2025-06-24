@@ -3,12 +3,12 @@
 #include <stdalign.h>
 #include <stddef.h>
 #include <string.h>
-#include "primitive.h"
+#include "txEnv.h"
 #include "ops.h"
-#include "../../rsort.h"
-#include "../../sha256.h"
-#include "../../simplicity_assert.h"
-#include "../../simplicity_alloc.h"
+#include "../rsort.h"
+#include "../sha256.h"
+#include "../simplicity_assert.h"
+#include "../simplicity_alloc.h"
 
 #define PADDING(alignType, allocated) ((alignof(alignType) - (allocated) % alignof(alignType)) % alignof(alignType))
 
@@ -17,13 +17,13 @@
  * Precondition: NULL != result;
  *               NULL != scriptPubKey;
  */
-static void hashBuffer(sha256_midstate* result, const rawBuffer* buffer) {
+static void hashBuffer(sha256_midstate* result, const rawElementsBuffer* buffer) {
   sha256_context ctx = sha256_init(result->s);
   sha256_uchars(&ctx, buffer->buf, buffer->len);
   sha256_finalize(&ctx);
 }
 
-/* Initialize a 'confidential' asset or 'confidential' nonce from an unsigned char array from a 'rawTransaction'.
+/* Initialize a 'confidential' asset or 'confidential' nonce from an unsigned char array from a 'rawElementsTransaction'.
  *
  * Precondition: NULL != conf;
  *               unsigned char rawConf[33] or rawConf == NULL;
@@ -40,7 +40,7 @@ static void copyRawConfidential(confidential* conf, const unsigned char* rawConf
   }
 }
 
-/* Initialize a 'confAmount' from an unsigned char array from a 'rawTransaction'.
+/* Initialize a 'confAmount' from an unsigned char array from a 'rawElementsTransaction'.
  *
  * Precondition: NULL != amt;
  *               unsigned char rawAmt[rawAmt[0] == 0x01 ? 9 : 33] or rawAmt == NULL
@@ -60,12 +60,12 @@ static void copyRawAmt(confAmount* amt, const unsigned char* rawAmt) {
   }
 }
 
-/* Initialize a 'sigInput' from a 'rawInput', copying or hashing the data as needed.
+/* Initialize a 'sigInput' from a 'rawElementsInput', copying or hashing the data as needed.
  *
  * Precondition: NULL != result;
  *               NULL != input;
  */
-static void copyInput(sigInput* result, const rawInput* input) {
+static void copyInput(sigInput* result, const rawElementsInput* input) {
   *result = (sigInput){ .prevOutpoint = { .ix = input->prevIx }
                       , .sequence = input->sequence
                       , .isPegin = !!input->pegin
@@ -79,8 +79,8 @@ static void copyInput(sigInput* result, const rawInput* input) {
   copyRawConfidential(&result->txo.asset, input->txo.asset);
   copyRawAmt(&result->txo.amt, input->txo.value);
   hashBuffer(&result->scriptSigHash, &input->scriptSig);
-  hashBuffer(&result->issuance.assetRangeProofHash, &(rawBuffer){0});
-  hashBuffer(&result->issuance.tokenRangeProofHash, &(rawBuffer){0});
+  hashBuffer(&result->issuance.assetRangeProofHash, &(rawElementsBuffer){0});
+  hashBuffer(&result->issuance.tokenRangeProofHash, &(rawElementsBuffer){0});
   if (input->issuance.amount || input->issuance.inflationKeys) {
     sha256_toMidstate(result->issuance.blindingNonce.s, input->issuance.blindingNonce);
     copyRawAmt(&result->issuance.assetAmt, input->issuance.amount);
@@ -104,13 +104,13 @@ static void copyInput(sigInput* result, const rawInput* input) {
 }
 
 /* As specified in https://github.com/ElementsProject/elements/blob/de942511a67c3a3fcbdf002a8ee7e9ba49679b78/src/primitives/transaction.h#L304-L307. */
-static bool isFee(const rawOutput* output) {
+static bool isFee(const rawElementsOutput* output) {
   return 0 == output->scriptPubKey.len &&                 /* Empty scriptPubKey */
     NULL != output->asset && 0x01 == output->asset[0] &&  /* Explicit asset */
     NULL != output->value && 0x01 == output->value[0];    /* Explicit amount */
 }
 
-static uint_fast32_t countFeeOutputs(const rawTransaction* rawTx) {
+static uint_fast32_t countFeeOutputs(const rawElementsTransaction* rawTx) {
   uint_fast32_t result = 0;
   for (uint_fast32_t i = 0; i < rawTx->numOutputs; ++i) {
     result += isFee(&rawTx->output[i]);
@@ -126,7 +126,7 @@ static uint_fast32_t countFeeOutputs(const rawTransaction* rawTx) {
  *
  * Precondition: NULL != scriptPubKey
  */
-static uint_fast32_t countNullDataCodes(const rawBuffer* scriptPubKey) {
+static uint_fast32_t countNullDataCodes(const rawElementsBuffer* scriptPubKey) {
   if (0 == scriptPubKey->len || 0x6a != scriptPubKey->buf[0] ) return 0;
 
   uint_fast32_t result = 0;
@@ -161,7 +161,7 @@ static uint_fast32_t countNullDataCodes(const rawBuffer* scriptPubKey) {
  *
  * Precondition: NULL != rawTx
  */
-static uint_fast64_t countTotalNullDataCodes(const rawTransaction* rawTx) {
+static uint_fast64_t countTotalNullDataCodes(const rawElementsTransaction* rawTx) {
   uint_fast64_t result = 0;
   for (uint_fast32_t i = 0; i < rawTx->numOutputs; ++i) {
     result += countNullDataCodes(&rawTx->output[i].scriptPubKey);
@@ -186,7 +186,7 @@ static uint_fast64_t countTotalNullDataCodes(const rawTransaction* rawTx) {
  *               NULL != scriptPubKey;
  *               countNullDataCodes(scriptPubKey) <= *allocationLen
  */
-static void parseNullData(parsedNullData* result, opcode** allocation, size_t* allocationLen, const rawBuffer* scriptPubKey) {
+static void parseNullData(parsedNullData* result, opcode** allocation, size_t* allocationLen, const rawElementsBuffer* scriptPubKey) {
   *result = (parsedNullData){ .op = *allocation };
 
   if (0 == scriptPubKey->len || 0x6a != scriptPubKey->buf[0] ) { result->op = NULL; return; }
@@ -233,7 +233,7 @@ static void parseNullData(parsedNullData* result, opcode** allocation, size_t* a
   *allocationLen -= result->len;
 }
 
-/* Initialize a 'sigOutput' from a 'rawOutput', copying or hashing the data as needed.
+/* Initialize a 'sigOutput' from a 'rawElementsOutput', copying or hashing the data as needed.
  *
  * '*allocation' is incremented by 'countNullDataCodes(&output->scriptPubKey)'
  * '*allocationLen' is decremented by 'countNullDataCodes(&output->scriptPubKey)'.
@@ -245,7 +245,7 @@ static void parseNullData(parsedNullData* result, opcode** allocation, size_t* a
  *               NULL != output;
  *               countNullDataCodes(&output->scriptPubKey) <= *allocationLen
  */
-static void copyOutput(sigOutput* result, opcode** allocation, size_t* allocationLen, const rawOutput* output) {
+static void copyOutput(sigOutput* result, opcode** allocation, size_t* allocationLen, const rawElementsOutput* output) {
   hashBuffer(&result->scriptPubKey, &output->scriptPubKey);
   result->emptyScript = 0 == output->scriptPubKey.len;
   copyRawConfidential(&result->asset, output->asset);
@@ -253,8 +253,8 @@ static void copyOutput(sigOutput* result, opcode** allocation, size_t* allocatio
   copyRawConfidential(&result->nonce, output->nonce);
   parseNullData(&result->pnd, allocation, allocationLen, &output->scriptPubKey);
   result->isNullData = NULL != result->pnd.op;
-  hashBuffer(&result->surjectionProofHash, is_confidential(result->asset.prefix) ? &output->surjectionProof : &(rawBuffer){0});
-  hashBuffer(&result->rangeProofHash, is_confidential(result->amt.prefix) ? &output->rangeProof : &(rawBuffer){0});
+  hashBuffer(&result->surjectionProofHash, is_confidential(result->asset.prefix) ? &output->surjectionProof : &(rawElementsBuffer){0});
+  hashBuffer(&result->rangeProofHash, is_confidential(result->amt.prefix) ? &output->rangeProof : &(rawElementsBuffer){0});
   result->assetFee = 0;
 }
 
@@ -306,15 +306,15 @@ static uint_fast32_t sumFees(sigOutput** feeOutputs, uint_fast32_t numFees) {
   return result + 1;
 }
 
-/* Allocate and initialize a 'transaction' from a 'rawTransaction', copying or hashing the data as needed.
+/* Allocate and initialize a 'elementsTransaction' from a 'rawElementsTransaction', copying or hashing the data as needed.
  * Returns NULL if malloc fails (or if malloc cannot be called because we require an allocation larger than SIZE_MAX).
  *
  * Precondition: NULL != rawTx
  */
-extern transaction* simplicity_elements_mallocTransaction(const rawTransaction* rawTx) {
+extern elementsTransaction* simplicity_elements_mallocTransaction(const rawElementsTransaction* rawTx) {
   if (!rawTx) return NULL;
 
-  size_t allocationSize = sizeof(transaction);
+  size_t allocationSize = sizeof(elementsTransaction);
 
   const size_t pad1 = PADDING(sigInput, allocationSize);
   if (SIZE_MAX - allocationSize < pad1) return NULL;
@@ -360,8 +360,8 @@ extern transaction* simplicity_elements_mallocTransaction(const rawTransaction* 
   /* Casting through void* to avoid warning about pointer alignment.
    * Our padding is done carefully to ensure alignment.
    */
-  transaction* const tx = (transaction*)(void*)allocation;
-  allocation += sizeof(transaction) + pad1;
+  elementsTransaction* const tx = (elementsTransaction*)(void*)allocation;
+  allocation += sizeof(elementsTransaction) + pad1;
 
   sigInput* const input = (sigInput*)(void*)allocation;
   allocation += rawTx->numInputs * sizeof(sigInput) + pad2;
@@ -379,15 +379,15 @@ extern transaction* simplicity_elements_mallocTransaction(const rawTransaction* 
      but C forgoes the complicated specification of C++.  Therefore we must make an explicit cast of feeOutputs in C.
      See <https://c-faq.com/ansi/constmismatch.html> for details.
   */
-  *tx = (transaction){ .input = input
-                     , .output = output
-                     , .feeOutputs = (sigOutput const * const *)feeOutputs
-                     , .numInputs = rawTx->numInputs
-                     , .numOutputs = rawTx->numOutputs
-                     , .version = rawTx->version
-                     , .lockTime = rawTx->lockTime
-                     , .isFinal = true
-                     };
+  *tx = (elementsTransaction){ .input = input
+                             , .output = output
+                             , .feeOutputs = (sigOutput const * const *)feeOutputs
+                             , .numInputs = rawTx->numInputs
+                             , .numOutputs = rawTx->numOutputs
+                             , .version = rawTx->version
+                             , .lockTime = rawTx->lockTime
+                             , .isFinal = true
+                             };
 
   sha256_toMidstate(tx->txid.s, rawTx->txid);
   {
@@ -569,22 +569,22 @@ extern transaction* simplicity_elements_mallocTransaction(const rawTransaction* 
   return tx;
 }
 
-/* Free a pointer to 'transaction'.
+/* Free a pointer to 'elementsTransaction'.
  */
-extern void simplicity_elements_freeTransaction(transaction* tx) {
+extern void simplicity_elements_freeTransaction(elementsTransaction* tx) {
   simplicity_free(tx);
 }
 
-/* Allocate and initialize a 'tapEnv' from a 'rawTapEnv', copying or hashing the data as needed.
+/* Allocate and initialize a 'elementsTapEnv' from a 'rawElementsTapEnv', copying or hashing the data as needed.
  * Returns NULL if malloc fails (or if malloc cannot be called because we require an allocation larger than SIZE_MAX).
  *
  * Precondition: *rawEnv is well-formed (i.e. rawEnv->pathLen <= 128.)
  */
-extern tapEnv* simplicity_elements_mallocTapEnv(const rawTapEnv* rawEnv) {
+extern elementsTapEnv* simplicity_elements_mallocTapEnv(const rawElementsTapEnv* rawEnv) {
   if (!rawEnv) return NULL;
   if (128 < rawEnv->pathLen) return NULL;
 
-  size_t allocationSize = sizeof(tapEnv);
+  size_t allocationSize = sizeof(elementsTapEnv);
 
   const size_t numMidstate = rawEnv->pathLen;
   const size_t pad1 = PADDING(sha256_midstate, allocationSize);
@@ -604,25 +604,25 @@ extern tapEnv* simplicity_elements_mallocTapEnv(const rawTapEnv* rawEnv) {
   /* Casting through void* to avoid warning about pointer alignment.
    * Our padding is done carefully to ensure alignment.
    */
-  tapEnv* const env = (tapEnv*)(void*)allocation;
+  elementsTapEnv* const env = (elementsTapEnv*)(void*)allocation;
   sha256_midstate* path = NULL;
   sha256_midstate internalKey;
 
   sha256_toMidstate(internalKey.s,  &rawEnv->controlBlock[1]);
 
   if (numMidstate)  {
-    allocation += sizeof(tapEnv) + pad1;
+    allocation += sizeof(elementsTapEnv) + pad1;
 
     if (rawEnv->pathLen) {
       path = (sha256_midstate*)(void*)allocation;
     }
   }
 
-  *env = (tapEnv){ .leafVersion = rawEnv->controlBlock[0] & 0xfe
-                 , .internalKey = internalKey
-                 , .path = path
-                 , .pathLen = rawEnv->pathLen
-                 };
+  *env = (elementsTapEnv){ .leafVersion = rawEnv->controlBlock[0] & 0xfe
+                         , .internalKey = internalKey
+                         , .path = path
+                         , .pathLen = rawEnv->pathLen
+                         };
   sha256_toMidstate(env->scriptCMR.s, rawEnv->scriptCMR);
 
   {
@@ -646,33 +646,8 @@ extern tapEnv* simplicity_elements_mallocTapEnv(const rawTapEnv* rawEnv) {
   return env;
 }
 
-/* Free a pointer to 'tapEnv'.
+/* Free a pointer to 'elementsTapEnv'.
  */
-extern void simplicity_elements_freeTapEnv(tapEnv* env) {
+extern void simplicity_elements_freeTapEnv(elementsTapEnv* env) {
   simplicity_free(env);
-}
-
-/* Construct a txEnv structure from its components.
- * This function will precompute any cached values.
- *
- * Precondition: NULL != tx
- *               NULL != taproot
- *               NULL != genesisHash
- *               ix < tx->numInputs
- */
-txEnv simplicity_build_txEnv(const transaction* tx, const tapEnv* taproot, const sha256_midstate* genesisHash, uint_fast32_t ix) {
-  txEnv result = { .tx = tx
-                 , .taproot = taproot
-                 , .genesisHash = *genesisHash
-                 , .ix = ix
-                 };
-  sha256_context ctx = sha256_init(result.sigAllHash.s);
-  sha256_hash(&ctx, genesisHash);
-  sha256_hash(&ctx, genesisHash);
-  sha256_hash(&ctx, &tx->txHash);
-  sha256_hash(&ctx, &taproot->tapEnvHash);
-  sha256_u32be(&ctx, ix);
-  sha256_finalize(&ctx);
-
-  return result;
 }
