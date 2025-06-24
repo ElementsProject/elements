@@ -6,6 +6,18 @@
 #include "bitstream.h"
 #include "dag.h"
 
+/* Decode an application specific jet from 'stream' into 'node'.
+ * All jets begin with a bit prefix of '1' which needs to have already been consumed from the 'stream'.
+ * Returns 'SIMPLICITY_ERR_DATA_OUT_OF_RANGE' if the stream's prefix doesn't match any valid code for a jet.
+ * Returns 'SIMPLICITY_ERR_BITSTRING_EOF' if not enough bits are available in the 'stream'.
+ * In the above error cases, 'dag' may be modified.
+ * Returns 'SIMPLICITY_NO_ERROR' if successful.
+ *
+ * Precondition: NULL != node
+ *               NULL != stream
+ */
+typedef simplicity_err (*simplicity_callback_decodeJet)(dag_node* node, bitstream* stream);
+
 /* Decode a length-prefixed Simplicity DAG from 'stream'.
  * Returns 'SIMPLICITY_ERR_DATA_OUT_OF_RANGE' the length prefix's value is too large.
  * Returns 'SIMPLICITY_ERR_DATA_OUT_OF_RANGE' if some node's child isn't a reference to one of the preceding nodes.
@@ -28,6 +40,6 @@
  *                          of the function is positive and when NULL != census;
  *                NULL == *dag when the return value is negative.
  */
-int_fast32_t simplicity_decodeMallocDag(dag_node** dag, combinator_counters* census, bitstream* stream);
+int_fast32_t simplicity_decodeMallocDag(dag_node** dag, simplicity_callback_decodeJet decodeJet, combinator_counters* census, bitstream* stream);
 
 #endif
