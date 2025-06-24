@@ -2,11 +2,11 @@
  * It includes the transaction data and input index of the input whose Simplicity program is being executed.
  * It also includes the commitment Merkle root of the program being executed.
  */
-#ifndef SIMPLICITY_PRIMITIVE_ELEMENTS_H
-#define SIMPLICITY_PRIMITIVE_ELEMENTS_H
+#ifndef SIMPLICITY_ELEMENTS_TXENV_H
+#define SIMPLICITY_ELEMENTS_TXENV_H
 
 #include <stdbool.h>
-#include "../../sha256.h"
+#include "../sha256.h"
 
 /* An Elements 'outpoint' consists of a transaction id and output index within that transaction.
  * The transaction id can be a either a transaction within the chain, or the transaction id from another chain in case of a peg-in.
@@ -194,7 +194,7 @@ typedef struct sigInput {
 /* A structure representing data from an Elements transaction (along with the utxo data of the outputs being redeemed).
  * Includes a variety of cached hash values that are used in signature hash jets.
  */
-typedef struct transaction {
+typedef struct elementsTransaction {
   const sigInput* input;
   const sigOutput* output;
   const sigOutput* const * feeOutputs;
@@ -230,14 +230,14 @@ typedef struct transaction {
   uint_fast16_t lockDistance;
   uint_fast16_t lockDuration; /* Units of 512 seconds */
   bool isFinal;
-} transaction;
+} elementsTransaction;
 
 /* A structure representing taproot spending data from an Elements transaction.
  *
  * Invariant: pathLen <= 128
  *            sha256_midstate path[pathLen];
  */
-typedef struct tapEnv {
+typedef struct elementsTapEnv {
   const sha256_midstate *path;
   sha256_midstate tapLeafHash;
   sha256_midstate tappathHash;
@@ -246,7 +246,7 @@ typedef struct tapEnv {
   sha256_midstate scriptCMR;
   unsigned char pathLen;
   unsigned char leafVersion;
-} tapEnv;
+} elementsTapEnv;
 
 /* The 'txEnv' structure used by the Elements application of Simplicity.
  *
@@ -256,8 +256,8 @@ typedef struct tapEnv {
  * + the hash of the genesis block for the chain,
  */
 typedef struct txEnv {
-  const transaction* tx;
-  const tapEnv* taproot;
+  const elementsTransaction* tx;
+  const elementsTapEnv* taproot;
   sha256_midstate genesisHash;
   sha256_midstate sigAllHash;
   uint_fast32_t ix;
@@ -271,6 +271,6 @@ typedef struct txEnv {
  *               NULL != genesisHash
  *               ix < tx->numInputs
  */
-txEnv simplicity_build_txEnv(const transaction* tx, const tapEnv* taproot, const sha256_midstate* genesisHash, uint_fast32_t ix);
+txEnv simplicity_elements_build_txEnv(const elementsTransaction* tx, const elementsTapEnv* taproot, const sha256_midstate* genesisHash, uint_fast32_t ix);
 
 #endif
