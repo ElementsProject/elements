@@ -131,6 +131,7 @@ static const bool DEFAULT_REST_ENABLE = false;
 #endif
 
 static const char* DEFAULT_ASMAP_FILENAME="ip_asn.map";
+static constexpr int MAX_32BIT_MEMPOOL_MB{500};
 
 /**
  * The PID file facilities.
@@ -976,6 +977,10 @@ bool AppInitParameterInteraction(const ArgsManager& args)
     int64_t nMempoolSizeMin = args.GetIntArg("-limitdescendantsize", DEFAULT_DESCENDANT_SIZE_LIMIT) * 1000 * 40;
     if (nMempoolSizeMax < 0 || nMempoolSizeMax < nMempoolSizeMin)
         return InitError(strprintf(_("-maxmempool must be at least %d MB"), std::ceil(nMempoolSizeMin / 1000000.0)));
+    constexpr bool is_32bit{sizeof(void*) == 4};
+    if (is_32bit && nMempoolSizeMax > MAX_32BIT_MEMPOOL_MB * 1000000) {
+        return InitError(strprintf(_("-maxmempool is set to %i but can't be over %i MB on 32-bit systems"), std::ceil(nMempoolSizeMax / 1000000.0), MAX_32BIT_MEMPOOL_MB));
+    }
     // incremental relay fee sets the minimum feerate increase necessary for BIP 125 replacement in the mempool
     // and the amount the mempool min fee increases above the feerate of txs evicted due to mempool limiting.
     if (args.IsArgSet("-incrementalrelayfee")) {
