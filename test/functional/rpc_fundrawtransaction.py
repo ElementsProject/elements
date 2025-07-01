@@ -1004,7 +1004,6 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # An external input without solving data should result in an error
         raw_tx = self.nodes[2].createrawtransaction([{"txid": txid, "vout": vout}], [{addr_info['unconfidential']: 20}])
-        fund_tx2 = self.nodes[2].fundrawtransaction(raw_tx)
 
         # But funding should work when the solving data is provided (as part of options)
         funded_tx = self.nodes[2].fundrawtransaction(raw_tx, {"solving_data": {"pubkeys": [addr_info['pubkey']]}}, False)
