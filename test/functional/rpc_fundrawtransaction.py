@@ -132,8 +132,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.test_all_watched_funds()
         self.test_option_feerate()
         self.test_address_reuse()
-        # ELEMENTS: FIXME
-        # self.test_option_subtract_fee_from_outputs()
+        self.test_option_subtract_fee_from_outputs()
         self.test_subtract_fee_with_presets()
         self.test_transaction_too_large()
         self.test_include_unsafe()
@@ -1005,11 +1004,9 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # An external input without solving data should result in an error
         raw_tx = self.nodes[2].createrawtransaction([{"txid": txid, "vout": vout}], [{addr_info['unconfidential']: 20}])
-        # // ELEMENTS: FIXME or explain why this tx is created without exception
-        # assert_raises_rpc_error(-4, "Missing solving data for estimating transaction size", self.nodes[2].fundrawtransaction, raw_tx)
 
-        # But funding should work when the solving data is provided
-        funded_tx = self.nodes[2].fundrawtransaction(raw_tx, {}, False, {"pubkeys": [addr_info['pubkey']]})
+        # But funding should work when the solving data is provided (as part of options)
+        funded_tx = self.nodes[2].fundrawtransaction(raw_tx, {"solving_data": {"pubkeys": [addr_info['pubkey']]}}, False)
         signed_tx = self.nodes[2].signrawtransactionwithwallet(funded_tx['hex'])
         assert not signed_tx['complete']
         signed_tx = self.nodes[0].signrawtransactionwithwallet(signed_tx['hex'])
