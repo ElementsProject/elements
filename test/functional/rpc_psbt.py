@@ -1149,8 +1149,8 @@ class PSBTTest(BitcoinTestFramework):
         # An external input without solving data should result in an error
         assert_raises_rpc_error(-4, "Insufficient funds", wallet.walletcreatefundedpsbt, [ext_utxo], [{self.nodes[0].getnewaddress(): 15}])
 
-        # But funding should work when the solving data is provided
-        psbt = wallet.walletcreatefundedpsbt([ext_utxo], [{self.nodes[0].getnewaddress(): 15}], 0, {"add_inputs": True, "solving_data": {"pubkeys": [addr_info['pubkey']], "scripts": [addr_info["embedded"]["scriptPubKey"]]}})
+        # But funding should work when the solving data is provided + psbt version
+        psbt = wallet.walletcreatefundedpsbt([ext_utxo], [{self.nodes[0].getnewaddress(): 15}], 0, {"add_inputs": True, "solving_data": {"pubkeys": [addr_info['pubkey']], "scripts": [addr_info["embedded"]["scriptPubKey"]]}},True,2)
         signed = wallet.walletprocesspsbt(psbt['psbt'])
         assert not signed['complete']
         signed = self.nodes[0].walletprocesspsbt(signed['psbt'])

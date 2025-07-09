@@ -1540,7 +1540,6 @@ RPCHelpMan walletcreatefundedpsbt()
         UniValue::VNUM,
         UniValue::VOBJ,
         UniValue::VBOOL,
-        UniValue::VOBJ,
         UniValue::VNUM,
         }, true
     );
@@ -1564,7 +1563,7 @@ RPCHelpMan walletcreatefundedpsbt()
     // Make a blank psbt
     uint32_t psbt_version = 2;
     if (!request.params[5].isNull()) {
-        psbt_version = request.params[6].get_int();
+        psbt_version = request.params[5].get_int();
     }
     if (psbt_version != 2) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "The PSBT version can only be 2");
