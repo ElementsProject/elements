@@ -7,7 +7,7 @@
 #include <script/sigcache.h>
 #include <validation.h>
 extern "C" {
-#include <simplicity/cmr.h>
+#include <simplicity/elements/cmr.h>
 #include <simplicity/elements/env.h>
 #include <simplicity/elements/exec.h>
 }
@@ -151,7 +151,7 @@ FUZZ_TARGET_INIT(simplicity_tx, initialize_simplicity_tx)
                     // valid transactions will work with this code).
                     // Compute CMR and do some sanity checks on it (and the program)
                     std::vector<unsigned char> cmr(32, 0);
-                    assert(simplicity_computeCmr(&error, cmr.data(), program.data(), program.size()));
+                    assert(simplicity_elements_computeCmr(&error, cmr.data(), program.data(), program.size()));
                     if (error == SIMPLICITY_NO_ERROR) {
                         if (memcmp(last_cmr, cmr.data(), sizeof(last_cmr)) == 0) {
                             // If we have already seen this CMR this transaction, try mangling

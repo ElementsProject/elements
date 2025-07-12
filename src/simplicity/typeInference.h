@@ -71,6 +71,26 @@ struct unification_var {
   bool isBound;
 };
 
+/* Allocate a fresh set of unification variables bound to at least all the types necessary
+ * for all the jets that can be created by 'simplicity_callbac_decodeJet', and also the type 'TWO^256',
+ * and also allocate space for 'extra_var_len' many unification variables.
+ * Return the number of non-trivial bindings created.
+ *
+ * However, if malloc fails, then return 0.
+ *
+ * Precondition: NULL != bound_var;
+ *               NULL != word256_ix;
+ *               NULL != extra_var_start;
+ *               extra_var_len <= 6*DAG_LEN_MAX;
+ *
+ * Postcondition: Either '*bound_var == NULL' and the function returns 0
+ *                or 'unification_var (*bound_var)[*extra_var_start + extra_var_len]' is an array of unification variables
+ *                   such that for any 'jet : A |- B' there is some 'i < *extra_var_start' and 'j < *extra_var_start' such that
+ *                      '(*bound_var)[i]' is bound to 'A' and '(*bound_var)[j]' is bound to 'B'
+ *                   and, '*word256_ix < *extra_var_start' and '(*bound_var)[*word256_ix]' is bound the type 'TWO^256'
+ */
+typedef size_t (*simplicity_callback_mallocBoundVars)(unification_var** bound_var, size_t* word256_ix, size_t* extra_var_start, size_t extra_var_len);
+
 /* If the Simplicity DAG, 'dag', has a principal type (including constraints due to sharing of subexpressions),
  * then allocate a well-formed type DAG containing all the types needed for all the subexpressions of 'dag',
  * with all free type variables instantiated at ONE, and set '*type_dag' to this allocation,
@@ -91,6 +111,6 @@ struct unification_var {
  *                     or 'dag' is well-typed with '*type_dag' and without witness values
  *                if the return value is not 'SIMPLICITY_NO_ERROR' then 'NULL == *type_dag'
  */
-simplicity_err simplicity_mallocTypeInference(type** type_dag, dag_node* dag, const uint_fast32_t len, const combinator_counters* census);
+simplicity_err simplicity_mallocTypeInference(type** type_dag, simplicity_callback_mallocBoundVars mallocBoundVars, dag_node* dag, const uint_fast32_t len, const combinator_counters* census);
 
 #endif

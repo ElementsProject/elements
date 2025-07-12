@@ -2,7 +2,6 @@
 
 #include <limits.h>
 #include "limitations.h"
-#include "primitive.h"
 #include "simplicity_alloc.h"
 #include "simplicity_assert.h"
 
@@ -55,7 +54,7 @@ static simplicity_err getHash(sha256_midstate* result, bitstream* stream) {
  *               i < 2^31 - 1
  *               NULL != stream
  */
-static simplicity_err decodeNode(dag_node* dag, uint_fast32_t i, bitstream* stream) {
+static simplicity_err decodeNode(dag_node* dag, simplicity_callback_decodeJet decodeJet, uint_fast32_t i, bitstream* stream) {
   int32_t bit = read1Bit(stream);
   if (bit < 0) return (simplicity_err)bit;
   dag[i] = (dag_node){0};
@@ -63,7 +62,7 @@ static simplicity_err decodeNode(dag_node* dag, uint_fast32_t i, bitstream* stre
     bit = read1Bit(stream);
     if (bit < 0) return (simplicity_err)bit;
     if (bit) {
-      return simplicity_decodeJet(&dag[i], stream);
+      return decodeJet(&dag[i], stream);
     } else {
       /* Decode WORD. */
       int32_t depth = simplicity_decodeUptoMaxInt(stream);
@@ -153,9 +152,9 @@ static simplicity_err decodeNode(dag_node* dag, uint_fast32_t i, bitstream* stre
  *               len < 2^31
  *               NULL != stream
  */
-static simplicity_err decodeDag(dag_node* dag, const uint_fast32_t len, combinator_counters* census, bitstream* stream) {
+static simplicity_err decodeDag(dag_node* dag, simplicity_callback_decodeJet decodeJet, const uint_fast32_t len, combinator_counters* census, bitstream* stream) {
   for (uint_fast32_t i = 0; i < len; ++i) {
-    simplicity_err error = decodeNode(dag, i, stream);
+    simplicity_err error = decodeNode(dag, decodeJet, i, stream);
     if (!IS_OK(error)) return error;
 
     enumerator(census, dag[i].tag);
@@ -186,7 +185,7 @@ static simplicity_err decodeDag(dag_node* dag, const uint_fast32_t len, combinat
  *                          of the function is positive and when NULL != census;
  *                NULL == *dag when the return value is negative.
  */
-int_fast32_t simplicity_decodeMallocDag(dag_node** dag, combinator_counters* census, bitstream* stream) {
+int_fast32_t simplicity_decodeMallocDag(dag_node** dag, simplicity_callback_decodeJet decodeJet, combinator_counters* census, bitstream* stream) {
   *dag = NULL;
   int32_t dagLen = simplicity_decodeUptoMaxInt(stream);
   if (dagLen <= 0) return dagLen;
@@ -199,7 +198,7 @@ int_fast32_t simplicity_decodeMallocDag(dag_node** dag, combinator_counters* cen
   if (!*dag) return SIMPLICITY_ERR_MALLOC;
 
   if (census) *census = (combinator_counters){0};
-  simplicity_err error = decodeDag(*dag, (uint_fast32_t)dagLen, census, stream);
+  simplicity_err error = decodeDag(*dag, decodeJet, (uint_fast32_t)dagLen, census, stream);
 
   if (IS_OK(error)) {
     error = HIDDEN == (*dag)[dagLen - 1].tag
