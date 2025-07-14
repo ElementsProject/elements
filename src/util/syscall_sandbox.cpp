@@ -867,6 +867,8 @@ void SetSyscallSandboxPolicy(SyscallSandboxPolicy syscall_policy)
         break;
     case SyscallSandboxPolicy::MESSAGE_HANDLER: // Thread: msghand
         seccomp_policy_builder.AllowFileSystem();
+        // ELEMENTS: Need network to call CallMainChainRPC
+        seccomp_policy_builder.AllowNetwork();
         break;
     case SyscallSandboxPolicy::NET: // Thread: net
         seccomp_policy_builder.AllowFileSystem();
