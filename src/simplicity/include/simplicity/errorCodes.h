@@ -36,6 +36,7 @@ typedef enum {
   SIMPLICITY_ERR_ANTIDOS = -42,
   SIMPLICITY_ERR_HIDDEN_ROOT = -44,
   SIMPLICITY_ERR_AMR = -46,
+  SIMPLICITY_ERR_OVERWEIGHT = -48,
 } simplicity_err;
 
 /* Check if failure is permanent (or success which is always permanent). */
@@ -102,6 +103,8 @@ static inline const char * SIMPLICITY_ERR_MSG(simplicity_err err) {
     return "Program's root is HIDDEN";
   case SIMPLICITY_ERR_AMR:
     return "Program's AMR does not match";
+  case SIMPLICITY_ERR_OVERWEIGHT:
+    return "Program's budget is too large";
   default:
     return "Unknown error code";
   }
