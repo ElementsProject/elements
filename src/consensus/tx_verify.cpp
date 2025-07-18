@@ -192,7 +192,7 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
     return nSigOps;
 }
 
-bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmountMap& fee_map, std::set<std::pair<uint256, COutPoint>>& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks, const std::vector<std::pair<CScript, CScript>>& fedpegscripts)
+bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmountMap& fee_map, std::set<std::pair<uint256, COutPoint>>& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks, const std::vector<std::pair<CScript, CScript>>& fedpegscripts, bool allow_any_fee)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
@@ -245,7 +245,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, 
 
     if (g_con_elementsmode) {
         // Tally transaction fees
-        if (!HasValidFee(tx)) {
+        if (!HasValidFee(tx, allow_any_fee)) {
             return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-fee-outofrange");
         }
 
@@ -254,7 +254,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, 
             return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-in-ne-out", "value in != value out");
         }
         fee_map += GetFeeMap(tx);
-        if (!MoneyRange(fee_map)) {
+        if (allow_any_fee && !MoneyRange(fee_map)) {
             return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-block-total-fee-outofrange");
         }
     } else {

@@ -855,9 +855,11 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
 
     // The mempool holds txs for the next block, so pass height+1 to CheckTxInputs
     CAmountMap fee_map;
-    if (!Consensus::CheckTxInputs(tx, state, m_view, m_active_chainstate.m_chain.Height() + 1, fee_map, setPeginsSpent, NULL, true, true, fedpegscripts)) {
+    if (!Consensus::CheckTxInputs(tx, state, m_view, m_active_chainstate.m_chain.Height() + 1, fee_map, setPeginsSpent, NULL, true, true, fedpegscripts, Params().GetConsensus().allow_any_fee)) {
         return false; // state filled in by CheckTxInputs
     }
+
+    LogPrintf("mand coin: %u\n", Params().GetConsensus().allow_any_fee);
 
     // ELEMENTS: extra policy check for consistency between issuances and their rangeproof
     if (fRequireStandard) {
@@ -2350,7 +2352,7 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
             TxValidationState tx_state;
             if (!Consensus::CheckTxInputs(tx, tx_state, view, pindex->nHeight, fee_map,
                         setPeginsSpent == NULL ? setPeginsSpentDummy : *setPeginsSpent,
-                        g_parallel_script_checks ? &vChecks : NULL, fCacheResults, fScriptChecks, fedpegscripts)) {
+                        g_parallel_script_checks ? &vChecks : NULL, fCacheResults, fScriptChecks, fedpegscripts, Params().GetConsensus().allow_any_fee)) {
                 // Any transaction validation failure in ConnectBlock is a block consensus failure
                 state.Invalid(BlockValidationResult::BLOCK_CONSENSUS,
                         tx_state.GetRejectReason(), tx_state.GetDebugMessage());

@@ -3024,7 +3024,7 @@ std::shared_ptr<CWallet> CWallet::Create(WalletContext& context, const std::stri
 
     if (args.IsArgSet("-mintxfee")) {
         std::optional<CAmount> min_tx_fee = ParseMoney(args.GetArg("-mintxfee", ""));
-        if (!min_tx_fee || min_tx_fee.value() == 0) {
+        if (!min_tx_fee || (!Params().GetConsensus().allow_any_fee && min_tx_fee.value() == 0)) {
             error = AmountErrMsg("mintxfee", args.GetArg("-mintxfee", ""));
             return nullptr;
         } else if (min_tx_fee.value() > HIGH_TX_FEE_PER_KB) {

@@ -15,7 +15,7 @@
 
 
 // Check if explicit TX fees overflow or are negative
-bool HasValidFee(const CTransaction& tx);
+bool HasValidFee(const CTransaction& tx, bool allow_any_fee);
 
 // Compute the fee from the explicit fee outputs. Must call HasValidFee first
 CAmountMap GetFeeMap(const CTransaction& tx);
