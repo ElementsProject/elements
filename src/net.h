@@ -733,7 +733,7 @@ class NetEventsInterface
 {
 public:
     /** Initialize a peer (setup state, queue any initial messages) */
-    virtual void InitializeNode(CNode* pnode) = 0;
+    virtual void InitializeNode(const CNode* pnode) = 0;
 
     /** Handle removal of a peer (clear state) */
     virtual void FinalizeNode(const CNode& node) = 0;

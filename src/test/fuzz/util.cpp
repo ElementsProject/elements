@@ -244,13 +244,13 @@ void FillNode(FuzzedDataProvider& fuzzed_data_provider, ConnmanTestMsg& connman,
                 filter_txs),
     };
 
-    (void)connman.ReceiveMsgFrom(node, msg_version);
-    node.fPauseSend = false;
-    connman.ProcessMessagesOnce(node);
     {
         LOCK(node.cs_sendProcessing);
         peerman.SendMessages(&node);
     }
+    (void)connman.ReceiveMsgFrom(node, msg_version);
+    node.fPauseSend = false;
+    connman.ProcessMessagesOnce(node);
     if (node.fDisconnect) return;
     assert(node.nVersion == version);
     assert(node.GetCommonVersion() == std::min(version, PROTOCOL_VERSION));
