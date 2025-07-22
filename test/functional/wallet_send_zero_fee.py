@@ -33,7 +33,8 @@ class WalletTest(BitcoinTestFramework):
         self.generate(self.nodes[0], COINBASE_MATURITY + 1)
         self.sync_all()
 
-        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 10)
+        new_addr = self.nodes[1].getnewaddress()
+        self.nodes[0].sendtoaddress(new_addr, 10)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 20)
         self.generate(self.nodes[0], 1)
         assert_equal(self.nodes[0].getblockchaininfo()["blocks"], 102)
@@ -50,8 +51,9 @@ class WalletTest(BitcoinTestFramework):
         assert_equal(self.nodes[0].getblockchaininfo()["blocks"], 103)
 
         decoded = self.nodes[0].decoderawtransaction(hex)
-        bitcoin = "b2e15d0d7a0c94e4e2ce0fe6e8691b9e451377f6e46e8045a86f7c4b5d4f0f23"
-        assert_equal(decoded["fee"][bitcoin], 0)
+        # there should be no fee output
+        assert_equal(decoded["fee"], {})
+        assert_equal(len(decoded["vout"]),2)
         assert_equal(self.nodes[0].getbalance(), {'bitcoin': Decimal('20999968.99900900')})
         assert_equal(self.nodes[1].getbalance(), {'bitcoin': Decimal('11.00000000')})
         assert_equal(self.nodes[2].getbalance(), {'bitcoin': Decimal('20.00000000')})
