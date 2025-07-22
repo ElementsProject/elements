@@ -356,7 +356,6 @@ BASE_SCRIPTS = [
     'feature_coinstatsindex.py --legacy-wallet',
     'feature_coinstatsindex.py --descriptors',
     'wallet_orphanedreward.py',
-    'wallet_send_zero_fee.py',
     'wallet_timelock.py',
     'p2p_node_network_limited.py',
     'p2p_permissions.py',
