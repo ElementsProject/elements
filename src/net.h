@@ -13,6 +13,7 @@
 #include <crypto/siphash.h>
 #include <hash.h>
 #include <i2p.h>
+#include <logging.h>
 #include <net_permissions.h>
 #include <netaddress.h>
 #include <netbase.h>
@@ -32,6 +33,7 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <list>
 #include <map>
 #include <memory>
 #include <optional>
@@ -725,7 +727,7 @@ class NetEventsInterface
 {
 public:
     /** Initialize a peer (setup state, queue any initial messages) */
-    virtual void InitializeNode(CNode* pnode) = 0;
+    virtual void InitializeNode(const CNode* pnode) = 0;
 
     /** Handle removal of a peer (clear state) */
     virtual void FinalizeNode(const CNode& node) = 0;

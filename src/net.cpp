@@ -249,7 +249,7 @@ std::optional<CAddress> GetLocalAddrForPeer(CNode *pnode)
         if (pnode->IsInboundConn()) {
             // For inbound connections, assume both the address and the port
             // as seen from the peer.
-            addrLocal = CAddress{pnode->GetAddrLocal(), addrLocal.nServices};
+            addrLocal = CAddress{pnode->GetAddrLocal(), addrLocal.nServices, addrLocal.nTime};
         } else {
             // For outbound connections, assume just the address as seen from
             // the peer and leave the port in `addrLocal` as returned by
@@ -2221,7 +2221,7 @@ std::vector<AddedNodeInfo> CConnman::GetAddedNodeInfo() const
     }
 
     for (const std::string& strAddNode : lAddresses) {
-        CService service(LookupNumeric(strAddNode, Params().GetDefaultPort(strAddNode)));
+        CService service{MaybeFlipIPv6toCJDNS(LookupNumeric(strAddNode, Params().GetDefaultPort(strAddNode)))};
         AddedNodeInfo addedNode{strAddNode, CService(), false, false};
         if (service.IsValid()) {
             // strAddNode is an IP:port

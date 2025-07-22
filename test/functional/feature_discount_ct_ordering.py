@@ -33,6 +33,7 @@ class CTTest(BitcoinTestFramework):
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
+        self.skip_if_no_bdb()
 
     def run_test(self):
 
@@ -113,7 +114,7 @@ class CTTest(BitcoinTestFramework):
         assert_equal(decoded['vsize'], 2575)
         self.sync_mempools([node0, node1])
         tx = node1.getrawtransaction(txid, True)
-        assert_equal(tx['discountvsize'], 410)
+        assert_equal(tx['discountvsize'], 326)
 
         feerate = 1.0
         self.log.info(f"Send confidential (discounted) tx to node 1 at {feerate} sat/vb")
@@ -131,11 +132,11 @@ class CTTest(BitcoinTestFramework):
             assert_equal(len(vin), 2)
             assert_equal(len(vout), 3)
             if 'bitcoin' in decoded['fee']:
-                assert_equal(decoded['fee']['bitcoin'], Decimal('-0.00000410'))
+                assert_equal(decoded['fee']['bitcoin'], Decimal('-0.00000326'))
             else:
-                assert_equal(decoded['fee'][bitcoin], Decimal('0.00000410'))
+                assert_equal(decoded['fee'][bitcoin], Decimal('0.00000326'))
             assert_equal(decoded['vsize'], 2575)
-            assert_equal(decoded['discountvsize'], 410)
+            assert_equal(decoded['discountvsize'], 326)
 
         feerate = 2.0
         self.log.info(f"Send confidential (discounted) tx to node 1 at {feerate} sat/vb")
@@ -145,7 +146,7 @@ class CTTest(BitcoinTestFramework):
         self.sync_mempools([node1, node2])
         tx = node1.gettransaction(txid, True, True)
         decoded = tx['decoded']
-        assert_equal(decoded['fee'][bitcoin], Decimal('0.00000820'))
+        assert_equal(decoded['fee'][bitcoin], Decimal('0.00000652'))
 
         # check that txs in the block template are in decreasing feerate according to their discount size
         self.log.info("Check tx ordering in block template")

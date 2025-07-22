@@ -20,6 +20,7 @@ expand_path() {
   cd "${1}" && pwd -P
 }
 
+CONTRIB_BASEDIR="$(dirname "$(readlink -f "${0}")")"
 BDB_PREFIX="$(expand_path "${1}")/db4"; shift;
 BDB_VERSION='db-4.8.30.NC'
 BDB_HASH='12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef'
@@ -237,6 +238,10 @@ CONFIG_SUB_HASH='3969f7d5f6967ccc6f792401b8ef3916a1d1b1d0f0de5a4e354c95addb8b800
 
 rm -f "dist/config.guess"
 rm -f "dist/config.sub"
+
+# git.savannah.gnu.org is extremely slow, provide a local copy of the files
+cp -fp "${CONTRIB_BASEDIR}/bdb4_config/config.guess" dist/config.guess
+cp -fp "${CONTRIB_BASEDIR}/bdb4_config/config.sub" dist/config.sub
 
 http_get "${CONFIG_GUESS_URL}" dist/config.guess "${CONFIG_GUESS_HASH}"
 http_get "${CONFIG_SUB_URL}" dist/config.sub "${CONFIG_SUB_HASH}"

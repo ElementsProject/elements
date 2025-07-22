@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <blind.h>
+#include <chainparams.h>
 
 #include <hash.h>
 #include <primitives/transaction.h>
@@ -157,11 +158,6 @@ bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue&
         return false;
     }
 
-    // Value sidechannel must be a transaction-valid amount (should be belt-and-suspenders check)
-    if (amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount)) {
-        return false;
-    }
-
     // Convenience pointers to starting point of each recovered 32 byte message
     unsigned char *asset_type = msg;
     unsigned char *asset_blinder = msg+32;
@@ -169,6 +165,13 @@ bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue&
     // Asset sidechannel of asset type + asset blinder
     secp256k1_generator recalculated_gen;
     if (msg_size != SIDECHANNEL_MSG_SIZE || secp256k1_generator_generate_blinded(secp256k1_blind_context, &recalculated_gen, asset_type, asset_blinder) != 1) {
+        return false;
+    }
+
+    CAsset asset{std::vector<unsigned char>{asset_type, asset_type + 32}};
+
+    // Value sidechannel must be a transaction-valid amount (should be belt-and-suspenders check)
+    if ((!committedScript.IsUnspendable() && amount == 0) || (asset == Params().GetConsensus().pegged_asset && (amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount)))) {
         return false;
     }
 
@@ -182,7 +185,7 @@ bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue&
     }
 
     amount_out = (CAmount)amount;
-    asset_out = CAsset(std::vector<unsigned char>(asset_type, asset_type+32));
+    asset_out = asset;
     asset_blinding_factor_out = uint256(std::vector<unsigned char>(asset_blinder, asset_blinder+32));
     return true;
 }

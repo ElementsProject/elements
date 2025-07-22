@@ -151,9 +151,9 @@ void BaseIndex::ThreadSync()
                 const CBlockIndex* pindex_next = NextSyncBlock(pindex, m_chainstate->m_chain);
                 if (!pindex_next) {
                     m_best_block_index = pindex;
-                    m_synced = true;
                     // No need to handle errors in Commit. See rationale above.
                     Commit();
+                    m_synced = true;
                     break;
                 }
                 if (pindex_next->pprev != pindex && !Rewind(pindex, pindex_next->pprev)) {

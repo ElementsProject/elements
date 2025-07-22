@@ -10,6 +10,9 @@
 #include <script/script_error.h>
 #include <span.h>
 #include <primitives/transaction.h>
+extern "C" {
+#include <simplicity/elements/env.h>
+}
 
 #include <optional>
 #include <vector>
@@ -155,6 +158,10 @@ enum : uint32_t {
     //
     SCRIPT_SIGHASH_RANGEPROOF = (1U << 22),
 
+    // Support simplicity
+    //
+    SCRIPT_VERIFY_SIMPLICITY = (1U << 23),
+
     // Constants to point to the highest flag in use. Add new flags above this line.
     //
     SCRIPT_VERIFY_END_MARKER
@@ -162,8 +169,18 @@ enum : uint32_t {
 
 bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned int flags, ScriptError* serror);
 
+struct SimplicityTransactionDeleter
+{
+    void operator()(elementsTransaction* ptr)
+    {
+        simplicity_elements_freeTransaction(ptr);
+    }
+};
+using SimplicityTransactionUniquePtr = std::unique_ptr<elementsTransaction, SimplicityTransactionDeleter>;
+
 struct PrecomputedTransactionData
 {
+    SimplicityTransactionUniquePtr m_simplicity_tx_data;
     // BIP341 precomputed data.
     // These are single-SHA256, see https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki#cite_note-15.
     uint256 m_prevouts_single_hash;
@@ -195,6 +212,7 @@ struct PrecomputedTransactionData
     bool m_spent_outputs_ready = false;
 
     //! ELEMENTS: parent genesis hash
+    const uint256 m_hash_genesis_block;
     CHashWriter m_tapsighash_hasher;
 
     explicit PrecomputedTransactionData(const uint256& hash_genesis_block);
@@ -261,6 +279,7 @@ static constexpr size_t WITNESS_V1_TAPROOT_SIZE = 32;
 
 static constexpr uint8_t TAPROOT_LEAF_MASK = 0xfe;
 static constexpr uint8_t TAPROOT_LEAF_TAPSCRIPT = 0xc4;
+static constexpr uint8_t TAPROOT_LEAF_TAPSIMPLICITY = 0xbe;
 static constexpr size_t TAPROOT_CONTROL_BASE_SIZE = 33;
 static constexpr size_t TAPROOT_CONTROL_NODE_SIZE = 32;
 static constexpr size_t TAPROOT_CONTROL_MAX_NODE_COUNT = 128;
@@ -326,6 +345,11 @@ public:
         return std::numeric_limits<uint32_t>::max();
     }
 
+    virtual bool CheckSimplicity(const std::vector<unsigned char>& witness, const std::vector<unsigned char>& program, const rawElementsTapEnv& simplicityRawTap, int64_t budget, ScriptError* serror) const
+    {
+         return false;
+    }
+
     virtual ~BaseSignatureChecker() {}
 };
 
@@ -369,6 +393,7 @@ public:
 
     const PrecomputedTransactionData* GetPrecomputedTransactionData() const override;
     uint32_t GetnIn() const override;
+    bool CheckSimplicity(const std::vector<unsigned char>& program, const std::vector<unsigned char>& witness, const rawElementsTapEnv& simplicityRawTap, int64_t budget, ScriptError* serror) const override;
 };
 
 using TransactionSignatureChecker = GenericTransactionSignatureChecker<CTransaction>;

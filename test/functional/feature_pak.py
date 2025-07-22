@@ -47,6 +47,7 @@ class PAKTest (BitcoinTestFramework):
             init_results += [ self.nodes[i].initpegoutwallet(xpub) ]
             info_results += [ self.nodes[i].getwalletpakinfo() ]
             assert_equal(init_results[i]["address_lookahead"], info_results[i]["address_lookahead"])
+            assert_equal(init_results[i]["pakentry"], info_results[i]["pakentry"])
             assert_equal(init_results[i]["liquid_pak"], info_results[i]["liquid_pak"])
             assert_equal(init_results[i]["liquid_pak_address"], info_results[i]["liquid_pak_address"])
             assert_equal(info_results[i]["bitcoin_descriptor"], xpub_desc)

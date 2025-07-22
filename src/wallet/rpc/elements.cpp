@@ -850,7 +850,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
 
     // Estimate fee for transaction, decrement fee output(including witness data)
     unsigned int nBytes = GetVirtualTransactionSize(CTransaction(mtx)) +
-        (1+1+72+1+33/WITNESS_SCALE_FACTOR);
+        (1+1+72+1+33)/WITNESS_SCALE_FACTOR;
     CCoinControl coin_control;
     FeeCalculation feeCalc;
     CAmount nFeeNeeded = GetMinimumFee(*pwallet, nBytes, coin_control, &feeCalc);
@@ -1426,8 +1426,8 @@ RPCHelpMan issueasset()
         throw JSONRPCError(RPC_TYPE_ERROR, "Issuance can only be done on elements-style chains. Note: `-regtest` is Bitcoin's regtest mode, instead try `-chain=<custom chain name>`");
     }
 
-    CAmount nAmount = AmountFromValue(request.params[0]);
-    CAmount nTokens = AmountFromValue(request.params[1]);
+    CAmount nAmount = AmountFromValue(request.params[0], false);
+    CAmount nTokens = AmountFromValue(request.params[1], false);
     if (nAmount == 0 && nTokens == 0) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Issuance must have one non-zero component");
     }
@@ -1524,7 +1524,7 @@ RPCHelpMan reissueasset()
     std::string assetstr = request.params[0].get_str();
     CAsset asset = GetAssetFromString(assetstr);
 
-    CAmount nAmount = AmountFromValue(request.params[1]);
+    CAmount nAmount = AmountFromValue(request.params[1], false);
     if (nAmount <= 0) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Reissuance must create a non-zero amount.");
     }

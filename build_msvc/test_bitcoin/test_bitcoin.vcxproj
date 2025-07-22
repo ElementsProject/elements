@@ -5,6 +5,7 @@
     <ProjectGuid>{A56B73DB-D46D-4882-8374-1FE3FFA08F07}</ProjectGuid>
   </PropertyGroup>
   <PropertyGroup Label="Configuration">
+    <TargetName>test_elements</TargetName>
     <ConfigurationType>Application</ConfigurationType>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
@@ -15,7 +16,18 @@
     <ClCompile Include="..\..\src\test\main.cpp" />
     <ClCompile Include="..\..\src\test\util\*.cpp" />
     <ClCompile Include="..\..\src\wallet\test\*_fixture.cpp" />
-    <ClCompile Include="..\..\src\wallet\test\*_tests.cpp" />
+    <ClCompile Include="..\..\src\wallet\test\coinselector_tests.cpp" />
+    <ClCompile Include="..\..\src\wallet\test\db_tests.cpp" />
+    <ClCompile Include="..\..\src\wallet\test\init_tests.cpp" />
+    <ClCompile Include="..\..\src\wallet\test\ismine_tests.cpp" />
+    <!-- Exclude psbt_wallet_tests.cpp from the build -->
+    <!-- <ClCompile Include="..\..\src\wallet\test\psbt_wallet_tests.cpp" /> -->
+    <ClCompile Include="..\..\src\wallet\test\scriptpubkeyman_tests.cpp" />
+    <ClCompile Include="..\..\src\wallet\test\spend_tests.cpp" />
+    <ClCompile Include="..\..\src\wallet\test\wallet_crypto_tests.cpp" />
+    <ClCompile Include="..\..\src\wallet\test\walletdb_tests.cpp" />
+    <ClCompile Include="..\..\src\wallet\test\wallet_tests.cpp" />
+    <ClCompile Include="..\..\src\wallet\test\wallet_transaction_tests.cpp" />
     <ClCompile Include="..\..\src\wallet\test\util.cpp" />
     <ClCompile Include="..\..\src\primitives\bitcoin\transaction.cpp" />
   </ItemGroup>
@@ -55,6 +67,9 @@
     </ProjectReference>
     <ProjectReference Include="..\libsecp256k1\libsecp256k1.vcxproj">
       <Project>{bb493552-3b8c-4a8c-bf69-a6e7a51d2ea6}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\libelementssimplicity\libelementssimplicity.vcxproj">
+      <Project>{abae25f0-d700-46e1-9ef6-5d6ddfcf8b26}</Project>
     </ProjectReference>
     <ProjectReference Include="..\libleveldb\libleveldb.vcxproj">
       <Project>{18430fef-6b61-4c53-b396-718e02850f1b}</Project>

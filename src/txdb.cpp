@@ -19,6 +19,7 @@
 
 // ELEMENTS
 #include <block_proof.h> // CheckProof
+#include <chainparams.h> // Params()
 
 static constexpr uint8_t DB_COIN{'C'};
 static constexpr uint8_t DB_COINS{'c'};
@@ -330,39 +331,48 @@ bool CBlockTreeDB::WritePAKList(const std::vector<std::vector<unsigned char> >& 
         return Write(std::make_pair(DB_PAK, uint256S("1")), offline_list) && Write(std::make_pair(DB_PAK, uint256S("2")), online_list) && Write(std::make_pair(DB_PAK, uint256S("3")), reject);
 }
 
-/** Note that we only get a conservative (lower) estimate of the max header height here,
- * obtained by sampling the first 10,000 headers on disk (which are in random order) and
- * taking the highest block we see. */
-bool CBlockTreeDB::WalkBlockIndexGutsForMaxHeight(int* nHeight) {
-    std::unique_ptr<CDBIterator> pcursor(NewIterator());
-    *nHeight = 0;
-    int i = 0;
-    pcursor->Seek(std::make_pair(DB_BLOCK_INDEX, uint256()));
-    while (pcursor->Valid()) {
-        if (ShutdownRequested()) return false;
-        std::pair<uint8_t, uint256> key;
-        if (pcursor->GetKey(key) && key.first == DB_BLOCK_INDEX) {
-            i++;
-            if (i > 10'000) {
-                // Under the (accurate) assumption that the headers on disk are effectively in random height order,
-                //   we have a good-enough (conservative) estimate of the max height very quickly, and don't need to
-                //   waste more time. Shortcutting like this will cause us to keep a few extra headers, which is fine.
-                break;
-            }
-            CDiskBlockIndex diskindex;
-            if (pcursor->GetValue(diskindex)) {
-                if (diskindex.nHeight > *nHeight) {
-                    *nHeight = diskindex.nHeight;
-                }
-                pcursor->Next();
-            } else {
-                return error("%s: failed to read value", __func__);
-            }
-        } else {
-            break;
-        }
+const CBlockIndex *CBlockTreeDB::RegenerateFullIndex(const CBlockIndex *pindexTrimmed, CBlockIndex *pindexNew) const
+{
+    LOCK(cs_main);
+
+    if(!pindexTrimmed->trimmed()) {
+        return pindexTrimmed;
     }
-    return true;
+    CBlockHeader tmp;
+    bool BlockRead = false;
+    {
+        // In unpruned nodes, same data could be read from blocks using ReadBlockFromDisk, but that turned out to
+        // be about 6x slower than reading from the index
+        std::pair<uint8_t, uint256> key(DB_BLOCK_INDEX, pindexTrimmed->GetBlockHash());
+        CDiskBlockIndex diskindex;
+        BlockRead = this->Read(key, diskindex);
+        tmp = diskindex.GetBlockHeader();
+    }
+    assert(BlockRead);
+    // Clone the needed data from the original trimmed block
+    pindexNew->pprev          = pindexTrimmed->pprev;
+    pindexNew->phashBlock     = pindexTrimmed->phashBlock;
+    // Construct block index object
+    pindexNew->nHeight        = pindexTrimmed->nHeight;
+    pindexNew->nFile          = pindexTrimmed->nFile;
+    pindexNew->nDataPos       = pindexTrimmed->nDataPos;
+    pindexNew->nUndoPos       = pindexTrimmed->nUndoPos;
+    pindexNew->nVersion       = pindexTrimmed->nVersion;
+    pindexNew->hashMerkleRoot = pindexTrimmed->hashMerkleRoot;
+    pindexNew->nTime          = pindexTrimmed->nTime;
+    pindexNew->nBits          = pindexTrimmed->nBits;
+    pindexNew->nNonce         = pindexTrimmed->nNonce;
+    pindexNew->nStatus        = pindexTrimmed->nStatus;
+    pindexNew->nTx            = pindexTrimmed->nTx;
+
+    pindexNew->proof               = tmp.proof;
+    pindexNew->m_dynafed_params    = tmp.m_dynafed_params;
+    pindexNew->m_signblock_witness = tmp.m_signblock_witness;
+
+    if (pindexTrimmed->nHeight && pindexTrimmed->nHeight % 1000 == 0) {
+        assert(CheckProof(pindexNew->GetBlockHeader(), Params().GetConsensus()));
+    }
+    return pindexNew;
 }
 
 bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, std::function<CBlockIndex*(const uint256&)> insertBlockIndex, int trimBelowHeight)
@@ -396,23 +406,26 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
 
+                pindexNew->proof               = diskindex.proof;
+                pindexNew->m_dynafed_params    = diskindex.m_dynafed_params;
+                pindexNew->m_signblock_witness = diskindex.m_signblock_witness;
+
+                assert(!(g_signed_blocks && diskindex.m_dynafed_params.value().IsNull() && diskindex.proof.value().IsNull()));
+
+                pindexNew->set_stored();
                 n_total++;
+
+                const uint256 block_hash = pindexNew->GetBlockHash();
+                // Only validate one of every 1000 block header for sanity check
+                if (pindexNew->nHeight % 1000 == 0 &&
+                        block_hash != consensusParams.hashGenesisBlock &&
+                        !CheckProof(pindexNew->GetBlockHeader(), consensusParams)) {
+                    return error("%s: CheckProof: %s, %s", __func__, block_hash.ToString(), pindexNew->ToString());
+                }
                 if (diskindex.nHeight >= trimBelowHeight) {
                     n_untrimmed++;
-                    pindexNew->proof               = diskindex.proof;
-                    pindexNew->m_dynafed_params    = diskindex.m_dynafed_params;
-                    pindexNew->m_signblock_witness = diskindex.m_signblock_witness;
-
-                    const uint256 block_hash = pindexNew->GetBlockHash();
-                    // Only validate one of every 1000 block header for sanity check
-                    if (pindexNew->nHeight % 1000 == 0 &&
-                            block_hash != consensusParams.hashGenesisBlock &&
-                            !CheckProof(pindexNew->GetBlockHeader(), consensusParams)) {
-                        return error("%s: CheckProof: %s, %s", __func__, block_hash.ToString(), pindexNew->ToString());
-                    }
                 } else {
-                    pindexNew->m_trimmed = true;
-                    pindexNew->m_trimmed_dynafed_block = !diskindex.m_dynafed_params.value().IsNull();
+                    pindexNew->trim();
                 }
 
                 pcursor->Next();

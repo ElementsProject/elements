@@ -50,7 +50,7 @@ static void ParseRecipients(const UniValue& address_amounts, const UniValue& add
         destinations.insert(dest);
 
         CScript script_pub_key = GetScriptForDestination(dest);
-        CAmount amount = AmountFromValue(address_amounts[i++]);
+        CAmount amount = AmountFromValue(address_amounts[i++], asset == Params().GetConsensus().pegged_asset);
 
         bool subtract_fee = false;
         for (unsigned int idx = 0; idx < subtract_fee_outputs.size(); idx++) {
@@ -124,7 +124,7 @@ static void SetFeeEstimateMode(const CWallet& wallet, CCoinControl& cc, const Un
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot specify both estimate_mode and fee_rate");
         }
         // Fee rates in sat/vB cannot represent more than 3 significant digits.
-        cc.m_feerate = CFeeRate{AmountFromValue(fee_rate, /* decimals */ 3)};
+        cc.m_feerate = CFeeRate{AmountFromValue(fee_rate, /*check_range=*/true, /*decimals=*/3)};
         if (override_min_fee) cc.fOverrideFeeRate = true;
         // Default RBF to true for explicit fee_rate, if unset.
         if (!cc.m_signal_bip125_rbf) cc.m_signal_bip125_rbf = true;
@@ -440,7 +440,7 @@ static std::vector<RPCArg> FundTxDoc()
     };
 }
 
-void FundTransaction(CWallet& wallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position, const UniValue& options, CCoinControl& coinControl, const UniValue& solving_data, bool override_min_fee)
+void FundTransaction(CWallet& wallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position, const UniValue& options, CCoinControl& coinControl, bool override_min_fee)
 {
     // Make sure the results are valid at least up to the most recent block
     // the user could have gotten from another RPC command prior to now
@@ -792,25 +792,6 @@ RPCHelpMan fundrawtransaction()
                         "This boolean should reflect whether the transaction has inputs\n"
                         "(e.g. fully valid, or on-chain transactions), if known by the caller."
                     },
-                    {"solving_data", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED_NAMED_ARG, "Keys and scripts needed for producing a final transaction with a dummy signature. Used for fee estimation during coin selection.\n",
-                        {
-                            {"pubkeys", RPCArg::Type::ARR, RPCArg::DefaultHint{"empty array"}, "A json array of public keys.\n",
-                                {
-                                    {"pubkey", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A public key"},
-                                },
-                            },
-                            {"scripts", RPCArg::Type::ARR, RPCArg::DefaultHint{"empty array"}, "A json array of scripts.\n",
-                                {
-                                    {"script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A script"},
-                                },
-                            },
-                            {"descriptors", RPCArg::Type::ARR, RPCArg::DefaultHint{"empty array"}, "A json array of descriptors.\n",
-                                {
-                                    {"descriptor", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A descriptor"},
-                                },
-                            }
-                        }
-                    },
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
@@ -850,7 +831,7 @@ RPCHelpMan fundrawtransaction()
     CCoinControl coin_control;
     // Automatically select (additional) coins. Can be overridden by options.add_inputs.
     coin_control.m_add_inputs = true;
-    FundTransaction(*pwallet, tx, fee, change_position, request.params[1], coin_control, request.params[3], /* override_min_fee */ true);
+    FundTransaction(*pwallet, tx, fee, change_position, request.params[1], coin_control, /* override_min_fee */ true);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("hex", EncodeHexTx(CTransaction(tx)));
@@ -1293,12 +1274,8 @@ RPCHelpMan send()
             // Automatically select coins, unless at least one is manually selected. Can
             // be overridden by options.add_inputs.
             coin_control.m_add_inputs = rawTx.vin.size() == 0;
-            UniValue solving_data = NullUniValue;
-            if (options.exists("solving_data")) {
-                solving_data = options["solving_data"].get_obj();
-            }
             SetOptionsInputWeights(options["inputs"], options);
-            FundTransaction(*pwallet, rawTx, fee, change_position, options, coin_control, /* solving_data */ solving_data, /* override_min_fee */ false);
+            FundTransaction(*pwallet, rawTx, fee, change_position, options, coin_control, /* override_min_fee */ false);
 
             bool add_to_wallet = true;
             if (options.exists("add_to_wallet")) {
@@ -1530,25 +1507,6 @@ RPCHelpMan walletcreatefundedpsbt()
                         FundTxDoc()),
                         "options"},
                     {"bip32derivs", RPCArg::Type::BOOL, RPCArg::Default{true}, "Include BIP 32 derivation paths for public keys if we know them"},
-                    {"solving_data", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED_NAMED_ARG, "Keys and scripts needed for producing a final transaction with a dummy signature. Used for fee estimation during coin selection.\n",
-                        {
-                            {"pubkeys", RPCArg::Type::ARR, RPCArg::DefaultHint{"empty array"}, "A json array of public keys.\n",
-                                {
-                                    {"pubkey", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A public key"},
-                                },
-                            },
-                            {"scripts", RPCArg::Type::ARR, RPCArg::DefaultHint{"empty array"}, "A json array of scripts.\n",
-                                {
-                                    {"script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A script"},
-                                },
-                            },
-                            {"descriptors", RPCArg::Type::ARR, RPCArg::DefaultHint{"empty array"}, "A json array of descriptors.\n",
-                                {
-                                    {"descriptor", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A descriptor"},
-                                },
-                            }
-                        }
-                    },
                     {"psbt_version", RPCArg::Type::NUM, RPCArg::Default{2}, "The PSBT version number to use."},
                 },
                 RPCResult{
@@ -1582,7 +1540,6 @@ RPCHelpMan walletcreatefundedpsbt()
         UniValue::VNUM,
         UniValue::VOBJ,
         UniValue::VBOOL,
-        UniValue::VOBJ,
         UniValue::VNUM,
         }, true
     );
@@ -1605,8 +1562,8 @@ RPCHelpMan walletcreatefundedpsbt()
 
     // Make a blank psbt
     uint32_t psbt_version = 2;
-    if (!request.params[6].isNull()) {
-        psbt_version = request.params[6].get_int();
+    if (!request.params[5].isNull()) {
+        psbt_version = request.params[5].get_int();
     }
     if (psbt_version != 2) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "The PSBT version can only be 2");
@@ -1655,7 +1612,7 @@ RPCHelpMan walletcreatefundedpsbt()
         }
     }
     SetOptionsInputWeights(request.params[0], options);
-    FundTransaction(wallet, rawTx, fee, change_position, options, coin_control, /* solving_data */ request.params[5], /* override_min_fee */ true);
+    FundTransaction(wallet, rawTx, fee, change_position, options, coin_control, /* override_min_fee */ true);
     // Find an input that is ours
     unsigned int blinder_index = 0;
     {

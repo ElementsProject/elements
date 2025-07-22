@@ -222,6 +222,10 @@ struct Peer {
      * Most peers use headers-first syncing, which doesn't use this mechanism */
     uint256 m_continuation_block GUARDED_BY(m_block_inv_mutex) {};
 
+    Mutex m_msgproc_mutex;
+    /** Set to true once initial VERSION message was sent (only relevant for outbound peers). */
+    bool m_outbound_version_message_sent GUARDED_BY(m_msgproc_mutex){false};
+
     /** This peer's reported block height when we connected */
     std::atomic<int> m_starting_height{-1};
 
@@ -312,7 +316,7 @@ public:
     void NewPoWValidBlock(const CBlockIndex *pindex, const std::shared_ptr<const CBlock>& pblock) override;
 
     /** Implement NetEventsInterface */
-    void InitializeNode(CNode* pnode) override;
+    void InitializeNode(const CNode* pnode) override;
     void FinalizeNode(const CNode& node) override;
     bool ProcessMessages(CNode* pfrom, std::atomic<bool>& interrupt) override;
     bool SendMessages(CNode* pto) override EXCLUSIVE_LOCKS_REQUIRED(pto->cs_sendProcessing);
@@ -1189,7 +1193,7 @@ void UpdateLastBlockAnnounceTime(NodeId node, int64_t time_in_seconds)
     if (state) state->m_last_block_announcement = time_in_seconds;
 }
 
-void PeerManagerImpl::InitializeNode(CNode *pnode)
+void PeerManagerImpl::InitializeNode(const CNode *pnode)
 {
     NodeId nodeid = pnode->GetId();
     {
@@ -1201,9 +1205,6 @@ void PeerManagerImpl::InitializeNode(CNode *pnode)
         PeerRef peer = std::make_shared<Peer>(nodeid);
         LOCK(m_peer_mutex);
         m_peer_map.emplace_hint(m_peer_map.end(), nodeid, std::move(peer));
-    }
-    if (!pnode->IsInboundConn()) {
-        PushNodeVersion(*pnode);
     }
 }
 
@@ -2122,29 +2123,30 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, const Peer& peer,
     // If we are already too far ahead of where we want to be on headers, discard
     //   the received headers. We can still get ahead by up to a single maximum-sized
     //   headers message here, but never further, so that's fine.
-    if (pindexBestHeader) {
-        int64_t headers_ahead = pindexBestHeader->nHeight - m_chainman.ActiveHeight();
-        bool too_far_ahead = node::fTrimHeaders && (headers_ahead >= node::nHeaderDownloadBuffer);
-        if (too_far_ahead) {
-            LOCK(cs_main);
-            CNodeState *nodestate = State(pfrom.GetId());
-            if ((nodestate->pindexBestKnownBlock == nullptr) ||
+    if (node::fTrimHeaders) {
+        LOCK(cs_main);
+        if (pindexBestHeader)  {
+            int64_t headers_ahead = pindexBestHeader->nHeight - m_chainman.ActiveHeight();
+            if (headers_ahead >= node::nHeaderDownloadBuffer) {
+                CNodeState *nodestate = State(pfrom.GetId());
+                if ((nodestate->pindexBestKnownBlock == nullptr) ||
                 (nodestate->pindexBestKnownBlock->nHeight < m_chainman.ActiveHeight())) {
-                // Our notion of what blocks a peer has available is based on its pindexBestKnownBlock,
-                // which is based on headers received from it. If we don't have one, or it's too old,
-                // then we can never get blocks from this peer until we accept headers from it first.
-                LogPrint(BCLog::NET, "NOT discarding headers from peer=%d, to update its block availability. (current best header %d, active chain height %d)\n", pfrom.GetId(), pindexBestHeader->nHeight, m_chainman.ActiveHeight());
-            } else {
-                LogPrint(BCLog::NET, "Discarding received headers and pausing header sync from peer=%d, because we are too far ahead of block sync. (%d > %d)\n", pfrom.GetId(), pindexBestHeader->nHeight, m_chainman.ActiveHeight());
-                if (nodestate->fSyncStarted) {
-                    // Cancel sync from this node, so we don't penalize it later.
-                    // This will cause us to automatically start syncing from a different node (or restart syncing from the same node) later,
-                    //   if we still need to sync headers.
-                    nSyncStarted--;
-                    nodestate->fSyncStarted = false;
-                    nodestate->m_headers_sync_timeout = 0us;
+                    // Our notion of what blocks a peer has available is based on its pindexBestKnownBlock,
+                    // which is based on headers received from it. If we don't have one, or it's too old,
+                    // then we can never get blocks from this peer until we accept headers from it first.
+                    LogPrint(BCLog::NET, "NOT discarding headers from peer=%d, to update its block availability. (current best header %d, active chain height %d)\n", pfrom.GetId(), pindexBestHeader->nHeight, m_chainman.ActiveHeight());
+                } else {
+                    LogPrint(BCLog::NET, "Discarding received headers and pausing header sync from peer=%d, because we are too far ahead of block sync. (%d > %d)\n", pfrom.GetId(), pindexBestHeader->nHeight, m_chainman.ActiveHeight());
+                    if (nodestate->fSyncStarted) {
+                        // Cancel sync from this node, so we don't penalize it later.
+                        // This will cause us to automatically start syncing from a different node (or restart syncing from the same node) later,
+                        //   if we still need to sync headers.
+                        nSyncStarted--;
+                        nodestate->fSyncStarted = false;
+                        nodestate->m_headers_sync_timeout = 0us;
+                    }
+                    return;
                 }
-                return;
             }
         }
     }
@@ -3305,12 +3307,13 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
         for (; pindex; pindex = m_chainman.ActiveChain().Next(pindex))
         {
             if (pindex->trimmed()) {
-                // For simplicity, if any of the headers they're asking for are trimmed,
-                //   just drop the request.
-                LogPrint(BCLog::NET, "%s: ignoring getheaders from peer=%i which would return at least one trimmed header\n", __func__, pfrom.GetId());
-                return;
+                // Header is trimmed, reload from disk before sending
+                CBlockIndex tmpBlockIndexFull;
+                const CBlockIndex* pindexfull = pindex->untrim_to(&tmpBlockIndexFull);
+                vHeaders.push_back(pindexfull->GetBlockHeader());
+            } else {
+                vHeaders.push_back(pindex->GetBlockHeader());
             }
-            vHeaders.push_back(pindex->GetBlockHeader());
             if (--nLimit <= 0 || pindex->GetBlockHash() == hashStop)
                 break;
         }
@@ -4199,6 +4202,10 @@ bool PeerManagerImpl::ProcessMessages(CNode* pfrom, std::atomic<bool>& interrupt
     PeerRef peer = GetPeerRef(pfrom->GetId());
     if (peer == nullptr) return false;
 
+    // For outbound connections, ensure that the initial VERSION message
+    // has been sent first before processing any incoming messages
+    if (!pfrom->IsInboundConn() && WITH_LOCK(peer->m_msgproc_mutex, return !peer->m_outbound_version_message_sent)) return false;
+
     {
         LOCK(peer->m_getdata_requests_mutex);
         if (!peer->m_getdata_requests.empty()) {
@@ -4657,6 +4664,13 @@ bool PeerManagerImpl::SendMessages(CNode* pto)
     // We must call MaybeDiscourageAndDisconnect first, to ensure that we'll
     // disconnect misbehaving peers even before the version handshake is complete.
     if (MaybeDiscourageAndDisconnect(*pto, *peer)) return true;
+
+    // Initiate version handshake for outbound connections
+    if (!pto->IsInboundConn() && WITH_LOCK(peer->m_msgproc_mutex, return !peer->m_outbound_version_message_sent)) {
+        LOCK(peer->m_msgproc_mutex);
+        PushNodeVersion(*pto);
+        peer->m_outbound_version_message_sent = true;
+    }
 
     // Don't send anything until the version handshake is complete
     if (!pto->fSuccessfullyConnected || pto->fDisconnect)

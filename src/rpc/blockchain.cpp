@@ -193,15 +193,22 @@ CBlockIndex* ParseHashOrHeight(const UniValue& param, ChainstateManager& chainma
     }
 }
 
-UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex)
+UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex_)
 {
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
 
+    CBlockIndex tmpBlockIndexFull;
+    const CBlockIndex* blockindex;
+    {
+        LOCK(cs_main);
+        blockindex = blockindex_->untrim_to(&tmpBlockIndexFull);
+    }
+
     UniValue result(UniValue::VOBJ);
     result.pushKV("hash", blockindex->GetBlockHash().GetHex());
     const CBlockIndex* pnext;
-    int confirmations = ComputeNextBlockAndDepth(tip, blockindex, pnext);
+    int confirmations = ComputeNextBlockAndDepth(tip, blockindex_, pnext);
     result.pushKV("confirmations", confirmations);
     result.pushKV("height", blockindex->nHeight);
     result.pushKV("version", blockindex->nVersion);
@@ -238,7 +245,7 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
         }
     }
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
-    if (blockindex->pprev)
+    if (blockindex_->pprev)
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
     if (pnext)
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
@@ -272,12 +279,12 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
                 const CTxUndo* txundo = (have_undo && i > 0) ? &blockUndo.vtxundo.at(i - 1) : nullptr;
                 UniValue objTx(UniValue::VOBJ);
                 TxToUniv(*tx, uint256(), objTx, true, RPCSerializationFlags(), txundo, verbosity);
-                txs.push_back(objTx);
+                txs.push_back(std::move(objTx));
             }
             break;
     }
 
-    result.pushKV("tx", txs);
+    result.pushKV("tx", std::move(txs));
 
     return result;
 }
@@ -874,7 +881,7 @@ static RPCHelpMan getblockfrompeer()
         "Subsequent calls for the same block and a new peer will cause the response from the previous peer to be ignored.\n\n"
         "Returns an empty JSON object if the request was successfully scheduled.",
         {
-            {"block_hash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The block hash to try to fetch"},
+            {"blockhash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The block hash to try to fetch"},
             {"peer_id", RPCArg::Type::NUM, RPCArg::Optional::NO, "The peer to fetch it from (see getpeerinfo for peer IDs)"},
         },
         RPCResult{RPCResult::Type::OBJ, "", /*optional=*/false, "", {}},
@@ -888,7 +895,7 @@ static RPCHelpMan getblockfrompeer()
     ChainstateManager& chainman = EnsureChainman(node);
     PeerManager& peerman = EnsurePeerman(node);
 
-    const uint256& block_hash{ParseHashV(request.params[0], "block_hash")};
+    const uint256& block_hash{ParseHashV(request.params[0], "blockhash")};
     const NodeId peer_id{request.params[1].get_int64()};
 
     const CBlockIndex* const index = WITH_LOCK(cs_main, return chainman.m_blockman.LookupBlockIndex(block_hash););
@@ -1002,7 +1009,7 @@ static RPCHelpMan getblockheader()
     if (!request.params[1].isNull())
         fVerbose = request.params[1].get_bool();
 
-    const CBlockIndex* pblockindex;
+    CBlockIndex* pblockindex;
     const CBlockIndex* tip;
     {
         ChainstateManager& chainman = EnsureAnyChainman(request.context);
@@ -1017,14 +1024,11 @@ static RPCHelpMan getblockheader()
 
     if (!fVerbose)
     {
+        LOCK(cs_main);
         CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
-        if (pblockindex->trimmed()) {
-            CBlockHeader tmp;
-            node::ReadBlockHeaderFromDisk(tmp, pblockindex, Params().GetConsensus());
-            ssBlock << tmp;
-        } else {
-            ssBlock << pblockindex->GetBlockHeader();
-        }
+        CBlockIndex tmpBlockIndexFull;
+        const CBlockIndex* pblockindexfull=pblockindex->untrim_to(&tmpBlockIndexFull);
+        ssBlock << pblockindexfull->GetBlockHeader();
         std::string strHex = HexStr(ssBlock);
         return strHex;
     }
@@ -1617,7 +1621,7 @@ static void SoftForkDescPushBack(const CBlockIndex* blockindex, UniValue& softfo
     // BIP9 status
     bip9.pushKV("status", get_state_name(current_state));
     bip9.pushKV("since", g_versionbitscache.StateSinceHeight(blockindex->pprev, consensusParams, id));
-    bip9.pushKV("status-next", get_state_name(next_state));
+    bip9.pushKV("status_next", get_state_name(next_state));
 
     // BIP9 signalling status, if applicable
     if (has_signal) {
@@ -1737,6 +1741,7 @@ RPCHelpMan getblockchaininfo()
     }
     obj.pushKV("size_on_disk", chainman.m_blockman.CalculateCurrentUsage());
     obj.pushKV("pruned",                node::fPruneMode);
+    obj.pushKV("trim_headers",          node::fTrimHeaders); // ELEMENTS
     if (g_signed_blocks) {
         if (!DeploymentActiveAfter(tip, chainparams.GetConsensus(), Consensus::DEPLOYMENT_DYNA_FED)) {
             CScript sign_block_script = chainparams.GetConsensus().signblockscript;
@@ -1808,7 +1813,7 @@ const std::vector<RPCResult> RPCHelpForDeployment{
         {RPCResult::Type::NUM, "min_activation_height", "minimum height of blocks for which the rules may be enforced"},
         {RPCResult::Type::STR, "status", "status of deployment at specified block (one of \"defined\", \"started\", \"locked_in\", \"active\", \"failed\")"},
         {RPCResult::Type::NUM, "since", "height of the first block to which the status applies"},
-        {RPCResult::Type::STR, "status-next", "status of deployment at the next block"},
+        {RPCResult::Type::STR, "status_next", "status of deployment at the next block"},
         {RPCResult::Type::OBJ, "statistics", /*optional=*/true, "numeric statistics about signalling for a softfork (only for \"started\" and \"locked_in\" status)",
         {
             {RPCResult::Type::NUM, "period", "the length in blocks of the signalling period"},
@@ -1832,6 +1837,7 @@ UniValue DeploymentInfo(const CBlockIndex* blockindex, const Consensus::Params& 
     SoftForkDescPushBack(blockindex, softforks, consensusParams, Consensus::DEPLOYMENT_DYNA_FED);
     SoftForkDescPushBack(blockindex, softforks, consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     SoftForkDescPushBack(blockindex, softforks, consensusParams, Consensus::DEPLOYMENT_TAPROOT);
+    SoftForkDescPushBack(blockindex, softforks, consensusParams, Consensus::DEPLOYMENT_SIMPLICITY);
     return softforks;
 }
 } // anon namespace

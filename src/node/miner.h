@@ -46,7 +46,7 @@ struct CTxMemPoolModifiedEntry {
         nSigOpCostWithAncestors = entry->GetSigOpCostWithAncestors();
     }
 
-    int64_t GetModifiedFee() const { return iter->GetModifiedFee(); }
+    CAmount GetModifiedFee() const { return iter->GetModifiedFee(); }
     uint64_t GetSizeWithAncestors() const { return nSizeWithAncestors; }
     uint64_t GetDiscountSizeWithAncestors() const { return discountSizeWithAncestors; }
     CAmount GetModFeesWithAncestors() const { return nModFeesWithAncestors; }
@@ -129,6 +129,7 @@ struct update_for_parent_inclusion
     {
         e.nModFeesWithAncestors -= iter->GetFee();
         e.nSizeWithAncestors -= iter->GetTxSize();
+        e.discountSizeWithAncestors -= iter->GetDiscountTxSize();
         e.nSigOpCostWithAncestors -= iter->GetSigOpCost();
     }
 

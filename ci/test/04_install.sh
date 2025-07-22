@@ -11,9 +11,9 @@ if [[ $QEMU_USER_CMD == qemu-s390* ]]; then
 fi
 
 if [ "$CI_OS_NAME" == "macos" ]; then
-  sudo -H pip3 install --upgrade pip
+  sudo -H pip3 install --upgrade --break-system-packages pip
   # shellcheck disable=SC2086
-  IN_GETOPT_BIN="/usr/local/opt/gnu-getopt/bin/getopt" ${CI_RETRY_EXE} pip3 install --user $PIP_PACKAGES
+  IN_GETOPT_BIN="$(brew --prefix gnu-getopt)/bin/getopt" ${CI_RETRY_EXE} pip3 install --user $PIP_PACKAGES
 fi
 
 # Create folders that are mounted into the docker
@@ -64,7 +64,7 @@ if [ -n "$DPKG_ADD_ARCH" ]; then
   CI_EXEC dpkg --add-architecture "$DPKG_ADD_ARCH"
 fi
 
-if [[ $DOCKER_NAME_TAG == *centos* ]]; then
+if [[ $DOCKER_NAME_TAG == *centos* ]] || [[ $DOCKER_NAME_TAG == *rocky* ]]; then
   ${CI_RETRY_EXE} CI_EXEC dnf -y install epel-release
   ${CI_RETRY_EXE} CI_EXEC dnf -y --allowerasing install "$DOCKER_PACKAGES" "$PACKAGES"
 elif [ "$CI_USE_APT_INSTALL" != "no" ]; then

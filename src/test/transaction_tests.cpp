@@ -64,6 +64,7 @@ static std::map<std::string, unsigned int> mapFlagNames = {
     {std::string("DISCOURAGE_UPGRADABLE_PUBKEYTYPE"), (unsigned int)SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_PUBKEYTYPE},
     {std::string("DISCOURAGE_OP_SUCCESS"), (unsigned int)SCRIPT_VERIFY_DISCOURAGE_OP_SUCCESS},
     {std::string("DISCOURAGE_UPGRADABLE_TAPROOT_VERSION"), (unsigned int)SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_TAPROOT_VERSION},
+    {std::string("SIMPLICITY"), (unsigned int)SCRIPT_VERIFY_SIMPLICITY},
 };
 
 unsigned int ParseScriptFlags(std::string strFlags)
@@ -794,6 +795,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     CheckIsStandard(t);
 
     // Check dust with default relay fee:
+    dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE_BITCOIN); // ELEMENTS: use the Bitcoin default dust relay feerate
     CAmount nDustThreshold = 182 * dustRelayFee.GetFeePerK() / 1000;
     BOOST_CHECK_EQUAL(nDustThreshold, 546);
     // dust:
@@ -829,7 +831,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     // not dust:
     t.vout[0].nValue = 674;
     CheckIsStandard(t);
-    dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE);
+    dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE_BITCOIN); // ELEMENTS: use the Bitcoin default dust relay feerate
 
     t.vout[0].scriptPubKey = CScript() << OP_1;
     CheckIsNotStandard(t, "scriptpubkey");

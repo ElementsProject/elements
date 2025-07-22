@@ -45,6 +45,7 @@ class TapHashPeginTest(BitcoinTestFramework):
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
+        self.skip_if_no_bdb()
 
     def setup_network(self, split=False):
         self.setup_nodes()
@@ -289,7 +290,7 @@ class TapHashPeginTest(BitcoinTestFramework):
 
         # Test introspection opcodes
         # 1a. No Pegins/issuances
-        self.log.info("Instrospection tests: outpoint flag")
+        self.log.info("Introspection tests: outpoint flag")
         self.tapscript_satisfy_test(CScript([OP_0, OP_INSPECTINPUTOUTPOINT, b'\x00', OP_EQUALVERIFY, OP_DROP, OP_DROP, OP_1]))
         # 1b. Add a pegin (Test pegin input must be 0x40)
         self.tapscript_satisfy_test(CScript([OP_0, OP_INSPECTINPUTOUTPOINT, b'\x40', OP_EQUALVERIFY, OP_DROP, OP_DROP, OP_1]), add_pegin=True)
@@ -303,7 +304,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         self.tapscript_satisfy_test(CScript([OP_0, OP_INSPECTINPUTOUTPOINT, b'\x00', OP_EQUALVERIFY, OP_DROP, OP_DROP, OP_1]), add_pegin = True, add_issuance=True, fail="Script failed an OP_EQUALVERIFY operation")
 
         # Test opcode for inspecting prev tx
-        self.log.info("Instrospection tests: inputs")
+        self.log.info("Introspection tests: inputs")
         self.tapscript_satisfy_test(CScript([OP_0, OP_INSPECTINPUTOUTPOINT, b'\x00', OP_EQUALVERIFY, OP_TOALTSTACK, OP_EQUALVERIFY, OP_FROMALTSTACK, OP_EQUAL]), add_prevout=True)
 
         # Test taproot asset with blinding.
@@ -350,12 +351,12 @@ class TapHashPeginTest(BitcoinTestFramework):
         self.tapscript_satisfy_test(CScript([-1, OP_1, OP_INSPECTINPUTVALUE, OP_FALSE, OP_EQUAL]), fail="Introspection index out of bounds")
 
         # Test current input
-        self.log.info("Instrospection tests: current input index")
+        self.log.info("Introspection tests: current input index")
         self.tapscript_satisfy_test(CScript([OP_PUSHCURRENTINPUTINDEX, OP_0, OP_EQUAL]))
         self.tapscript_satisfy_test(CScript([OP_PUSHCURRENTINPUTINDEX, OP_1, OP_EQUAL]), fail="Script evaluated without error but finished with a false/empty top stack element")
 
         # Test Outputs
-        self.log.info("Instrospection tests: outputs")
+        self.log.info("Introspection tests: outputs")
         for blind in [True, False]:
             for out_pos in [0, 1]:
                 self.tapscript_satisfy_test(CScript([out_pos, OP_INSPECTOUTPUTASSET, OP_TOALTSTACK, OP_EQUALVERIFY, OP_FROMALTSTACK, OP_EQUAL]), blind=blind, add_out_asset=out_pos)
@@ -367,8 +368,8 @@ class TapHashPeginTest(BitcoinTestFramework):
         self.tapscript_satisfy_test(CScript([120, OP_INSPECTOUTPUTASSET, OP_FALSE, OP_EQUAL]), fail="Introspection index out of bounds")
         self.tapscript_satisfy_test(CScript([-1, OP_INSPECTOUTPUTVALUE, OP_FALSE, OP_EQUAL]), fail="Introspection index out of bounds")
 
-        # Finally, check the tx instrospection
-        self.log.info("Instrospection tests: tx")
+        # Finally, check the tx introspection
+        self.log.info("Introspection tests: tx")
         # Test version equality
         self.tapscript_satisfy_test(CScript([OP_INSPECTVERSION, int(2).to_bytes(4, 'little'), OP_EQUAL]), ver = 2)
         self.tapscript_satisfy_test(CScript([OP_INSPECTVERSION, int(5).to_bytes(4, 'little'), OP_EQUAL]), ver = 2, fail="Script evaluated without error but finished with a false/empty top stack element")

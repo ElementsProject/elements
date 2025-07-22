@@ -738,10 +738,6 @@ case $host in
            BDB_LIBS="-L$bdb_prefix/lib -ldb_cxx-4.8"
          fi
 
-         if test "$use_sqlite" != "no" && $BREW list --versions sqlite3 >/dev/null; then
-           export PKG_CONFIG_PATH="$($BREW --prefix sqlite3 2>/dev/null)/lib/pkgconfig:$PKG_CONFIG_PATH"
-         fi
-
          if $BREW list --versions qt@5 >/dev/null; then
            export PKG_CONFIG_PATH="$($BREW --prefix qt@5 2>/dev/null)/lib/pkgconfig:$PKG_CONFIG_PATH"
          fi
@@ -862,7 +858,7 @@ if test "$use_lcov" = "yes"; then
 
   AX_CHECK_LINK_FLAG([--coverage], [LDFLAGS="$LDFLAGS --coverage"],
     [AC_MSG_ERROR([lcov testing requested but --coverage linker flag does not work])])
-  AX_CHECK_COMPILE_FLAG([--coverage],[CXXFLAGS="$CXXFLAGS --coverage"],
+  AX_CHECK_COMPILE_FLAG([--coverage],[CXXFLAGS="$CXXFLAGS --coverage";CFLAGS="$CFLAGS --coverage"],
     [AC_MSG_ERROR([lcov testing requested but --coverage flag does not work])])
   CXXFLAGS="$CXXFLAGS -Og"
 fi
@@ -1007,22 +1003,6 @@ AC_CHECK_DECLS([bswap_16, bswap_32, bswap_64],,,
     [#if HAVE_BYTESWAP_H
                  #include <byteswap.h>
                  #endif])
-
-AC_MSG_CHECKING([for __builtin_clzl])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ ]], [[
- (void) __builtin_clzl(0);
-  ]])],
- [ AC_MSG_RESULT([yes]); have_clzl=yes; AC_DEFINE([HAVE_BUILTIN_CLZL], [1], [Define this symbol if you have __builtin_clzl])],
- [ AC_MSG_RESULT([no]); have_clzl=no;]
-)
-
-AC_MSG_CHECKING([for __builtin_clzll])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ ]], [[
-  (void) __builtin_clzll(0);
-  ]])],
- [ AC_MSG_RESULT([yes]); have_clzll=yes; AC_DEFINE([HAVE_BUILTIN_CLZLL], [1], [Define this symbol if you have __builtin_clzll])],
- [ AC_MSG_RESULT([no]); have_clzll=no;]
-)
 
 dnl Check for malloc_info (for memory statistics information in getmemoryinfo)
 AC_MSG_CHECKING([for getmemoryinfo])
@@ -1458,6 +1438,12 @@ if test "$use_external_signer" != "no"; then
     ;;
     *)
       AC_MSG_CHECKING([whether Boost.Process can be used])
+      TEMP_CXXFLAGS="$CXXFLAGS"
+      dnl Boost 1.78 requires the following workaround.
+      dnl See: https://github.com/boostorg/process/issues/235
+      CXXFLAGS="$CXXFLAGS -Wno-error=narrowing"
+      TEMP_CPPFLAGS="$CPPFLAGS"
+      CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
       TEMP_LDFLAGS="$LDFLAGS"
       dnl Boost 1.73 and older require the following workaround.
       LDFLAGS="$LDFLAGS $PTHREAD_CFLAGS"
@@ -1465,6 +1451,8 @@ if test "$use_external_signer" != "no"; then
         [have_boost_process="yes"],
         [have_boost_process="no"])
       LDFLAGS="$TEMP_LDFLAGS"
+      CPPFLAGS="$TEMP_CPPFLAGS"
+      CXXFLAGS="$TEMP_CXXFLAGS"
       AC_MSG_RESULT([$have_boost_process])
       if test "$have_boost_process" = "yes"; then
         use_external_signer="yes"
@@ -1844,7 +1832,6 @@ AM_CONDITIONAL([LIQUID], [test "$liquid_build" = "yes"])
 
 dnl for minisketch
 AM_CONDITIONAL([ENABLE_CLMUL], [test "$enable_clmul" = "yes"])
-AM_CONDITIONAL([HAVE_CLZ], [test "$have_clzl$have_clzll" = "yesyes"])
 
 AC_DEFINE([CLIENT_VERSION_MAJOR], [_CLIENT_VERSION_MAJOR], [Major version])
 AC_DEFINE([CLIENT_VERSION_MINOR], [_CLIENT_VERSION_MINOR], [Minor version])

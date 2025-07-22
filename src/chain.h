@@ -16,6 +16,9 @@
 
 #include <vector>
 
+namespace node {
+struct NodeContext;
+}
 /**
  * Maximum amount of time that a block timestamp is allowed to exceed the
  * current network-adjusted time before the block will be accepted.
@@ -215,26 +218,41 @@ protected:
 
     bool m_trimmed{false};
     bool m_trimmed_dynafed_block{false};
+    bool m_stored_lvl{false};
 
     friend class CBlockTreeDB;
 
+    static node::NodeContext *m_pcontext;
+
 public:
+    static void SetNodeContext(node::NodeContext *context) {m_pcontext = context;};
 
     // Irrevocably remove blocksigning and dynafed-related stuff from this
     // in-memory copy of the block header.
-    void trim() {
+    bool trim() {
         assert_untrimmed();
+        if (!m_stored_lvl) {
+            // We can't trim in-memory data if it's not on disk yet, but we can if it's already been recovered once
+            return false;
+        }
         m_trimmed = true;
         m_trimmed_dynafed_block = !m_dynafed_params.value().IsNull();
         proof = std::nullopt;
         m_dynafed_params = std::nullopt;
         m_signblock_witness = std::nullopt;
+        return true;
     }
+
+    void untrim();
+    const CBlockIndex * untrim_to(CBlockIndex *pindexNew) const;
 
     inline bool trimmed() const {
         return m_trimmed;
     }
 
+    inline void set_stored() {
+        m_stored_lvl = true;
+    }
     inline void assert_untrimmed() const {
         assert(!m_trimmed);
     }
@@ -451,7 +469,7 @@ public:
     bool RemoveDynaFedMaskOnSerialize(bool for_read) {
         if (for_read) {
             bool is_dyna = nVersion < 0;
-            nVersion = ~CBlockHeader::DYNAFED_HF_MASK & nVersion;
+            nVersion = (int32_t) (~CBlockHeader::DYNAFED_HF_MASK & (uint32_t)nVersion);
             return is_dyna;
         } else {
             return is_dynafed_block();
@@ -501,6 +519,9 @@ public:
 
         // For compatibility with elements 0.14 based chains
         if (g_signed_blocks) {
+            if (!ser_action.ForRead()) {
+                obj.assert_untrimmed();
+            }
             if (is_dyna) {
                 READWRITE(obj.m_dynafed_params.value());
                 READWRITE(obj.m_signblock_witness.value().stack);
