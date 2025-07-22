@@ -1,10 +1,10 @@
-/* This module defines the interface that each Simplicity application must implement.
+/* Implements the required callbacks for the Elements Simplicity application.
  */
-#ifndef SIMPLICITY_PRIMITIVE_H
-#define SIMPLICITY_PRIMITIVE_H
+#ifndef SIMPLICITY_ELEMENTS_PRIMITIVE_H
+#define SIMPLICITY_ELEMENTS_PRIMITIVE_H
 
-#include "bitstream.h"
-#include "typeInference.h"
+#include "../bitstream.h"
+#include "../typeInference.h"
 
 /* Allocate a fresh set of unification variables bound to at least all the types necessary
  * for all the jets that can be created by 'decodeJet', and also the type 'TWO^256',
@@ -24,7 +24,7 @@
  *                      '(*bound_var)[i]' is bound to 'A' and '(*bound_var)[j]' is bound to 'B'
  *                   and, '*word256_ix < *extra_var_start' and '(*bound_var)[*word256_ix]' is bound the type 'TWO^256'
  */
-size_t simplicity_mallocBoundVars(unification_var** bound_var, size_t* word256_ix, size_t* extra_var_start, size_t extra_var_len);
+size_t simplicity_elements_mallocBoundVars(unification_var** bound_var, size_t* word256_ix, size_t* extra_var_start, size_t extra_var_len);
 
 /* Decode an Elements specific jet from 'stream' into 'node'.
  * All jets begin with a bit prefix of '1' which needs to have already been consumed from the 'stream'.
@@ -36,6 +36,6 @@ size_t simplicity_mallocBoundVars(unification_var** bound_var, size_t* word256_i
  * Precondition: NULL != node
  *               NULL != stream
  */
-simplicity_err simplicity_decodeJet(dag_node* node, bitstream* stream);
+simplicity_err simplicity_elements_decodeJet(dag_node* node, bitstream* stream);
 
 #endif

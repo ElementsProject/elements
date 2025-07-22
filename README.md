@@ -1,7 +1,7 @@
 Elements Project blockchain platform
 ====================================
 
-[![Build Status](https://travis-ci.org/ElementsProject/elements.svg?branch=master)](https://travis-ci.org/ElementsProject/elements)
+[![Release](https://img.shields.io/github/v/release/ElementsProject/elements?label=latest%20release&link=https%3A%2F%2Fgithub.com%2FElementsProject%2Felements%2Freleases%2Flatest)](https://github.com/ElementsProject/elements/releases)
 
 https://elementsproject.org
 

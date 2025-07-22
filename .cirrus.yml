@@ -58,7 +58,8 @@ macos_native_task_template: &MACOS_NATIVE_TASK_TEMPLATE
   check_clang_script:
     - clang --version
   brew_install_script:
-    - brew install boost libevent qt@5 miniupnpc libnatpmp ccache zeromq qrencode libtool automake gnu-getopt
+    - brew install boost@1.85 libevent qt@5 miniupnpc libnatpmp ccache zeromq qrencode libtool automake gnu-getopt
+    - brew link --force --overwrite boost@1.85
   << : *MAIN_TEMPLATE
 
 compute_credits_template: &CREDITS_TEMPLATE
@@ -80,8 +81,7 @@ task:
   env:
     << : *CIRRUS_EPHEMERAL_WORKER_TEMPLATE_ENV
 
-task:
-  name: "Win64 native [msvc]"
+win64_native_common: &win64_native_common
   << : *FILTER_TEMPLATE
   windows_container:
     cpu: 4
@@ -159,6 +159,22 @@ task:
     - cd %CIRRUS_WORKING_DIR%
     - python build_msvc\msvc-autogen.py
     - msbuild build_msvc\bitcoin.sln -property:Configuration=Release -maxCpuCount -verbosity:minimal -noLogo
+
+task:
+  name: "Win64 native [msvc] (Short running functional tests)"
+  <<: *win64_native_common
+  functional_tests_script:
+    # Increase the dynamic port range to the maximum allowed value to mitigate "OSError: [WinError 10048] Only one usage of each socket address (protocol/network address/port) is normally permitted".
+    # See: https://docs.microsoft.com/en-us/biztalk/technical-guides/settings-that-can-be-modified-to-improve-network-performance
+    - netsh int ipv4 set dynamicport tcp start=1025 num=64511
+    - netsh int ipv6 set dynamicport tcp start=1025 num=64511
+    # Heavier tests are moved to a secondary task
+    # Exclude feature_dbcrash and feature_fee_estimation, failing https://github.com/ElementsProject/elements/pull/1298
+    - python test\functional\test_runner.py --nocleanup --ci --quiet --combinedlogslen=4000 --jobs=4 --timeout-factor=8 --extended --exclude wallet_avoidreuse,feature_trim_headers,feature_dbcrash,feature_fee_estimation
+
+task:
+  name: "Win64 native [msvc] (Long running functional tests + unit tests)"
+  <<: *win64_native_common
   unit_tests_script:
     - src\test_elements.exe -l test_suite
     - src\bench_elements.exe > NUL
@@ -169,10 +185,9 @@ task:
     # See: https://docs.microsoft.com/en-us/biztalk/technical-guides/settings-that-can-be-modified-to-improve-network-performance
     - netsh int ipv4 set dynamicport tcp start=1025 num=64511
     - netsh int ipv6 set dynamicport tcp start=1025 num=64511
-    # Exclude feature_dbcrash for now due to timeout
-    # Exclude also wallet_avoidreuse due to timeout
-    # Ignore failures for now, need to investigate but we really don't use native win64 builds
-    - python test\functional\test_runner.py --nocleanup --ci --quiet --combinedlogslen=4000 --jobs=4 --timeout-factor=8 --extended --exclude feature_dbcrash,wallet_avoidreuse || true
+    # Execute tests excluded from the main task
+    # Ignore failures for now until https://github.com/ElementsProject/elements/pull/1298 is merged
+    - python test\functional\test_runner.py --nocleanup --ci --quiet --combinedlogslen=4000 --jobs=4 --timeout-factor=8 wallet_avoidreuse feature_trim_headers feature_dbcrash feature_fee_estimation || true
 
 task:
   name: 'ARM [unit tests, no functional tests] [bullseye]'

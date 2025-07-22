@@ -9,7 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\simplicity\bitstream.c" />
-    <ClCompile Include="..\..\src\simplicity\cmr.c" />
     <ClCompile Include="..\..\src\simplicity\dag.c" />
     <ClCompile Include="..\..\src\simplicity\deserialize.c" />
     <ClCompile Include="..\..\src\simplicity\eval.c" />
@@ -20,11 +19,13 @@
     <ClCompile Include="..\..\src\simplicity\sha256.c" />
     <ClCompile Include="..\..\src\simplicity\type.c" />
     <ClCompile Include="..\..\src\simplicity\typeInference.c" />
-    <ClCompile Include="..\..\src\simplicity\primitive\elements\env.c" />
-    <ClCompile Include="..\..\src\simplicity\primitive\elements\exec.c" />
-    <ClCompile Include="..\..\src\simplicity\primitive\elements\elementsJets.c" />
-    <ClCompile Include="..\..\src\simplicity\primitive\elements\ops.c" />
-    <ClCompile Include="..\..\src\simplicity\primitive\elements\primitive.c" />
+    <ClCompile Include="..\..\src\simplicity\elements\cmr.c" />
+    <ClCompile Include="..\..\src\simplicity\elements\env.c" />
+    <ClCompile Include="..\..\src\simplicity\elements\exec.c" />
+    <ClCompile Include="..\..\src\simplicity\elements\elementsJets.c" />
+    <ClCompile Include="..\..\src\simplicity\elements\ops.c" />
+    <ClCompile Include="..\..\src\simplicity\elements\primitive.c" />
+    <ClCompile Include="..\..\src\simplicity\elements\txEnv.c" />
   </ItemGroup>
   <ItemDefinitionGroup>
     <ClCompile>
