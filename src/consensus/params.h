@@ -175,6 +175,7 @@ struct Params {
     size_t total_valid_epochs = 1;
     bool elements_mode = false;
     bool start_p2wsh_script = false;
+    bool allow_any_issuance = false;
 };
 
 } // namespace Consensus

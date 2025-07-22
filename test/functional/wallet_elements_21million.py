@@ -13,7 +13,7 @@ class WalletTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 3
-        self.extra_args = [['-blindedaddresses=1']] * self.num_nodes
+        self.extra_args = [['-blindedaddresses=1','-con_allow_any_issuance=1']] * self.num_nodes
 
     def setup_network(self, split=False):
         self.setup_nodes()
