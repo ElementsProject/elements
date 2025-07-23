@@ -1072,10 +1072,6 @@ bool MemPoolAccept::PolicyScriptChecks(const ATMPArgs& args, Workspace& ws)
         scriptVerifyFlags |= SCRIPT_SIGHASH_RANGEPROOF;
     }
 
-    if (DeploymentActiveAfter(m_active_chainstate.m_chain.Tip(), args.m_chainparams.GetConsensus(), Consensus::DEPLOYMENT_SIMPLICITY)) {
-        scriptVerifyFlags |= SCRIPT_VERIFY_SIMPLICITY;
-    }
-
     // Check input scripts and signatures.
     // This is done last to help prevent CPU exhaustion denial-of-service attacks.
     if (!CheckInputScripts(tx, state, m_view, scriptVerifyFlags, true, false, ws.m_precomputed_txdata)) {
