@@ -3817,7 +3817,7 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
                 // should not call LookupBlockIndex below.
                 RemoveBlockRequest(resp.blockhash, pfrom.GetId());
                 Misbehaving(pfrom.GetId(), 100, "previous compact block reconstruction attempt failed");
-                LogPrint(BCLog::NET, "Peer %d sent compact block transactions multiple times", pfrom.GetId());
+                LogPrint(BCLog::NET, "Peer %d sent compact block transactions multiple times\n", pfrom.GetId());
                 return;
             }
 
