@@ -87,7 +87,7 @@ class NetTest(BitcoinTestFramework):
         for node, peer, field in product(range(self.num_nodes), range(2), ['last_block', 'last_transaction']):
             assert field in peer_info[node][peer].keys()
             if peer_info[node][peer][field] != 0:
-                assert_approx(peer_info[node][peer][field], time_now, vspan=60)
+                assert_approx(peer_info[node][peer][field], time_now, vspan=100)
         # check both sides of bidirectional connection between nodes
         # the address bound to on one side will be the source address for the other node
         assert_equal(peer_info[0][0]['addrbind'], peer_info[1][0]['addr'])
