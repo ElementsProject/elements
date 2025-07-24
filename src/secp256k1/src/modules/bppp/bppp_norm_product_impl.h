@@ -305,7 +305,7 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
         secp256k1_bppp_serialize_points(&proof[proof_idx], &x_ge, &r_ge);
         proof_idx += 65;
 
-        /* Obtain challenge gamma for the the next round */
+        /* Obtain challenge gamma for the next round */
         secp256k1_sha256_write(transcript, &proof[proof_idx - 65], 65);
         secp256k1_bppp_challenge_scalar(&gamma, transcript, 0);
 
