@@ -509,7 +509,7 @@ class IssuanceTest(BitcoinTestFramework):
         issued_1 = self.nodes[0].issueasset(1, 1, False, contract_hash_1)
         issued_2 = self.nodes[0].issueasset(1, 1, False, contract_hash_2)
         self.generate(self.nodes[0], 1)
-        self.sync_all()        
+        self.sync_all()
         balance = self.nodes[0].getwalletinfo()["balance"]
         assert_equal(balance[issued_1["asset"]], 1)
         assert_equal(balance[issued_2["asset"]], 1)
