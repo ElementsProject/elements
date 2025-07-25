@@ -517,7 +517,7 @@ class IssuanceTest(BitcoinTestFramework):
         send_address = self.nodes[0].getnewaddress()
 
         # error generated if duplicated address:asset pair
-        assert_raises_rpc_error(-8, "Invalid parameter, duplicated address and asset", self.nodes[0].createrawtransaction,[], [{send_address:1, "asset": issued_1["asset"]},{send_address:1, "asset": issued_1["asset"]}], 0, False)
+        assert_raises_rpc_error(-8, "Invalid parameter, duplicated address and asset", self.nodes[0].createrawtransaction, [], [{send_address: 1, "asset": issued_1["asset"]}, {send_address: 1, "asset": issued_1["asset"]}], 0, False)
 
         # repeated address with different asset accepted
         raw_tx = self.nodes[0].createrawtransaction([], [{send_address:1, "asset": issued_1["asset"]},{send_address:1, "asset": issued_2["asset"]}], 0, False)
