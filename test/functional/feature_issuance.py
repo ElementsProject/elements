@@ -520,7 +520,7 @@ class IssuanceTest(BitcoinTestFramework):
         assert_raises_rpc_error(-8, "Invalid parameter, duplicated address and asset", self.nodes[0].createrawtransaction, [], [{send_address: 1, "asset": issued_1["asset"]}, {send_address: 1, "asset": issued_1["asset"]}], 0, False)
 
         # repeated address with different asset accepted
-        raw_tx = self.nodes[0].createrawtransaction([], [{send_address:1, "asset": issued_1["asset"]},{send_address:1, "asset": issued_2["asset"]}], 0, False)
+        raw_tx = self.nodes[0].createrawtransaction([], [{send_address: 1, "asset": issued_1["asset"]}, {send_address: 1, "asset": issued_2["asset"]}], 0, False)
         funded_tx = self.nodes[0].fundrawtransaction(raw_tx)["hex"]
         blind_tx = self.nodes[0].blindrawtransaction(funded_tx)
         signed_tx = self.nodes[0].signrawtransactionwithwallet(blind_tx)
