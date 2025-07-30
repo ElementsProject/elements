@@ -24,16 +24,20 @@ public:
 static CSecp256k1Init instance_of_csecp256k1;
 }
 
-bool HasValidFee(const CTransaction& tx) {
+bool HasValidFee(const CTransaction& tx, bool allow_any_fee) {
     CAmountMap totalFee;
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
         CAmount fee = 0;
         if (tx.vout[i].IsFee()) {
             fee = tx.vout[i].nValue.GetAmount();
-            if (fee == 0 || !MoneyRange(fee))
+            if (!allow_any_fee && (fee == 0 || !MoneyRange(fee))) {
                 return false;
+            }
             totalFee[tx.vout[i].nAsset.GetAsset()] += fee;
-            if (!MoneyRange(totalFee)) {
+            if (!allow_any_fee && !MoneyRange(totalFee)) {
+                return false;
+            }
+            if(allow_any_fee && fee < 0) {
                 return false;
             }
         }
