@@ -30,8 +30,9 @@ bool HasValidFee(const CTransaction& tx) {
         CAmount fee = 0;
         if (tx.vout[i].IsFee()) {
             fee = tx.vout[i].nValue.GetAmount();
-            if (fee == 0 || !MoneyRange(fee))
+            if (fee == 0 || !MoneyRange(fee)) {
                 return false;
+            }
             totalFee[tx.vout[i].nAsset.GetAsset()] += fee;
             if (!MoneyRange(totalFee)) {
                 return false;
