@@ -41,6 +41,10 @@ class MempoolUnbroadcastTest(BitcoinTestFramework):
         # generate a wallet txn
         addr = node.getnewaddress()
         wallet_tx_hsh = node.sendtoaddress(addr, 0.0001)
+        wallet_tx = node.gettransaction(wallet_tx_hsh,True,True)
+
+        # remove UTXO spent
+        utxos = [utxo for utxo in utxos if utxo['txid'] != wallet_tx['decoded']['vin'][0]['txid']]
 
         # generate a txn using sendrawtransaction
         us0 = utxos.pop()

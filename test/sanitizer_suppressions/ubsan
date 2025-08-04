@@ -99,4 +99,4 @@ unsigned-integer-overflow:simplicity/secp256k1/group_impl.h
 # This one involves careful roconnor code
 shift-base:simplicity/frame.c
 # See comment in simplicity/primitive/elements/env.c line 303
-unsigned-integer-overflow:simplicity/primitive/elements/env.c
+unsigned-integer-overflow:simplicity/elements/env.c
