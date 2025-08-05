@@ -13,7 +13,7 @@ class WalletTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 3
-        self.extra_args = [['-blindedaddresses=1']] * self.num_nodes
+        self.extra_args = [['-blindedaddresses=1','-con_allow_any_issuance=1']] * self.num_nodes
 
     def setup_network(self, split=False):
         self.setup_nodes()
@@ -41,6 +41,17 @@ class WalletTest(BitcoinTestFramework):
         self.nodes[0].reissueasset(asset, 100_000_000)
         self.generate(self.nodes[0], 1)
         assert_equal(self.nodes[0].getbalance()[asset], 200_000_000)
+
+        self.log.info("Issue more than 21 million of a unblinded non-policy asset")
+        issuance = self.nodes[0].issueasset(300_000_000, 100, False)
+        unblinded_asset = issuance['asset']
+        self.generate(self.nodes[0], 1)
+        assert_equal(self.nodes[0].getbalance()[unblinded_asset], 300_000_000)
+
+        self.log.info("Reissue more than 21 million of a unblinded non-policy asset")
+        self.nodes[0].reissueasset(unblinded_asset, 200_000_000)
+        self.generate(self.nodes[0], 1)
+        assert_equal(self.nodes[0].getbalance()[unblinded_asset], 500_000_000)
 
         # send more than 21 million of that asset
         addr = self.nodes[1].getnewaddress()
