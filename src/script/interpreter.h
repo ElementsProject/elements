@@ -171,12 +171,12 @@ bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned i
 
 struct SimplicityTransactionDeleter
 {
-    void operator()(transaction* ptr)
+    void operator()(elementsTransaction* ptr)
     {
         simplicity_elements_freeTransaction(ptr);
     }
 };
-using SimplicityTransactionUniquePtr = std::unique_ptr<transaction, SimplicityTransactionDeleter>;
+using SimplicityTransactionUniquePtr = std::unique_ptr<elementsTransaction, SimplicityTransactionDeleter>;
 
 struct PrecomputedTransactionData
 {
@@ -345,7 +345,7 @@ public:
         return std::numeric_limits<uint32_t>::max();
     }
 
-    virtual bool CheckSimplicity(const std::vector<unsigned char>& witness, const std::vector<unsigned char>& program, const rawTapEnv& simplicityRawTap, int64_t budget, ScriptError* serror) const
+    virtual bool CheckSimplicity(const std::vector<unsigned char>& witness, const std::vector<unsigned char>& program, const rawElementsTapEnv& simplicityRawTap, int64_t budget, ScriptError* serror) const
     {
          return false;
     }
@@ -393,7 +393,7 @@ public:
 
     const PrecomputedTransactionData* GetPrecomputedTransactionData() const override;
     uint32_t GetnIn() const override;
-    bool CheckSimplicity(const std::vector<unsigned char>& program, const std::vector<unsigned char>& witness, const rawTapEnv& simplicityRawTap, int64_t budget, ScriptError* serror) const override;
+    bool CheckSimplicity(const std::vector<unsigned char>& program, const std::vector<unsigned char>& witness, const rawElementsTapEnv& simplicityRawTap, int64_t budget, ScriptError* serror) const override;
 };
 
 using TransactionSignatureChecker = GenericTransactionSignatureChecker<CTransaction>;
