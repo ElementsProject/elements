@@ -56,6 +56,7 @@ class WalletTest(BitcoinTestFramework):
         for i in range(num_utxos):
             self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), value, "", "", False, False, None, None, None, asset, False, fee_rate, True)
             self.generate(self.nodes[0], 1)
+        self.sync_all()
 
         # create a raw tx on node 1 consolidating the asset utxos
         self.log.info(f"Create the raw consolidation transaction")
