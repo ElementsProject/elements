@@ -1,4 +1,5 @@
 
+#include <chainparams.h>
 #include <confidential_validation.h>
 #include <issuance.h>
 #include <pegins.h>
@@ -103,8 +104,14 @@ static bool VerifyIssuanceAmount(secp256k1_pedersen_commitment& value_commit, se
 
     // Build value commitment
     if (value.IsExplicit()) {
-        if (!MoneyRange(value.GetAmount()) || value.GetAmount() == 0) {
-            return false;
+        if(!Params().GetConsensus().allow_any_issuance) {
+            if (!MoneyRange(value.GetAmount()) || value.GetAmount() == 0) {
+                return false;
+            }
+        } else {
+            if ((asset == Params().GetConsensus().pegged_asset && !MoneyRange(value.GetAmount())) || value.GetAmount() <= 0) {
+                return false;
+            }
         }
         if (!rangeproof.empty()) {
             return false;
