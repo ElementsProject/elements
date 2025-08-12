@@ -112,7 +112,7 @@ class RPCPackagesTest(BitcoinTestFramework):
         assert_equal(testres_bad_sig, self.independent_txns_testres + [{
             "txid": tx_bad_sig.rehash(),
             "wtxid": tx_bad_sig.getwtxid(), "allowed": False,
-            "reject-reason": "mandatory-script-verify-flag-failed (Operation not valid with the current stack size)"
+            "reject-reason": "mempool-script-verify-flag-failed (Operation not valid with the current stack size)"
         }])
 
         self.log.info("Check testmempoolaccept reports txns in packages that exceed max feerate")
