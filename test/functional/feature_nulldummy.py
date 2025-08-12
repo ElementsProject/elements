@@ -33,8 +33,7 @@ from test_framework.util import (
     assert_raises_rpc_error,
 )
 
-NULLDUMMY_ERROR = "non-mandatory-script-verify-flag (Dummy CHECKMULTISIG argument must be zero)"
-
+NULLDUMMY_ERROR = "mempool-script-verify-flag-failed (Dummy CHECKMULTISIG argument must be zero)"
 
 def invalidate_nulldummy_tx(tx):
     """Transform a NULLDUMMY compliant tx (i.e. scriptSig starts with OP_0)

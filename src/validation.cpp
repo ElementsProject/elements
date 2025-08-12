@@ -1793,21 +1793,15 @@ bool CheckInputScripts(const CTransaction& tx, TxValidationState& state,
         CCheck* check = new CScriptCheck(txdata.m_spent_outputs[i], tx, i, flags, cacheSigStore, &txdata);
         ScriptError serror = QueueCheck(pvChecks, check);
         if (serror != SCRIPT_ERR_OK) {
+            // Tx failures never trigger disconnections/bans.
+            // This is so that network splits aren't triggered
+            // either due to non-consensus relay policies (such as
+            // non-standard DER encodings or non-null dummy
+            // arguments) or due to new consensus rules introduced in
+            // soft forks.
             if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
-                // Check whether the failure was caused by a
-                // non-mandatory script verification check, such as
-                // non-standard DER encodings or non-null dummy
-                // arguments; if so, ensure we return NOT_STANDARD
-                // instead of CONSENSUS to avoid downstream users
-                // splitting the network between upgraded and
-                // non-upgraded nodes by banning CONSENSUS-failing
-                // data providers.
-                CScriptCheck check2(txdata.m_spent_outputs[i], tx, i,
-                        flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheSigStore, &txdata);
-                if (check2()) {
-                    return state.Invalid(TxValidationResult::TX_NOT_STANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(serror)));
-                }
-            }
+                return state.Invalid(TxValidationResult::TX_NOT_STANDARD, strprintf("mempool-script-verify-flag-failed (%s)", ScriptErrorString(serror)));
+            } else {
             // MANDATORY flag failures correspond to
             // TxValidationResult::TX_CONSENSUS. Because CONSENSUS
             // failures are the most serious case of validation
@@ -1817,7 +1811,8 @@ bool CheckInputScripts(const CTransaction& tx, TxValidationState& state,
             // support, to avoid splitting the network (but this
             // depends on the details of how net_processing handles
             // such errors).
-            return state.Invalid(TxValidationResult::TX_CONSENSUS, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(serror)));
+                return state.Invalid(TxValidationResult::TX_CONSENSUS, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(serror)));
+            }
         }
     }
 
