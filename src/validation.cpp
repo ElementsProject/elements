@@ -151,6 +151,7 @@ bool g_parallel_script_checks{false};
 bool fRequireStandard = true;
 bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
+bool fAcceptUnlimitedIssuances = true;
 int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
 
 uint256 hashAssumeValid;
@@ -721,6 +722,10 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
             return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "invalid-pegout-proof");
         }
     }
+
+    // Reject if unblinded issuance/reissuance is not in MoneyRange and acceptunlimitedissuances false
+    if (!fAcceptUnlimitedIssuances && !IsIssuanceInMoneyRange(tx))
+        return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "issuance-out-of-range");
 
     // Do not work on transactions that are too small.
     // A transaction with 1 segwit input and 1 P2WPHK output has non-witness size of 82 bytes.

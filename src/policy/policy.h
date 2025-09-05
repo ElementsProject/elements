@@ -92,6 +92,9 @@ static constexpr unsigned int STANDARD_LOCKTIME_VERIFY_FLAGS = LOCKTIME_VERIFY_S
 // ELEMENTS: keep a copy of the upstream default dust relay fee rate
 static const unsigned int DUST_RELAY_TX_FEE_BITCOIN = 3000;
 
+// ELEMENTS: allow unblinded issuances/reissuances greater than MAX_MONEY
+static const bool DEFAULT_ACCEPT_UNLIMITED_ISSUANCES = true;
+
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFee);
 
 bool IsDust(const CTxOut& txout, const CFeeRate& dustRelayFee);
@@ -123,6 +126,11 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 * Also enforce a maximum stack item size limit and no annexes for tapscript spends.
 */
 bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+/* ELEMENTS
+* Check if blinded issuance/reissuance is greater than MAX_MONEY
+*/
+bool IsIssuanceInMoneyRange(const CTransaction& tx);
 
 /** Compute the virtual transaction size (weight reinterpreted as bytes). */
 int64_t GetVirtualTransactionSize(int64_t nWeight, int64_t nSigOpCost, unsigned int bytes_per_sigop);

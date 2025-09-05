@@ -103,19 +103,12 @@ static bool VerifyIssuanceAmount(secp256k1_pedersen_commitment& value_commit, se
 
     // Build value commitment
     if (value.IsExplicit()) {
-        if(!Params().GetConsensus().allow_any_issuance) {
-            if (!MoneyRange(value.GetAmount()) || value.GetAmount() == 0) {
-                return false;
-            }
-        } else {
-            if ((asset == Params().GetConsensus().pegged_asset && !MoneyRange(value.GetAmount())) || value.GetAmount() <= 0) {
-                return false;
-            }
+        if ((asset == Params().GetConsensus().pegged_asset && !MoneyRange(value.GetAmount())) || value.GetAmount() <= 0) {
+            return false;
         }
         if (!rangeproof.empty()) {
             return false;
         }
-
 
         ret = secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &value_commit, explicit_blinds, value.GetAmount(), &asset_gen);
         // The explicit_blinds are all 0, and the amount is not 0. So secp256k1_pedersen_commit does not fail.

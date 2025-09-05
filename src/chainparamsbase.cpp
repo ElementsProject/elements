@@ -45,7 +45,6 @@ void SetupChainParamsBaseOptions(ArgsManager& argsman)
     argsman.AddArg("-con_signed_blocks", "Signed blockchain. Uses input of `-signblockscript` to define what signatures are necessary to solve it.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-signblockscript", "Signed blockchain enumberance. Only active when `-con_signed_blocks` set to true.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-con_max_block_sig_size", "Max allowed witness data for the signed block header.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    argsman.AddArg("-con_allow_any_issuance", "Allow any value for unblinded asset issuance and reissuance", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
 
     argsman.AddArg("-con_has_parent_chain", "Whether or not there is a parent chain.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-parentgenesisblockhash", "The genesis blockhash of the parent chain.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);

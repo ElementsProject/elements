@@ -7,13 +7,21 @@ from test_framework.blocktools import COINBASE_MATURITY
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
+    assert_raises_rpc_error,
 )
 
 class WalletTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 3
-        self.extra_args = [['-blindedaddresses=1','-con_allow_any_issuance=1']] * self.num_nodes
+        args = [
+            "-blindedaddresses=1"
+        ]
+        self.extra_args = [
+            args,
+            args,
+            args + ["-acceptunlimitedissuances=0"], # node 2 blocks unblinded issuances out of moneyrange
+        ]
 
     def setup_network(self, split=False):
         self.setup_nodes()
@@ -100,6 +108,24 @@ class WalletTest(BitcoinTestFramework):
         self.nodes[2].unloadwallet(self.default_wallet_name)
         self.nodes[2].loadwallet(self.default_wallet_name)
         assert_equal(self.nodes[2].getbalance()[asset], 200_000_000)
+
+        # send some policy asset to node 2 for fees
+        addr = self.nodes[2].getnewaddress()
+        self.nodes[0].sendtoaddress(address=addr, amount=1)
+        self.generate(self.nodes[0], 1)
+        assert_equal(self.nodes[2].getbalance()['bitcoin'], 1)
+
+        self.log.info("Issue more than 21 million of a non-policy asset on node 2 - rejected from mempool")
+        issuance = self.nodes[2].issueasset(300_000_000, 100, False)
+        issuance_tx = self.nodes[2].gettransaction(issuance["txid"])
+        assert_raises_rpc_error(-26, "issuance-out-of-range", self.nodes[2].sendrawtransaction, issuance_tx['hex'])
+        # transaction should be accepted on node 0
+        self.nodes[0].sendrawtransaction(issuance_tx["hex"])
+        asset = issuance['asset']
+        assert(issuance['txid'] in self.nodes[0].getrawmempool())
+        assert(issuance['txid'] not in self.nodes[2].getrawmempool())
+        self.generate(self.nodes[0], 1)
+        assert_equal(self.nodes[2].getbalance()[asset], 300_000_000)
 
 if __name__ == '__main__':
     WalletTest().main()

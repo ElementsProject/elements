@@ -621,6 +621,7 @@ void SetupServerArgs(ArgsManager& argsman)
 
     std::vector<std::string> elements_hidden_args = {"-con_fpowallowmindifficultyblocks", "-con_fpownoretargeting", "-con_nsubsidyhalvinginterval", "-con_bip16exception", "-con_bip34height", "-con_bip65height", "-con_bip66height", "-con_npowtargettimespan", "-con_npowtargetspacing", "-con_nrulechangeactivationthreshold", "-con_nminerconfirmationwindow", "-con_powlimit", "-con_bip34hash", "-con_nminimumchainwork", "-con_defaultassumevalid", "-npruneafterheight", "-fdefaultconsistencychecks", "-fmineblocksondemand", "-fallback_fee_enabled", "-pchmessagestart"};
 
+    argsman.AddArg("-acceptunlimitedissuances", strprintf("Relay and mine unblinded issuance transactions (default: %u)", DEFAULT_ACCEPT_UNLIMITED_ISSUANCES), ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     argsman.AddArg("-initialfreecoins", strprintf("The amount of OP_TRUE coins created in the genesis block. Primarily for testing. (default: %d)", 0), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::DEBUG_TEST);
     argsman.AddArg("-validatepegin", "Validate peg-in claims. An RPC connection will be attempted to the trusted mainchain daemon using the `mainchain*` settings below. All functionaries must run this enabled. (default: 1 if chain has federated peg)", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     argsman.AddArg("-mainchainrpchost=<host>", "The address which the daemon will try to connect to the trusted mainchain daemon to validate peg-ins, if enabled. (default: 127.0.0.1)", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
@@ -1076,6 +1077,7 @@ bool AppInitParameterInteraction(const ArgsManager& args)
     fIsBareMultisigStd = args.GetBoolArg("-permitbaremultisig", DEFAULT_PERMIT_BAREMULTISIG);
     fAcceptDatacarrier = args.GetBoolArg("-datacarrier", DEFAULT_ACCEPT_DATACARRIER);
     nMaxDatacarrierBytes = args.GetIntArg("-datacarriersize", nMaxDatacarrierBytes);
+    fAcceptUnlimitedIssuances = args.GetBoolArg("-acceptunlimitedissuances", DEFAULT_ACCEPT_UNLIMITED_ISSUANCES);
 
     // Option to startup with mocktime set (used for regression testing):
     SetMockTime(args.GetIntArg("-mocktime", 0)); // SetMockTime(0) is a no-op
