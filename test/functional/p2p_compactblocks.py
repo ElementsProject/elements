@@ -285,7 +285,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         # This index will be too high
         prefilled_txn = PrefilledTransaction(1, block.vtx[0])
         cmpct_block.prefilled_txn = [prefilled_txn]
-        self.segwit_node.send_await_disconnect(msg_cmpctblock(cmpct_block))
+        self.additional_segwit_node.send_await_disconnect(msg_cmpctblock(cmpct_block))
         assert_equal(int(self.nodes[0].getbestblockhash(), 16), block.hashPrevBlock)
 
     # Compare the generated shortids to what we expect based on BIP 152, given
@@ -603,6 +603,42 @@ class CompactBlocksTest(BitcoinTestFramework):
             test_node.send_and_ping(msg_no_witness_block(block))
         assert_equal(int(node.getbestblockhash(), 16), block.sha256)
 
+    # Multiple blocktxn responses will cause a node to get disconnected.
+    def test_multiple_blocktxn_response(self, test_node):
+        node = self.nodes[0]
+        utxo = self.utxos[0]
+
+        block = self.build_block_with_transactions(node, utxo, 2)
+
+        # Send compact block
+        comp_block = HeaderAndShortIDs()
+        comp_block.initialize_from_block(block, prefill_list=[0], use_witness=True)
+        test_node.send_and_ping(msg_cmpctblock(comp_block.to_p2p()))
+        absolute_indexes = []
+        with p2p_lock:
+            assert "getblocktxn" in test_node.last_message
+            absolute_indexes = test_node.last_message["getblocktxn"].block_txn_request.to_absolute()
+        assert_equal(absolute_indexes, [1, 2])
+
+        # Send a blocktxn that does not succeed in reconstruction, triggering
+        # getdata fallback.
+        msg = msg_blocktxn()
+        msg.block_transactions = BlockTransactions(block.sha256, [block.vtx[2]] + [block.vtx[1]])
+        test_node.send_and_ping(msg)
+
+        # Tip should not have updated
+        assert_equal(int(node.getbestblockhash(), 16), block.hashPrevBlock)
+
+        # We should receive a getdata request
+        test_node.wait_for_getdata([block.sha256], timeout=10)
+        assert test_node.last_message["getdata"].inv[0].type == MSG_BLOCK or \
+               test_node.last_message["getdata"].inv[0].type == MSG_BLOCK | MSG_WITNESS_FLAG
+
+        # Send the same blocktxn and assert the sender gets disconnected.
+        with node.assert_debug_log(['previous compact block reconstruction attempt failed']):
+            test_node.send_message(msg)
+        test_node.wait_for_disconnect()
+
     def test_getblocktxn_handler(self, test_node):
         version = test_node.cmpct_version
         node = self.nodes[0]
@@ -897,12 +933,16 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.test_invalid_tx_in_compactblock(self.segwit_node)
         self.test_invalid_tx_in_compactblock(self.old_node)
 
+        self.log.info("Testing handling of multiple blocktxn responses...")
+        self.test_multiple_blocktxn_response(self.segwit_node)
+
+        self.segwit_node = self.nodes[0].add_p2p_connection(TestP2PConn(cmpct_version=2))
+
         self.log.info("Testing invalid index in cmpctblock message...")
         self.test_invalid_cmpctblock_message()
 
         self.log.info("Testing high-bandwidth mode states via getpeerinfo...")
         self.test_highbandwidth_mode_states_via_getpeerinfo()
-
 
 if __name__ == '__main__':
     CompactBlocksTest().main()
