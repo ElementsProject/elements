@@ -33,7 +33,7 @@ static void prevOutpoint(frameItem* dst, const outpoint* op) {
   simplicity_write32(dst, op->ix);
 }
 
-/* Write an confidential asset to the 'dst' frame, advancing the cursor 258 cells.
+/* Write a confidential asset to the 'dst' frame, advancing the cursor 258 cells.
  *
  * Precondition: '*dst' is a valid write frame for 258 more cells;
  *               NULL != asset;
@@ -47,7 +47,7 @@ static void asset(frameItem* dst, const confidential* asset) {
   writeHash(dst, &asset->data);
 }
 
-/* Write an confidential amount to the 'dst' frame, advancing the cursor 258 cells.
+/* Write a confidential amount to the 'dst' frame, advancing the cursor 258 cells.
  *
  * Precondition: '*dst' is a valid write frame for 258 more cells;
  *               NULL != amt;
@@ -915,7 +915,7 @@ bool simplicity_asset_amount_hash(frameItem* dst, frameItem src, const txEnv* en
     forwardBits(&src, 1);
     sha256_uchar(&ctx, 0x01);
   } else {
-    /* Read an confidential asset id prefix. (1 bit) */
+    /* Read a confidential asset id prefix. (1 bit) */
     if (readBit(&src)) {
       sha256_uchar(&ctx, 0x0b);
     } else {
@@ -934,7 +934,7 @@ bool simplicity_asset_amount_hash(frameItem* dst, frameItem src, const txEnv* en
     read8s(buf, 8, &src);
     sha256_uchars(&ctx, buf, 8);
   } else {
-    /* Read an confidential amount. (257 bits) */
+    /* Read a confidential amount. (257 bits) */
     if (readBit(&src)) {
       sha256_uchar(&ctx, 0x09);
     } else {

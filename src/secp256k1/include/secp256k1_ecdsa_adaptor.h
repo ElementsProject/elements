@@ -25,7 +25,7 @@ extern "C" {
  *  A defense is to not reuse the signing key of ECDSA adaptor signatures in
  *  protocols that rely on the hardness of the CDH problem, e.g., Diffie-Hellman
  *  key exchange and ElGamal encryption. In general, it is a well-established
- *  cryptographic practice to seperate keys for different purposes whenever
+ *  cryptographic practice to separate keys for different purposes whenever
  *  possible.
  */
 

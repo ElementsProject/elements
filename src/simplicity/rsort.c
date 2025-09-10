@@ -79,7 +79,7 @@ static void swap(const sha256_midstate** a, const sha256_midstate** b) {
  * so that the result is that the a[begin:end) subarray ends up sorted by their first 'ix + 1' characters.
  *
  * Precondition: For all begin <= i < end, NULL != a[i];
- *               for all i < CHAR_COUNT, bucketSize[i] is the number of of entries in the subentries in a[begin:end) whose ix-th character is 'i'.
+ *               for all i < CHAR_COUNT, bucketSize[i] is the number of entries in the subentries in a[begin:end) whose ix-th character is 'i'.
  *               for all i < UMAX_CHAR, bucketEdge[i] + bucketSize[i] = bucketEdge[i+1];
  *               ix < sizeof((*a)->s);
  * Postcondition: The contents of bucketSize is not preserved!

@@ -536,7 +536,7 @@ extern elementsTransaction* simplicity_elements_mallocTransaction(const rawEleme
     for (size_t i = 0; i < numFees; ++i) {
       static_assert(0 == offsetof(sigOutput, asset.data), "asset ID is not first field of sigOutput.");
       /* The uintptr_t cast is to suppress warning about both casting away const and a change in pointer alignment.
-       * Each pointer in perm is pointing the the first field of some (non-const) sigOutput*, so this cast is safe.
+       * Each pointer in perm is pointing to the first field of some (non-const) sigOutput*, so this cast is safe.
        */
       feeOutputs[i] = (sigOutput*)(uintptr_t)(perm[i]);
     }

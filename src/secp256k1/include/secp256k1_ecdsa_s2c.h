@@ -82,7 +82,7 @@ SECP256K1_API int secp256k1_ecdsa_s2c_sign(
 /** Verify a sign-to-contract commitment.
  *
  *  Returns: 1: the signature contains a commitment to data32 (though it does
- *              not necessarily need to be a valid siganture!)
+ *              not necessarily need to be a valid signature!)
  *           0: incorrect opening
  *  Args:    ctx: a secp256k1 context object
  *  In:      sig: the signature containing the sign-to-contract commitment (cannot be NULL)

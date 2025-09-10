@@ -99,7 +99,7 @@ static inline size_t numChildren(tag_t tag) {
  */
 sha256_midstate simplicity_computeWordCMR(const bitstring* value, size_t n);
 
-/* A node the the DAG of a Simplicity expression.
+/* A node in the DAG of a Simplicity expression.
  * It consists of a 'tag' indicating the kind of expression the node represents.
  * The contents of a node depend on the kind of the expressions.
  * The node may have references to children, when it is a combinator kind of expression.
