@@ -895,7 +895,7 @@ void CTxMemPool::check(const CBlockIndex* active_chain_tip, const CCoinsViewCach
         const auto& fedpegscripts = GetValidFedpegScripts(active_chain_tip, Params().GetConsensus(), true /* nextblock_validation */);
         bool cacheStore = true;
         bool fScriptChecks = true;
-        assert(Consensus::CheckTxInputs(tx, dummy_state, mempoolDuplicate, spendheight, fee_map, setPeginsSpent, nullptr, cacheStore, fScriptChecks, fedpegscripts, Params().GetConsensus().allow_any_fee));
+        assert(Consensus::CheckTxInputs(tx, dummy_state, mempoolDuplicate, spendheight, fee_map, setPeginsSpent, nullptr, cacheStore, fScriptChecks, fedpegscripts));
         for (const auto& input: tx.vin) mempoolDuplicate.SpendCoin(input.prevout);
         AddCoins(mempoolDuplicate, tx, std::numeric_limits<int>::max());
     }

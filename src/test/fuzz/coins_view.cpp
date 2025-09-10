@@ -252,7 +252,7 @@ FUZZ_TARGET_INIT(coins_view, initialize_coins_view)
                 }
                 std::vector<std::pair<CScript, CScript>> fedpegscripts; // ELEMENTS: we ought to populate this and have a more useful fuzztest
                 std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
-                if (Consensus::CheckTxInputs(transaction, state, coins_view_cache, fuzzed_data_provider.ConsumeIntegralInRange<int>(0, std::numeric_limits<int>::max()), tx_fee_map, setPeginsSpent, NULL, false, true, fedpegscripts, false)) {
+                if (Consensus::CheckTxInputs(transaction, state, coins_view_cache, fuzzed_data_provider.ConsumeIntegralInRange<int>(0, std::numeric_limits<int>::max()), tx_fee_map, setPeginsSpent, NULL, false, true, fedpegscripts)) {
                     assert(MoneyRange(tx_fee_map));
                 }
             },

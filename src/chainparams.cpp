@@ -898,8 +898,6 @@ protected:
         std::vector<unsigned char> man_bytes = ParseHex(args.GetArg("-con_mandatorycoinbase", ""));
         consensus.mandatory_coinbase_destination = CScript(man_bytes.begin(), man_bytes.end()); // Blank script allows any coinbase destination
 
-        consensus.allow_any_fee = args.GetBoolArg("-con_allow_any_fee", consensus.allow_any_fee);
-
         // Custom chains connect coinbase outputs to db by default
         consensus.connect_genesis_outputs = args.GetIntArg("-con_connect_genesis_outputs", true);
 
@@ -1516,8 +1514,6 @@ public:
             std::vector<unsigned char> man_bytes = ParseHex(args.GetArg("-con_mandatorycoinbase", ""));
             consensus.mandatory_coinbase_destination = CScript(man_bytes.begin(), man_bytes.end()); // Blank script allows any coinbase destination
         }
-
-        consensus.allow_any_fee = args.GetBoolArg("-con_allow_any_fee", consensus.allow_any_fee);
 
         consensus.connect_genesis_outputs = args.GetIntArg("-con_connect_genesis_outputs", consensus.connect_genesis_outputs);
 

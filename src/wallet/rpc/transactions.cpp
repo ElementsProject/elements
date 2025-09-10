@@ -823,7 +823,7 @@ RPCHelpMan gettransaction()
     CAmountMap nCredit = CachedTxGetCredit(*pwallet, wtx, filter);
     CAmountMap nDebit = CachedTxGetDebit(*pwallet, wtx, filter);
     CAmountMap nNet = nCredit - nDebit;
-    CHECK_NONFATAL(HasValidFee(*wtx.tx,Params().GetConsensus().allow_any_fee));
+    CHECK_NONFATAL(HasValidFee(*wtx.tx));
     CAmountMap nFee = CachedTxIsFromMe(*pwallet, wtx, filter) ? CAmountMap() - GetFeeMap(*wtx.tx) : CAmountMap();
     if (!g_con_elementsmode) {
         CAmount total_out = 0;
