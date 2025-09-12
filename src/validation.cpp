@@ -723,9 +723,9 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
         }
     }
 
-    // Reject if unblinded issuance/reissuance is not in MoneyRange and acceptunlimitedissuances false
+    // Check unblinded issuance is in MoneyRange if configured
     if (!fAcceptUnlimitedIssuances && !IsIssuanceInMoneyRange(tx))
-        return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "issuance-out-of-range");
+        return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "issuance-out-of-range", "Issuance is greater than 21 million and acceptunlimitedissuances is not enabled.");
 
     // Do not work on transactions that are too small.
     // A transaction with 1 segwit input and 1 P2WPHK output has non-witness size of 82 bytes.

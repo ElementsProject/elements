@@ -315,10 +315,8 @@ bool IsIssuanceInMoneyRange(const CTransaction& tx)
         if (issuance.IsNull()) {
             continue;
         }
-        if (issuance.nAmount.IsExplicit()) {
-            if (!MoneyRange(issuance.nAmount.GetAmount())) {
-                return false;
-            }
+        if (issuance.nAmount.IsExplicit() && !MoneyRange(issuance.nAmount.GetAmount())) {
+            return false;
         }
     }
     return true;

@@ -117,14 +117,17 @@ class WalletTest(BitcoinTestFramework):
 
         self.log.info("Issue more than 21 million of a non-policy asset on node 2 - rejected from mempool")
         issuance = self.nodes[2].issueasset(300_000_000, 100, False)
+        asset = issuance['asset']
         issuance_tx = self.nodes[2].gettransaction(issuance["txid"])
         assert_raises_rpc_error(-26, "issuance-out-of-range", self.nodes[2].sendrawtransaction, issuance_tx['hex'])
+        self.generate(self.nodes[0], 1)
+        assert(asset not in self.nodes[2].getbalance())
         # transaction should be accepted on node 0
         self.nodes[0].sendrawtransaction(issuance_tx["hex"])
-        asset = issuance['asset']
         assert(issuance['txid'] in self.nodes[0].getrawmempool())
         assert(issuance['txid'] not in self.nodes[2].getrawmempool())
         self.generate(self.nodes[0], 1)
+        assert(asset not in self.nodes[0].getbalance())
         assert_equal(self.nodes[2].getbalance()[asset], 300_000_000)
 
 if __name__ == '__main__':

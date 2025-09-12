@@ -128,7 +128,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
 /* ELEMENTS
-* Check if blinded issuance/reissuance is greater than MAX_MONEY
+* Check if unblinded issuance/reissuance is in MoneyRange
 */
 bool IsIssuanceInMoneyRange(const CTransaction& tx);
 
