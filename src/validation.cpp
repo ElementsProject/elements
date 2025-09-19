@@ -2148,12 +2148,12 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
 
     nBlocksTotal++;
 
-    // Check that all non-zero coinbase outputs pay to the required destination
+    // Check that all non-zero policyAsset coinbase outputs pay to the required destination
     const CScript& mandatory_coinbase_destination = m_params.GetConsensus().mandatory_coinbase_destination;
     if (mandatory_coinbase_destination != CScript()) {
         for (auto& txout : block.vtx[0]->vout) {
             bool mustPay = !txout.nValue.IsExplicit() || txout.nValue.GetAmount() != 0;
-            if (mustPay && txout.scriptPubKey != mandatory_coinbase_destination) {
+            if (mustPay && txout.nAsset.GetAsset() == policyAsset && txout.scriptPubKey != mandatory_coinbase_destination) {
                 LogPrintf("ERROR: ConnectBlock(): Coinbase outputs didn't match required scriptPubKey\n");
                 return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-coinbase-txos");
             }
