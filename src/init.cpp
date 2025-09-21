@@ -566,9 +566,9 @@ void SetupServerArgs(ArgsManager& argsman)
     argsman.AddArg("-incrementalrelayfee=<amt>", strprintf("Fee rate (in %s/kvB) used to define cost of relay, used for mempool limiting and BIP 125 replacement. (default: %s)", CURRENCY_UNIT, FormatMoney(DEFAULT_INCREMENTAL_RELAY_FEE)), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::NODE_RELAY);
     argsman.AddArg("-dustrelayfee=<amt>", strprintf("Fee rate (in %s/kvB) used to define dust, the value of an output such that it will cost more than its value in fees at this fee rate to spend it. (default: %s)", CURRENCY_UNIT, FormatMoney(DUST_RELAY_TX_FEE)), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::NODE_RELAY);
     argsman.AddArg("-bytespersigop", strprintf("Equivalent bytes per sigop in transactions for relay and mining (default: %u)", DEFAULT_BYTES_PER_SIGOP), ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
-    argsman.AddArg("-datacarrier", strprintf("(DEPRECATED) Relay and mine data carrier transactions (default: %u)", DEFAULT_ACCEPT_DATACARRIER), ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
+    argsman.AddArg("-datacarrier", strprintf("Relay and mine data carrier transactions (default: %u)", DEFAULT_ACCEPT_DATACARRIER), ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
     argsman.AddArg("-datacarriersize",
-                   strprintf("(DEPRECATED) Relay and mine transactions whose data-carrying raw scriptPubKeys in aggregate "
+                   strprintf("Relay and mine transactions whose data-carrying raw scriptPubKeys in aggregate "
                              "are of this size or less, allowing multiple outputs (default: %u)",
                              MAX_OP_RETURN_RELAY),
                    ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
@@ -863,10 +863,6 @@ bool AppInitParameterInteraction(const ArgsManager& args)
     // ********************************************************* Step 2: parameter interactions
 
     // also see: InitParameterInteraction()
-
-    if (args.IsArgSet("-datacarriersize") || args.IsArgSet("-datacarrier")) {
-        InitWarning(_("Options '-datacarrier' or '-datacarriersize' are set but are marked as deprecated. They will be removed in a future version."));
-    }
 
     // Error if network-specific options (-addnode, -connect, etc) are
     // specified in default section of config file, but not overridden
