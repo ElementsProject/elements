@@ -18,9 +18,9 @@ class WalletTest(BitcoinTestFramework):
             "-blindedaddresses=1"
         ]
         self.extra_args = [
-            args,
-            args,
-            args + ["-acceptunlimitedissuances=0"], # node 2 blocks unblinded issuances out of moneyrange
+            args + ["-acceptunlimitedissuances=1"],
+            args + ["-acceptunlimitedissuances=1"],
+            args, # node 2 blocks unblinded issuances out of moneyrange
         ]
 
     def setup_network(self, split=False):
