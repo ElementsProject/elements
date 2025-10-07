@@ -1,4 +1,5 @@
 
+#include <chainparams.h>
 #include <confidential_validation.h>
 #include <issuance.h>
 #include <pegins.h>
@@ -30,8 +31,9 @@ bool HasValidFee(const CTransaction& tx) {
         CAmount fee = 0;
         if (tx.vout[i].IsFee()) {
             fee = tx.vout[i].nValue.GetAmount();
-            if (fee == 0 || !MoneyRange(fee))
+            if (fee == 0 || !MoneyRange(fee)) {
                 return false;
+            }
             totalFee[tx.vout[i].nAsset.GetAsset()] += fee;
             if (!MoneyRange(totalFee)) {
                 return false;
@@ -102,13 +104,12 @@ static bool VerifyIssuanceAmount(secp256k1_pedersen_commitment& value_commit, se
 
     // Build value commitment
     if (value.IsExplicit()) {
-        if (!MoneyRange(value.GetAmount()) || value.GetAmount() == 0) {
+        if ((asset == Params().GetConsensus().pegged_asset && !MoneyRange(value.GetAmount())) || value.GetAmount() <= 0) {
             return false;
         }
         if (!rangeproof.empty()) {
             return false;
         }
-
 
         ret = secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &value_commit, explicit_blinds, value.GetAmount(), &asset_gen);
         // The explicit_blinds are all 0, and the amount is not 0. So secp256k1_pedersen_commit does not fail.

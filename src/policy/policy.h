@@ -80,7 +80,9 @@ static constexpr unsigned int STANDARD_SCRIPT_VERIFY_FLAGS = MANDATORY_SCRIPT_VE
                                                              SCRIPT_VERIFY_TAPROOT |
                                                              SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_TAPROOT_VERSION |
                                                              SCRIPT_VERIFY_DISCOURAGE_OP_SUCCESS |
-                                                             SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_PUBKEYTYPE;
+                                                             SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_PUBKEYTYPE |
+                                                             SCRIPT_VERIFY_SIMPLICITY;
+
 
 /** For convenience, standard but not mandatory verify flags. */
 static constexpr unsigned int STANDARD_NOT_MANDATORY_VERIFY_FLAGS = STANDARD_SCRIPT_VERIFY_FLAGS & ~MANDATORY_SCRIPT_VERIFY_FLAGS;
@@ -91,6 +93,9 @@ static constexpr unsigned int STANDARD_LOCKTIME_VERIFY_FLAGS = LOCKTIME_VERIFY_S
 
 // ELEMENTS: keep a copy of the upstream default dust relay fee rate
 static const unsigned int DUST_RELAY_TX_FEE_BITCOIN = 3000;
+
+// ELEMENTS: allow unblinded issuances/reissuances greater than MAX_MONEY
+static const bool DEFAULT_ACCEPT_UNLIMITED_ISSUANCES = true;
 
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFee);
 
@@ -123,6 +128,11 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 * Also enforce a maximum stack item size limit and no annexes for tapscript spends.
 */
 bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+/* ELEMENTS
+* Check if unblinded issuance/reissuance is in MoneyRange
+*/
+bool IsIssuanceInMoneyRange(const CTransaction& tx);
 
 /** Compute the virtual transaction size (weight reinterpreted as bytes). */
 int64_t GetVirtualTransactionSize(int64_t nWeight, int64_t nSigOpCost, unsigned int bytes_per_sigop);

@@ -227,6 +227,7 @@ public:
         consensus.connect_genesis_outputs = false;
         consensus.subsidy_asset = CAsset();
         anyonecanspend_aremine = false;
+        accept_unlimited_issuances = false;
         enforce_pak = false;
         multi_data_permitted = false;
         accept_discount_ct = false;
@@ -374,6 +375,7 @@ public:
         consensus.subsidy_asset = CAsset();
         anyonecanspend_aremine = false;
         enforce_pak = false;
+        accept_unlimited_issuances = false;
         multi_data_permitted = false;
         accept_discount_ct = false;
         create_discount_ct = false;
@@ -538,6 +540,7 @@ public:
         consensus.subsidy_asset = CAsset();
         anyonecanspend_aremine = false;
         enforce_pak = false;
+        accept_unlimited_issuances = false;
         multi_data_permitted = false;
         accept_discount_ct = false;
         create_discount_ct = false;
@@ -641,6 +644,7 @@ public:
         consensus.subsidy_asset = CAsset();
         anyonecanspend_aremine = false;
         enforce_pak = false;
+        accept_unlimited_issuances = false;
         multi_data_permitted = false;
         accept_discount_ct = false;
         create_discount_ct = false;
@@ -909,6 +913,8 @@ protected:
 
         enforce_pak = args.GetBoolArg("-enforce_pak", false);
 
+        accept_unlimited_issuances = args.GetBoolArg("-acceptunlimitedissuances", accept_unlimited_issuances);
+
         // Allow multiple op_return outputs by relay policy
         multi_data_permitted = args.GetBoolArg("-multi_data_permitted", enforce_pak);
 
@@ -1166,6 +1172,8 @@ public:
         consensus.has_parent_chain = true;
 
         enforce_pak = true;
+
+        accept_unlimited_issuances = false;
 
         multi_data_permitted = true;
         create_discount_ct = args.GetBoolArg("-creatediscountct", false);
@@ -1524,6 +1532,8 @@ public:
         consensus.has_parent_chain = args.GetBoolArg("-con_has_parent_chain", consensus.has_parent_chain);
 
         enforce_pak = args.GetBoolArg("-enforce_pak", enforce_pak);
+
+        accept_unlimited_issuances = args.GetBoolArg("-acceptunlimitedissuances", accept_unlimited_issuances);
 
         multi_data_permitted = args.GetBoolArg("-multi_data_permitted", multi_data_permitted);
         create_discount_ct = args.GetBoolArg("-creatediscountct", create_discount_ct);

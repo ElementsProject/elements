@@ -722,6 +722,11 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
         }
     }
 
+    // Check unblinded issuance is in MoneyRange if configured
+    if (!chainparams.GetAcceptUnlimitedIssuances() && !IsIssuanceInMoneyRange(tx)) {
+        return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "issuance-out-of-range", "Issuance is greater than 21 million and acceptunlimitedissuances is not enabled.");
+    }
+
     // Do not work on transactions that are too small.
     // A transaction with 1 segwit input and 1 P2WPHK output has non-witness size of 82 bytes.
     // Transactions smaller than this are not relayed to mitigate CVE-2017-12842 by not relaying
@@ -1070,10 +1075,6 @@ bool MemPoolAccept::PolicyScriptChecks(const ATMPArgs& args, Workspace& ws)
     // STANDARD_LOCKTIME_VERIFY_FLAGS in a release post-activation.
     if (DeploymentActiveAfter(m_active_chainstate.m_chain.Tip(), args.m_chainparams.GetConsensus(), Consensus::DEPLOYMENT_DYNA_FED)) {
         scriptVerifyFlags |= SCRIPT_SIGHASH_RANGEPROOF;
-    }
-
-    if (DeploymentActiveAfter(m_active_chainstate.m_chain.Tip(), args.m_chainparams.GetConsensus(), Consensus::DEPLOYMENT_SIMPLICITY)) {
-        scriptVerifyFlags |= SCRIPT_VERIFY_SIMPLICITY;
     }
 
     // Check input scripts and signatures.
@@ -2152,12 +2153,12 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
 
     nBlocksTotal++;
 
-    // Check that all non-zero coinbase outputs pay to the required destination
+    // Check that all non-zero policyAsset coinbase outputs pay to the required destination
     const CScript& mandatory_coinbase_destination = m_params.GetConsensus().mandatory_coinbase_destination;
     if (mandatory_coinbase_destination != CScript()) {
         for (auto& txout : block.vtx[0]->vout) {
             bool mustPay = !txout.nValue.IsExplicit() || txout.nValue.GetAmount() != 0;
-            if (mustPay && txout.scriptPubKey != mandatory_coinbase_destination) {
+            if (mustPay && txout.nAsset.GetAsset() == policyAsset && txout.scriptPubKey != mandatory_coinbase_destination) {
                 LogPrintf("ERROR: ConnectBlock(): Coinbase outputs didn't match required scriptPubKey\n");
                 return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-coinbase-txos");
             }
