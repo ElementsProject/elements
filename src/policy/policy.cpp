@@ -308,6 +308,20 @@ bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
     return true;
 }
 
+bool IsIssuanceInMoneyRange(const CTransaction& tx)
+{
+    for (size_t i = 0; i < tx.vin.size(); ++i) {
+        const CAssetIssuance& issuance = tx.vin[i].assetIssuance;
+        if (issuance.IsNull()) {
+            continue;
+        }
+        if (issuance.nAmount.IsExplicit() && !MoneyRange(issuance.nAmount.GetAmount())) {
+            return false;
+        }
+    }
+    return true;
+}
+
 int64_t GetVirtualTransactionSize(int64_t nWeight, int64_t nSigOpCost, unsigned int bytes_per_sigop)
 {
     return (std::max(nWeight, nSigOpCost * bytes_per_sigop) + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR;

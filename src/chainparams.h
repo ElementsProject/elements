@@ -134,6 +134,7 @@ public:
     const std::string& ParentBech32HRP() const { return parent_bech32_hrp; }
     const std::string& ParentBlech32HRP() const { return parent_blech32_hrp; }
     bool GetEnforcePak() const { return enforce_pak; }
+    bool GetAcceptUnlimitedIssuances() const { return accept_unlimited_issuances; }
     bool GetMultiDataPermitted() const { return multi_data_permitted; }
     bool GetAcceptDiscountCT() const { return accept_discount_ct; }
     bool GetCreateDiscountCT() const { return create_discount_ct; }
@@ -168,6 +169,7 @@ protected:
     std::string parent_bech32_hrp;
     std::string parent_blech32_hrp;
     bool enforce_pak;
+    bool accept_unlimited_issuances;
     bool multi_data_permitted;
     bool accept_discount_ct;
     bool create_discount_ct;

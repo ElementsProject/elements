@@ -305,6 +305,7 @@ class DynaFedTest(BitcoinTestFramework):
         assert comb_result["complete"]
         self.nodes[0].submitblock(comb_result["hex"])
         assert_equal(self.nodes[0].getblockcount(), cur_height+11)
+        self.sync_blocks()
 
     def test_transition_mempool_eject(self):
         self.log.info("Testing mempool (r)ejection policy on transitions...")

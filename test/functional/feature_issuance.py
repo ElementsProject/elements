@@ -502,5 +502,29 @@ class IssuanceTest(BitcoinTestFramework):
         #    an "impossible" case and a confusing/generic error message.
         self.nodes[1].issueasset(0, 1, False)["txid"]
 
+        # Send different assets to the same address in a transaction with createrawtransaction
+        # Unblinded issuance of asset
+        contract_hash_1 = "deadbee1"*8
+        contract_hash_2 = "deadbee2"*8
+        issued_1 = self.nodes[0].issueasset(1, 1, False, contract_hash_1)
+        issued_2 = self.nodes[0].issueasset(1, 1, False, contract_hash_2)
+        self.generate(self.nodes[0], 1)
+        self.sync_all()
+        balance = self.nodes[0].getwalletinfo()["balance"]
+        assert_equal(balance[issued_1["asset"]], 1)
+        assert_equal(balance[issued_2["asset"]], 1)
+
+        send_address = self.nodes[0].getnewaddress()
+
+        # error generated if duplicated address:asset pair
+        assert_raises_rpc_error(-8, "Invalid parameter, duplicated address and asset", self.nodes[0].createrawtransaction, [], [{send_address: 1, "asset": issued_1["asset"]}, {send_address: 1, "asset": issued_1["asset"]}], 0, False)
+
+        # repeated address with different asset accepted
+        raw_tx = self.nodes[0].createrawtransaction([], [{send_address: 1, "asset": issued_1["asset"]}, {send_address: 1, "asset": issued_2["asset"]}], 0, False)
+        funded_tx = self.nodes[0].fundrawtransaction(raw_tx)["hex"]
+        blind_tx = self.nodes[0].blindrawtransaction(funded_tx)
+        signed_tx = self.nodes[0].signrawtransactionwithwallet(blind_tx)
+        self.nodes[0].sendrawtransaction(signed_tx["hex"])
+
 if __name__ == '__main__':
     IssuanceTest ().main ()

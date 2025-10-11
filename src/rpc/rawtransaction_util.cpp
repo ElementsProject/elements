@@ -283,7 +283,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
     CTxOut fee_out;
 
     // Duplicate checking
-    std::set<CTxDestination> destinations;
+    std::set<std::pair<CTxDestination,CAsset>> destinations;
     bool has_data{false};
 
     std::vector<PSBTOutput> psbt_outs;
@@ -297,6 +297,8 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         CTxOut out(::policyAsset, 0, CScript());
 
         bool is_fee = false;
+        CTxDestination destination;
+        std::string dest;
         for (const std::string& name_ : output.getKeys()) {
             if (name_ == "data") {
                 if (has_data) {
@@ -337,14 +339,11 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 // For PSET
                 psbt_out.m_blinder_index = find_value(output, name_).get_int();
             } else {
-                CTxDestination destination = DecodeDestination(name_);
+                destination = DecodeDestination(name_);
                 if (!IsValidDestination(destination)) {
                     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Bitcoin address: ") + name_);
                 }
-
-                if (!destinations.insert(destination).second) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + name_);
-                }
+                dest = name_;
 
                 CScript scriptPubKey = GetScriptForDestination(destination);
                 CAmount nAmount = AmountFromValue(output[name_]);
@@ -362,6 +361,11 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 psbt_out.m_blinding_pubkey = blind_pub;
             }
         }
+
+        if (!destinations.emplace(destination, out.nAsset.GetAsset()).second) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address and asset: " + dest + " " + out.nAsset.GetHex()));
+        }
+
         if (is_fee) {
             fee_out = out;
         } else {
