@@ -577,7 +577,7 @@ bool DecomposePeginWitness(const CScriptWitness& witness, CAmount& value, CAsset
         tx = elem_tx;
     }
 
-    CDataStream ss_proof(stack[5], SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream ss_proof(stack[5], SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
     if (Params().GetConsensus().ParentChainHasPow()) {
         Sidechain::Bitcoin::CMerkleBlock tx_proof;
         ss_proof >> tx_proof;
