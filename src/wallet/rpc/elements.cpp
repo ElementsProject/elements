@@ -6,6 +6,7 @@
 #include <block_proof.h>
 #include <core_io.h>
 #include <deploymentstatus.h>
+#include <dynafed.h>
 #include <issuance.h>
 #include <key_io.h>
 #include <mainchainrpc.h>
@@ -15,10 +16,11 @@
 #include <script/generic.hpp>
 #include <script/pegins.h>
 #include <secp256k1.h>
+#include <util/moneystr.h>
 #include <wallet/coincontrol.h>
 #include <wallet/fees.h>
-#include <wallet/rpc/util.h>
 #include <wallet/receive.h>
+#include <wallet/rpc/util.h>
 #include <wallet/spend.h>
 #include <wallet/wallet.h>
 
@@ -220,6 +222,25 @@ RPCHelpMan getpeginaddress()
 
     ret.pushKV("mainchain_address", EncodeParentDestination(mainchain_dest));
     ret.pushKV("claim_script", HexStr(dest_script));
+
+    PeginMinimum pegin_minimum = Params().GetPeginMinimum();
+    if (pegin_minimum.amount > 0) {
+        ret.pushKV("pegin_min_amount", FormatMoney(pegin_minimum.amount));
+    }
+    if (pegin_minimum.height < std::numeric_limits<int>::max()) {
+        ret.pushKV("pegin_min_height", pegin_minimum.height);
+        ret.pushKV("pegin_min_active", wallet->chain().getTip()->nHeight >= pegin_minimum.height);
+    }
+
+    PeginSubsidy pegin_subsidy = Params().GetPeginSubsidy();
+    if (pegin_subsidy.threshold > 0) {
+        ret.pushKV("pegin_subsidy_threshold", FormatMoney(pegin_subsidy.threshold));
+    }
+    if (pegin_subsidy.height < std::numeric_limits<int>::max()) {
+        ret.pushKV("pegin_subsidy_height", pegin_subsidy.height);
+        ret.pushKV("pegin_subsidy_active", wallet->chain().getTip()->nHeight >= pegin_subsidy.height);
+    }
+
     return ret;
 },
     };
@@ -787,7 +808,7 @@ RPCHelpMan sendtomainchain()
 extern UniValue signrawtransaction(const JSONRPCRequest& request);
 extern UniValue sendrawtransaction(const JSONRPCRequest& request);
 
-template<typename T_tx_ref, typename T_merkle_block>
+template <typename T_tx_ref, typename T_merkle_block>
 static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef, T_merkle_block& merkleBlock)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -824,6 +845,59 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     // Construct pegin input
     CreatePegInInput(mtx, 0, txBTCRef, merkleBlock, claim_scripts, txData, txOutProofData, wallet->chain().getTip());
 
+    // Get value for peg-in output
+    CAmount value = 0;
+    if (!GetAmountFromParentChainPegin(value, *txBTCRef, mtx.vin[0].prevout.n)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Amounts to pegin must be explicit and asset must be %s", Params().GetConsensus().parent_pegged_asset.GetHex()));
+    }
+
+    const PeginMinimum pegin_minimum = Params().GetPeginMinimum();
+    if (pwallet->chain().getTip()->nHeight >= pegin_minimum.height && value < pegin_minimum.amount) {
+        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Pegin amount (%d) is lower than the minimum pegin amount for this chain (%d).", FormatMoney(value), FormatMoney(pegin_minimum.amount)));
+    }
+
+    const PeginSubsidy pegin_subsidy = Params().GetPeginSubsidy();
+    bool subsidy_required = pwallet->chain().getTip()->nHeight >= pegin_subsidy.height && value < pegin_subsidy.threshold;
+    if (subsidy_required && !gArgs.GetBoolArg("-validatepegin", Params().GetConsensus().has_parent_chain) && request.params[3].isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Bitcoin transaction fee rate must be supplied, because validatepegin is off and this peg-in requires a burn subsidy.");
+    }
+
+    CAmount fee = 0;
+    uint32_t parent_vsize = 0;
+    CFeeRate feerate = CFeeRate{0};
+    if (gArgs.GetBoolArg("-validatepegin", false) && subsidy_required) {
+        std::string txid = txBTCRef->GetHash().ToString();
+        std::string blockhash = merkleBlock.header.GetHash().ToString();
+        UniValue params(UniValue::VARR);
+        params.push_back(txid);
+        params.push_back(2);
+        params.push_back(blockhash);
+        UniValue result = CallMainChainRPC("getrawtransaction", params);
+        if (result["error"].isStr()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, result["error"]["message"].get_str());
+        } else {
+            parent_vsize = result["result"]["vsize"].get_int64();
+            if (result["result"]["fee"].isNum()) {
+                fee = static_cast<CAmount>(std::round(result["result"]["fee"].get_real() * COIN));
+            } else if (result["result"]["fee"].isObject()) {
+                std::string asset = Params().GetConsensus().parent_pegged_asset.GetHex();
+                if (result["result"]["fee"][asset].isNum()) {
+                    fee = static_cast<CAmount>(std::round(result["result"]["fee"][asset].get_real() * COIN));
+                } else {
+                    throw JSONRPCError(RPC_MISC_ERROR, "No fee result for the parent pegged asset.");
+                }
+            } else {
+                throw JSONRPCError(RPC_MISC_ERROR, "Fee result is not a number or object.");
+            }
+            // when parent feerate is less than 1 sat/vb, use 1 sat/vb for the calculation
+            feerate = std::max(CFeeRate{fee, parent_vsize}, CFeeRate{1000});
+        }
+    } else if (!request.params[3].isNull()) {
+        // manual feerate, specified in sats/vb but CFeeRate takes sats/Kvb
+        CAmount satsperk = static_cast<CAmount>(std::round(request.params[3].get_real() * 1000));
+        feerate = std::max(CFeeRate{satsperk}, CFeeRate{1000});
+    }
+
     // Manually construct peg-in transaction, sign it, and send it off.
     // Decrement the output value as much as needed given the total vsize to
     // pay the fees.
@@ -838,19 +912,17 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error.original);
     }
 
-    // Get value for output
-    CAmount value = 0;
-    if (!GetAmountFromParentChainPegin(value, *txBTCRef, mtx.vin[0].prevout.n)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Amounts to pegin must be explicit and asset must be %s", Params().GetConsensus().parent_pegged_asset.GetHex()));
-    }
-
-    // one wallet output and one fee output
+    // add a wallet output for the peg-in value
     mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(wpkhash)));
+    if (subsidy_required) {
+        // add an op_return for the peg-in fee subsidy
+        mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, 0, CScript() << OP_RETURN));
+    }
+    // add a fee output
     mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, 0, CScript()));
 
-    // Estimate fee for transaction, decrement fee output(including witness data)
-    unsigned int nBytes = GetVirtualTransactionSize(CTransaction(mtx)) +
-        (1+1+72+1+33)/WITNESS_SCALE_FACTOR;
+    // Estimate fee for transaction, decrement fee output (including witness data)
+    unsigned int nBytes = GetVirtualTransactionSize(CTransaction(mtx)) + (1 + 1 + 72 + 1 + 33) / WITNESS_SCALE_FACTOR;
     CCoinControl coin_control;
     FeeCalculation feeCalc;
     CAmount nFeeNeeded = GetMinimumFee(*pwallet, nBytes, coin_control, &feeCalc);
@@ -859,8 +931,35 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Fee estimation failed. Fallbackfee is disabled. Wait a few blocks or enable -fallbackfee.");
     }
 
-    mtx.vout[0].nValue = mtx.vout[0].nValue.GetAmount() - nFeeNeeded;
-    mtx.vout[1].nValue = mtx.vout[1].nValue.GetAmount() + nFeeNeeded;
+    if (subsidy_required) {
+        CHECK_NONFATAL(mtx.vout.size() == 3);
+
+        // calculate the subsidy as the amount required to spend the P2WSH output
+        const auto& fedpegscripts = GetValidFedpegScripts(pwallet->chain().getTip(), Params().GetConsensus(), true /* nextblock_validation */);
+        int t = 0;
+        int n = 0;
+        CHECK_NONFATAL(fedpegscripts.size() > 0);
+        CHECK_NONFATAL(ParseFedPegQuorum(fedpegscripts[0].second, t, n));
+
+        // P2WSH input is 41 bytes: txid (32) + vout (4) + scriptsig len (1) + sequence (4)
+        // the witness to spend is `t` signatures + the script size
+        unsigned int weight = WITNESS_SCALE_FACTOR * (32 + 4 + 1 + 4) + (t * 72 + fedpegscripts[0].second.size());
+        unsigned int vbytes = (weight + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR;
+
+        CAmount subsidy = feerate.GetFee(vbytes);
+
+        CAmount value = mtx.vout[0].nValue.GetAmount() - nFeeNeeded - subsidy;
+        mtx.vout[0].nValue = value;
+        mtx.vout[1].nValue = subsidy;
+        mtx.vout[2].nValue = nFeeNeeded;
+        if (IsDust(mtx.vout[0], pwallet->chain().relayDustFee())) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Peg-in transaction would create dust output.");
+        }
+    } else {
+        CHECK_NONFATAL(mtx.vout.size() == 2);
+        mtx.vout[0].nValue = mtx.vout[0].nValue.GetAmount() - nFeeNeeded;
+        mtx.vout[1].nValue = nFeeNeeded;
+    }
 
     UniValue ret(UniValue::VOBJ);
 
@@ -893,6 +992,7 @@ RPCHelpMan createrawpegin()
                     {"bitcoin_tx", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress"},
                     {"txoutproof", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A rawtxoutproof (in hex) generated by the mainchain daemon's `gettxoutproof` containing a proof of only bitcoin_tx"},
                     {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The witness program generated by getpeginaddress. Only needed if not in wallet."},
+                    {"fee_rate", RPCArg::Type::AMOUNT, RPCArg::Optional::OMITTED_NAMED_ARG, "The fee rate of the Bitcoin transaction in sats/vb, only necessary when validatepegin=0."},
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
@@ -942,6 +1042,7 @@ RPCHelpMan claimpegin()
                     {"bitcoin_tx", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress"},
                     {"txoutproof", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A rawtxoutproof (in hex) generated by the mainchain daemon's `gettxoutproof` containing a proof of only bitcoin_tx"},
                     {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The witness program generated by getpeginaddress. Only needed if not in wallet."},
+                    {"fee_rate", RPCArg::Type::AMOUNT, RPCArg::Optional::OMITTED_NAMED_ARG, "The fee rate of the Bitcoin transaction in sats/vb, only necessary when validatepegin=0."},
                 },
                 RPCResult{
                     RPCResult::Type::STR_HEX, "txid", "txid of the resulting sidechain transaction",

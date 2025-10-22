@@ -123,3 +123,34 @@ DynaFedParamEntry ComputeNextBlockCurrentParameters(const CBlockIndex* pindexPre
     }
 }
 
+bool ParseFedPegQuorum(const CScript& fedpegscript, int& t, int& n) {
+    CScript::const_iterator it = fedpegscript.begin();
+    std::vector<unsigned char> vch;
+    opcodetype opcode;
+
+    // parse the required threshold number
+    if (!fedpegscript.GetOp(it, opcode, vch)) return false;
+    t = CScript::DecodeOP_N(opcode);
+    if (t < 1 || t > MAX_PUBKEYS_PER_MULTISIG) return false;
+
+    // support a fedpegscript like OP_TRUE if we're at the end of the script
+    if (it == fedpegscript.end()) return true;
+
+    // count the pubkeys
+    int pubkeys = 0;
+    while (fedpegscript.GetOp(it, opcode, vch)) {
+        if (opcode != 0x21) break;
+        if (vch.size() != 33) return false;
+        pubkeys++;
+    }
+
+    // parse the total number of pubkeys
+    n = CScript::DecodeOP_N(opcode);
+    if (n < 1 || n > MAX_PUBKEYS_PER_MULTISIG || n < t) return false;
+    if (pubkeys != n) return false;
+
+    // the next opcode must be OP_CHECKMULTISIG
+    if (!fedpegscript.GetOp(it, opcode, vch)) return false;
+
+    return opcode == OP_CHECKMULTISIG;
+}
