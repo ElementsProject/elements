@@ -663,6 +663,135 @@ private:
         return true;
     }
 
+    // ELEMENTS: check if peg-in transaction pays the burn subsidy, and if minimum peg-in amount is met
+    bool CheckPeginSubsidyAndMinimum(TxValidationState& state, const CTransaction& tx, const std::vector<unsigned int>& pegin_indices)
+    {
+        // pegin_indices was calculated directly from the tx in prechecks, assert this invariant
+        assert(tx.witness.vtxinwit.size() >= pegin_indices.size());
+
+        if (pegin_indices.size() > 0) {
+            // calculate the burned subsidy value from the tx
+            CAmount subsidy = 0;
+            for (const CTxOut& txout : tx.vout) {
+                if (txout.scriptPubKey.IsUnspendable() && txout.nAsset.GetAsset() == Params().GetConsensus().pegged_asset && !txout.IsFee()) {
+                    subsidy += txout.nValue.GetAmount();
+                }
+            }
+            // calculate the peg-in value, fee, and vsize from the parent chain if we are validating peg-ins
+            // if validatepegin=0 then the minimum 1 sat/vb subsidy applies
+            CAmount value = 0;
+            CAmount parent_fee = 0;
+            uint32_t parent_vsize = 0;
+            for (size_t i = 0; i < pegin_indices.size(); ++i) {
+                // get the parent txid and blockhash from the peg-in witness data
+                CAmount pvalue;
+                CAsset passet;
+                uint256 pgenesis;
+                CScript pscript;
+                std::variant<std::monostate, Sidechain::Bitcoin::CTransactionRef, CTransactionRef> ptx;
+                std::variant<std::monostate, Sidechain::Bitcoin::CMerkleBlock, CMerkleBlock> pmerkle;
+
+                if (!DecomposePeginWitness(tx.witness.vtxinwit[pegin_indices[i]].m_pegin_witness, pvalue, passet, pgenesis, pscript, ptx, pmerkle)) {
+                    return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "pegin-invalid-parent-tx", "failed to decompose the parent peg-in witness");
+                }
+                if (passet != Params().GetConsensus().pegged_asset) {
+                    return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "pegin-invalid-asset", "pegin asset is not the pegged asset");
+                }
+
+                value += pvalue;
+
+                uint256 txid;
+                switch (ptx.index()) {
+                case 0:
+                    // this should never happen, but fail gracefully by rejecting
+                    return false;
+                case 1:
+                    txid = std::get<Sidechain::Bitcoin::CTransactionRef>(ptx)->GetHash();
+                    break;
+                case 2:
+                    txid = std::get<CTransactionRef>(ptx)->GetHash();
+                    break;
+                }
+                uint256 blockhash;
+                switch (pmerkle.index()) {
+                case 0:
+                    return false;
+                case 1:
+                    blockhash = std::get<Sidechain::Bitcoin::CMerkleBlock>(pmerkle).header.GetHash();
+                    break;
+                case 2:
+                    blockhash = std::get<CMerkleBlock>(pmerkle).header.GetHash();
+                    break;
+                }
+
+                // get the parent transaction fee, to calculate the fee rate
+                if (gArgs.GetBoolArg("-validatepegin", Params().GetConsensus().has_parent_chain)) {
+                    UniValue params(UniValue::VARR);
+                    params.push_back(txid.GetHex());
+                    params.push_back(2);
+                    params.push_back(blockhash.GetHex());
+                    UniValue result = CallMainChainRPC("getrawtransaction", params);
+                    if (result["error"].isStr()) {
+                        return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "pegin-subsidy-mainchain-error", result["error"]["message"].get_str());
+                    } else {
+                        parent_vsize += result["result"]["vsize"].get_int64();
+                        if (result["result"]["fee"].isNum()) {
+                            // bitcoin core v25+ returns the fee amount
+                            parent_fee += static_cast<CAmount>(std::round(result["result"]["fee"].get_real() * COIN));
+                        } else if (result["result"]["fee"].isObject()) {
+                            // elements returns a fee object
+                            std::string asset = Params().GetConsensus().parent_pegged_asset.GetHex();
+                            if (result["result"]["fee"][asset].isNum()) {
+                                parent_fee += static_cast<CAmount>(std::round(result["result"]["fee"][asset].get_real() * COIN));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // check if the peg-in value meets the minimum amount
+            PeginMinimum pegin_minimum = Params().GetPeginMinimum();
+            if (m_active_chainstate.m_chain.Height() >= pegin_minimum.height && value < pegin_minimum.amount) {
+                // peg-in value is lower than the minimum
+                return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "pegin-value-too-low", strprintf("peg-in value: %d, minimum peg-in value: %d", FormatMoney(value), FormatMoney(pegin_minimum.amount)));
+            }
+
+            if (m_active_chainstate.m_chain.Height() >= Params().GetPeginSubsidy().height) {
+                // subsidy is required at this height
+                // when parent feerate is less than 1 sat/vb, use 1 sat/vb for the calculation
+                CFeeRate parent_feerate = std::max(CFeeRate{parent_fee, parent_vsize}, CFeeRate{1000});
+
+                // for peg-ins below the subsidy threshold, check for enough subsidy
+                CAmount threshold = Params().GetPeginSubsidy().threshold;
+                // calculate the subsidy as the amount required to spend the P2WSH output
+                const auto& fedpegscripts = GetValidFedpegScripts(m_active_chainstate.m_chain.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+                int t = 0;
+                int n = 0;
+                if (fedpegscripts.size() == 0) return false;
+                if (!ParseFedPegQuorum(fedpegscripts[0].second, t, n)) return false;
+
+                // each P2WSH input is 41 bytes: txid (32) + vout (4) + scriptsig len (1) + sequence (4)
+                // the witness to spend is `t` signatures + the script size
+                unsigned int weight = WITNESS_SCALE_FACTOR * (32 + 4 + 1 + 4) + (t * 72 + fedpegscripts[0].second.size());
+                unsigned int vbytes = (weight + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR;
+
+                // multiply by the number of peg-ins
+                CAmount expected_subsidy = parent_feerate.GetFee(pegin_indices.size() * vbytes);
+                if (value < threshold && subsidy < expected_subsidy) {
+                    return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "pegin-subsidy-too-low",
+                                         strprintf("peg-in value: %d, subsidy threshold: %d, subsidy value: %d, expected subsidy: %d, parent feerate: %s",
+                                                   FormatMoney(value), FormatMoney(threshold), FormatMoney(subsidy), FormatMoney(expected_subsidy), parent_feerate.ToString()));
+                }
+            }
+        }
+
+        // either validatepegin=0 and we can't calculate peg-in value and parent feerate
+        // or we're below the subsidy height
+        // or the peg-in value is above the subsidy threshold
+        // or the peg-in paid enough subsidy
+        return true;
+    }
+
 private:
     CTxMemPool& m_pool;
     CCoinsViewCache m_view;
@@ -795,6 +924,7 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
     std::vector<std::pair<CScript, CScript>> fedpegscripts = GetValidFedpegScripts(m_active_chainstate.m_chain.Tip(), chainparams.GetConsensus(), true /* nextblock_validation */);
 
     const CCoinsViewCache& coins_cache = m_active_chainstate.CoinsTip();
+    std::vector<unsigned int> pegin_indices;
     // do all inputs exist?
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         const CTxIn& txin = tx.vin[i];
@@ -816,6 +946,7 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
             if (m_view.IsPeginSpent(pegin)) {
                 return state.Invalid(TxValidationResult::TX_CONSENSUS, "pegin-already-claimed");
             }
+            pegin_indices.push_back(i);
             continue;
         }
 
@@ -922,6 +1053,8 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
     // ELEMENTS: accept discounted fees for Confidential Transactions only, if enabled.
     int64_t package_size = Params().GetAcceptDiscountCT() ? GetDiscountVirtualTransactionSize(tx) : ws.m_vsize;
     if (!bypass_limits && !CheckFeeRate(package_size, ws.m_modified_fees, state)) return false;
+    // ELEMENTS: check if peg-in subsidy is required and min peg-in amount is met
+    if (!CheckPeginSubsidyAndMinimum(state, tx, pegin_indices)) return false;
 
     ws.m_iters_conflicting = m_pool.GetIterSet(ws.m_conflicts);
     // Calculate in-mempool ancestors, up to a limit.

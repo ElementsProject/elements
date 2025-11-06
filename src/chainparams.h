@@ -28,6 +28,27 @@ struct CCheckpointData {
     }
 };
 
+// ELEMENTS
+struct PeginSubsidy {
+    int height{std::numeric_limits<int>::max()};
+    CAmount threshold{0};
+
+    PeginSubsidy() {};
+    bool IsDefined() {
+        return threshold > 0 || height < std::numeric_limits<int>::max();
+    };
+};
+
+struct PeginMinimum {
+    int height{std::numeric_limits<int>::max()};
+    CAmount amount{0};
+
+    PeginMinimum() {};
+    bool IsDefined() {
+        return amount > 0 || height < std::numeric_limits<int>::max();
+    };
+};
+
 struct AssumeutxoHash : public BaseHash<uint256> {
     explicit AssumeutxoHash(const uint256& hash) : BaseHash(hash) {}
 };
@@ -138,6 +159,8 @@ public:
     bool GetMultiDataPermitted() const { return multi_data_permitted; }
     bool GetAcceptDiscountCT() const { return accept_discount_ct; }
     bool GetCreateDiscountCT() const { return create_discount_ct; }
+    PeginSubsidy GetPeginSubsidy() const { return pegin_subsidy; }
+    PeginMinimum GetPeginMinimum() const { return pegin_minimum; }
 
 protected:
     CChainParams() {}
@@ -173,6 +196,8 @@ protected:
     bool multi_data_permitted;
     bool accept_discount_ct;
     bool create_discount_ct;
+    PeginSubsidy pegin_subsidy;
+    PeginMinimum pegin_minimum;
 };
 
 /**
