@@ -318,6 +318,10 @@ bool IsIssuanceInMoneyRange(const CTransaction& tx)
         if (issuance.nAmount.IsExplicit() && !MoneyRange(issuance.nAmount.GetAmount())) {
             return false;
         }
+        // check the reissuance token is in range
+        if (!issuance.nInflationKeys.IsNull() && issuance.nInflationKeys.IsExplicit() && !MoneyRange(issuance.nInflationKeys.GetAmount())) {
+            return false;
+        }
     }
     return true;
 }

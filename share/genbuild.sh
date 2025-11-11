@@ -28,6 +28,8 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
     RAWDESC=$(git describe --abbrev=0 2>/dev/null)
     if [ "$(git rev-parse HEAD)" = "$(git rev-list -1 "$RAWDESC" 2>/dev/null)" ]; then
         git diff-index --quiet HEAD -- && GIT_TAG=$RAWDESC
+        # Replace elements- tag with the corresponding v
+        case "$GIT_TAG" in elements-*) GIT_TAG="v${GIT_TAG#elements-}";; esac
     fi
 
     # otherwise generate suffix from git, i.e. string like "59887e8-dirty"

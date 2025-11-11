@@ -20,7 +20,7 @@ class WalletTest(BitcoinTestFramework):
         self.extra_args = [
             args + ["-acceptunlimitedissuances=1"],
             args + ["-acceptunlimitedissuances=1"],
-            args, # node 2 blocks unblinded issuances out of moneyrange
+            args, # node 2 blocks unblinded issuances out of moneyrange (default -acceptunlimitedissuances=0)
         ]
 
     def setup_network(self, split=False):
@@ -60,6 +60,12 @@ class WalletTest(BitcoinTestFramework):
         self.nodes[0].reissueasset(unblinded_asset, 200_000_000)
         self.generate(self.nodes[0], 1)
         assert_equal(self.nodes[0].getbalance()[unblinded_asset], 500_000_000)
+
+        self.log.info("Issue more than 21 million of a unblinded reissuance token")
+        issuance = self.nodes[0].issueasset(300_000_000, 100_000_000, False)
+        self.generate(self.nodes[0], 1)
+        assert_equal(self.nodes[0].getbalance()[issuance['asset']], 300_000_000)
+        assert_equal(self.nodes[0].getbalance()[issuance['token']], 100_000_000)
 
         # send more than 21 million of that asset
         addr = self.nodes[1].getnewaddress()
@@ -129,6 +135,41 @@ class WalletTest(BitcoinTestFramework):
         self.generate(self.nodes[0], 1)
         assert(asset not in self.nodes[0].getbalance())
         assert_equal(self.nodes[2].getbalance()[asset], 300_000_000)
+
+        self.log.info("Reissue more than 21 million of a unblinded non-policy asset on node 2 - rejected from mempool")
+        issuance = self.nodes[2].issueasset(3_000_000, 100, False)
+        asset = issuance['asset']
+        unblinded_asset = issuance['asset']
+        self.generate(self.nodes[2], 1)
+        assert_equal(self.nodes[2].getbalance()[unblinded_asset], 3_000_000)
+        reissuance = self.nodes[2].reissueasset(unblinded_asset, 200_000_000)
+        reissuance_tx = self.nodes[2].gettransaction(reissuance["txid"])
+        assert_raises_rpc_error(-26, "issuance-out-of-range", self.nodes[2].sendrawtransaction, reissuance_tx['hex'])
+        # transaction should be accepted on node 0
+        self.nodes[0].sendrawtransaction(reissuance_tx["hex"])
+        assert(reissuance['txid'] in self.nodes[0].getrawmempool())
+        assert(reissuance['txid'] not in self.nodes[2].getrawmempool())
+        self.generate(self.nodes[0], 1)
+        assert(asset not in self.nodes[0].getbalance())
+        assert_equal(self.nodes[2].getbalance()[asset], 203_000_000)
+
+        self.log.info("Issue more than 21 million reissuance tokens on node 2 - rejected from mempool")
+        issuance = self.nodes[2].issueasset(3_000_000, 200_000_000, False)
+        asset = issuance['asset']
+        token = issuance['token']
+        issuance_tx = self.nodes[2].gettransaction(issuance["txid"])
+        assert_raises_rpc_error(-26, "issuance-out-of-range", self.nodes[2].sendrawtransaction, issuance_tx['hex'])
+        self.generate(self.nodes[0], 1)
+        assert(asset not in self.nodes[2].getbalance())
+        assert(token not in self.nodes[2].getbalance())
+        # transaction should be accepted on node 0
+        self.nodes[0].sendrawtransaction(issuance_tx["hex"])
+        assert(issuance['txid'] in self.nodes[0].getrawmempool())
+        assert(issuance['txid'] not in self.nodes[2].getrawmempool())
+        self.generate(self.nodes[0], 1)
+        assert(asset not in self.nodes[0].getbalance())
+        assert_equal(self.nodes[2].getbalance()[asset], 3_000_000)
+        assert_equal(self.nodes[2].getbalance()[token], 200_000_000)
 
 if __name__ == '__main__':
     WalletTest().main()
