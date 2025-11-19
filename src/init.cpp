@@ -642,6 +642,10 @@ void SetupServerArgs(ArgsManager& argsman)
     argsman.AddArg("-ct_exponent", strprintf("The hiding exponent. (default: %s)", 0), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-acceptdiscountct", "Accept discounted fees for Confidential Transactions (default: 1 in liquidtestnet and liquidv1, 0 otherwise)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-creatediscountct", "Create Confidential Transactions with discounted fees (default: 0). Setting this to 1 will also set 'acceptdiscountct' to 1.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-peginsubsidyheight", "The block height at which peg-in transactions must have a burn subsidy (default: not active). This is an OP_RETURN output with value of the parent transaction feerate times the cost of spending the WSH output (feerate * 396 sats for liquidv1). ", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-peginsubsidythreshold", "The output value below which peg-in transactions must have a burn subsidy (default: 0). Peg-ins above this value do not require the subsidy.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-peginminheight", "The block height at which a minimum peg-in value is enforced (default: not active).", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-peginminamount", "The minimum value for a peg-in transaction after peginminheight (default: unset).", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
 
 #if defined(USE_SYSCALL_SANDBOX)
     argsman.AddArg("-sandbox=<mode>", "Use the experimental syscall sandbox in the specified mode (-sandbox=log-and-abort or -sandbox=abort). Allow only expected syscalls to be used by bitcoind. Note that this is an experimental new feature that may cause bitcoind to exit or crash unexpectedly: use with caution. In the \"log-and-abort\" mode the invocation of an unexpected syscall results in a debug handler being invoked which will log the incident and terminate the program (without executing the unexpected syscall). In the \"abort\" mode the invocation of an unexpected syscall results in the entire process being killed immediately by the kernel without executing the unexpected syscall.", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1973,6 +1977,23 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
                 // Or gently warn the user, and continue
                 InitError(Untranslated(err_msg));
                 gArgs.SoftSetArg("-validatepegin", "0");
+            }
+        }
+        // if we are validating pegin subsidy or minimum then we require bitcoind >= v25
+        if (Params().GetPeginSubsidy().IsDefined() || Params().GetPeginMinimum().IsDefined()) {
+            UniValue params(UniValue::VARR);
+            UniValue reply = CallMainChainRPC("getnetworkinfo", params);
+            if (reply["error"].isStr()) {
+                InitError(Untranslated(reply["error"].get_str()));
+                return false;
+            } else {
+                const int version = reply["result"]["version"].get_int();
+                const std::string& subversion = reply["result"]["subversion"].get_str();
+                if (version < 250000 && subversion.find("Satoshi") != std::string::npos) {
+                    const std::string err = strprintf("ERROR: parent bitcoind must be version 25 or newer for pegin subsidy/minimum validation. Found version: %s", version);
+                    InitError(Untranslated(err));
+                    return false;
+                }
             }
         }
     }
