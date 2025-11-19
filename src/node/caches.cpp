@@ -8,12 +8,16 @@
 #include <util/system.h>
 #include <validation.h>
 
+//! Maximum dbcache size on 32-bit systems.
+static constexpr int64_t MAX_32BIT_DBCACHE = 1ULL << 30;  // 1 GiB
+
 namespace node {
 CacheSizes CalculateCacheSizes(const ArgsManager& args, size_t n_indexes)
 {
     int64_t nTotalCache = (args.GetIntArg("-dbcache", nDefaultDbCache) << 20);
     nTotalCache = std::max(nTotalCache, nMinDbCache << 20); // total cache cannot be less than nMinDbCache
     nTotalCache = std::min(nTotalCache, nMaxDbCache << 20); // total cache cannot be greater than nMaxDbcache
+    if (sizeof(void*) == 4) nTotalCache = std::min(nTotalCache, MAX_32BIT_DBCACHE);
     CacheSizes sizes;
     sizes.block_tree_db = std::min(nTotalCache / 8, nMaxBlockDBCache << 20);
     nTotalCache -= sizes.block_tree_db;
