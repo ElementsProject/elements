@@ -86,6 +86,18 @@ def get_generate_key():
                blinding_privkey=blinding_privkey,
                )
 
+def generate_keypair(compressed=True, wif=False):
+    """Generate a new random keypair and return the corresponding ECKey /
+    bytes objects. The private key can also be provided as WIF (wallet
+    import format) string instead, which is often useful for wallet RPC
+    interaction."""
+    privkey = ECKey()
+    privkey.generate(compressed)
+    pubkey = privkey.get_pubkey().get_bytes()
+    if wif:
+        privkey = bytes_to_wif(privkey.get_bytes(), compressed)
+    return privkey, pubkey
+
 def get_multisig(node):
     """Generate a fresh 2-of-3 multisig on node
 
