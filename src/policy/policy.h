@@ -128,6 +128,11 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 * Also enforce a maximum stack item size limit and no annexes for tapscript spends.
 */
 bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+/**
+ * Check whether this transaction spends any witness program but P2A, including not-yet-defined ones.
+ * May return `false` early for consensus-invalid transactions.
+ */
+bool SpendsNonAnchorWitnessProg(const CTransaction& tx, const CCoinsViewCache& prevouts);
 
 /* ELEMENTS
 * Check if unblinded issuance/reissuance is in MoneyRange
