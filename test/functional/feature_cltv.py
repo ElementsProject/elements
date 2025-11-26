@@ -150,12 +150,13 @@ class BIP65Test(BitcoinTestFramework):
             spendtx = wallet.create_self_transfer()['tx']
             cltv_invalidate(spendtx, i)
 
+            tx_rej = "mempool-script-verify-flag-failed"
             expected_cltv_reject_reason = [
-                "non-mandatory-script-verify-flag (Operation not valid with the current stack size)",
-                "non-mandatory-script-verify-flag (Negative locktime)",
-                "non-mandatory-script-verify-flag (Locktime requirement not satisfied)",
-                "non-mandatory-script-verify-flag (Locktime requirement not satisfied)",
-                "non-mandatory-script-verify-flag (Locktime requirement not satisfied)",
+                " (Operation not valid with the current stack size)",
+                " (Negative locktime)",
+                " (Locktime requirement not satisfied)",
+                " (Locktime requirement not satisfied)",
+                " (Locktime requirement not satisfied)",
             ][i]
             # First we show that this tx is valid except for CLTV by getting it
             # rejected from the mempool for exactly that reason.
@@ -164,7 +165,7 @@ class BIP65Test(BitcoinTestFramework):
                     'txid': spendtx.hash,
                     'wtxid': spendtx.getwtxid(),
                     'allowed': False,
-                    'reject-reason': expected_cltv_reject_reason,
+                    'reject-reason': tx_rej + expected_cltv_reject_reason,
                 }],
                 self.nodes[0].testmempoolaccept(rawtxs=[spendtx.serialize().hex()], maxfeerate=0),
             )
@@ -174,7 +175,7 @@ class BIP65Test(BitcoinTestFramework):
             block.hashMerkleRoot = block.calc_merkle_root()
             block.solve()
 
-            with self.nodes[0].assert_debug_log(expected_msgs=[f'CheckInputScripts on {block.vtx[-1].hash} failed with {expected_cltv_reject_reason}']):
+            with self.nodes[0].assert_debug_log(expected_msgs=[f'CheckInputScripts on {block.vtx[-1].hash} failed with {tx_rej + expected_cltv_reject_reason}']):
                 peer.send_and_ping(msg_block(block))
                 assert_equal(int(self.nodes[0].getbestblockhash(), 16), tip)
                 peer.sync_with_ping()
