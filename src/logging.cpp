@@ -7,7 +7,6 @@
 #include <logging.h>
 #include <util/threadnames.h>
 #include <util/string.h>
-#include <util/time.h>
 
 #include <algorithm>
 #include <array>
@@ -124,7 +123,7 @@ bool BCLog::Logger::WillLogCategory(BCLog::LogFlags category) const
 
 bool BCLog::Logger::DefaultShrinkDebugFile() const
 {
-    return m_categories == BCLog::NONE;
+    return m_categories == DEFAULT_LOG_FLAGS;
 }
 
 struct CLogCategoryDesc {
@@ -165,13 +164,15 @@ const CLogCategoryDesc LogCategories[] =
 #endif
     {BCLog::UTIL, "util"},
     {BCLog::BLOCKSTORE, "blockstorage"},
+    {BCLog::UNCONDITIONAL_RATE_LIMITED, "uncond_rate_limited"},
+    {BCLog::UNCONDITIONAL_ALWAYS, "uncond_always"},
     {BCLog::ALL, "1"},
     {BCLog::ALL, "all"},
 };
 
 bool GetLogCategory(BCLog::LogFlags& flag, const std::string& str)
 {
-    if (str == "") {
+    if (str.empty()) {
         flag = BCLog::ALL;
         return true;
     }
@@ -182,6 +183,95 @@ bool GetLogCategory(BCLog::LogFlags& flag, const std::string& str)
         }
     }
     return false;
+}
+
+std::string LogLevelToStr(BCLog::Level level)
+{
+    switch (level) {
+    case BCLog::Level::None:
+        return "none";
+    case BCLog::Level::Debug:
+        return "debug";
+    case BCLog::Level::Info:
+        return "info";
+    case BCLog::Level::Warning:
+        return "warning";
+    case BCLog::Level::Error:
+        return "error";
+    }
+    assert(false);
+}
+
+std::string LogCategoryToStr(BCLog::LogFlags category)
+{
+    // Each log category string representation should sync with LogCategories
+    switch (category) {
+    case BCLog::LogFlags::NONE:
+        return "none";
+    case BCLog::LogFlags::NET:
+        return "net";
+    case BCLog::LogFlags::TOR:
+        return "tor";
+    case BCLog::LogFlags::MEMPOOL:
+        return "mempool";
+    case BCLog::LogFlags::HTTP:
+        return "http";
+    case BCLog::LogFlags::BENCH:
+        return "bench";
+    case BCLog::LogFlags::ZMQ:
+        return "zmq";
+    case BCLog::LogFlags::WALLETDB:
+        return "walletdb";
+    case BCLog::LogFlags::RPC:
+        return "rpc";
+    case BCLog::LogFlags::ESTIMATEFEE:
+        return "estimatefee";
+    case BCLog::LogFlags::ADDRMAN:
+        return "addrman";
+    case BCLog::LogFlags::SELECTCOINS:
+        return "selectcoins";
+    case BCLog::LogFlags::REINDEX:
+        return "reindex";
+    case BCLog::LogFlags::CMPCTBLOCK:
+        return "cmpctblock";
+    case BCLog::LogFlags::RAND:
+        return "rand";
+    case BCLog::LogFlags::PRUNE:
+        return "prune";
+    case BCLog::LogFlags::PROXY:
+        return "proxy";
+    case BCLog::LogFlags::MEMPOOLREJ:
+        return "mempoolrej";
+    case BCLog::LogFlags::LIBEVENT:
+        return "libevent";
+    case BCLog::LogFlags::COINDB:
+        return "coindb";
+    case BCLog::LogFlags::QT:
+        return "qt";
+    case BCLog::LogFlags::LEVELDB:
+        return "leveldb";
+    case BCLog::LogFlags::VALIDATION:
+        return "validation";
+    case BCLog::LogFlags::I2P:
+        return "i2p";
+    case BCLog::LogFlags::IPC:
+        return "ipc";
+#ifdef DEBUG_LOCKCONTENTION
+    case BCLog::LogFlags::LOCK:
+        return "lock";
+#endif
+    case BCLog::LogFlags::UTIL:
+        return "util";
+    case BCLog::LogFlags::BLOCKSTORE:
+        return "blockstorage";
+    case BCLog::LogFlags::UNCONDITIONAL_RATE_LIMITED:
+        return "uncond_rate_limited";
+    case BCLog::LogFlags::UNCONDITIONAL_ALWAYS:
+        return "uncond_always";
+    case BCLog::LogFlags::ALL:
+        return "all";
+    }
+    assert(false);
 }
 
 std::vector<LogCategory> BCLog::Logger::LogCategoriesList() const
@@ -249,13 +339,36 @@ namespace BCLog {
     }
 } // namespace BCLog
 
-void BCLog::Logger::LogPrintStr(const std::string& str, const std::string& logging_function, const std::string& source_file, const int source_line)
+void BCLog::Logger::LogPrintStr(const std::string& str, const std::string& logging_function,
+                                const SourceLocation& source_location, const BCLog::LogFlags category,
+                                const BCLog::Level level)
 {
     StdLockGuard scoped_lock(m_cs);
     std::string str_prefixed = LogEscapeMessage(str);
 
+    const bool print_category{category != LogFlags::NONE && category != LogFlags::UNCONDITIONAL_ALWAYS && category != LogFlags::UNCONDITIONAL_RATE_LIMITED};
+    if ((print_category || level != Level::None) && m_started_new_line) {
+        std::string s{"["};
+
+        if (print_category) {
+            s += LogCategoryToStr(category);
+        }
+
+        if (print_category && level != Level::None) {
+            // Only add separator if both flag and level are not NONE
+            s += ":";
+        }
+
+        if (level != Level::None) {
+            s += LogLevelToStr(level);
+        }
+
+        s += "] ";
+        str_prefixed.insert(0, s);
+    }
+
     if (m_log_sourcelocations && m_started_new_line) {
-        str_prefixed.insert(0, "[" + RemovePrefix(source_file, "./") + ":" + ToString(source_line) + "] [" + logging_function + "] ");
+        str_prefixed.insert(0, "[" + RemovePrefix(source_location.m_file, "./") + ":" + ToString(source_location.m_line) + "] [" + logging_function + "] ");
     }
 
     if (m_log_threadnames && m_started_new_line) {
@@ -264,7 +377,43 @@ void BCLog::Logger::LogPrintStr(const std::string& str, const std::string& loggi
 
     str_prefixed = LogTimestampStr(str_prefixed);
 
-    m_started_new_line = !str.empty() && str[str.size()-1] == '\n';
+    // Whether or not logging to disk was/is ratelimited for this source location.
+    bool was_ratelimited{false};
+    bool is_ratelimited{false};
+
+    if (category == UNCONDITIONAL_RATE_LIMITED && m_ratelimit) {
+        was_ratelimited = m_supressed_locations.find(source_location) != m_supressed_locations.end();
+        is_ratelimited = !m_ratelimiters[source_location].Consume(str_prefixed.size());
+
+        if (!is_ratelimited && was_ratelimited) {
+            // Logging will restart for this source location.
+            m_supressed_locations.erase(source_location);
+
+            str_prefixed = LogTimestampStr(strprintf(
+                "Restarting logging from %s:%d (%s): "
+                "(%d MiB) were dropped during the last hour.\n%s",
+                source_location.m_file, source_location.m_line, logging_function,
+                m_ratelimiters[source_location].GetDroppedBytes() / (1024 * 1024), str_prefixed));
+        } else if (is_ratelimited && !was_ratelimited) {
+            // Logging from this source location will be supressed until the current window resets.
+            m_supressed_locations.insert(source_location);
+
+            str_prefixed = LogTimestampStr(strprintf(
+                "Excessive logging detected from %s:%d (%s): >%d MiB logged during the last hour."
+                "Suppressing logging to disk from this source location for up to one hour. "
+                "Console logging unaffected. Last log entry: %s",
+                source_location.m_file, source_location.m_line, logging_function,
+                LogRateLimiter::WINDOW_MAX_BYTES / (1024 * 1024), str_prefixed));
+        }
+    }
+
+    // To avoid confusion caused by dropped log messages when debugging an issue,
+    // we prefix log lines with "[*]" when there are any supressed source locations.
+    if (m_supressed_locations.size() > 0) {
+        str_prefixed.insert(0, "[*] ");
+    }
+
+    m_started_new_line = !str.empty() && str[str.size() - 1] == '\n';
 
     if (m_buffering) {
         // buffer if we haven't started logging yet
@@ -280,7 +429,7 @@ void BCLog::Logger::LogPrintStr(const std::string& str, const std::string& loggi
     for (const auto& cb : m_print_callbacks) {
         cb(str_prefixed);
     }
-    if (m_print_to_file) {
+    if (m_print_to_file && !(is_ratelimited && was_ratelimited)) {
         assert(m_fileout != nullptr);
 
         // reopen the log file, if requested
@@ -336,4 +485,28 @@ void BCLog::Logger::ShrinkDebugFile()
     }
     else if (file != nullptr)
         fclose(file);
+}
+
+void BCLog::LogRateLimiter::MaybeReset()
+{
+    const auto now{NodeClock::now()};
+    if ((now - m_last_reset) >= WINDOW_SIZE) {
+        m_available_bytes = WINDOW_MAX_BYTES;
+        m_last_reset = now;
+        m_dropped_bytes = 0;
+    }
+}
+
+bool BCLog::LogRateLimiter::Consume(uint64_t bytes)
+{
+    MaybeReset();
+
+    if (bytes > m_available_bytes) {
+        m_dropped_bytes += bytes;
+        m_available_bytes = 0;
+        return false;
+    }
+
+    m_available_bytes -= bytes;
+    return true;
 }
