@@ -569,9 +569,9 @@ void CNode::CloseSocketDisconnect()
     }
 }
 
-void CConnman::AddWhitelistPermissionFlags(NetPermissionFlags& flags, const CNetAddr &addr) const {
+void CConnman::AddWhitelistPermissionFlags(NetPermissionFlags& flags, std::optional<CNetAddr> addr) const {
     for (const auto& subnet : vWhitelistedRange) {
-        if (subnet.m_subnet.Match(addr)) NetPermissions::AddFlag(flags, subnet.m_flags);
+        if (addr.has_value() && subnet.m_subnet.Match(addr.value())) NetPermissions::AddFlag(flags, subnet.m_flags);
     }
 }
 
@@ -1179,7 +1179,10 @@ void CConnman::CreateNodeFromAcceptedSocket(std::unique_ptr<Sock>&& sock,
     int nInbound = 0;
     int nMaxInbound = nMaxConnections - m_max_outbound;
 
-    AddWhitelistPermissionFlags(permissionFlags, addr);
+    const bool inbound_onion = std::find(m_onion_binds.begin(), m_onion_binds.end(), addr_bind) != m_onion_binds.end();
+    // Tor inbound connections do not reveal the peer's actual network address.
+    // Therefore do not apply address-based whitelist permissions to them.
+    AddWhitelistPermissionFlags(permissionFlags, inbound_onion ? std::optional<CNetAddr>{} : addr);
     if (NetPermissions::HasFlag(permissionFlags, NetPermissionFlags::Implicit)) {
         NetPermissions::ClearFlag(permissionFlags, NetPermissionFlags::Implicit);
         if (gArgs.GetBoolArg("-whitelistforcerelay", DEFAULT_WHITELISTFORCERELAY)) NetPermissions::AddFlag(permissionFlags, NetPermissionFlags::ForceRelay);
@@ -1243,7 +1246,6 @@ void CConnman::CreateNodeFromAcceptedSocket(std::unique_ptr<Sock>&& sock,
         nodeServices = static_cast<ServiceFlags>(nodeServices | NODE_BLOOM);
     }
 
-    const bool inbound_onion = std::find(m_onion_binds.begin(), m_onion_binds.end(), addr_bind) != m_onion_binds.end();
     CNode* pnode = new CNode(id,
                              nodeServices,
                              std::move(sock),
