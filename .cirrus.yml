@@ -94,7 +94,7 @@ win64_native_common: &win64_native_common
     CI_VCPKG_TAG: '2021.05.12'
     VCPKG_DOWNLOADS: 'C:\Users\ContainerAdministrator\AppData\Local\vcpkg\downloads'
     VCPKG_DEFAULT_BINARY_CACHE: 'C:\Users\ContainerAdministrator\AppData\Local\vcpkg\archives'
-    QT_DOWNLOAD_URL: 'https://download.qt.io/official_releases/qt/5.15/5.15.3/single/qt-everywhere-opensource-src-5.15.3.zip'
+    QT_DOWNLOAD_URL: 'https://download.qt.io/archive/qt/5.15/5.15.3/single/qt-everywhere-opensource-src-5.15.3.zip'
     QT_LOCAL_PATH: 'C:\qt-everywhere-opensource-src-5.15.3.zip'
     QT_SOURCE_DIR: 'C:\qt-everywhere-src-5.15.3'
     QTBASEDIR: 'C:\Qt_static'
