@@ -116,7 +116,7 @@ win64_native_common: &win64_native_common
       - echo %QT_DOWNLOAD_URL%
       - msbuild -version
     populate_script:
-      - curl -L -o C:\jom.zip http://download.qt.io/official_releases/jom/jom.zip
+      - curl -L -o C:\jom.zip https://download.qt.io/official_releases/jom/jom_1_1_2.zip
       - mkdir C:\jom
       - tar -xf C:\jom.zip -C C:\jom
       - curl -L -o %QT_LOCAL_PATH% %QT_DOWNLOAD_URL%
