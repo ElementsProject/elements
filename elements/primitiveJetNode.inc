@@ -127,6 +127,38 @@
 , .targetIx = ty_u
 , .cost = 49087 /* milli weight units */
 }
+,[BROKEN_DO_NOT_USE_CHECK_LOCK_DISTANCE] =
+{ .tag = JET
+, .jet = simplicity_broken_do_not_use_check_lock_distance
+, .cmr = {{0x7f78c7a7u, 0x7a25ada2u, 0x23267d23u, 0x9a5922f7u, 0x64b8ac0cu, 0x2fcef68eu, 0xb93c0d92u, 0xda4af515u}}
+, .sourceIx = ty_w16
+, .targetIx = ty_u
+, .cost = 105 /* milli weight units */
+}
+,[BROKEN_DO_NOT_USE_CHECK_LOCK_DURATION] =
+{ .tag = JET
+, .jet = simplicity_broken_do_not_use_check_lock_duration
+, .cmr = {{0x73dac8e2u, 0x5d87eaf3u, 0x82c2a772u, 0x06ad38b9u, 0x384361e7u, 0xd0dc87c0u, 0xfa7af7eau, 0x524597b7u}}
+, .sourceIx = ty_w16
+, .targetIx = ty_u
+, .cost = 102 /* milli weight units */
+}
+,[BROKEN_DO_NOT_USE_TX_LOCK_DISTANCE] =
+{ .tag = JET
+, .jet = simplicity_broken_do_not_use_tx_lock_distance
+, .cmr = {{0x4c7773b8u, 0x18cb7ee5u, 0xf54f925au, 0xad015677u, 0xa043a72fu, 0x316a187cu, 0xc28c696cu, 0xfcb90807u}}
+, .sourceIx = ty_u
+, .targetIx = ty_w16
+, .cost = 91 /* milli weight units */
+}
+,[BROKEN_DO_NOT_USE_TX_LOCK_DURATION] =
+{ .tag = JET
+, .jet = simplicity_broken_do_not_use_tx_lock_duration
+, .cmr = {{0xcc9c64c8u, 0xb6eb4bf0u, 0x9694af5au, 0x35d957a4u, 0x05e66c1bu, 0x35224ed6u, 0x75878918u, 0x452440b2u}}
+, .sourceIx = ty_u
+, .targetIx = ty_w16
+, .cost = 84 /* milli weight units */
+}
 ,[BUILD_TAPBRANCH] =
 { .tag = JET
 , .jet = simplicity_build_tapbranch
@@ -222,22 +254,6 @@
 , .sourceIx = ty_pw8w16
 , .targetIx = ty_w8
 , .cost = 77 /* milli weight units */
-}
-,[CHECK_LOCK_DISTANCE] =
-{ .tag = JET
-, .jet = simplicity_check_lock_distance
-, .cmr = {{0x7f78c7a7u, 0x7a25ada2u, 0x23267d23u, 0x9a5922f7u, 0x64b8ac0cu, 0x2fcef68eu, 0xb93c0d92u, 0xda4af515u}}
-, .sourceIx = ty_w16
-, .targetIx = ty_u
-, .cost = 105 /* milli weight units */
-}
-,[CHECK_LOCK_DURATION] =
-{ .tag = JET
-, .jet = simplicity_check_lock_duration
-, .cmr = {{0x73dac8e2u, 0x5d87eaf3u, 0x82c2a772u, 0x06ad38b9u, 0x384361e7u, 0xd0dc87c0u, 0xfa7af7eau, 0x524597b7u}}
-, .sourceIx = ty_w16
-, .targetIx = ty_u
-, .cost = 102 /* milli weight units */
 }
 ,[CHECK_LOCK_HEIGHT] =
 { .tag = JET
@@ -3638,22 +3654,6 @@
 , .sourceIx = ty_u
 , .targetIx = ty_b
 , .cost = 71 /* milli weight units */
-}
-,[TX_LOCK_DISTANCE] =
-{ .tag = JET
-, .jet = simplicity_tx_lock_distance
-, .cmr = {{0x4c7773b8u, 0x18cb7ee5u, 0xf54f925au, 0xad015677u, 0xa043a72fu, 0x316a187cu, 0xc28c696cu, 0xfcb90807u}}
-, .sourceIx = ty_u
-, .targetIx = ty_w16
-, .cost = 91 /* milli weight units */
-}
-,[TX_LOCK_DURATION] =
-{ .tag = JET
-, .jet = simplicity_tx_lock_duration
-, .cmr = {{0xcc9c64c8u, 0xb6eb4bf0u, 0x9694af5au, 0x35d957a4u, 0x05e66c1bu, 0x35224ed6u, 0x75878918u, 0x452440b2u}}
-, .sourceIx = ty_u
-, .targetIx = ty_w16
-, .cost = 84 /* milli weight units */
 }
 ,[TX_LOCK_HEIGHT] =
 { .tag = JET
