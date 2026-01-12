@@ -52,12 +52,12 @@
       switch (code) {
         case 1: *result = CHECK_LOCK_HEIGHT; return SIMPLICITY_NO_ERROR;
         case 2: *result = CHECK_LOCK_TIME; return SIMPLICITY_NO_ERROR;
-        case 3: *result = CHECK_LOCK_DISTANCE; return SIMPLICITY_NO_ERROR;
-        case 4: *result = CHECK_LOCK_DURATION; return SIMPLICITY_NO_ERROR;
+        case 3: *result = BROKEN_DO_NOT_USE_CHECK_LOCK_DISTANCE; return SIMPLICITY_NO_ERROR;
+        case 4: *result = BROKEN_DO_NOT_USE_CHECK_LOCK_DURATION; return SIMPLICITY_NO_ERROR;
         case 5: *result = TX_LOCK_HEIGHT; return SIMPLICITY_NO_ERROR;
         case 6: *result = TX_LOCK_TIME; return SIMPLICITY_NO_ERROR;
-        case 7: *result = TX_LOCK_DISTANCE; return SIMPLICITY_NO_ERROR;
-        case 8: *result = TX_LOCK_DURATION; return SIMPLICITY_NO_ERROR;
+        case 7: *result = BROKEN_DO_NOT_USE_TX_LOCK_DISTANCE; return SIMPLICITY_NO_ERROR;
+        case 8: *result = BROKEN_DO_NOT_USE_TX_LOCK_DURATION; return SIMPLICITY_NO_ERROR;
         case 9: *result = TX_IS_FINAL; return SIMPLICITY_NO_ERROR;
       }
       break;
