@@ -878,11 +878,13 @@ static RPCHelpMan tweakfedpegscript()
 
     CScript tweaked_script = calculate_contract(fedpegscript, claim_script);
     CScript redeem_script = GetScriptForDestination(WitnessV0ScriptHash(tweaked_script));
-    CTxDestination parent_addr{ScriptHash(redeem_script)};
+    CTxDestination p2wsh{WitnessV0ScriptHash(tweaked_script)};
+    CTxDestination p2shwsh{ScriptHash(GetScriptForDestination(p2wsh))};
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("script", HexStr(tweaked_script));
-    ret.pushKV("address", EncodeParentDestination(parent_addr));
+    ret.pushKV("p2wsh", EncodeParentDestination(p2wsh));
+    ret.pushKV("p2shwsh", EncodeParentDestination(p2shwsh));
 
     return ret;
 },
