@@ -977,7 +977,7 @@ protected:
         pegin_subsidy = ParsePeginSubsidy(args);
         pegin_minimum = ParsePeginMinimum(args);
         if (pegin_subsidy.threshold < pegin_minimum.amount) {
-            throw std::runtime_error(strprintf("Pegin subsidy threshold (%s) must be greater than or equal to pegin minimum amount (%s)", FormatMoney(pegin_subsidy.threshold), FormatMoney(pegin_minimum.amount)));
+            throw std::runtime_error(strprintf("Peg-in subsidy threshold (%s) must be greater than or equal to peg-in minimum amount (%s)", FormatMoney(pegin_subsidy.threshold), FormatMoney(pegin_minimum.amount)));
         }
 
         // Calculate pegged Bitcoin asset
@@ -1228,7 +1228,7 @@ public:
         pegin_subsidy = ParsePeginSubsidy(args);
         pegin_minimum = ParsePeginMinimum(args);
         if (pegin_subsidy.threshold < pegin_minimum.amount) {
-            throw std::runtime_error(strprintf("Pegin subsidy threshold (%s) must be greater than or equal to pegin minimum amount (%s)", FormatMoney(pegin_subsidy.threshold), FormatMoney(pegin_minimum.amount)));
+            throw std::runtime_error(strprintf("Peg-in subsidy threshold (%s) must be greater than or equal to peg-in minimum amount (%s)", FormatMoney(pegin_subsidy.threshold), FormatMoney(pegin_minimum.amount)));
         }
 
         parentGenesisBlockHash = uint256S("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f");
@@ -1593,7 +1593,7 @@ public:
         pegin_subsidy = ParsePeginSubsidy(args);
         pegin_minimum = ParsePeginMinimum(args);
         if (pegin_subsidy.threshold < pegin_minimum.amount) {
-            throw std::runtime_error(strprintf("Pegin subsidy threshold (%s) must be greater than or equal to pegin minimum amount (%s)", FormatMoney(pegin_subsidy.threshold), FormatMoney(pegin_minimum.amount)));
+            throw std::runtime_error(strprintf("Peg-in subsidy threshold (%s) must be greater than or equal to peg-in minimum amount (%s)", FormatMoney(pegin_subsidy.threshold), FormatMoney(pegin_minimum.amount)));
         }
 
         if (args.IsArgSet("-parentgenesisblockhash")) {

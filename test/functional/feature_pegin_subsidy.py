@@ -243,7 +243,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
         assert_equal(result["pegin_subsidy_height"], PEGIN_SUBSIDY_HEIGHT)
         assert_equal(result["pegin_subsidy_active"], False)
 
-        self.log.info("check min pegin amount before minimum pegin height")
+        self.log.info("check min peg-in amount before minimum peg-in height")
         assert_equal(sidechain.getblockchaininfo()["blocks"], PEGIN_MINIMUM_HEIGHT - 1)
         txid, vout, txoutproof, bitcoin_txhex, claim_script = parent_pegin(parent, sidechain, amount=0.5)
         pegin_txid = sidechain.claimpegin(bitcoin_txhex, txoutproof, claim_script)
@@ -267,11 +267,11 @@ class PeginSubsidyTest(BitcoinTestFramework):
         assert_equal(result["pegin_subsidy_height"], PEGIN_SUBSIDY_HEIGHT)
         assert_equal(result["pegin_subsidy_active"], False)
 
-        self.log.info("check min pegin amount after minimum pegin height")
+        self.log.info("check min peg-in amount after minimum peg-in height")
         txid, vout, txoutproof, bitcoin_txhex, claim_script = parent_pegin(parent, sidechain, amount=0.5)
         assert_raises_rpc_error(
             -4,
-            "Pegin amount (0.50) is lower than the minimum pegin amount for this chain (1.00).",
+            "Peg-in amount (0.50) is lower than the minimum peg-in amount for this chain (1.00).",
             sidechain.claimpegin,
             bitcoin_txhex,
             txoutproof,
@@ -436,7 +436,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
             signed["hex"],
         )
 
-        self.log.info("blinded pegin above threshold, with validatepegin")
+        self.log.info("blinded peg-in above threshold, with validatepegin")
         txid, vout, txoutproof, bitcoin_txhex, claim_script = parent_pegin(parent, sidechain, amount=2.0, feerate=1.0)
         addr = sidechain.getnewaddress(address_type="blech32")
         utxo = sidechain.listunspent()[0]
@@ -664,7 +664,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
         assert_equal(len(pegin_tx["decoded"]["vout"]), 3)
         assert_equal(pegin_tx["decoded"]["vout"][1]["value"], Decimal("0.00000396"))
 
-        # check manually constructed pegin from a sub 1 sat/vb parent
+        # check manually constructed peg-in from a sub 1 sat/vb parent
         txid, vout, txoutproof, bitcoin_txhex, claim_script = parent_pegin(parent, sidechain, amount=1, feerate=0.1)
         inputs = [
             {
@@ -798,20 +798,20 @@ class PeginSubsidyTest(BitcoinTestFramework):
         sidechain.sendrawtransaction(signed["hex"])
         self.generate(sidechain2, 1, sync_fun=sync_sidechain)
 
-        # minimum pegin amount is 1.0
-        self.log.info("claimpegin below minimum pegin amount")
+        # minimum peg-in amount is 1.0
+        self.log.info("claimpegin below minimum peg-in amount")
         txid, vout, txoutproof, bitcoin_txhex, claim_script = parent_pegin(parent, sidechain, amount=0.99999999)
         assert_raises_rpc_error(
             -4,
-            "Pegin amount (0.99999999) is lower than the minimum pegin amount for this chain (1.00).",
+            "Peg-in amount (0.99999999) is lower than the minimum peg-in amount for this chain (1.00).",
             sidechain2.claimpegin,
             bitcoin_txhex,
             txoutproof,
             claim_script,
         )
 
-        # check minimum pegin amount in mempool validation by constructing manually
-        self.log.info("rawtransaction below minimum pegin amount")
+        # check minimum peg-in amount in mempool validation by constructing manually
+        self.log.info("rawtransaction below minimum peg-in amount")
         txid, vout, txoutproof, bitcoin_txhex, claim_script = parent_pegin(parent, sidechain2, amount=0.99999999)
         addr = sidechain2.getnewaddress()
         inputs = [
@@ -835,10 +835,10 @@ class PeginSubsidyTest(BitcoinTestFramework):
         signed = sidechain2.signrawtransactionwithwallet(raw)
         assert_equal(signed["complete"], True)
         accept = sidechain2.testmempoolaccept([signed["hex"]])
-        # node2 can check the min pegin amount as the pegin amount is in the witness
+        # node2 can check the min peg-in amount as the peg-in amount is in the witness
         assert_equal(accept[0]["allowed"], False)
         assert_equal(accept[0]["reject-reason"], "pegin-value-too-low")
-        # node1 rejects below the min pegin amount with validatepegin
+        # node1 rejects below the min peg-in amount with validatepegin
         accept = sidechain.testmempoolaccept([signed["hex"]])
         assert_equal(accept[0]["allowed"], False)
         assert_equal(accept[0]["reject-reason"], "pegin-value-too-low")
@@ -860,7 +860,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
             self.generate(sidechain, 1, sync_fun=sync_sidechain)
 
         # dust error
-        # restart node1 with no min pegin amount
+        # restart node1 with no min peg-in amount
         self.stop_node(1, expected_stderr=self.expected_stderr)  # when running with bitcoind as parent node this stderr can occur
         self.start_node(1, extra_args=sidechain.extra_args + ["-peginminamount=0"])
         self.log.info("claimpegin dust error")

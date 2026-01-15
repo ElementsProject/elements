@@ -629,7 +629,7 @@ void SetupServerArgs(ArgsManager& argsman)
     argsman.AddArg("-mainchainrpcpassword=<pwd>", "The rpc password which the daemon will use to connect to the trusted mainchain daemon to validate peg-ins, if enabled. (default: cookie auth)", ArgsManager::ALLOW_ANY | ArgsManager::SENSITIVE, OptionsCategory::ELEMENTS);
     argsman.AddArg("-mainchainrpccookiefile=<file>", "The bitcoind cookie auth path which the daemon will use to connect to the trusted mainchain daemon to validate peg-ins. (default: `<datadir>/regtest/.cookie`)", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     argsman.AddArg("-mainchainrpctimeout=<n>", strprintf("Timeout in seconds during mainchain RPC requests, or 0 for no timeout. (default: %d)", DEFAULT_HTTP_CLIENT_TIMEOUT), ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
-    argsman.AddArg("-peginconfirmationdepth=<n>", strprintf("Pegin claims must be this deep to be considered valid. (default: %d)", DEFAULT_PEGIN_CONFIRMATION_DEPTH), ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
+    argsman.AddArg("-peginconfirmationdepth=<n>", strprintf("Peg-in claims must be this deep to be considered valid. (default: %d)", DEFAULT_PEGIN_CONFIRMATION_DEPTH), ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     argsman.AddArg("-parentpubkeyprefix", strprintf("The byte prefix, in decimal, of the parent chain's base58 pubkey address. (default: %d)", 111), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-parentscriptprefix", strprintf("The byte prefix, in decimal, of the parent chain's base58 script address. (default: %d)", 196), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-parent_bech32_hrp", strprintf("The human-readable part of the parent chain's bech32 encoding. (default: %s)", "bc"), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
@@ -1968,7 +1968,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
     if (gArgs.GetBoolArg("-validatepegin", Params().GetConsensus().has_parent_chain)) {
         uiInterface.InitMessage(_("Awaiting mainchain RPC warmup").translated);
         if (!MainchainRPCCheck()) {
-            const std::string err_msg = "ERROR: elements is set to verify pegins but cannot get a valid response from the mainchain daemon. Please check debug.log for more information.\n\nIf you haven't setup a bitcoind please get the latest stable version from https://bitcoincore.org/en/download/ or if you do not need to validate pegins set in your elements configuration validatepegin=0";
+            const std::string err_msg = "ERROR: elements is set to verify peg-ins but cannot get a valid response from the mainchain daemon. Please check debug.log for more information.\n\nIf you haven't setup a bitcoind please get the latest stable version from https://bitcoincore.org/en/download/ or if you do not need to validate peg-ins set in your elements configuration validatepegin=0";
             // We fail immediately if this node has RPC server enabled
             if (gArgs.GetBoolArg("-server", false)) {
                 InitError(Untranslated(err_msg));
@@ -1979,7 +1979,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
                 gArgs.SoftSetArg("-validatepegin", "0");
             }
         }
-        // if we are validating pegin subsidy or minimum then we require bitcoind >= v25
+        // if we are validating peg-in subsidy or minimum then we require bitcoind >= v25
         if (Params().GetPeginSubsidy().IsDefined() || Params().GetPeginMinimum().IsDefined()) {
             UniValue params(UniValue::VARR);
             UniValue reply = CallMainChainRPC("getnetworkinfo", params);
@@ -1990,7 +1990,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
                 const int version = reply["result"]["version"].get_int();
                 const std::string& subversion = reply["result"]["subversion"].get_str();
                 if (version < 250000 && subversion.find("Satoshi") != std::string::npos) {
-                    const std::string err = strprintf("ERROR: parent bitcoind must be version 25 or newer for pegin subsidy/minimum validation. Found version: %s", version);
+                    const std::string err = strprintf("ERROR: parent bitcoind must be version 25 or newer for peg-in subsidy/minimum validation. Found version: %s", version);
                     InitError(Untranslated(err));
                     return false;
                 }

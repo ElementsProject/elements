@@ -453,7 +453,7 @@ RPCHelpMan initpegoutwallet()
 RPCHelpMan sendtomainchain_base()
 {
     return RPCHelpMan{"sendtomainchain",
-                "\nSends sidechain funds to the given mainchain address, through the federated pegin mechanism\n"
+                "\nSends sidechain funds to the given mainchain address, through the federated peg-in mechanism\n"
                 + wallet::HELP_REQUIRING_PASSPHRASE,
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The destination address on Bitcoin mainchain"},
@@ -842,18 +842,18 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     // Make the tx
     CMutableTransaction mtx;
 
-    // Construct pegin input
+    // Construct peg-in input
     CreatePegInInput(mtx, 0, txBTCRef, merkleBlock, claim_scripts, txData, txOutProofData, wallet->chain().getTip());
 
     // Get value for peg-in output
     CAmount value = 0;
     if (!GetAmountFromParentChainPegin(value, *txBTCRef, mtx.vin[0].prevout.n)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Amounts to pegin must be explicit and asset must be %s", Params().GetConsensus().parent_pegged_asset.GetHex()));
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Amounts to peg-in must be explicit and asset must be %s", Params().GetConsensus().parent_pegged_asset.GetHex()));
     }
 
     const PeginMinimum pegin_minimum = Params().GetPeginMinimum();
     if (pwallet->chain().getTip()->nHeight >= pegin_minimum.height && value < pegin_minimum.amount) {
-        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Pegin amount (%d) is lower than the minimum pegin amount for this chain (%d).", FormatMoney(value), FormatMoney(pegin_minimum.amount)));
+        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Peg-in amount (%d) is lower than the minimum peg-in amount for this chain (%d).", FormatMoney(value), FormatMoney(pegin_minimum.amount)));
     }
 
     const PeginSubsidy pegin_subsidy = Params().GetPeginSubsidy();
@@ -985,7 +985,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
 RPCHelpMan createrawpegin()
 {
     return RPCHelpMan{"createrawpegin",
-                "\nCreates a raw transaction to claim coins from the main chain by creating a pegin transaction with the necessary metadata after the corresponding Bitcoin transaction.\n"
+                "\nCreates a raw transaction to claim coins from the main chain by creating a peg-in transaction with the necessary metadata after the corresponding Bitcoin transaction.\n"
                 "Note that this call will not sign the transaction.\n"
                 "If a transaction is not relayed it may require manual addition to a functionary mempool in order for it to be mined.\n",
                 {
@@ -1035,7 +1035,7 @@ RPCHelpMan createrawpegin()
 RPCHelpMan claimpegin()
 {
     return RPCHelpMan{"claimpegin",
-                "\nClaim coins from the main chain by creating a pegin transaction with the necessary metadata after the corresponding Bitcoin transaction.\n"
+                "\nClaim coins from the main chain by creating a peg-in transaction with the necessary metadata after the corresponding Bitcoin transaction.\n"
                 "Note that the transaction will not be relayed unless it is buried at least 102 blocks deep.\n"
                 "If a transaction is not relayed it may require manual addition to a functionary mempool in order for it to be mined.\n",
                 {
@@ -1097,7 +1097,7 @@ RPCHelpMan claimpegin()
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     }
 
-    // To check if it's not double spending an existing pegin UTXO, we check mempool acceptance.
+    // To check if it's not double spending an existing peg-in UTXO, we check mempool acceptance.
     const MempoolAcceptResult res = pwallet->chain().testPeginClaimAcceptance(MakeTransactionRef(mtx));
     if (res.m_result_type != MempoolAcceptResult::ResultType::VALID) {
         bilingual_str error = Untranslated(strprintf("Error: The transaction was rejected! Reason given: %s", res.m_state.ToString()));
@@ -1303,7 +1303,7 @@ RPCHelpMan blindrawtransaction()
     for (size_t nIn = 0; nIn < tx.vin.size(); ++nIn) {
         COutPoint prevout = tx.vin[nIn].prevout;
 
-        // Special handling for pegin inputs: no blinds and explicit amount/asset.
+        // Special handling for peg-in inputs: no blinds and explicit amount/asset.
         if (tx.vin[nIn].m_is_pegin) {
             std::string err;
             if (tx.witness.vtxinwit.size() != tx.vin.size() || !IsValidPeginWitness(tx.witness.vtxinwit[nIn].m_pegin_witness, fedpegscripts, prevout, err, false)) {
