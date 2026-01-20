@@ -246,7 +246,12 @@ class TrimHeadersTest(BitcoinTestFramework):
         self.connect_nodes(0, 1)
         self.connect_nodes(0, 2)
 
-        self.sync_all()
+        import time
+        self.log.info("Sync blocks")
+        start = time.time()
+        self.sync_blocks(timeout=1200) # extended timeout for windows CI
+        end = time.time()
+        self.log.info(f"Block sync took {end - start:.2f} seconds")
         self.check_height(expected_height, all=True)
 
         self.log.info("Prune the pruned node")
