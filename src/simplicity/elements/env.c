@@ -408,12 +408,12 @@ extern elementsTransaction* simplicity_elements_mallocTransaction(const rawEleme
       copyInput(&input[i], &rawTx->input[i]);
       if (input[i].sequence < 0xffffffff) { tx->isFinal = false; }
       if (input[i].sequence < 0x80000000) {
-         const uint_fast16_t maskedSequence = input[i].sequence & 0xffff;
-         if (input[i].sequence & ((uint_fast32_t)1 << 22)) {
-            if (tx->lockDuration < maskedSequence) tx->lockDuration = maskedSequence;
-         } else {
-            if (tx->lockDistance < maskedSequence) tx->lockDistance = maskedSequence;
-         }
+        const uint_fast16_t maskedSequence = input[i].sequence & 0xffff;
+        if (input[i].sequence & ((uint_fast32_t)1 << 22)) {
+          if (tx->obsolete_lockDuration < maskedSequence) tx->obsolete_lockDuration = maskedSequence;
+        } else {
+          if (tx->obsolete_lockDistance < maskedSequence) tx->obsolete_lockDistance = maskedSequence;
+        }
       }
       if (input[i].isPegin) {
         sha256_uchar(&ctx_inputOutpointsHash, 1);

@@ -224,11 +224,9 @@ typedef struct elementsTransaction {
   uint_fast32_t numFees;
   uint_fast32_t version;
   uint_fast32_t lockTime;
-  /* lockDuration and lockDistance values are set even when the version is 0 or 1.
-   * This is similar to lockTime whose value is also set, even when the transaction is final.
-   */
-  uint_fast16_t lockDistance;
-  uint_fast16_t lockDuration; /* Units of 512 seconds */
+  /* These two fields are used to implement broken jets and only remain here for consensus purposes. */
+  uint_fast16_t obsolete_lockDistance;
+  uint_fast16_t obsolete_lockDuration;
   bool isFinal;
 } elementsTransaction;
 
