@@ -13,6 +13,7 @@
 #include <script/script.h>
 #include <uint256.h>
 extern "C" {
+#include <simplicity/elements/env.h>
 #include <simplicity/elements/exec.h>
 #include <simplicity/errorCodes.h>
 }
@@ -2673,6 +2674,10 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
 
         m_bip341_taproot_ready = true;
     }
+}
+
+void SimplicityTransactionDeleter::operator()(elementsTransaction* ptr) const {
+    simplicity_elements_freeTransaction(ptr);
 }
 
 template <class T>
