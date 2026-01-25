@@ -526,5 +526,14 @@ class IssuanceTest(BitcoinTestFramework):
         signed_tx = self.nodes[0].signrawtransactionwithwallet(blind_tx)
         self.nodes[0].sendrawtransaction(signed_tx["hex"])
 
+        # Test reissuing with a reissuance token spent from an unblinded output
+        # https://github.com/ElementsProject/elements/issues/259
+        issued = self.nodes[0].issueasset(0, Decimal('0.00000001'), False)
+        # Get a non-confidential address and send the (only) reissuance token to it
+        uc_addr = self.nodes[0].validateaddress(self.nodes[0].getnewaddress())["unconfidential"]
+        self.nodes[0].sendtoaddress(uc_addr, Decimal('0.00000001'), "", "", False, False, 1, "UNSET", False, issued["token"])
+        # This currently fails with 'JSONRPCException: Unable to blind the transaction properly. This should not happen. (-4)'
+        self.nodes[0].reissueasset(issued["asset"], 1)
+
 if __name__ == '__main__':
     IssuanceTest ().main ()
