@@ -629,7 +629,7 @@ void SetupServerArgs(ArgsManager& argsman)
     argsman.AddArg("-mainchainrpcpassword=<pwd>", "The rpc password which the daemon will use to connect to the trusted mainchain daemon to validate peg-ins, if enabled. (default: cookie auth)", ArgsManager::ALLOW_ANY | ArgsManager::SENSITIVE, OptionsCategory::ELEMENTS);
     argsman.AddArg("-mainchainrpccookiefile=<file>", "The bitcoind cookie auth path which the daemon will use to connect to the trusted mainchain daemon to validate peg-ins. (default: `<datadir>/regtest/.cookie`)", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     argsman.AddArg("-mainchainrpctimeout=<n>", strprintf("Timeout in seconds during mainchain RPC requests, or 0 for no timeout. (default: %d)", DEFAULT_HTTP_CLIENT_TIMEOUT), ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
-    argsman.AddArg("-peginconfirmationdepth=<n>", strprintf("Pegin claims must be this deep to be considered valid. (default: %d)", DEFAULT_PEGIN_CONFIRMATION_DEPTH), ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
+    argsman.AddArg("-peginconfirmationdepth=<n>", strprintf("Peg-in claims must be this deep to be considered valid. (default: %d)", DEFAULT_PEGIN_CONFIRMATION_DEPTH), ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     argsman.AddArg("-parentpubkeyprefix", strprintf("The byte prefix, in decimal, of the parent chain's base58 pubkey address. (default: %d)", 111), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-parentscriptprefix", strprintf("The byte prefix, in decimal, of the parent chain's base58 script address. (default: %d)", 196), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-parent_bech32_hrp", strprintf("The human-readable part of the parent chain's bech32 encoding. (default: %s)", "bc"), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
@@ -642,6 +642,10 @@ void SetupServerArgs(ArgsManager& argsman)
     argsman.AddArg("-ct_exponent", strprintf("The hiding exponent. (default: %s)", 0), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-acceptdiscountct", "Accept discounted fees for Confidential Transactions (default: 1 in liquidtestnet and liquidv1, 0 otherwise)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-creatediscountct", "Create Confidential Transactions with discounted fees (default: 0). Setting this to 1 will also set 'acceptdiscountct' to 1.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-peginsubsidyheight", "The block height at which peg-in transactions must have a burn subsidy (default: not active). The subsidy is an OP_RETURN output, with its value equal to the feerate of the parent transaction multiplied by the vsize of spending the P2WSH output created by the peg-in (feerate * 396 sats for liquidv1). ", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-peginsubsidythreshold", "The output value below which peg-in transactions must have a burn subsidy (default: 0). Peg-ins above this value do not require the subsidy.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-peginminheight", "The block height at which a minimum peg-in value is enforced (default: not active).", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-peginminamount", "The minimum value for a peg-in transaction after peginminheight (default: unset).", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
 
 #if defined(USE_SYSCALL_SANDBOX)
     argsman.AddArg("-sandbox=<mode>", "Use the experimental syscall sandbox in the specified mode (-sandbox=log-and-abort or -sandbox=abort). Allow only expected syscalls to be used by bitcoind. Note that this is an experimental new feature that may cause bitcoind to exit or crash unexpectedly: use with caution. In the \"log-and-abort\" mode the invocation of an unexpected syscall results in a debug handler being invoked which will log the incident and terminate the program (without executing the unexpected syscall). In the \"abort\" mode the invocation of an unexpected syscall results in the entire process being killed immediately by the kernel without executing the unexpected syscall.", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1964,7 +1968,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
     if (gArgs.GetBoolArg("-validatepegin", Params().GetConsensus().has_parent_chain)) {
         uiInterface.InitMessage(_("Awaiting mainchain RPC warmup").translated);
         if (!MainchainRPCCheck()) {
-            const std::string err_msg = "ERROR: elements is set to verify pegins but cannot get a valid response from the mainchain daemon. Please check debug.log for more information.\n\nIf you haven't setup a bitcoind please get the latest stable version from https://bitcoincore.org/en/download/ or if you do not need to validate pegins set in your elements configuration validatepegin=0";
+            const std::string err_msg = "ERROR: elements is set to verify peg-ins but cannot get a valid response from the mainchain daemon. Please check debug.log for more information.\n\nIf you haven't setup a bitcoind please get the latest stable version from https://bitcoincore.org/en/download/ or if you do not need to validate peg-ins set in your elements configuration validatepegin=0";
             // We fail immediately if this node has RPC server enabled
             if (gArgs.GetBoolArg("-server", false)) {
                 InitError(Untranslated(err_msg));
@@ -1973,6 +1977,23 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
                 // Or gently warn the user, and continue
                 InitError(Untranslated(err_msg));
                 gArgs.SoftSetArg("-validatepegin", "0");
+            }
+        }
+        // if we are validating peg-in subsidy or minimum then we require bitcoind >= v25
+        if (Params().GetPeginSubsidy().IsDefined() || Params().GetPeginMinimum().IsDefined()) {
+            UniValue params(UniValue::VARR);
+            UniValue reply = CallMainChainRPC("getnetworkinfo", params);
+            if (reply["error"].isStr()) {
+                InitError(Untranslated(reply["error"].get_str()));
+                return false;
+            } else {
+                const int version = reply["result"]["version"].get_int();
+                const std::string& subversion = reply["result"]["subversion"].get_str();
+                if (version < 250000 && subversion.find("Satoshi") != std::string::npos) {
+                    const std::string err = strprintf("ERROR: parent bitcoind must be version 25 or newer for peg-in subsidy/minimum validation. Found version: %s", version);
+                    InitError(Untranslated(err));
+                    return false;
+                }
             }
         }
     }
