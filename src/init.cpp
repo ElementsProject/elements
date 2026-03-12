@@ -1379,6 +1379,7 @@ static ChainstateLoadResult InitAndLoadChainstate(
         return {ChainstateLoadStatus::FAILURE_FATAL, mempool_error};
     }
     LogPrintf("* Using %.1f MiB for in-memory UTXO set (plus up to %.1f MiB of unused mempool space)\n", cache_sizes.coins * (1.0 / 1024 / 1024), mempool_opts.max_size_bytes * (1.0 / 1024 / 1024));
+    LogPrintf("ELIP 203 is%s active\n", (chainparams.GetAcceptUnlimitedIssuances())?"":" not");
     ChainstateManager::Options chainman_opts{
         .chainparams = chainparams,
         .datadir = args.GetDataDirNet(),

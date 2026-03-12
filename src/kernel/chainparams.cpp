@@ -1402,7 +1402,7 @@ public:
 
         enforce_pak = true;
 
-        accept_unlimited_issuances = false;
+        accept_unlimited_issuances = args.GetBoolArg("-acceptunlimitedissuances", false);
 
         multi_data_permitted = true;
         create_discount_ct = args.GetBoolArg("-creatediscountct", false);
@@ -1761,8 +1761,6 @@ public:
         consensus.has_parent_chain = args.GetBoolArg("-con_has_parent_chain", consensus.has_parent_chain);
 
         enforce_pak = args.GetBoolArg("-enforce_pak", enforce_pak);
-
-        accept_unlimited_issuances = args.GetBoolArg("-acceptunlimitedissuances", accept_unlimited_issuances);
 
         multi_data_permitted = args.GetBoolArg("-multi_data_permitted", multi_data_permitted);
         create_discount_ct = args.GetBoolArg("-creatediscountct", create_discount_ct);
