@@ -134,6 +134,8 @@ std::string ScriptErrorString(const ScriptError serror)
             return "EC scalar mult verify fail";
         case SCRIPT_ERR_SIMPLICITY_WRONG_LENGTH:
             return "Simplicity witness has incorrect length";
+        case SCRIPT_ERR_SIMPLICITY_PADDING_NONZERO:
+            return "Simplicity annex padding must be all zeros";
         case SCRIPT_ERR_SIMPLICITY_DATA_OUT_OF_RANGE:
             return SIMPLICITY_ERR_MSG(SIMPLICITY_ERR_DATA_OUT_OF_RANGE);
         case SCRIPT_ERR_SIMPLICITY_DATA_OUT_OF_ORDER:
