@@ -3119,14 +3119,14 @@ uint32_t GenericTransactionSignatureChecker<T>::GetnIn() const
 }
 
 template <class T>
-bool GenericTransactionSignatureChecker<T>::CheckSimplicity(const valtype& program, const valtype& witness, const rawElementsTapEnv& simplicityRawTap, int64_t budget, ScriptError* serror) const
+bool GenericTransactionSignatureChecker<T>::CheckSimplicity(const valtype& program, const valtype& witness, const rawElementsTapEnv& simplicityRawTap, int64_t minCost, int64_t budget, ScriptError* serror) const
 {
     simplicity_err error;
     elementsTapEnv* simplicityTapEnv = simplicity_elements_mallocTapEnv(&simplicityRawTap);
 
     assert(txdata->m_simplicity_tx_data);
     assert(simplicityTapEnv);
-    if (!simplicity_elements_execSimplicity(&error, 0, txdata->m_simplicity_tx_data.get(), nIn, simplicityTapEnv, txdata->m_hash_genesis_block.data(), 0, budget, 0, program.data(), program.size(), witness.data(), witness.size())) {
+    if (!simplicity_elements_execSimplicity(&error, 0, txdata->m_simplicity_tx_data.get(), nIn, simplicityTapEnv, txdata->m_hash_genesis_block.data(), minCost, budget, 0, program.data(), program.size(), witness.data(), witness.size())) {
         assert(!"simplicity_elements_execSimplicity internal error");
     }
     simplicity_elements_freeTapEnv(simplicityTapEnv);
@@ -3278,9 +3278,11 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
         // BIP341 Taproot: 32-byte non-P2SH witness v1 program (which encodes a P2C-tweaked pubkey)
         if (!(flags & SCRIPT_VERIFY_TAPROOT)) return set_success(serror);
         if (stack.size() == 0) return set_error(serror, SCRIPT_ERR_WITNESS_PROGRAM_WITNESS_EMPTY);
+        valtype annex;
         if (stack.size() >= 2 && !stack.back().empty() && stack.back()[0] == ANNEX_TAG) {
             // Drop annex (this is non-standard; see IsWitnessStandard)
-            const valtype& annex = SpanPopBack(stack);
+            // ELEMENTS: store the annex for CheckSimplicity
+            annex = SpanPopBack(stack);
             execdata.m_annex_hash = (CHashWriter(SER_GETHASH, 0) << annex).GetSHA256();
             execdata.m_annex_present = true;
         } else {
@@ -3322,7 +3324,27 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
                 simplicityRawTap.controlBlock = control.data();
                 simplicityRawTap.pathLen = (control.size() - TAPROOT_CONTROL_BASE_SIZE) / TAPROOT_CONTROL_NODE_SIZE;
                 simplicityRawTap.scriptCMR = script_bytes.data();
-                return checker.CheckSimplicity(simplicity_program, simplicity_witness, simplicityRawTap, budget, serror);
+                // If there is no annex, or we are in consensus checking mode, minCost is set to 0 which effectively disables any overweight cost checks.
+                int64_t minCost = 0;
+                if ((flags & SCRIPT_VERIFY_ANNEX_PADDING) && annex.size() > 0) {
+                    valtype zero_padding(annex.size(), 0);
+                    zero_padding[0] = ANNEX_TAG;
+                    if (annex != zero_padding) {
+                        return set_error(serror, SCRIPT_ERR_SIMPLICITY_PADDING_NONZERO);
+                    }
+                    // Compute what the budget would have been without the padding.
+                    // budget includes the padding cost, so subtracting this stack item won't underflow.
+                    minCost = budget - ::GetSerializeSize(annex);
+                    // If the annex exists and is empty (i.e. its size is 1), then the only way the annex could be smaller is by eliminating it entirely.
+                    // So we use the above computed value for minCost. Note: in that case the minCost is 2 WU less than the budget.
+
+                    // If the annex exists and is non-empty, then we add to minCost the value of an annex that contains one fewer byte.
+                    if (zero_padding.size() > 1) {
+                        zero_padding.pop_back();
+                        minCost += ::GetSerializeSize(zero_padding);
+                    }
+                }
+                return checker.CheckSimplicity(simplicity_program, simplicity_witness, simplicityRawTap, minCost, budget, serror);
             }
             if (flags & SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_TAPROOT_VERSION) {
                 return set_error(serror, SCRIPT_ERR_DISCOURAGE_UPGRADABLE_TAPROOT_VERSION);
