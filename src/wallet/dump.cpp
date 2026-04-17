@@ -284,11 +284,17 @@ bool CreateFromDump(const std::string& name, const fs::path& wallet_path, biling
 
         dump_file.close();
     }
+    // On failure, gather the paths to remove
+    std::vector<fs::path> paths_to_remove = wallet->GetDatabase().Files();
+    if (!name.empty()) paths_to_remove.push_back(wallet_path);
+
     wallet.reset(); // The pointer deleter will close the wallet for us.
 
     // Remove the wallet dir if we have a failure
     if (!ret) {
-        fs::remove_all(wallet_path);
+        for (const auto& p : paths_to_remove) {
+            fs::remove(p);
+        }
     }
 
     return ret;

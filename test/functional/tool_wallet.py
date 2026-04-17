@@ -396,7 +396,14 @@ class ToolWalletTest(BitcoinTestFramework):
         self.write_dump(dump_data, bad_sum_wallet_dump)
         self.assert_raises_tool_error('Error: Checksum is not the correct size', '-wallet=badload', '-dumpfile={}'.format(bad_sum_wallet_dump), 'createfromdump')
         assert not os.path.isdir(os.path.join(self.nodes[0].datadir, "elementsregtest/wallets", "badload"))
+        if not self.options.descriptors:
+            os.rename(self.nodes[0].datadir + "/" + "elementsregtest/wallets/wallet.dat", self.nodes[0].datadir + "/" + "elementsregtest/wallets/default.wallet.dat")
+        self.assert_raises_tool_error('Error: Checksum is not the correct size', '-wallet=', '-dumpfile={}'.format(bad_sum_wallet_dump), 'createfromdump')
+        assert os.path.exists(self.nodes[0].datadir + "/" + "elementsregtest/wallets")
+        assert not os.path.exists(self.nodes[0].datadir + "/" + "elementsregtest/wallets/wallet.dat")
 
+        self.log.info('Checking createfromdump with an unnamed wallet')
+        self.do_tool_createfromdump("", "wallet.dump")
 
     def run_test(self):
         self.wallet_path = os.path.join(self.nodes[0].datadir, self.chain, 'wallets', self.default_wallet_name, self.wallet_data_filename)

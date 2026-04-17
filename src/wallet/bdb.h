@@ -144,6 +144,21 @@ public:
     /** Return path to main database filename */
     std::string Filename() override { return fs::PathToString(env->Directory() / strFile); }
 
+    std::vector<fs::path> Files() override
+    {
+        std::vector<fs::path> files;
+        files.emplace_back(env->Directory() / strFile);
+        if (env->m_databases.size() == 1) {
+            files.emplace_back(env->Directory() / "db.log");
+            files.emplace_back(env->Directory() / ".walletlock");
+            files.emplace_back(env->Directory() / "database" / "log.0000000001");
+            files.emplace_back(env->Directory() / "database");
+            // Note that this list is not exhaustive as BDB may create more log files, and possibly other ones too
+            // However it should be good enough for the only calls to Files()
+        }
+        return files;
+    }
+
     std::string Format() override { return "bdb"; }
     /**
      * Pointer to shared database environment.
