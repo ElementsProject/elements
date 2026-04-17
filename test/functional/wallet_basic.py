@@ -27,6 +27,7 @@ class WalletTest(BitcoinTestFramework):
         self.extra_args = [[
             "-acceptnonstdtxn=1",
             "-bech32_hrp=bcrt",
+            "-walletrejectlongchains=0"
         ]] * self.num_nodes
         self.setup_clean_chain = True
         self.supports_cli = False
@@ -573,7 +574,7 @@ class WalletTest(BitcoinTestFramework):
         self.log.info("Test -reindex")
         self.stop_nodes()
         # set lower ancestor limit for later
-        self.start_node(0, ['-reindex', "-limitancestorcount=" + str(chainlimit)])
+        self.start_node(0, ['-reindex', "-walletrejectlongchains=0", "-limitancestorcount=" + str(chainlimit)])
         self.start_node(1, ['-reindex', "-limitancestorcount=" + str(chainlimit)])
         self.start_node(2, ['-reindex', "-limitancestorcount=" + str(chainlimit)])
         # reindex will leave rpc warm up "early"; Wait for it to finish
