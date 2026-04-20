@@ -866,7 +866,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
         # dust error
         # restart node1 with no min peg-in amount
         self.stop_node(1, expected_stderr=self.expected_stderr)  # when running with bitcoind as parent node this stderr can occur
-        self.start_node(1, extra_args=sidechain.extra_args + ["-peginminamount=0", "-reindex-chainstate"]) # ELEMENTS FIXME: figure out why we need to reindex chanstate for this restart
+        self.start_node(1, extra_args=sidechain.extra_args + ["-peginminamount=0"])
         self.log.info("claimpegin dust error")
         amount = Decimal("0.00000546") if self.options.parent_bitcoin else Decimal("0.00000645")
         txid, vout, txoutproof, bitcoin_txhex, claim_script = parent_pegin(parent, sidechain, amount)
