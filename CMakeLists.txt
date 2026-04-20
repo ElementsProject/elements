@@ -2,8 +2,6 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or https://opensource.org/license/mit/.
 
-# FIXME: ELEMENTS, review CMake building process
-
 # Ubuntu 22.04 LTS Jammy Jellyfish, https://wiki.ubuntu.com/Releases, EOSS in June 2027:
 #  - CMake 3.22.1, https://packages.ubuntu.com/jammy/cmake
 #
