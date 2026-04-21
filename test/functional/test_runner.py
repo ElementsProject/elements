@@ -365,7 +365,7 @@ BASE_SCRIPTS = [
     #'wallet_upgradewallet.py --legacy-wallet',
     'wallet_crosschain.py',
     'mining_basic.py',
-    # ELEMENTS FIXME: new mainnet PoW test set-up. Determine if can be made compatible with Elements or if we need to delete it.
+    # ELEMENTS: PoW test set-up disabled. 
     # 'mining_mainnet.py',
     'feature_signet.py',
     'p2p_mutated_blocks.py',
