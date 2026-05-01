@@ -106,6 +106,14 @@ target_link_libraries(elementssimplicity
     core_interface
 )
 
+# macOS Apple Clang is stricter than Linux GCC on this vendored code
+if(APPLE)
+  target_compile_options(elementssimplicity PRIVATE
+    -Wno-conditional-uninitialized
+    -Wno-implicit-fallthrough
+  )
+endif()
+
 # Set top-level target output locations.
 if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
@@ -247,18 +255,20 @@ if(ENABLE_WALLET)
   add_subdirectory(wallet)
 
   if(BUILD_WALLET_TOOL)
-    add_executable(elements-wallet
-      bitcoin-wallet.cpp
-      init/bitcoin-wallet.cpp
-      wallet/wallettool.cpp
-    )
-    add_windows_resources(elements-wallet bitcoin-wallet-res.rc)
-    target_link_libraries(elements-wallet
-      core_interface
-      "$<LINK_GROUP:RESCAN,bitcoin_node,bitcoin_wallet,bitcoin_common>"
-    )
-    install_binary_component(elements-wallet HAS_MANPAGE)
-  endif()
+  add_executable(elements-wallet
+    bitcoin-wallet.cpp
+    init/bitcoin-wallet.cpp
+    wallet/wallettool.cpp
+  )
+  add_windows_resources(elements-wallet bitcoin-wallet-res.rc)
+  target_link_libraries(elements-wallet
+    core_interface
+    bitcoin_node
+    bitcoin_wallet
+    bitcoin_common
+  )
+  install_binary_component(elements-wallet HAS_MANPAGE)
+endif()
 endif()
 
 

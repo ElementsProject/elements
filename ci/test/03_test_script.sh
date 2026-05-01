@@ -14,7 +14,7 @@ export TSAN_OPTIONS="suppressions=${BASE_ROOT_DIR}/test/sanitizer_suppressions/t
 export UBSAN_OPTIONS="suppressions=${BASE_ROOT_DIR}/test/sanitizer_suppressions/ubsan:print_stacktrace=1:halt_on_error=1:report_error_type=1"
 
 echo "Number of available processing units: $(nproc)"
-if [ "$CI_OS_NAME" == "macos" ]; then
+if [ "$CI_OS_NAME" = "macos" ]; then
   top -l 1 -s 0 | awk ' /PhysMem/ {print}'
 else
   free -m -h
@@ -84,22 +84,22 @@ if [ "$USE_BUSY_BOX" = "true" ]; then
 fi
 
 # Make sure default datadir does not exist and is never read by creating a dummy file
-if [ "$CI_OS_NAME" == "macos" ]; then
+if [ "$CI_OS_NAME" = "macos" ]; then
   echo > "${HOME}/Library/Application Support/Elements"
 else
   echo > "${HOME}/.elements"
 fi
 
 if [ -z "$NO_DEPENDS" ]; then
-  if [[ $CI_IMAGE_NAME_TAG == *centos* ] || [[ $CI_IMAGE_NAME_TAG == *rocky* ]]; then
-    SHELL_OPTS="CONFIG_SHELL=/bin/ksh"  # Temporarily use ksh instead of dash, until https://bugzilla.redhat.com/show_bug.cgi?id=2335416 is fixed.
-  else
-    SHELL_OPTS="CONFIG_SHELL="
-  fi
+  case "${CI_IMAGE_NAME_TAG}" in
+    *centos*|*rocky*)
+      SHELL_OPTS="CONFIG_SHELL=/bin/ksh"  # Temporarily use ksh instead of dash, until https://bugzilla.redhat.com/show_bug.cgi?id=2335416 is fixed.
+      ;;
+    *)
+      SHELL_OPTS="CONFIG_SHELL="
+      ;;
+  esac
   bash -c "$SHELL_OPTS make $MAKEJOBS -C depends HOST=$HOST $DEP_OPTS LOG=1"
-fi
-if [ "$DOWNLOAD_PREVIOUS_RELEASES" = "true" ]; then
-  test/get_previous_releases.py -b -t "$PREVIOUS_RELEASES_DIR"
 fi
 
 BITCOIN_CONFIG_ALL="-DBUILD_BENCH=ON -DBUILD_FUZZ_BINARY=ON"
@@ -113,22 +113,25 @@ fi
 ccache --zero-stats
 PRINT_CCACHE_STATISTICS="ccache --version | head -n 1 && ccache --show-stats"
 
-if [ -n "$ANDROID_TOOLS_URL" ]; then
-  make distclean || true
-  ./autogen.sh
-  bash -c "./configure $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG" || ( (cat config.log) && false)
-  make "${MAKEJOBS}" && cd src/qt && ANDROID_HOME=${ANDROID_HOME} ANDROID_NDK_HOME=${ANDROID_NDK_HOME} make apk
-  bash -c "${PRINT_CCACHE_STATISTICS}"
-  exit 0
-fi
-
-BITCOIN_CONFIG_ALL="${BITCOIN_CONFIG_ALL} --enable-external-signer --prefix=$BASE_OUTDIR"
-
-if [ -n "$CONFIG_SHELL" ]; then
-  "$CONFIG_SHELL" -c "./autogen.sh"
+if [ -z "$NO_DEPENDS" ]; then
+  # legacy autotools path (depends builds)
+  BITCOIN_CONFIG_ALL="${BITCOIN_CONFIG_ALL} --enable-external-signer --prefix=$BASE_OUTDIR"
 else
-  ./autogen.sh
+  # modern CMake path (native macOS + NO_DEPENDS=1)
+  BITCOIN_CONFIG_ALL="${BITCOIN_CONFIG_ALL} -DENABLE_EXTERNAL_SIGNER=ON"
 fi
+
+# === CMake build (modern path used by the fork) ===
+if [ -n "$NO_DEPENDS" ]; then
+  echo "Building with CMake (NO_DEPENDS=1)..."
+  cmake -B build -S . -G "$CMAKE_GENERATOR" $BITCOIN_CONFIG_ALL
+else
+  # depends path (still uses configure in some jobs)
+  ./autogen.sh
+  ./configure $BITCOIN_CONFIG_ALL
+fi
+
+cmake --build build --config Release --parallel "$MAKEJOBS"
 
 mkdir -p "${BASE_BUILD_DIR}"
 cd "${BASE_BUILD_DIR}"
