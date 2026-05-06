@@ -24,6 +24,10 @@ add_subdirectory(univalue)
 #=============================
 message("")
 message("Configuring secp256k1 subtree...")
+set(SECP256K1_ENABLE_MODULE_GENERATOR ON CACHE BOOL "" FORCE)
+set(SECP256K1_ENABLE_MODULE_RANGEPROOF ON CACHE BOOL "" FORCE)
+set(SECP256K1_ENABLE_MODULE_SURJECTION ON CACHE BOOL "" FORCE)
+set(SECP256K1_ENABLE_MODULE_WHITELIST ON CACHE BOOL "" FORCE)
 set(SECP256K1_DISABLE_SHARED ON CACHE BOOL "" FORCE)
 set(SECP256K1_ENABLE_MODULE_ECDH ON CACHE BOOL "" FORCE)
 set(SECP256K1_ENABLE_MODULE_RECOVERY ON CACHE BOOL "" FORCE)
@@ -255,7 +259,10 @@ if(ENABLE_WALLET)
     add_windows_resources(elements-wallet bitcoin-wallet-res.rc)
     target_link_libraries(elements-wallet
       core_interface
-      "$<LINK_GROUP:RESCAN,bitcoin_node,bitcoin_wallet,bitcoin_common>"
+      secp256k1
+      bitcoin_node
+      bitcoin_wallet
+      bitcoin_common
     )
     install_binary_component(elements-wallet HAS_MANPAGE)
   endif()
@@ -374,6 +381,7 @@ target_link_libraries(bitcoin_node
     minisketch
     univalue
     Boost::headers
+    secp256k1
     elementssimplicity
     $<TARGET_NAME_IF_EXISTS:libevent::libevent>
     $<TARGET_NAME_IF_EXISTS:libevent::core>
@@ -393,6 +401,7 @@ if(BUILD_DAEMON)
   target_link_libraries(elementsd
     core_interface
     bitcoin_node
+    secp256k1
     $<TARGET_NAME_IF_EXISTS:bitcoin_wallet>
   )
   install_binary_component(elementsd HAS_MANPAGE)
@@ -406,6 +415,7 @@ if(WITH_MULTIPROCESS AND BUILD_DAEMON)
     core_interface
     bitcoin_node
     bitcoin_ipc
+    secp256k1
     $<TARGET_NAME_IF_EXISTS:bitcoin_wallet>
   )
   install_binary_component(elements-node)
