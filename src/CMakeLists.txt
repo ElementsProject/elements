@@ -161,7 +161,7 @@ add_library(bitcoin_consensus STATIC EXCLUDE_FROM_ALL
   uint256.cpp
 )
 target_link_libraries(bitcoin_consensus
-  PRIVATE
+  PUBLIC
     core_interface
     bitcoin_crypto
     elementssimplicity
@@ -234,7 +234,7 @@ add_library(bitcoin_common STATIC EXCLUDE_FROM_ALL
   script/solver.cpp
 )
 target_link_libraries(bitcoin_common
-  PRIVATE
+  PUBLIC
     core_interface
     bitcoin_consensus
     bitcoin_util
@@ -259,10 +259,10 @@ if(ENABLE_WALLET)
     add_windows_resources(elements-wallet bitcoin-wallet-res.rc)
     target_link_libraries(elements-wallet
       core_interface
-      secp256k1
       bitcoin_node
       bitcoin_wallet
       bitcoin_common
+      secp256k1
     )
     install_binary_component(elements-wallet HAS_MANPAGE)
   endif()
@@ -372,7 +372,7 @@ add_library(bitcoin_node STATIC EXCLUDE_FROM_ALL
   $<$<NOT:$<TARGET_EXISTS:bitcoin_wallet>>:dummywallet.cpp>
 )
 target_link_libraries(bitcoin_node
-  PRIVATE
+  PUBLIC
     core_interface
     bitcoin_common
     bitcoin_util
@@ -381,13 +381,13 @@ target_link_libraries(bitcoin_node
     minisketch
     univalue
     Boost::headers
-    secp256k1
     elementssimplicity
     $<TARGET_NAME_IF_EXISTS:libevent::libevent>
     $<TARGET_NAME_IF_EXISTS:libevent::core>
     $<TARGET_NAME_IF_EXISTS:libevent::extra>
     $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
     $<TARGET_NAME_IF_EXISTS:USDT::headers>
+    secp256k1
 )
 
 
@@ -401,8 +401,8 @@ if(BUILD_DAEMON)
   target_link_libraries(elementsd
     core_interface
     bitcoin_node
-    secp256k1
     $<TARGET_NAME_IF_EXISTS:bitcoin_wallet>
+    secp256k1
   )
   install_binary_component(elementsd HAS_MANPAGE)
 endif()
@@ -415,8 +415,8 @@ if(WITH_MULTIPROCESS AND BUILD_DAEMON)
     core_interface
     bitcoin_node
     bitcoin_ipc
-    secp256k1
     $<TARGET_NAME_IF_EXISTS:bitcoin_wallet>
+    secp256k1
   )
   install_binary_component(elements-node)
 endif()
