@@ -71,7 +71,7 @@ function(add_boost_if_needed)
     include(CheckIncludeFileCXX)
     check_include_file_cxx(boost/test/included/unit_test.hpp HAVE_BOOST_INCLUDED_UNIT_TEST_H)
     if(NOT HAVE_BOOST_INCLUDED_UNIT_TEST_H)
-      message(FATAL_ERROR "Building test_bitcoin executable requested but boost/test/included/unit_test.hpp header not available.")
+      message(FATAL_ERROR "Building test_elements executable requested but boost/test/included/unit_test.hpp header not available.")
     endif()
   endif()
 

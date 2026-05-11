@@ -23,7 +23,7 @@ function(add_maintenance_targets)
     return()
   endif()
 
-  foreach(target IN ITEMS elementsd elements-qt elements-cli elements-tx elements-util elements-wallet test_bitcoin bench_bitcoin)
+  foreach(target IN ITEMS elementsd elements-qt elements-cli elements-tx elements-util elements-wallet test_elements bench_bitcoin)
     if(TARGET ${target})
       list(APPEND executables $<TARGET_FILE:${target}>)
     endif()
@@ -43,7 +43,7 @@ function(add_maintenance_targets)
 endfunction()
 
 function(add_windows_deploy_target)
-  if(MINGW AND TARGET elements-qt AND TARGET elementsd AND TARGET elements-cli AND TARGET elements-tx AND TARGET elements-wallet AND TARGET elements-util AND TARGET test_bitcoin)
+  if(MINGW AND TARGET elements-qt AND TARGET elementsd AND TARGET elements-cli AND TARGET elements-tx AND TARGET elements-wallet AND TARGET elements-util AND TARGET test_elements)
     # TODO: Consider replacing this code with the CPack NSIS Generator.
     #       See https://cmake.org/cmake/help/latest/cpack_gen/nsis.html
     include(GenerateSetupNsi)
@@ -57,7 +57,7 @@ function(add_windows_deploy_target)
       COMMAND ${CMAKE_STRIP} $<TARGET_FILE:elements-tx> -o ${PROJECT_BINARY_DIR}/release/$<TARGET_FILE_NAME:elements-tx>
       COMMAND ${CMAKE_STRIP} $<TARGET_FILE:elements-wallet> -o ${PROJECT_BINARY_DIR}/release/$<TARGET_FILE_NAME:elements-wallet>
       COMMAND ${CMAKE_STRIP} $<TARGET_FILE:elements-util> -o ${PROJECT_BINARY_DIR}/release/$<TARGET_FILE_NAME:elements-util>
-      COMMAND ${CMAKE_STRIP} $<TARGET_FILE:test_bitcoin> -o ${PROJECT_BINARY_DIR}/release/$<TARGET_FILE_NAME:test_bitcoin>
+      COMMAND ${CMAKE_STRIP} $<TARGET_FILE:test_elements> -o ${PROJECT_BINARY_DIR}/release/$<TARGET_FILE_NAME:test_elements>
       COMMAND makensis -V2 ${PROJECT_BINARY_DIR}/elements-win64-setup.nsi
       VERBATIM
     )
