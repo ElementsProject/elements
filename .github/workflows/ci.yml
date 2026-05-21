@@ -1,0 +1,842 @@
+# GitHub Actions CI workflow for ElementsProject/elements
+
+name: CI
+on:
+  # See: https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#pull_request.
+  pull_request:
+  # See: https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#push.
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'
+
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SECP256K1_TEST_ITERS: 16           # ELEMENTS: avoid test timeouts on arm
+  PACKAGE_MANAGER_INSTALL: "sudo apt-get update && apt-get install -y"
+  MAKEJOBS: "-j3"                    # ELEMENTS: reduced from -j4
+  TEST_RUNNER_PORT_MIN: "14000"      # Must be > 12321 (used for http cache)
+  CCACHE_SIZE: "200M"
+  CCACHE_DIR: "/tmp/ccache_dir"
+  CCACHE_NOHASHDIR: "1"
+  # On forks this variable is not matched so jobs fall back to free GH runners.
+  REPO_USE_CIRRUS_RUNNERS: "ElementsProject/elements"
+
+jobs:
+
+  # -------------------------------------------------------------------------
+  # Lint
+  # Image: ubuntu:focal (Python 3.6, oldest supported per doc/dependencies.md)
+  # -------------------------------------------------------------------------
+  lint:
+    name: 'lint [focal]'
+    runs-on: ${{ github.repository == 'ElementsProject/elements' && fromJSON('["self-hosted","linux","x64"]') || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    env:
+      FILE_ENV: "./ci/test/00_setup_env_lint.sh"
+      DANGER_RUN_CI_ON_HOST: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run CI
+        run: ./ci/test_run_all.sh
+
+  # -------------------------------------------------------------------------
+  # ARM unit tests (no functional tests)
+  # Image: debian:bullseye
+  # -------------------------------------------------------------------------
+  arm-unit-tests:
+    name: 'ARM [unit tests, no functional tests] [bullseye]'
+    runs-on: ${{ github.repository == 'ElementsProject/elements' && fromJSON('["self-hosted","linux","arm64"]') || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    env:
+      FILE_ENV: "./ci/test/00_setup_env_arm.sh"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-arm-unit-tests-${{ github.sha }}
+          restore-keys: ccache-arm-unit-tests-
+
+      - name: Restore depends/built cache
+        uses: actions/cache/restore@v4
+        with:
+          path: depends/built
+          key: depends-built-arm-unit-tests-${{ hashFiles('depends/**') }}-${{ hashFiles('ci/test/00_setup_env_arm.sh') }}
+          restore-keys: depends-built-arm-unit-tests-${{ hashFiles('depends/**') }}-
+
+      - name: Run CI
+        run: ./ci/test_run_all.sh
+
+      - name: Save ccache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-arm-unit-tests-${{ github.sha }}
+
+      - name: Save depends/built cache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: depends/built
+          key: depends-built-arm-unit-tests-${{ hashFiles('depends/**') }}-${{ hashFiles('ci/test/00_setup_env_arm.sh') }}
+
+  # -------------------------------------------------------------------------
+  # Win64 cross-compile (unit tests, no gui tests, no boost::process,
+  # no functional tests)
+  # Image: ubuntu:jammy
+  # -------------------------------------------------------------------------
+  win64-cross:
+    name: 'Win64 [unit tests, no gui tests, no boost::process, no functional tests] [jammy]'
+    runs-on: ${{ github.repository == 'ElementsProject/elements' && fromJSON('["self-hosted","linux","x64"]') || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    env:
+      FILE_ENV: "./ci/test/00_setup_env_win64.sh"
+      RUN_UNIT_TESTS: "false"     # Wine-based unit tests unreliable on GHA
+      RUN_FUNCTIONAL_TESTS: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-win64-cross-${{ github.sha }}
+          restore-keys: ccache-win64-cross-
+
+      - name: Restore depends/built cache
+        uses: actions/cache/restore@v4
+        with:
+          path: depends/built
+          key: depends-built-win64-cross-${{ hashFiles('depends/**', 'ci/test/00_setup_env_win64.sh') }}
+          restore-keys: depends-built-win64-cross-
+
+      - name: Run CI
+        run: ./ci/test_run_all.sh
+
+      - name: Save ccache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-win64-cross-${{ github.sha }}
+
+      - name: Save depends/built cache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: depends/built
+          key: depends-built-win64-cross-${{ hashFiles('depends/**', 'ci/test/00_setup_env_win64.sh') }}
+
+  # -------------------------------------------------------------------------
+  # 32-bit + dash (GUI)
+  # Image: rockylinux:8
+  # -------------------------------------------------------------------------
+  i686-centos:
+    name: '32-bit + dash [gui] [Rocky 8]'
+    runs-on: ${{ github.repository == 'ElementsProject/elements' && fromJSON('["self-hosted","linux","x64"]') || 'ubuntu-latest' }}
+    timeout-minutes: 180
+    env:
+      PACKAGE_MANAGER_INSTALL: "yum install -y"
+      FILE_ENV: "./ci/test/00_setup_env_i686_centos.sh"
+      TEST_RUNNER_EXTRA: "--exclude feature_proxy.py,rpc_bind.py"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-i686-centos-${{ github.sha }}
+          restore-keys: ccache-i686-centos-
+
+      - name: Restore depends/built cache
+        uses: actions/cache/restore@v4
+        with:
+          path: depends/built
+          key: depends-built-i686-centos-${{ hashFiles('depends/**', 'ci/test/00_setup_env_i686_centos.sh') }}
+          restore-keys: depends-built-i686-centos-
+
+      - name: Run CI
+        run: ./ci/test_run_all.sh
+
+      - name: Save ccache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-i686-centos-${{ github.sha }}
+
+      - name: Save depends/built cache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: depends/built
+          key: depends-built-i686-centos-${{ hashFiles('depends/**', 'ci/test/00_setup_env_i686_centos.sh') }}
+
+  # -------------------------------------------------------------------------
+  # TSan + depends + gui
+  # Image: ubuntu:24.04 (needs extra CPU/memory - 6 CPU, 24 GB in Cirrus)
+  # -------------------------------------------------------------------------
+  tsan:
+    name: '[TSan, depends, gui] [2404]'
+    runs-on: ${{ github.repository == 'ElementsProject/elements' && fromJSON('["self-hosted","linux","x64"]') || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    env:
+      FILE_ENV: "./ci/test/00_setup_env_native_tsan.sh"
+      MAKEJOBS: "-j2"    # Avoid excessive memory use
+      TEST_RUNNER_EXTRA: "--exclude feature_proxy.py,rpc_bind.py"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-tsan-${{ github.sha }}
+          restore-keys: ccache-tsan-
+
+      - name: Restore depends/built cache
+        uses: actions/cache/restore@v4
+        with:
+          path: depends/built
+          key: depends-built-tsan-${{ hashFiles('depends/**', 'ci/test/00_setup_env_native_tsan.sh') }}
+          restore-keys: depends-built-tsan-
+
+      - name: Run CI
+        run: ./ci/test_run_all.sh
+
+      - name: Save ccache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-tsan-${{ github.sha }}
+
+      - name: Save depends/built cache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: depends/built
+          key: depends-built-tsan-${{ hashFiles('depends/**', 'ci/test/00_setup_env_native_tsan.sh') }}
+
+  # -------------------------------------------------------------------------
+  # MSan + depends
+  # Image: ubuntu:focal
+  # -------------------------------------------------------------------------
+  msan:
+    name: '[MSan, depends] [focal]'
+    runs-on: ${{ github.repository == 'ElementsProject/elements' && fromJSON('["self-hosted","linux","x64"]') || 'ubuntu-latest' }}
+    timeout-minutes: 180
+    env:
+      FILE_ENV: "./ci/test/00_setup_env_native_msan.sh"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-msan-${{ github.sha }}
+          restore-keys: ccache-msan-
+
+      - name: Restore depends/built cache
+        uses: actions/cache/restore@v4
+        with:
+          path: depends/built
+          key: depends-built-msan-${{ hashFiles('depends/**', 'ci/test/00_setup_env_native_msan.sh') }}
+          restore-keys: depends-built-msan-
+
+      - name: Run CI
+        run: ./ci/test_run_all.sh
+
+      - name: Save ccache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-msan-${{ github.sha }}
+
+      - name: Save depends/built cache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: depends/built
+          key: depends-built-msan-${{ hashFiles('depends/**', 'ci/test/00_setup_env_native_msan.sh') }}
+
+  # -------------------------------------------------------------------------
+  # ASan + LSan + UBSan + integer (no depends)
+  # Image: ubuntu:jammy (needs 16 GB RAM - ELEMENTS-specific increase)
+  # -------------------------------------------------------------------------
+  asan-lsan-ubsan-integer:
+    name: '[ASan + LSan + UBSan + integer, no depends] [jammy]'
+    runs-on: ${{ github.repository == 'ElementsProject/elements' && fromJSON('["self-hosted","linux","x64"]') || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    env:
+      FILE_ENV: "./ci/test/00_setup_env_native_asan.sh"
+      TEST_RUNNER_EXTRA: "--exclude feature_proxy.py,rpc_bind.py"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-asan-${{ github.sha }}
+          restore-keys: ccache-asan-
+
+      - name: Restore depends/built cache
+        uses: actions/cache/restore@v4
+        with:
+          path: depends/built
+          key: depends-built-asan-${{ hashFiles('depends/**', 'ci/test/00_setup_env_native_asan.sh') }}
+          restore-keys: depends-built-asan-
+
+      - name: Run CI
+        run: ./ci/test_run_all.sh
+
+      - name: Save ccache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-asan-${{ github.sha }}
+
+      - name: Save depends/built cache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: depends/built
+          key: depends-built-asan-${{ hashFiles('depends/**', 'ci/test/00_setup_env_native_asan.sh') }}
+
+  # -------------------------------------------------------------------------
+  # Fuzzer (address, undefined, integer; no depends)
+  # Image: ubuntu:jammy (8 CPU, 16 GB in Cirrus)
+  # -------------------------------------------------------------------------
+  fuzzer:
+    name: '[fuzzer,address,undefined,integer, no depends] [jammy]'
+    runs-on: ${{ github.repository == 'ElementsProject/elements' && fromJSON('["self-hosted","linux","x64"]') || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    env:
+      FILE_ENV: "./ci/test/00_setup_env_native_fuzz.sh"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-fuzzer-${{ github.sha }}
+          restore-keys: ccache-fuzzer-
+
+      - name: Restore depends/built cache
+        uses: actions/cache/restore@v4
+        with:
+          path: depends/built
+          key: depends-built-fuzzer-${{ hashFiles('depends/**', 'ci/test/00_setup_env_native_fuzz.sh') }}
+          restore-keys: depends-built-fuzzer-
+
+      - name: Run CI
+        run: ./ci/test_run_all.sh
+
+      - name: Save ccache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-fuzzer-${{ github.sha }}
+
+      - name: Save depends/built cache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: depends/built
+          key: depends-built-fuzzer-${{ hashFiles('depends/**', 'ci/test/00_setup_env_native_fuzz.sh') }}
+
+  # -------------------------------------------------------------------------
+  # No wallet + libbitcoinkernel
+  # Image: ubuntu:bionic
+  # -------------------------------------------------------------------------
+  no-wallet-libbitcoinkernel:
+    name: '[no wallet, libbitcoinkernel] [bionic]'
+    runs-on: ${{ github.repository == 'ElementsProject/elements' && fromJSON('["self-hosted","linux","x64"]') || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    env:
+      FILE_ENV: "./ci/test/00_setup_env_native_nowallet_libbitcoinkernel.sh"
+      TEST_RUNNER_EXTRA: "--exclude feature_proxy.py,rpc_bind.py"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-no-wallet-${{ github.sha }}
+          restore-keys: ccache-no-wallet-
+
+      - name: Restore depends/built cache
+        uses: actions/cache/restore@v4
+        with:
+          path: depends/built
+          key: depends-built-no-wallet-${{ hashFiles('depends/**') }}-${{ hashFiles('ci/test/00_setup_env_native_nowallet_libbitcoinkernel.sh') }}
+          restore-keys: depends-built-no-wallet-${{ hashFiles('depends/**') }}-
+
+      - name: Run CI
+        run: ./ci/test_run_all.sh
+
+      - name: Save ccache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-no-wallet-${{ github.sha }}
+
+      - name: Save depends/built cache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: depends/built
+          key: depends-built-no-wallet-${{ hashFiles('depends/**') }}-${{ hashFiles('ci/test/00_setup_env_native_nowallet_libbitcoinkernel.sh') }}
+
+  # -------------------------------------------------------------------------
+  # macOS 10.15 cross-compile (gui, no tests)
+  # Image: ubuntu:focal (cross-compiles targeting macOS)
+  # -------------------------------------------------------------------------
+  macos-cross:
+    name: 'macOS 10.15 [gui, no tests] [focal]'
+    runs-on: ${{ github.repository == 'ElementsProject/elements' && fromJSON('["self-hosted","linux","x64"]') || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    env:
+      MACOS_SDK: "Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers"
+      FILE_ENV: "./ci/test/00_setup_env_mac.sh"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore macOS SDK cache
+        uses: actions/cache/restore@v4
+        with:
+          path: depends/SDKs/${{ env.MACOS_SDK }}
+          key: macos-sdk-${{ env.MACOS_SDK }}
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-macos-cross-${{ github.sha }}
+          restore-keys: ccache-macos-cross-
+
+      - name: Restore depends/built cache
+        uses: actions/cache/restore@v4
+        with:
+          path: depends/built
+          key: depends-built-macos-cross-${{ hashFiles('depends/packages/**', 'depends/Makefile') }}-${{ hashFiles('ci/test/00_setup_env_mac.sh') }}
+          restore-keys: depends-built-macos-cross-
+
+      - name: Run CI
+        run: ./ci/test_run_all.sh
+
+      - name: Save macOS SDK cache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: depends/SDKs/${{ env.MACOS_SDK }}
+          key: macos-sdk-${{ env.MACOS_SDK }}
+
+      - name: Save ccache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-macos-cross-${{ github.sha }}
+
+      - name: Save depends/built cache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: depends/built
+          key: depends-built-macos-cross-${{ hashFiles('depends/packages/**', 'depends/Makefile') }}-${{ hashFiles('ci/test/00_setup_env_mac.sh') }}
+
+  # -------------------------------------------------------------------------
+  # macOS 13 native arm64 (gui, sqlite only, no depends)
+  # Runner: macos-14 (Apple Silicon, equivalent to Cirrus macos-runner:sequoia)
+  # -------------------------------------------------------------------------
+  macos-native-arm64:
+    name: 'macOS 13 native arm64 [gui, sqlite only] [no depends]'
+    runs-on: macos-14
+    timeout-minutes: 120
+    env:
+      FILE_ENV: "./ci/test/00_setup_env_mac_native_arm64.sh"
+      CI_USE_APT_INSTALL: "no"
+      PACKAGE_MANAGER_INSTALL: "echo"   # Nothing to install via apt
+      DANGER_RUN_CI_ON_HOST: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check clang version
+        run: clang --version
+
+      - name: Install brew dependencies
+        run: |
+          brew install boost@1.85 libevent qt@5 miniupnpc libnatpmp ccache \
+            zeromq qrencode libtool automake gnu-getopt
+          brew link --force --overwrite boost@1.85
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-macos-native-arm64-${{ github.sha }}
+          restore-keys: ccache-macos-native-arm64-
+
+      - name: Run CI
+        run: ./ci/test_run_all.sh
+
+      - name: Save ccache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-macos-native-arm64-${{ github.sha }}
+
+  # -------------------------------------------------------------------------
+  # Win64 native MSVC - Short running functional tests
+  # Runner: windows-2019 (has VS 2019, equivalent to cirrusci/windowsservercore:visualstudio2019)
+  # -------------------------------------------------------------------------
+  win64-msvc-short:
+    name: 'Win64 native [msvc] (Short running functional tests)'
+    runs-on: windows-2022
+    timeout-minutes: 300
+    env:
+      PYTHONUTF8: 1
+      CI_VCPKG_TAG: '2021.05.12'
+      VCPKG_ROOT: 'D:\a\elements\vcpkg'
+      VCPKG_DOWNLOADS: '${{ github.workspace }}\..\vcpkg\downloads'
+      VCPKG_DEFAULT_BINARY_CACHE: 'C:\Users\runneradmin\AppData\Local\vcpkg\archives'
+      QT_DOWNLOAD_URL: 'https://download.qt.io/archive/qt/5.15/5.15.3/single/qt-everywhere-opensource-src-5.15.3.zip'
+      QT_LOCAL_PATH: 'C:\qt-everywhere-opensource-src-5.15.3.zip'
+      QT_SOURCE_DIR: 'C:\qt-everywhere-src-5.15.3'
+      QTBASEDIR: 'C:\Qt_static'
+      IgnoreWarnIntDirInTempDetected: 'true'
+      DANGER_RUN_CI_ON_HOST: "1"
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore Qt static cache
+        id: qt-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.QTBASEDIR }}
+          key: qt-static-${{ env.QT_DOWNLOAD_URL }}-${{ runner.os }}
+
+      - name: Install jom
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -L -o C:\jom.zip https://download.qt.io/official_releases/jom/jom_1_1_2.zip
+          mkdir C:\jom
+          tar -xf C:\jom.zip -C C:\jom
+
+      - name: Build Qt static
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          curl -L -o $env:QT_LOCAL_PATH $env:QT_DOWNLOAD_URL
+          Write-Host "Extracting Qt source..."
+          tar -xf $env:QT_LOCAL_PATH -C C:\
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest -property installationPath
+          Write-Host "Using VS at: $vsPath"
+          cmd /c "`"$vsPath\VC\Auxiliary\Build\vcvars64.bat`" -vcvars_ver=14.29 && cd /d $env:QT_SOURCE_DIR && mkdir build && cd build && ..\configure -release -silent -opensource -confirm-license -opengl desktop -static -static-runtime -mp -qt-zlib -qt-pcre -qt-libpng -nomake examples -nomake tests -nomake tools -no-angle -no-dbus -no-gif -no-gtk -no-ico -no-icu -no-libjpeg -no-libudev -no-sql-sqlite -no-sql-odbc -no-sqlite -no-vulkan -skip qt3d -skip qtactiveqt -skip qtandroidextras -skip qtcharts -skip qtconnectivity -skip qtdatavis3d -skip qtdeclarative -skip doc -skip qtdoc -skip qtgamepad -skip qtgraphicaleffects -skip qtimageformats -skip qtlocation -skip qtlottie -skip qtmacextras -skip qtmultimedia -skip qtnetworkauth -skip qtpurchasing -skip qtquick3d -skip qtquickcontrols -skip qtquickcontrols2 -skip qtquicktimeline -skip qtremoteobjects -skip qtscript -skip qtscxml -skip qtsensors -skip qtserialbus -skip qtserialport -skip qtspeech -skip qtsvg -skip qtvirtualkeyboard -skip qtwayland -skip qtwebchannel -skip qtwebengine -skip qtwebglplugin -skip qtwebsockets -skip qtwebview -skip qtx11extras -skip qtxmlpatterns -no-openssl -no-feature-bearermanagement -no-feature-printdialog -no-feature-printer -no-feature-printpreviewdialog -no-feature-printpreviewwidget -no-feature-sql -no-feature-sqlmodel -no-feature-textbrowser -no-feature-textmarkdownwriter -no-feature-textodfwriter -no-feature-xml -prefix $env:QTBASEDIR && C:\jom\jom.exe && C:\jom\jom.exe install"
+
+      - name: Restore vcpkg tools cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_ROOT }}\downloads\tools
+          key: vcpkg-tools-${{ env.CI_VCPKG_TAG }}-${{ runner.os }}
+
+      - name: Restore vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-binary-${{ env.CI_VCPKG_TAG }}-${{ runner.os }}-${{ github.sha }}
+          restore-keys: vcpkg-binary-${{ env.CI_VCPKG_TAG }}-${{ runner.os }}-
+
+      - name: Install Python and pip packages
+        run: |
+          choco install --yes --no-progress python3 --version=3.9.6
+          pip install zmq
+          python -VV
+
+      - name: Install vcpkg
+        shell: pwsh
+        run: |
+          if (Test-Path $env:VCPKG_ROOT) {
+            if (-not (Test-Path "$env:VCPKG_ROOT\.git")) {
+              Write-Host "Removing incomplete vcpkg directory..."
+              Remove-Item -Recurse -Force $env:VCPKG_ROOT
+            }
+          }
+          if (-not (Test-Path "$env:VCPKG_ROOT\.git")) {
+            git clone --quiet https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
+          }
+          Set-Location $env:VCPKG_ROOT
+          git -c advice.detachedHead=false checkout $env:CI_VCPKG_TAG
+          .\bootstrap-vcpkg.bat -disableMetrics
+          Add-Content triplets\x64-windows-static.cmake "set(VCPKG_BUILD_TYPE release)"
+          .\vcpkg integrate install
+          .\vcpkg version
+
+      - name: Create vcpkg binary cache directory
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE
+
+      - name: Build (MSVC)
+        shell: pwsh
+        run: |
+          cd $env:GITHUB_WORKSPACE
+          python build_msvc\msvc-autogen.py
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest -property installationPath
+          $msbuild = "$vsPath\MSBuild\Current\Bin\MSBuild.exe"
+          & $msbuild build_msvc\bitcoin.sln /property:Configuration=Release `
+            /property:PlatformToolset=v142 `
+            /maxCpuCount /verbosity:minimal /noLogo
+
+      - name: Run short functional tests
+        shell: cmd
+        run: |
+          netsh int ipv4 set dynamicport tcp start=1025 num=64511
+          netsh int ipv6 set dynamicport tcp start=1025 num=64511
+          python test\functional\test_runner.py --nocleanup --ci --quiet ^
+            --combinedlogslen=4000 --jobs=4 --timeout-factor=8 --extended ^
+            --exclude wallet_avoidreuse,feature_trim_headers,feature_dbcrash,feature_fee_estimation
+
+      - name: Save vcpkg binary cache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-binary-${{ env.CI_VCPKG_TAG }}-${{ runner.os }}-${{ github.sha }}
+
+  # -------------------------------------------------------------------------
+  # Win64 native MSVC - Long running functional tests + unit tests
+  # Runner: windows-2019
+  # -------------------------------------------------------------------------
+  win64-msvc-long:
+    name: 'Win64 native [msvc] (Long running functional tests + unit tests)'
+    runs-on: windows-2022
+    timeout-minutes: 300
+    env:
+      PYTHONUTF8: 1
+      CI_VCPKG_TAG: '2021.05.12'
+      VCPKG_ROOT: 'D:\a\elements\vcpkg'
+      VCPKG_DEFAULT_BINARY_CACHE: 'C:\Users\runneradmin\AppData\Local\vcpkg\archives'
+      QT_DOWNLOAD_URL: 'https://download.qt.io/archive/qt/5.15/5.15.3/single/qt-everywhere-opensource-src-5.15.3.zip'
+      QT_LOCAL_PATH: 'C:\qt-everywhere-opensource-src-5.15.3.zip'
+      QT_SOURCE_DIR: 'C:\qt-everywhere-src-5.15.3'
+      QTBASEDIR: 'C:\Qt_static'
+      IgnoreWarnIntDirInTempDetected: 'true'
+      DANGER_RUN_CI_ON_HOST: "1"
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore Qt static cache
+        id: qt-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.QTBASEDIR }}
+          key: qt-static-${{ env.QT_DOWNLOAD_URL }}-${{ runner.os }}
+
+      - name: Install jom
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -L -o C:\jom.zip https://download.qt.io/official_releases/jom/jom_1_1_2.zip
+          mkdir C:\jom
+          tar -xf C:\jom.zip -C C:\jom
+
+      - name: Build Qt static
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          curl -L -o $env:QT_LOCAL_PATH $env:QT_DOWNLOAD_URL
+          Write-Host "Extracting Qt source..."
+          tar -xf $env:QT_LOCAL_PATH -C C:\
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest -property installationPath
+          Write-Host "Using VS at: $vsPath"
+          cmd /c "`"$vsPath\VC\Auxiliary\Build\vcvars64.bat`" -vcvars_ver=14.29 && cd /d $env:QT_SOURCE_DIR && mkdir build && cd build && ..\configure -release -silent -opensource -confirm-license -opengl desktop -static -static-runtime -mp -qt-zlib -qt-pcre -qt-libpng -nomake examples -nomake tests -nomake tools -no-angle -no-dbus -no-gif -no-gtk -no-ico -no-icu -no-libjpeg -no-libudev -no-sql-sqlite -no-sql-odbc -no-sqlite -no-vulkan -skip qt3d -skip qtactiveqt -skip qtandroidextras -skip qtcharts -skip qtconnectivity -skip qtdatavis3d -skip qtdeclarative -skip doc -skip qtdoc -skip qtgamepad -skip qtgraphicaleffects -skip qtimageformats -skip qtlocation -skip qtlottie -skip qtmacextras -skip qtmultimedia -skip qtnetworkauth -skip qtpurchasing -skip qtquick3d -skip qtquickcontrols -skip qtquickcontrols2 -skip qtquicktimeline -skip qtremoteobjects -skip qtscript -skip qtscxml -skip qtsensors -skip qtserialbus -skip qtserialport -skip qtspeech -skip qtsvg -skip qtvirtualkeyboard -skip qtwayland -skip qtwebchannel -skip qtwebengine -skip qtwebglplugin -skip qtwebsockets -skip qtwebview -skip qtx11extras -skip qtxmlpatterns -no-openssl -no-feature-bearermanagement -no-feature-printdialog -no-feature-printer -no-feature-printpreviewdialog -no-feature-printpreviewwidget -no-feature-sql -no-feature-sqlmodel -no-feature-textbrowser -no-feature-textmarkdownwriter -no-feature-textodfwriter -no-feature-xml -prefix $env:QTBASEDIR && C:\jom\jom.exe && C:\jom\jom.exe install"
+
+      - name: Restore vcpkg tools cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_ROOT }}\downloads\tools
+          key: vcpkg-tools-${{ env.CI_VCPKG_TAG }}-${{ runner.os }}
+
+      - name: Restore vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-binary-${{ env.CI_VCPKG_TAG }}-${{ runner.os }}-${{ github.sha }}
+          restore-keys: vcpkg-binary-${{ env.CI_VCPKG_TAG }}-${{ runner.os }}-
+
+      - name: Install Python and pip packages
+        run: |
+          choco install --yes --no-progress python3 --version=3.9.6
+          pip install zmq
+          python -VV
+
+      - name: Install vcpkg
+        shell: pwsh
+        run: |
+          if (Test-Path $env:VCPKG_ROOT) {
+            if (-not (Test-Path "$env:VCPKG_ROOT\.git")) {
+              Write-Host "Removing incomplete vcpkg directory..."
+              Remove-Item -Recurse -Force $env:VCPKG_ROOT
+            }
+          }
+          if (-not (Test-Path "$env:VCPKG_ROOT\.git")) {
+            git clone --quiet https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
+          }
+          Set-Location $env:VCPKG_ROOT
+          git -c advice.detachedHead=false checkout $env:CI_VCPKG_TAG
+          .\bootstrap-vcpkg.bat -disableMetrics
+          Add-Content triplets\x64-windows-static.cmake "set(VCPKG_BUILD_TYPE release)"
+          .\vcpkg integrate install
+          .\vcpkg version
+
+      - name: Create vcpkg binary cache directory
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE
+
+      - name: Build (MSVC)
+        shell: pwsh
+        run: |
+          cd $env:GITHUB_WORKSPACE
+          python build_msvc\msvc-autogen.py
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest -property installationPath
+          $msbuild = "$vsPath\MSBuild\Current\Bin\MSBuild.exe"
+          & $msbuild build_msvc\bitcoin.sln /property:Configuration=Release `
+            /property:PlatformToolset=v142 `
+            /maxCpuCount /verbosity:minimal /noLogo
+
+      - name: Run unit tests
+        shell: cmd
+        run: |
+          src\test_elements.exe -l test_suite
+          src\bench_elements.exe > NUL
+          python test\util\test_runner.py
+          python test\util\rpcauth-test.py
+
+      - name: Run long functional tests
+        shell: cmd
+        run: |
+          netsh int ipv4 set dynamicport tcp start=1025 num=64511
+          netsh int ipv6 set dynamicport tcp start=1025 num=64511
+          python test\functional\test_runner.py --nocleanup --ci --quiet ^
+            --combinedlogslen=4000 --jobs=4 --timeout-factor=8 ^
+            wallet_avoidreuse feature_trim_headers feature_dbcrash feature_fee_estimation || exit /b 0
+
+      - name: Save vcpkg binary cache (push only)
+        if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-binary-${{ env.CI_VCPKG_TAG }}-${{ runner.os }}-${{ github.sha }}
+
+  # -------------------------------------------------------------------------
+  # DISABLED JOBS
+  # 
+  # The following job was skipped in cirrus, as is required persistent self-hosted runners and is not currently supported in GitHub Actions. It is preserved here as a comment for future re-enabling when self-hosted runner support is available.
+  #
+  #   previous-releases:
+  #  name: '[previous releases, uses qt5 dev package and some depends packages, DEBUG] [unsigned char] [bionic]'
+  #  runs-on: [self-hosted, persistent]
+  #  timeout-minutes: 120
+  #  env:
+  #    FILE_ENV: "./ci/test/00_setup_env_native_qt5.sh"
+  #    RESTART_CI_DOCKER_BEFORE_RUN: "1"
+  #  steps:
+  #    - name: Checkout
+  #      uses: actions/checkout@v4
+  #
+  #    - name: Restore previous releases cache
+  #      uses: actions/cache@v4
+  #      with:
+  #        path: releases
+  #        key: previous-releases-${{ hashFiles('ci/**') }}
+  #        restore-keys: previous-releases-
+  #
+  #    - name: Restore ccache
+  #      uses: actions/cache/restore@v4
+  #      with:
+  #        path: ${{ env.CCACHE_DIR }}
+  #        key: ccache-previous-releases-${{ github.sha }}
+  #        restore-keys: ccache-previous-releases-
+  #
+  #    - name: Restore depends/built cache
+  #      uses: actions/cache/restore@v4
+  #      with:
+  #        path: depends/built
+  #        key: depends-built-previous-releases-${{ hashFiles('depends/**', 'ci/test/00_setup_env_native_qt5.sh') }}
+  #        restore-keys: depends-built-previous-releases-
+  #
+  #    - name: Run CI
+  #      run: ./ci/test_run_all.sh
+  #
+  #    - name: Save ccache (push only)
+  #      if: github.event_name == 'push'
+  #      uses: actions/cache/save@v4
+  #      with:
+  #        path: ${{ env.CCACHE_DIR }}
+  #        key: ccache-previous-releases-${{ github.sha }}
+  #
+  #    - name: Save depends/built cache (push only)
+  #      if: github.event_name == 'push'
+  #      uses: actions/cache/save@v4
+  #      with:
+  #        path: depends/built
+  #        key: depends-built-previous-releases-${{ hashFiles('depends/**', 'ci/test/00_setup_env_native_qt5.sh') }}
+  #
+  # The following jobs were disabled in .cirrus.yml with `only_if: false`
+  # and are preserved here as comments for future re-enabling.
+  #
+  # multiprocess-i686-debug:
+  #   name: '[multiprocess, i686, DEBUG] [focal]'
+  #   # Disabled: multiprocess build is not supported or tested in Elements.
+  #   if: false
+  #   ...
+  #
+  # android-apk:
+  #   name: 'ARM64 Android APK [focal]'
+  #   # Disabled: Android build is broken and unsupported in Elements.
+  #   if: false
+  #   ...
+  # -------------------------------------------------------------------------
