@@ -851,7 +851,8 @@ static RPCHelpMan tweakfedpegscript()
                     RPCResult::Type::OBJ, "", "",
                     {
                         {RPCResult::Type::STR_HEX, "script", "The fedpegscript tweaked with claim_script"},
-                        {RPCResult::Type::STR, "address", "The address corresponding to the tweaked fedpegscript"},
+                        {RPCResult::Type::STR, "p2wsh", "Native segwit address (P2WSH) for the tweaked fedpegscript"},
+                        {RPCResult::Type::STR, "p2shwsh", "Wrapped segwit address (P2SH-P2WSH) for the tweaked fedpegscript"},
                     }
                 },
                 RPCExamples{""},
@@ -918,9 +919,11 @@ static RPCHelpMan getpakinfo()
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
                     {
-                        {RPCResult::Type::ARR, "block_paklist", "The PAK list loaded from latest epoch",
+                        {RPCResult::Type::OBJ, "block_paklist", "The PAK list loaded from the latest epoch",
                         {
-                            {RPCResult::Type::ELISION, "", ""}
+                            {RPCResult::Type::ARR, "online", "Online keys (hex-encoded)", {{RPCResult::Type::STR_HEX, "", ""}}},
+                            {RPCResult::Type::ARR, "offline", "Offline keys (hex-encoded)", {{RPCResult::Type::STR_HEX, "", ""}}},
+                            {RPCResult::Type::BOOL, "reject", "True when there are no offline keys (reject pegouts)"},
                         }},
                     }
                 },
@@ -976,12 +979,14 @@ static RPCHelpMan calcfastmerkleroot()
 static RPCHelpMan dumpassetlabels()
 {
     return RPCHelpMan{"dumpassetlabels",
-                "\nLists all known asset id/label pairs in this wallet. This list can be modified with `-assetdir` configuration argument.\n",
+                "\nLists all known asset label/id pairs for this node. Object keys are asset labels and values are hex-encoded asset identifiers. This list can be modified with the `-assetdir` configuration argument.\n",
                 {},
                 RPCResult{
-                    RPCResult::Type::OBJ, "labels", "",
+                    RPCResult::Type::OBJ_DYN,
+                    "",
+                    "Map from asset label (object key) to asset id (hex string value)",
                     {
-                        {RPCResult::Type::ELISION, "", "the label for each asset id"},
+                        {RPCResult::Type::STR_HEX, "xxxx", "asset id for the label named by each dynamic object key"},
                     },
                 },
                 RPCExamples{
@@ -1050,7 +1055,7 @@ static RPCHelpMan createblindedaddress()
                     {"blinding_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The blinding public key. This can be obtained for a given address using `getaddressinfo` (`confidential_key` field)."},
                 },
                 RPCResult{
-                    RPCResult::Type::STR, "blinded_address", "The blinded address"
+                    RPCResult::Type::STR, "", "The blinded address string"
                 },
                 RPCExamples{
             "\nCreate a blinded address\n"
