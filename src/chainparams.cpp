@@ -230,7 +230,7 @@ public:
         anyonecanspend_aremine = false;
         accept_unlimited_issuances = false;
         enforce_pak = false;
-        multi_data_permitted = false;
+        multi_data_permitted = true;
         accept_discount_ct = false;
         create_discount_ct = false;
         pegin_subsidy = PeginSubsidy();
@@ -379,7 +379,7 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         accept_unlimited_issuances = false;
-        multi_data_permitted = false;
+        multi_data_permitted = true;
         accept_discount_ct = false;
         create_discount_ct = false;
         pegin_subsidy = PeginSubsidy();
@@ -546,7 +546,7 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         accept_unlimited_issuances = false;
-        multi_data_permitted = false;
+        multi_data_permitted = true;
         accept_discount_ct = false;
         create_discount_ct = false;
         pegin_subsidy = PeginSubsidy();
@@ -652,7 +652,7 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         accept_unlimited_issuances = false;
-        multi_data_permitted = false;
+        multi_data_permitted = true;
         accept_discount_ct = false;
         create_discount_ct = false;
         pegin_subsidy = PeginSubsidy();

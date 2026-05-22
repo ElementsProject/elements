@@ -330,7 +330,6 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
             result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': 'min relay fee not met'}],
             rawtxs=[tx.serialize().hex()],
         )
-
         self.log.info('A timelocked transaction')
         tx = tx_from_hex(raw_tx_reference)
         tx.vin[0].nSequence -= 1  # Should be non-max, so locktime is not ignored
@@ -345,6 +344,17 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         tx.vin[0].nSequence = 2  # We could include it in the second block mined from now, but not the very next one
         self.check_mempool_result(
             result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': 'non-BIP68-final'}],
+            rawtxs=[tx.serialize().hex()],
+            maxfeerate=0,
+        )
+
+        self.log.info('Multiple OP_RETURN and large data are standard with default datacarriersize (100000)')
+        # Multiple OP_RETURN outputs with data far exceeding the old per-output
+        tx = tx_from_hex(raw_tx_reference)
+        tx.vout.append(CTxOut(nValue=0, scriptPubKey=CScript([OP_RETURN, b'\xff'])))
+        tx.vout.append(CTxOut(nValue=0, scriptPubKey=CScript([OP_RETURN, b'\xff' * 50000])))
+        self.check_mempool_result(
+            result_expected=[{'txid': tx.rehash(), 'allowed': True, 'vsize': tx.get_vsize(), 'fees': {'base': Decimal('0.05')}}],
             rawtxs=[tx.serialize().hex()],
             maxfeerate=0,
         )
