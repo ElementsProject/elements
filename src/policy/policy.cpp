@@ -285,11 +285,9 @@ bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             if (stack.size() >= 2 && !stack.back().empty() && stack.back()[0] == ANNEX_TAG) {
                 SpanPopBack(stack); // drop the annex
                 const auto& control_block = SpanPopBack(stack);
-                if (!control_block.empty() && (control_block[0] & TAPROOT_LEAF_MASK) == TAPROOT_LEAF_TAPSIMPLICITY) {
-                    // Annexes are allowed for Simplicity spends
-                    // checks for zero padding and exact size are done in CheckSimplicity
-                    return true;
-                } else {
+                // Annexes are allowed for Simplicity spends only
+                // checks for zero padding and exact size are done in CheckSimplicity
+                if (control_block.empty() || (control_block[0] & TAPROOT_LEAF_MASK) != TAPROOT_LEAF_TAPSIMPLICITY) {
                     // Annexes are nonstandard as long as no semantics are defined for them.
                     return false;
                 }
