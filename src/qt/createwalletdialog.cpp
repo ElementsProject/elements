@@ -98,6 +98,11 @@ CreateWalletDialog::CreateWalletDialog(QWidget* parent) :
         ui->descriptor_checkbox->setChecked(true);
 #endif
 
+#if defined(USE_SQLITE) && defined(USE_BDB)
+    // Both wallet types available: default to legacy (unchecked = legacy)
+    ui->descriptor_checkbox->setChecked(false);
+#endif
+
 #ifndef ENABLE_EXTERNAL_SIGNER
         //: "External signing" means using devices such as hardware wallets.
         ui->external_signer_checkbox->setToolTip(tr("Compiled without external signing support (required for external signing)"));
