@@ -1221,7 +1221,7 @@ public:
 
         enforce_pak = true;
 
-        accept_unlimited_issuances = args.GetBoolArg("-acceptunlimitedissuances", false);
+        accept_unlimited_issuances = args.GetBoolArg("-acceptunlimitedissuances", true);
 
         multi_data_permitted = true;
         create_discount_ct = args.GetBoolArg("-creatediscountct", false);
