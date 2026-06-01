@@ -3029,11 +3029,8 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
                               tx_state.GetDebugMessage() + " in transaction " + tx.GetHash().ToString());
                 break;
             }
-            // control.Add(vChecks);
-            //
-            // if (!MoneyRange(fee_map)) {
-            //     LogPrintf("ERROR: %s: accumulated fee in the block out of range.\n", __func__);
-            //     return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-txns-accumulated-fee-outofrange");
+            control.Add(vChecks);
+
             if (!MoneyRange(fee_map)) {
                 state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-txns-accumulated-fee-outofrange",
                               "accumulated fee in the block out of range");

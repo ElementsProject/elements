@@ -19,7 +19,7 @@ execute_process(
   COMMAND_ERROR_IS_FATAL ANY
 )
 execute_process(
-  COMMAND ${LCOV_COMMAND} --capture --directory src --test-name test_bitcoin --output-file test_bitcoin.info
+  COMMAND ${LCOV_COMMAND} --capture --directory src --test-name test_elements --output-file test_elements.info
   WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
   COMMAND_ERROR_IS_FATAL ANY
 )
@@ -29,22 +29,22 @@ execute_process(
   COMMAND_ERROR_IS_FATAL ANY
 )
 execute_process(
-  COMMAND ${LCOV_FILTER_COMMAND} test_bitcoin.info test_bitcoin_filtered.info
+  COMMAND ${LCOV_FILTER_COMMAND} test_elements.info test_elements_filtered.info
   WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
   COMMAND_ERROR_IS_FATAL ANY
 )
 execute_process(
-  COMMAND ${LCOV_COMMAND} --add-tracefile test_bitcoin_filtered.info --output-file test_bitcoin_filtered.info
+  COMMAND ${LCOV_COMMAND} --add-tracefile test_elements_filtered.info --output-file test_elements_filtered.info
   WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
   COMMAND_ERROR_IS_FATAL ANY
 )
 execute_process(
-  COMMAND ${LCOV_COMMAND} --add-tracefile baseline_filtered.info --add-tracefile test_bitcoin_filtered.info --output-file test_bitcoin_coverage.info
+  COMMAND ${LCOV_COMMAND} --add-tracefile baseline_filtered.info --add-tracefile test_elements_filtered.info --output-file test_elements_coverage.info
   WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
   COMMAND_ERROR_IS_FATAL ANY
 )
 execute_process(
-  COMMAND ${GENHTML_COMMAND} test_bitcoin_coverage.info --output-directory test_bitcoin.coverage
+  COMMAND ${GENHTML_COMMAND} test_elements_coverage.info --output-directory test_elements.coverage
   WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
   COMMAND_ERROR_IS_FATAL ANY
 )
@@ -75,7 +75,7 @@ execute_process(
   COMMAND_ERROR_IS_FATAL ANY
 )
 execute_process(
-  COMMAND ${LCOV_COMMAND} --add-tracefile baseline_filtered.info --add-tracefile test_bitcoin_filtered.info --add-tracefile functional_test_filtered.info --output-file total_coverage.info
+  COMMAND ${LCOV_COMMAND} --add-tracefile baseline_filtered.info --add-tracefile test_elements_filtered.info --add-tracefile functional_test_filtered.info --output-file total_coverage.info
   COMMAND ${GREP_EXECUTABLE} "%"
   COMMAND ${AWK_EXECUTABLE} "{ print substr($3,2,50) \"/\" $5 }"
   OUTPUT_FILE coverage_percent.txt
