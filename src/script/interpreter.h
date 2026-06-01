@@ -159,6 +159,10 @@ enum : uint32_t {
     //
     SCRIPT_VERIFY_SIMPLICITY = (1U << 23),
 
+    // Check exact annex padding policy for simplicity spends
+    //
+    SCRIPT_VERIFY_ANNEX_PADDING = (1U << 24),
+
     // Constants to point to the highest flag in use. Add new flags above this line.
     //
     SCRIPT_VERIFY_END_MARKER
@@ -343,7 +347,7 @@ public:
         return std::numeric_limits<uint32_t>::max();
     }
 
-    virtual bool CheckSimplicity(const std::vector<unsigned char>& witness, const std::vector<unsigned char>& program, const rawElementsTapEnv& simplicityRawTap, int64_t budget, ScriptError* serror) const
+    virtual bool CheckSimplicity(const std::vector<unsigned char>& witness, const std::vector<unsigned char>& program, const rawElementsTapEnv& simplicityRawTap, int64_t minCost, int64_t budget, ScriptError* serror) const
     {
          return false;
     }
@@ -391,7 +395,7 @@ public:
 
     const PrecomputedTransactionData* GetPrecomputedTransactionData() const override;
     uint32_t GetnIn() const override;
-    bool CheckSimplicity(const std::vector<unsigned char>& program, const std::vector<unsigned char>& witness, const rawElementsTapEnv& simplicityRawTap, int64_t budget, ScriptError* serror) const override;
+    bool CheckSimplicity(const std::vector<unsigned char>& program, const std::vector<unsigned char>& witness, const rawElementsTapEnv& simplicityRawTap, int64_t minCost, int64_t budget, ScriptError* serror) const override;
 };
 
 using TransactionSignatureChecker = GenericTransactionSignatureChecker<CTransaction>;

@@ -274,6 +274,7 @@ bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         // Check policy limits for Taproot spends:
         // - MAX_STANDARD_TAPSCRIPT_STACK_ITEM_SIZE limit for stack item size
         // - No annexes
+        // ELEMENTS: allow annexes for simplicity transactions
         if (witnessversion == 1 && witnessprogram.size() == WITNESS_V1_TAPROOT_SIZE && !p2sh) {
             // Missing witness; invalid by consensus rules
             if (i >= tx.witness.vtxinwit.size()) {
@@ -282,8 +283,14 @@ bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             // Taproot spend (non-P2SH-wrapped, version 1, witness program size 32; see BIP 341)
             Span stack{tx.witness.vtxinwit[i].scriptWitness.stack};
             if (stack.size() >= 2 && !stack.back().empty() && stack.back()[0] == ANNEX_TAG) {
-                // Annexes are nonstandard as long as no semantics are defined for them.
-                return false;
+                SpanPopBack(stack); // drop the annex
+                const auto& control_block = SpanPopBack(stack);
+                // Annexes are allowed for Simplicity spends only
+                // checks for zero padding and exact size are done in CheckSimplicity
+                if (control_block.empty() || (control_block[0] & TAPROOT_LEAF_MASK) != TAPROOT_LEAF_TAPSIMPLICITY) {
+                    // Annexes are nonstandard as long as no semantics are defined for them.
+                    return false;
+                }
             }
             if (stack.size() >= 2) {
                 // Script path spend (2 or more stack elements after removing optional annex)
