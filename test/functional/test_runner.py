@@ -84,8 +84,8 @@ EXTENDED_SCRIPTS = [
     # These tests are not run by default.
     # Longest test should go first, to favor running tests in parallel
 #    'feature_pruning.py', ELEMENTS: this is broken
-    'feature_dbcrash.py',
-    'feature_fee_estimation.py',
+#    'feature_dbcrash.py', ELEMENTS: long running test and uses excessive disk space on GHA
+#    'feature_fee_estimation.py', ELEMENTS: this is broken on v23
     'feature_index_prune.py',
     'feature_trim_headers.py',
     'wallet_pruning.py --legacy-wallet',
@@ -112,19 +112,19 @@ BASE_SCRIPTS = [
     'feature_issuance.py --legacy-wallet',
     'feature_confidential_transactions.py --legacy-wallet',
     'feature_default_asset_name.py --legacy-wallet',
-    'feature_assetsdir.py',
+    'feature_assetsdir.py --legacy-wallet',
     'feature_initial_reissuance_token.py --legacy-wallet',
     'feature_progress.py',
     'rpc_getnewblockhex.py',
     'wallet_elements_regression_1172.py --legacy-wallet',
     'wallet_elements_regression_1259.py --legacy-wallet',
     'wallet_elements_21million.py --legacy-wallet',
-    'wallet_elements_dust_relay.py',
+    'wallet_elements_dust_relay.py --legacy-wallet',
     # Longest test should go first, to favor running tests in parallel
     # vv Tests less than 5m vv
     'feature_taproot.py',
     'feature_block.py',
-    'wallet_elements_regression_1263.py',
+    'wallet_elements_regression_1263.py --legacy-wallet',
     'mempool_ephemeral_dust.py',
     'wallet_conflicts.py --legacy-wallet',
     'wallet_conflicts.py --descriptors',

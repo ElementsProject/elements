@@ -105,6 +105,9 @@ target_include_directories(elementssimplicity
 target_compile_definitions(elementssimplicity PRIVATE PRODUCTION)
 # Simplicity requires assertions; remove NDEBUG that cmake adds for optimized builds.
 target_compile_options(elementssimplicity PRIVATE -UNDEBUG)
+target_compile_options(elementssimplicity PRIVATE
+  $<$<CXX_COMPILER_ID:MSVC>:/std:c11>
+)
 target_link_libraries(elementssimplicity
   PRIVATE
     core_interface
@@ -113,8 +116,8 @@ target_link_libraries(elementssimplicity
 # macOS Apple Clang is stricter than Linux GCC on this vendored code
 if(APPLE)
   target_compile_options(elementssimplicity PRIVATE
-    -Wno-conditional-uninitialized
-    -Wno-implicit-fallthrough
+    -Wno-error=conditional-uninitialized
+    -Wno-error=implicit-fallthrough
   )
 endif()
 

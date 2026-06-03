@@ -124,7 +124,7 @@ fi
 # === CMake build (modern path used by the fork) ===
 if [ -n "$NO_DEPENDS" ]; then
   echo "Building with CMake (NO_DEPENDS=1)..."
-  cmake -B build -S . -G "$CMAKE_GENERATOR" $BITCOIN_CONFIG_ALL
+  cmake -B build -S . ${CMAKE_GENERATOR:+-G "$CMAKE_GENERATOR"} $BITCOIN_CONFIG_ALL
 else
   # depends path (still uses configure in some jobs)
   ./autogen.sh
@@ -132,6 +132,21 @@ else
 fi
 
 cmake --build build --config Release --parallel "$MAKEJOBS"
+
+if [ -n "$NO_DEPENDS" ]; then
+  bash -c "${PRINT_CCACHE_STATISTICS}"
+
+  if [ "$RUN_UNIT_TESTS" = "true" ]; then
+    DIR_UNIT_TEST_DATA="${DIR_UNIT_TEST_DATA}" CTEST_OUTPUT_ON_FAILURE=ON ctest --stop-on-failure "${MAKEJOBS}" --timeout $(( TEST_RUNNER_TIMEOUT_FACTOR * 60 ))
+  fi
+
+  if [ "$RUN_FUNCTIONAL_TESTS" = "true" ]; then
+    eval "TEST_RUNNER_EXTRA=($TEST_RUNNER_EXTRA)"
+    test/functional/test_runner.py --ci "${MAKEJOBS}" --tmpdirprefix "${BASE_SCRATCH_DIR}"/test_runner/ --ansi --combinedlogslen=99999999 --timeout-factor="${TEST_RUNNER_TIMEOUT_FACTOR}" "${TEST_RUNNER_EXTRA[@]}" --quiet --failfast
+  fi
+
+  exit 0
+fi
 
 mkdir -p "${BASE_BUILD_DIR}"
 cd "${BASE_BUILD_DIR}"

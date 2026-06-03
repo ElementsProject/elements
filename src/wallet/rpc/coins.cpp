@@ -814,11 +814,11 @@ RPCHelpMan listunspent()
         entry.pushKV("amount", ValueFromAmount(amount));
         if (g_con_elementsmode) {
             if (tx_out.nAsset.IsCommitment()) {
-                entry.pushKV("assetcommitment", HexStr(tx_out.nAsset.vchCommitment));
+                entry.pushKV("assetcommitment", HexStr(MakeByteSpan(tx_out.nAsset.vchCommitment)));
             }
             entry.pushKV("asset", assetid.GetHex());
             if (tx_out.nValue.IsCommitment()) {
-                entry.pushKV("amountcommitment", HexStr(tx_out.nValue.vchCommitment));
+                entry.pushKV("amountcommitment", HexStr(MakeByteSpan(tx_out.nValue.vchCommitment)));
             }
             entry.pushKV("amountblinder", out.bf_value.ToString());
             entry.pushKV("assetblinder", out.bf_asset.ToString());

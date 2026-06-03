@@ -138,7 +138,7 @@ RPCHelpMan signblock()
     for (const auto& signature : block_sigs.signatures) {
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("pubkey", HexStr(signature.second.first));
-        obj.pushKV("sig", HexStr(signature.second.second));
+        obj.pushKV("sig", HexStr(MakeByteSpan(signature.second.second)));
         ret.push_back(obj);
     }
     return ret;
@@ -438,7 +438,7 @@ RPCHelpMan initpegoutwallet()
     CHECK_NONFATAL(negatedpubkeybytes.size() == 33);
 
     UniValue pak(UniValue::VOBJ);
-    pak.pushKV("pakentry", "pak=" + HexStr(negatedpubkeybytes) + ":" + HexStr(online_pubkey));
+    pak.pushKV("pakentry", "pak=" + HexStr(MakeByteSpan(negatedpubkeybytes)) + ":" + HexStr(online_pubkey));
     pak.pushKV("liquid_pak", HexStr(online_pubkey));
     pak.pushKV("liquid_pak_address", EncodeDestination(PKHash(online_pubkey)));
     pak.pushKV("address_lookahead", address_list);
@@ -1255,7 +1255,7 @@ RPCHelpMan blindrawtransaction()
     CWallet* const pwallet = wallet.get();
 
     std::vector<unsigned char> txData(ParseHexV(request.params[0], "argument 1"));
-    DataStream ssData(txData);
+    DataStream ssData(MakeByteSpan(txData));
     CMutableTransaction tx;
     try {
         ssData >> TX_WITH_WITNESS(tx);
@@ -1941,7 +1941,7 @@ RPCHelpMan generatepegoutproof()
     CHECK_NONFATAL(expectedOutputSize == preSize);
     std::vector<unsigned char> voutput(output, output + expectedOutputSize / sizeof(output[0]));
 
-    return HexStr(voutput);
+    return HexStr(MakeByteSpan(voutput));
 },
     };
 }

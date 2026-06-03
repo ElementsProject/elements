@@ -355,7 +355,7 @@ RPCHelpMan importprunedfunds()
     }
     uint256 hashTx = tx.GetHash();
 
-    DataStream ssMB(ParseHexV(request.params[1], "proof"));
+    DataStream ssMB(MakeByteSpan(ParseHexV(request.params[1], "proof")));
     CMerkleBlock merkleBlock;
     ssMB >> TX_WITH_WITNESS(merkleBlock);
 
@@ -2101,7 +2101,7 @@ RPCHelpMan getwalletpakinfo()
         CHECK_NONFATAL(len == 33);
         CHECK_NONFATAL(negatedpubkeybytes.size() == 33);
 
-        ret.pushKV("pakentry", "pak=" + HexStr(negatedpubkeybytes) + ":" + HexStr(pwallet->online_key));
+        ret.pushKV("pakentry", "pak=" + HexStr(MakeByteSpan(negatedpubkeybytes)) + ":" + HexStr(pwallet->online_key));
     }
     ret.pushKV("liquid_pak", HexStr(pwallet->online_key));
     ret.pushKV("liquid_pak_address", EncodeDestination(PKHash(pwallet->online_key)));

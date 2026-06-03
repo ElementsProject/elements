@@ -5,6 +5,7 @@
 #include <blind.h>
 #include <chainparams.h>
 
+#include <array>
 #include <hash.h>
 #include <primitives/transaction.h>
 #include <primitives/confidential.h>
@@ -474,8 +475,8 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
     //Running total of newly blinded outputs
     static const unsigned char diff_zero[32] = {0};
     assert(num_to_blind <= 10000); // More than 10k outputs? Stop spamming.
-    unsigned char blind[10000][32];
-    unsigned char asset_blind[10000][32];
+    std::vector<std::array<unsigned char, 32>> blind(num_to_blind);
+    std::vector<std::array<unsigned char, 32>> asset_blind(num_to_blind);
     secp256k1_pedersen_commitment value_commit;
     secp256k1_generator asset_gen;
     CAsset asset;

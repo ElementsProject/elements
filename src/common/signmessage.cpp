@@ -65,7 +65,7 @@ bool MessageSign(
         return false;
     }
 
-    signature = EncodeBase64(signature_bytes);
+    signature = EncodeBase64(MakeByteSpan(signature_bytes));
 
     return true;
 }

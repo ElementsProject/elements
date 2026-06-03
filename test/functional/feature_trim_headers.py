@@ -266,4 +266,4 @@ class TrimHeadersTest(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    TrimHeadersTest().main()
+    TrimHeadersTest(__file__).main()

@@ -183,8 +183,8 @@ bool RecoverDatabaseFile(const ArgsManager& args, const fs::path& file_path, bil
     for (KeyValPair& row : salvagedData)
     {
         /* Filter for only private key type KV pairs to be added to the salvaged wallet */
-        DataStream ssKey{row.first};
-        DataStream ssValue(row.second);
+        DataStream ssKey{MakeByteSpan(row.first)};
+        DataStream ssValue(MakeByteSpan(row.second));
         std::string strType, strErr;
 
         // We only care about KEY, MASTER_KEY, CRYPTED_KEY, and HDCHAIN types

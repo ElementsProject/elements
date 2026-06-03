@@ -88,14 +88,14 @@ std::string FormatScript(const CScript& script)
                 }
             }
             if (vch.size() > 0) {
-                ret += strprintf("0x%x 0x%x ", HexStr(std::vector<uint8_t>(it2, it - vch.size())),
-                                               HexStr(std::vector<uint8_t>(it - vch.size(), it)));
+                ret += strprintf("0x%x 0x%x ", HexStr(MakeByteSpan(std::vector<uint8_t>(it2, it - vch.size()))),
+                                               HexStr(MakeByteSpan(std::vector<uint8_t>(it - vch.size(), it))));
             } else {
-                ret += strprintf("0x%x ", HexStr(std::vector<uint8_t>(it2, it)));
+                ret += strprintf("0x%x ", HexStr(MakeByteSpan(std::vector<uint8_t>(it2, it))));
             }
             continue;
         }
-        ret += strprintf("0x%x ", HexStr(std::vector<uint8_t>(it2, script.end())));
+        ret += strprintf("0x%x ", HexStr(MakeByteSpan(std::vector<uint8_t>(it2, script.end()))));
         break;
     }
     return ret.substr(0, ret.empty() ? ret.npos : ret.size() - 1);
@@ -157,9 +157,9 @@ std::string ScriptToAsmStr(const CScript& script, const bool fAttemptSighashDeco
                             vch.pop_back(); // remove the sighash type byte. it will be replaced by the decode.
                         }
                     }
-                    str += HexStr(vch) + strSigHashDecode;
+                    str += HexStr(MakeByteSpan(vch)) + strSigHashDecode;
                 } else {
-                    str += HexStr(vch);
+                    str += HexStr(MakeByteSpan(vch));
                 }
             }
         } else {
@@ -180,7 +180,7 @@ UniValue EncodeHexScriptWitness(const CScriptWitness& witness)
 {
     UniValue witness_hex(UniValue::VARR);
     for (const auto &item : witness.stack) {
-        witness_hex.push_back(HexStr(item));
+        witness_hex.push_back(HexStr(MakeByteSpan(item)));
     }
     return witness_hex;
 }
@@ -292,7 +292,7 @@ void TxToUniv(const CTransaction& tx, const uint256& block_hash, UniValue& entry
             if (!scriptWitness.IsNull()) {
                 UniValue txinwitness(UniValue::VARR);
                 for (const auto &item : scriptWitness.stack) {
-                    txinwitness.push_back(HexStr(item));
+                    txinwitness.push_back(HexStr(MakeByteSpan(item)));
                 }
                 in.pushKV("txinwitness", txinwitness);
             }
@@ -301,7 +301,7 @@ void TxToUniv(const CTransaction& tx, const uint256& block_hash, UniValue& entry
         if (tx.witness.vtxinwit.size() > i && !tx.witness.vtxinwit[i].m_pegin_witness.IsNull()) {
             UniValue pegin_witness(UniValue::VARR);
             for (const auto& item : tx.witness.vtxinwit[i].m_pegin_witness.stack) {
-                pegin_witness.push_back(HexStr(item));
+                pegin_witness.push_back(HexStr(MakeByteSpan(item)));
             }
             in.pushKV("pegin_witness", pegin_witness);
         }
@@ -330,12 +330,12 @@ void TxToUniv(const CTransaction& tx, const uint256& block_hash, UniValue& entry
             if (issuance.nAmount.IsExplicit()) {
                 issue.pushKV("assetamount", ValueFromAmount(issuance.nAmount.GetAmount()));
             } else if (issuance.nAmount.IsCommitment()) {
-                issue.pushKV("assetamountcommitment", HexStr(issuance.nAmount.vchCommitment));
+                issue.pushKV("assetamountcommitment", HexStr(MakeByteSpan(issuance.nAmount.vchCommitment)));
             }
             if (issuance.nInflationKeys.IsExplicit()) {
                 issue.pushKV("tokenamount", ValueFromAmount(issuance.nInflationKeys.GetAmount()));
             } else if (issuance.nInflationKeys.IsCommitment()) {
-                issue.pushKV("tokenamountcommitment", HexStr(issuance.nInflationKeys.vchCommitment));
+                issue.pushKV("tokenamountcommitment", HexStr(MakeByteSpan(issuance.nInflationKeys.vchCommitment)));
             }
             in.pushKV("issuance", issue);
         }
@@ -373,7 +373,7 @@ void TxToUniv(const CTransaction& tx, const uint256& block_hash, UniValue& entry
                 }
 
                 if (ptxoutwit->vchSurjectionproof.size()) {
-                    out.pushKV("surjectionproof", HexStr(ptxoutwit->vchSurjectionproof));
+                    out.pushKV("surjectionproof", HexStr(MakeByteSpan(ptxoutwit->vchSurjectionproof)));
                 }
             }
             out.pushKV("valuecommitment", txout.nValue.GetHex());

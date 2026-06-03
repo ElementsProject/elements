@@ -63,9 +63,10 @@ static CTransactionRef MakeTransactionSpending(const std::vector<COutPoint>& out
         tx.vin.emplace_back(outpoint);
     }
     if (add_witness) {
-        tx.vin[0].scriptWitness.stack.push_back({1});
+        tx.witness.vtxinwit.resize(tx.vin.size());
+        tx.witness.vtxinwit[0].scriptWitness.stack.push_back({1});
     }
-    for (size_t o = 0; o < num_outputs; ++o) tx.vout.emplace_back(CENT, P2WSH_OP_TRUE);
+    for (size_t o = 0; o < num_outputs; ++o) tx.vout.emplace_back(CConfidentialAsset{}, CConfidentialValue(CENT), P2WSH_OP_TRUE);
     return MakeTransactionRef(tx);
 }
 static std::vector<COutPoint> PickCoins(FuzzedDataProvider& fuzzed_data_provider)
