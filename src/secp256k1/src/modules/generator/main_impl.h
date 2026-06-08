@@ -38,12 +38,13 @@ const secp256k1_generator *secp256k1_generator_h = &secp256k1_generator_h_intern
 
 
 static void secp256k1_generator_load(secp256k1_ge* ge, const secp256k1_generator* gen) {
+    secp256k1_fe x, y;
     int succeed;
-    succeed = secp256k1_fe_set_b32_limit(&ge->x, &gen->data[0]);
+    succeed = secp256k1_fe_set_b32_limit(&x, &gen->data[0]);
     VERIFY_CHECK(succeed != 0);
-    succeed = secp256k1_fe_set_b32_limit(&ge->y, &gen->data[32]);
+    succeed = secp256k1_fe_set_b32_limit(&y, &gen->data[32]);
     VERIFY_CHECK(succeed != 0);
-    ge->infinity = 0;
+    secp256k1_ge_set_xy(ge, &x, &y);
     (void) succeed;
 }
 
@@ -210,6 +211,7 @@ static int secp256k1_generator_generate_internal(const secp256k1_context* ctx, s
     secp256k1_sha256 sha256;
     unsigned char b32[32];
     int ret = 1;
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
 
     if (blind32) {
         secp256k1_scalar blind;
@@ -219,9 +221,10 @@ static int secp256k1_generator_generate_internal(const secp256k1_context* ctx, s
     }
 
     secp256k1_sha256_initialize(&sha256);
-    secp256k1_sha256_write(&sha256, prefix1, 16);
-    secp256k1_sha256_write(&sha256, key32, 32);
-    secp256k1_sha256_finalize(&sha256, b32);
+    secp256k1_sha256_write(hash_ctx, &sha256, prefix1, 16);
+    secp256k1_sha256_write(hash_ctx, &sha256, key32, 32);
+    secp256k1_sha256_finalize(hash_ctx, &sha256, b32);
+    secp256k1_sha256_clear(&sha256);
     ret &= secp256k1_fe_set_b32_limit(&t, b32);
     shallue_van_de_woestijne(&add, &t);
     if (blind32) {
@@ -231,9 +234,10 @@ static int secp256k1_generator_generate_internal(const secp256k1_context* ctx, s
     }
 
     secp256k1_sha256_initialize(&sha256);
-    secp256k1_sha256_write(&sha256, prefix2, 16);
-    secp256k1_sha256_write(&sha256, key32, 32);
-    secp256k1_sha256_finalize(&sha256, b32);
+    secp256k1_sha256_write(hash_ctx, &sha256, prefix2, 16);
+    secp256k1_sha256_write(hash_ctx, &sha256, key32, 32);
+    secp256k1_sha256_finalize(hash_ctx, &sha256, b32);
+    secp256k1_sha256_clear(&sha256);
     ret &= secp256k1_fe_set_b32_limit(&t, b32);
     shallue_van_de_woestijne(&add, &t);
     secp256k1_gej_add_ge(&accum, &accum, &add);
@@ -341,6 +345,9 @@ int secp256k1_pedersen_blind_sum(const secp256k1_context* ctx, unsigned char *bl
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(blind_out != NULL);
     ARG_CHECK(blinds != NULL);
+    for (i = 0; i < n; i++) {
+        ARG_CHECK(blinds[i] != NULL);
+    }
     ARG_CHECK(npositive <= n);
     (void) ctx;
     secp256k1_scalar_set_int(&acc, 0);
@@ -368,6 +375,12 @@ int secp256k1_pedersen_verify_tally(const secp256k1_context* ctx, const secp256k
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(!pcnt || (commits != NULL));
     ARG_CHECK(!ncnt || (ncommits != NULL));
+    for (i = 0; i < pcnt; i++) {
+        ARG_CHECK(commits[i] != NULL);
+    }
+    for (i = 0; i < ncnt; i++) {
+        ARG_CHECK(ncommits[i] != NULL);
+    }
     (void) ctx;
     secp256k1_gej_set_infinity(&accj);
     for (i = 0; i < ncnt; i++) {
@@ -392,6 +405,10 @@ int secp256k1_pedersen_blind_generator_blind_sum(const secp256k1_context* ctx, c
     ARG_CHECK(n_total == 0 || generator_blind != NULL);
     ARG_CHECK(n_total == 0 || blinding_factor != NULL);
     ARG_CHECK(n_total > n_inputs);
+    for (i = 0; i < n_total; i++) {
+        ARG_CHECK(generator_blind[i] != NULL);
+        ARG_CHECK(blinding_factor[i] != NULL);
+    }
     (void) ctx;
 
     if (n_total == 0) {

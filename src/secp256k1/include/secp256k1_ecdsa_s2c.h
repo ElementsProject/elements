@@ -25,7 +25,7 @@ extern "C" {
  *  If you need to convert to a format suitable for storage, transmission, or
  *  comparison, use secp256k1_ecdsa_s2c_opening_serialize and secp256k1_ecdsa_s2c_opening_parse.
  */
-typedef struct {
+typedef struct secp256k1_ecdsa_s2c_opening {
     unsigned char data[64];
 } secp256k1_ecdsa_s2c_opening;
 

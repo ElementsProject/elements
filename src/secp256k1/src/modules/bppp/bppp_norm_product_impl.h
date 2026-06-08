@@ -236,6 +236,7 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
     secp256k1_scalar* c_vec,
     size_t c_vec_len
 ) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     secp256k1_scalar mu_f, rho_f = *rho;
     size_t proof_idx = 0;
     ecmult_x_cb_data x_cb_data;
@@ -316,8 +317,8 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
         proof_idx += 65;
 
         /* Obtain challenge gamma for the the next round */
-        secp256k1_sha256_write(transcript, &proof[proof_idx - 65], 65);
-        secp256k1_bppp_challenge_scalar(&gamma, transcript, 0);
+        secp256k1_sha256_write(hash_ctx, transcript, &proof[proof_idx - 65], 65);
+        secp256k1_bppp_challenge_scalar(hash_ctx, &gamma, transcript, 0);
 
         if (g_len > 1) {
             for (i = 0; i < g_len; i = i + 2) {
@@ -434,6 +435,7 @@ static int secp256k1_bppp_rangeproof_norm_product_verify(
     size_t c_vec_len,
     const secp256k1_ge* commit
 ) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     secp256k1_scalar rho_f, mu_f, v, n, l, rho_inv, h_c;
     secp256k1_scalar *gammas, *s_g, *s_h, *rho_inv_pows;
     secp256k1_gej res1, res2;
@@ -487,8 +489,8 @@ static int secp256k1_bppp_rangeproof_norm_product_verify(
 
     for (i = 0; i < n_rounds; i++) {
         secp256k1_scalar gamma;
-        secp256k1_sha256_write(transcript, &proof[i * 65], 65);
-        secp256k1_bppp_challenge_scalar(&gamma, transcript, 0);
+        secp256k1_sha256_write(hash_ctx, transcript, &proof[i * 65], 65);
+        secp256k1_bppp_challenge_scalar(hash_ctx, &gamma, transcript, 0);
         gammas[i] = gamma;
     }
     /* s_g[0] = n * \prod_{j=0}^{log_g_len - 1} rho^(2^j)

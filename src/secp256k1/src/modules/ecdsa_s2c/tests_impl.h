@@ -8,25 +8,27 @@
 #define SECP256K1_MODULE_ECDSA_S2C_TESTS_H
 
 #include "../../../include/secp256k1_ecdsa_s2c.h"
+#include "../../unit_test.h"
 
 static void test_ecdsa_s2c_tagged_hash(void) {
-    unsigned char tag_data[14] = "s2c/ecdsa/data";
-    unsigned char tag_point[15] = "s2c/ecdsa/point";
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
+    unsigned char tag_data[] = {'s', '2', 'c', '/', 'e', 'c', 'd', 's', 'a', '/', 'd', 'a', 't', 'a'};
+    unsigned char tag_point[] = {'s', '2', 'c', '/', 'e', 'c', 'd', 's', 'a', '/', 'p', 'o', 'i', 'n', 't'};
     secp256k1_sha256 sha;
     secp256k1_sha256 sha_optimized;
     unsigned char output[32];
     unsigned char output_optimized[32];
 
-    secp256k1_sha256_initialize_tagged(&sha, tag_data, sizeof(tag_data));
+    secp256k1_sha256_initialize_tagged(hash_ctx, &sha, tag_data, sizeof(tag_data));
     secp256k1_s2c_ecdsa_data_sha256_tagged(&sha_optimized);
-    secp256k1_sha256_finalize(&sha, output);
-    secp256k1_sha256_finalize(&sha_optimized, output_optimized);
+    secp256k1_sha256_finalize(hash_ctx, &sha, output);
+    secp256k1_sha256_finalize(hash_ctx, &sha_optimized, output_optimized);
     CHECK(secp256k1_memcmp_var(output, output_optimized, 32) == 0);
 
-    secp256k1_sha256_initialize_tagged(&sha, tag_point, sizeof(tag_point));
+    secp256k1_sha256_initialize_tagged(hash_ctx, &sha, tag_point, sizeof(tag_point));
     secp256k1_s2c_ecdsa_point_sha256_tagged(&sha_optimized);
-    secp256k1_sha256_finalize(&sha, output);
-    secp256k1_sha256_finalize(&sha_optimized, output_optimized);
+    secp256k1_sha256_finalize(hash_ctx, &sha, output);
+    secp256k1_sha256_finalize(hash_ctx, &sha_optimized, output_optimized);
     CHECK(secp256k1_memcmp_var(output, output_optimized, 32) == 0);
 }
 
@@ -69,7 +71,7 @@ static void run_s2c_opening_test(void) {
             CHECK(secp256k1_ecdsa_s2c_opening_serialize(CTX, output, &opening) == 1);
             CHECK(secp256k1_memcmp_var(output, input, sizeof(output)) == 0);
         }
-        secp256k1_testrand256(&input[1]);
+        testrand256(&input[1]);
         /* Set pubkey oddness tag to first bit of input[1] */
         input[0] = (input[1] & 1) + 2;
     }
@@ -78,10 +80,10 @@ static void run_s2c_opening_test(void) {
 static void test_ecdsa_s2c_api(void) {
     secp256k1_ecdsa_s2c_opening s2c_opening;
     secp256k1_ecdsa_signature sig;
-    const unsigned char msg[32] = "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm";
-    const unsigned char sec[32] = "ssssssssssssssssssssssssssssssss";
-    const unsigned char s2c_data[32] = "dddddddddddddddddddddddddddddddd";
-    const unsigned char hostrand[32] = "hrhrhrhrhrhrhrhrhrhrhrhrhrhrhrhr";
+    const unsigned char msg[] = {'m', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm'};
+    const unsigned char sec[] = {'s', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's', 's'};
+    const unsigned char s2c_data[] = {'d', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd'};
+    const unsigned char hostrand[] = {'h', 'r', 'h', 'r', 'h', 'r', 'h', 'r', 'h', 'r', 'h', 'r', 'h', 'r', 'h', 'r', 'h', 'r', 'h', 'r', 'h', 'r', 'h', 'r', 'h', 'r', 'h', 'r', 'h', 'r', 'h', 'r'};
     unsigned char hostrand_commitment[32];
     secp256k1_pubkey pk;
 
@@ -148,14 +150,14 @@ typedef struct {
 
 static ecdsa_s2c_test ecdsa_s2c_tests[] = {
     {
-        "\x1b\xf6\xfb\x42\xf4\x1e\xb8\x76\xc4\xd7\xaa\x0d\x67\x24\x2b\x00\xba\xab\x99\xdc\x20\x84\x49\x3e\x4e\x63\x27\x7f\xa1\xf7\x7f\x22",
-        "\x03\xf0\x30\xde\xf3\x18\x8c\x0f\x56\xfc\xea\x87\x43\x5b\x30\x76\x43\xf4\x5d\xaf\xe2\x2c\xbc\x82\xfd\x56\x03\x4f\xae\x97\x41\x7d\x3a",
-        "\x02\xdf\x63\x75\x5d\x1f\x32\x92\xbf\xfe\xd8\x29\x86\xb1\x06\x49\x7c\x93\xb1\xf8\xbd\xc0\x45\x4b\x6b\x0b\x0a\x47\x79\xc0\xef\x71\x88",
+        {0x1b, 0xf6, 0xfb, 0x42, 0xf4, 0x1e, 0xb8, 0x76, 0xc4, 0xd7, 0xaa, 0x0d, 0x67, 0x24, 0x2b, 0x00, 0xba, 0xab, 0x99, 0xdc, 0x20, 0x84, 0x49, 0x3e, 0x4e, 0x63, 0x27, 0x7f, 0xa1, 0xf7, 0x7f, 0x22},
+        {0x03, 0xf0, 0x30, 0xde, 0xf3, 0x18, 0x8c, 0x0f, 0x56, 0xfc, 0xea, 0x87, 0x43, 0x5b, 0x30, 0x76, 0x43, 0xf4, 0x5d, 0xaf, 0xe2, 0x2c, 0xbc, 0x82, 0xfd, 0x56, 0x03, 0x4f, 0xae, 0x97, 0x41, 0x7d, 0x3a},
+        {0x02, 0xdf, 0x63, 0x75, 0x5d, 0x1f, 0x32, 0x92, 0xbf, 0xfe, 0xd8, 0x29, 0x86, 0xb1, 0x06, 0x49, 0x7c, 0x93, 0xb1, 0xf8, 0xbd, 0xc0, 0x45, 0x4b, 0x6b, 0x0b, 0x0a, 0x47, 0x79, 0xc0, 0xef, 0x71, 0x88},
     },
     {
-        "\x35\x19\x9a\x8f\xbf\x84\xad\x6e\xf6\x9a\x18\x4c\x1b\x19\x28\x5b\xef\xbe\x06\xe6\x0b\x62\x64\xe6\xd3\x73\x89\x3f\x68\x55\xe2\x4a",
-        "\x03\x90\x17\x17\xce\x7c\x74\x84\xa2\xce\x1b\x7d\xc7\x40\x3b\x14\xe0\x35\x49\x71\x39\x3e\xc0\x92\xa7\xf3\xe0\xc8\xe4\xe2\xd2\x63\x9d",
-        "\x02\xc0\x4a\xc7\xf7\x71\xe8\xeb\xdb\xf3\x15\xff\x5e\x58\xb7\xfe\x95\x16\x10\x21\x03\x50\x00\x66\x17\x2c\x4f\xac\x5b\x20\xf9\xe0\xea",
+        {0x35, 0x19, 0x9a, 0x8f, 0xbf, 0x84, 0xad, 0x6e, 0xf6, 0x9a, 0x18, 0x4c, 0x1b, 0x19, 0x28, 0x5b, 0xef, 0xbe, 0x06, 0xe6, 0x0b, 0x62, 0x64, 0xe6, 0xd3, 0x73, 0x89, 0x3f, 0x68, 0x55, 0xe2, 0x4a},
+        {0x03, 0x90, 0x17, 0x17, 0xce, 0x7c, 0x74, 0x84, 0xa2, 0xce, 0x1b, 0x7d, 0xc7, 0x40, 0x3b, 0x14, 0xe0, 0x35, 0x49, 0x71, 0x39, 0x3e, 0xc0, 0x92, 0xa7, 0xf3, 0xe0, 0xc8, 0xe4, 0xe2, 0xd2, 0x63, 0x9d},
+        {0x02, 0xc0, 0x4a, 0xc7, 0xf7, 0x71, 0xe8, 0xeb, 0xdb, 0xf3, 0x15, 0xff, 0x5e, 0x58, 0xb7, 0xfe, 0x95, 0x16, 0x10, 0x21, 0x03, 0x50, 0x00, 0x66, 0x17, 0x2c, 0x4f, 0xac, 0x5b, 0x20, 0xf9, 0xe0, 0xea},
     },
 };
 
@@ -170,7 +172,7 @@ static void test_ecdsa_s2c_fixed_vectors(void) {
     };
     size_t i;
 
-    for (i = 0; i < sizeof(ecdsa_s2c_tests) / sizeof(ecdsa_s2c_tests[0]); i++) {
+    for (i = 0; i < ARRAY_SIZE(ecdsa_s2c_tests); i++) {
         secp256k1_ecdsa_s2c_opening s2c_opening;
         unsigned char opening_ser[33];
         const ecdsa_s2c_test *test = &ecdsa_s2c_tests[i];
@@ -195,19 +197,19 @@ static void test_ecdsa_s2c_sign_verify(void) {
     /* Generate a random key, message, noncedata and s2c_data. */
     {
         secp256k1_scalar key;
-        random_scalar_order_test(&key);
+        testutil_random_scalar_order_test(&key);
         secp256k1_scalar_get_b32(privkey, &key);
         CHECK(secp256k1_ec_pubkey_create(CTX, &pubkey, privkey) == 1);
 
-        secp256k1_testrand256_test(message);
-        secp256k1_testrand256_test(noncedata);
-        secp256k1_testrand256_test(s2c_data);
-        secp256k1_testrand256_test(s2c_data2);
+        testrand256_test(message);
+        testrand256_test(noncedata);
+        testrand256_test(s2c_data);
+        testrand256_test(s2c_data2);
     }
 
     { /* invalid privkeys */
         unsigned char zero_privkey[32] = {0};
-        unsigned char overflow_privkey[32] = "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff";
+        unsigned char overflow_privkey[32] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
         CHECK(secp256k1_ecdsa_s2c_sign(CTX, &signature, NULL, message, zero_privkey, s2c_data) == 0);
         CHECK(secp256k1_ecdsa_s2c_sign(CTX, &signature, NULL, message, overflow_privkey, s2c_data) == 0);
     }
@@ -247,7 +249,7 @@ static void test_ecdsa_anti_exfil_signer_commit(void) {
         0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88,
     };
     /* Check that original pubnonce is derived from s2c_data */
-    for (i = 0; i < sizeof(ecdsa_s2c_tests) / sizeof(ecdsa_s2c_tests[0]); i++) {
+    for (i = 0; i < ARRAY_SIZE(ecdsa_s2c_tests); i++) {
         secp256k1_ecdsa_s2c_opening s2c_opening;
         unsigned char buf[33];
         const ecdsa_s2c_test *test = &ecdsa_s2c_tests[i];
@@ -270,11 +272,11 @@ static void test_ecdsa_anti_exfil(void) {
     /* Generate a random key, message. */
     {
         secp256k1_scalar key;
-        random_scalar_order_test(&key);
+        testutil_random_scalar_order_test(&key);
         secp256k1_scalar_get_b32(signer_privkey, &key);
         CHECK(secp256k1_ec_pubkey_create(CTX, &signer_pubkey, signer_privkey) == 1);
-        secp256k1_testrand256_test(host_msg);
-        secp256k1_testrand256_test(host_nonce_contribution);
+        testrand256_test(host_msg);
+        testrand256_test(host_nonce_contribution);
     }
 
     /* Protocol step 1. */
@@ -307,7 +309,7 @@ static void test_ecdsa_anti_exfil(void) {
     }
     { /* host_verify: message does not match */
         unsigned char bad_msg[32];
-        secp256k1_testrand256_test(bad_msg);
+        testrand256_test(bad_msg);
         CHECK(secp256k1_anti_exfil_host_verify(CTX, &signature, host_msg, &signer_pubkey, host_nonce_contribution, &s2c_opening) == 1);
         CHECK(secp256k1_anti_exfil_host_verify(CTX, &signature, bad_msg, &signer_pubkey, host_nonce_contribution, &s2c_opening) == 0);
     }
@@ -323,15 +325,15 @@ static void test_ecdsa_anti_exfil(void) {
     }
 }
 
-static void run_ecdsa_s2c_tests(void) {
-    run_s2c_opening_test();
-    test_ecdsa_s2c_tagged_hash();
-    test_ecdsa_s2c_api();
-    test_ecdsa_s2c_fixed_vectors();
-    test_ecdsa_s2c_sign_verify();
-
-    test_ecdsa_anti_exfil_signer_commit();
-    test_ecdsa_anti_exfil();
-}
+/* --- Test registry --- */
+static const struct tf_test_entry tests_ecdsa_s2c[] = {
+    CASE1(run_s2c_opening_test),
+    CASE1(test_ecdsa_s2c_tagged_hash),
+    CASE1(test_ecdsa_s2c_api),
+    CASE1(test_ecdsa_s2c_fixed_vectors),
+    CASE1(test_ecdsa_s2c_sign_verify),
+    CASE1(test_ecdsa_anti_exfil_signer_commit),
+    CASE1(test_ecdsa_anti_exfil)
+};
 
 #endif /* SECP256K1_MODULE_ECDSA_S2C_TESTS_H */

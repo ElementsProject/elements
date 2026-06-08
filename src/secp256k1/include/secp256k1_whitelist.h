@@ -31,7 +31,7 @@ extern "C" {
  *  stack; please *do not* use these internals directly. To learn the number
  *  of keys for a signature, use `secp256k1_whitelist_signature_n_keys`.
  */
-typedef struct {
+typedef struct secp256k1_whitelist_signature {
     size_t n_keys;
     /* e0, scalars */
     unsigned char data[32 * (1 + SECP256K1_WHITELIST_MAX_N_KEYS)];

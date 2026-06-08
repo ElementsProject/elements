@@ -15,7 +15,7 @@
 #include "../../scalar.h"
 #include "../../hash.h"
 
-SECP256K1_INLINE static void secp256k1_surjection_genmessage(unsigned char *msg32, const secp256k1_generator *ephemeral_input_tags, size_t n_input_tags, const secp256k1_generator *ephemeral_output_tag) {
+SECP256K1_INLINE static void secp256k1_surjection_genmessage(const secp256k1_hash_ctx *hash_ctx, unsigned char *msg32, const secp256k1_generator *ephemeral_input_tags, size_t n_input_tags, const secp256k1_generator *ephemeral_output_tag) {
     /* compute message */
     size_t i;
     unsigned char pk_ser[33];
@@ -26,15 +26,16 @@ SECP256K1_INLINE static void secp256k1_surjection_genmessage(unsigned char *msg3
     for (i = 0; i < n_input_tags; i++) {
         pk_ser[0] = 2 + (ephemeral_input_tags[i].data[63] & 1);
         memcpy(&pk_ser[1], &ephemeral_input_tags[i].data[0], 32);
-        secp256k1_sha256_write(&sha256_en, pk_ser, pk_len);
+        secp256k1_sha256_write(hash_ctx, &sha256_en, pk_ser, pk_len);
     }
     pk_ser[0] = 2 + (ephemeral_output_tag->data[63] & 1);
     memcpy(&pk_ser[1], &ephemeral_output_tag->data[0], 32);
-    secp256k1_sha256_write(&sha256_en, pk_ser, pk_len);
-    secp256k1_sha256_finalize(&sha256_en, msg32);
+    secp256k1_sha256_write(hash_ctx, &sha256_en, pk_ser, pk_len);
+    secp256k1_sha256_finalize(hash_ctx, &sha256_en, msg32);
+    secp256k1_sha256_clear(&sha256_en);
 }
 
-SECP256K1_INLINE static int secp256k1_surjection_genrand(secp256k1_scalar *s, size_t ns, const secp256k1_scalar *blinding_key) {
+SECP256K1_INLINE static int secp256k1_surjection_genrand(const secp256k1_hash_ctx *hash_ctx, secp256k1_scalar *s, size_t ns, const secp256k1_scalar *blinding_key) {
     size_t i;
     unsigned char sec_input[36];
     secp256k1_sha256 sha256_en;
@@ -49,15 +50,16 @@ SECP256K1_INLINE static int secp256k1_surjection_genrand(secp256k1_scalar *s, si
         sec_input[3] = i >> 24;
 
         secp256k1_sha256_initialize(&sha256_en);
-        secp256k1_sha256_write(&sha256_en, sec_input, 36);
-        secp256k1_sha256_finalize(&sha256_en, sec_input);
+        secp256k1_sha256_write(hash_ctx, &sha256_en, sec_input, 36);
+        secp256k1_sha256_finalize(hash_ctx, &sha256_en, sec_input);
+        secp256k1_sha256_clear(&sha256_en);
         secp256k1_scalar_set_b32(&s[i], sec_input, &overflow);
         if (overflow == 1) {
-            memset(sec_input, 0, 32);
+            secp256k1_memclear_explicit(sec_input, 32);
             return 0;
         }
     }
-    memset(sec_input, 0, 32);
+    secp256k1_memclear_explicit(sec_input, 32);
     return 1;
 }
 

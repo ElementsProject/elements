@@ -17,7 +17,7 @@ extern "C" {
  *  If you need to convert to a format suitable for storage, transmission, or
  *  comparison, use secp256k1_generator_serialize and secp256k1_generator_parse.
  */
-typedef struct {
+typedef struct secp256k1_generator {
     unsigned char data[64];
 } secp256k1_generator;
 
@@ -100,7 +100,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_generate_blin
  *  comparison, use secp256k1_pedersen_commitment_serialize and
  *  secp256k1_pedersen_commitment_parse.
  */
-typedef struct {
+typedef struct secp256k1_pedersen_commitment {
     unsigned char data[64];
 } secp256k1_pedersen_commitment;
 

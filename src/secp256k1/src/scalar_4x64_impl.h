@@ -44,25 +44,28 @@ SECP256K1_INLINE static void secp256k1_scalar_set_u64(secp256k1_scalar *r, uint6
     r->d[1] = 0;
     r->d[2] = 0;
     r->d[3] = 0;
+
+    SECP256K1_SCALAR_VERIFY(r);
 }
 
-SECP256K1_INLINE static unsigned int secp256k1_scalar_get_bits(const secp256k1_scalar *a, unsigned int offset, unsigned int count) {
+SECP256K1_INLINE static uint32_t secp256k1_scalar_get_bits_limb32(const secp256k1_scalar *a, unsigned int offset, unsigned int count) {
     SECP256K1_SCALAR_VERIFY(a);
+    VERIFY_CHECK(count > 0 && count <= 32);
     VERIFY_CHECK((offset + count - 1) >> 6 == offset >> 6);
 
-    return (a->d[offset >> 6] >> (offset & 0x3F)) & ((((uint64_t)1) << count) - 1);
+    return (a->d[offset >> 6] >> (offset & 0x3F)) & (0xFFFFFFFF >> (32 - count));
 }
 
-SECP256K1_INLINE static unsigned int secp256k1_scalar_get_bits_var(const secp256k1_scalar *a, unsigned int offset, unsigned int count) {
+SECP256K1_INLINE static uint32_t secp256k1_scalar_get_bits_var(const secp256k1_scalar *a, unsigned int offset, unsigned int count) {
     SECP256K1_SCALAR_VERIFY(a);
-    VERIFY_CHECK(count < 32);
+    VERIFY_CHECK(count > 0 && count <= 32);
     VERIFY_CHECK(offset + count <= 256);
 
     if ((offset + count - 1) >> 6 == offset >> 6) {
-        return secp256k1_scalar_get_bits(a, offset, count);
+        return secp256k1_scalar_get_bits_limb32(a, offset, count);
     } else {
         VERIFY_CHECK((offset >> 6) + 1 < 4);
-        return ((a->d[offset >> 6] >> (offset & 0x3F)) | (a->d[(offset >> 6) + 1] << (64 - (offset & 0x3F)))) & ((((uint64_t)1) << count) - 1);
+        return ((a->d[offset >> 6] >> (offset & 0x3F)) | (a->d[(offset >> 6) + 1] << (64 - (offset & 0x3F)))) & (0xFFFFFFFF >> (32 - count));
     }
 }
 
@@ -127,6 +130,7 @@ static int secp256k1_scalar_add(secp256k1_scalar *r, const secp256k1_scalar *a, 
 static void secp256k1_scalar_cadd_bit(secp256k1_scalar *r, unsigned int bit, int flag) {
     secp256k1_uint128 t;
     volatile int vflag = flag;
+    VERIFY_CHECK(flag == 0 || flag == 1);
     SECP256K1_SCALAR_VERIFY(r);
     VERIFY_CHECK(bit < 256);
 
@@ -266,6 +270,7 @@ static int secp256k1_scalar_cond_negate(secp256k1_scalar *r, int flag) {
     uint64_t mask = -vflag;
     uint64_t nonzero = (secp256k1_scalar_is_zero(r) != 0) - 1;
     secp256k1_uint128 t;
+    VERIFY_CHECK(flag == 0 || flag == 1);
     SECP256K1_SCALAR_VERIFY(r);
 
     secp256k1_u128_from_u64(&t, r->d[0] ^ mask);
@@ -875,7 +880,7 @@ static void secp256k1_scalar_mul_512(uint64_t *l8, const secp256k1_scalar *a, co
 #endif
 }
 
-static void secp256k1_scalar_sqr_512(uint64_t l[8], const secp256k1_scalar *a) {
+static void secp256k1_scalar_sqr_512(uint64_t *l8, const secp256k1_scalar *a) {
 #ifdef USE_ASM_X86_64
     __asm__ __volatile__(
     /* Preload */
@@ -886,7 +891,7 @@ static void secp256k1_scalar_sqr_512(uint64_t l[8], const secp256k1_scalar *a) {
     /* (rax,rdx) = a0 * a0 */
     "movq %%r11, %%rax\n"
     "mulq %%r11\n"
-    /* Extract l0 */
+    /* Extract l8[0] */
     "movq %%rax, 0(%%rsi)\n"
     /* (r8,r9,r10) = (rdx,0) */
     "movq %%rdx, %%r8\n"
@@ -901,7 +906,7 @@ static void secp256k1_scalar_sqr_512(uint64_t l[8], const secp256k1_scalar *a) {
     "addq %%rax, %%r8\n"
     "adcq %%rdx, %%r9\n"
     "adcq $0, %%r10\n"
-    /* Extract l1 */
+    /* Extract l8[1] */
     "movq %%r8, 8(%%rsi)\n"
     "xorq %%r8, %%r8\n"
     /* (r9,r10,r8) += 2 * a0 * a2 */
@@ -919,7 +924,7 @@ static void secp256k1_scalar_sqr_512(uint64_t l[8], const secp256k1_scalar *a) {
     "addq %%rax, %%r9\n"
     "adcq %%rdx, %%r10\n"
     "adcq $0, %%r8\n"
-    /* Extract l2 */
+    /* Extract l8[2] */
     "movq %%r9, 16(%%rsi)\n"
     "xorq %%r9, %%r9\n"
     /* (r10,r8,r9) += 2 * a0 * a3 */
@@ -940,7 +945,7 @@ static void secp256k1_scalar_sqr_512(uint64_t l[8], const secp256k1_scalar *a) {
     "addq %%rax, %%r10\n"
     "adcq %%rdx, %%r8\n"
     "adcq $0, %%r9\n"
-    /* Extract l3 */
+    /* Extract l8[3] */
     "movq %%r10, 24(%%rsi)\n"
     "xorq %%r10, %%r10\n"
     /* (r8,r9,r10) += 2 * a1 * a3 */
@@ -958,7 +963,7 @@ static void secp256k1_scalar_sqr_512(uint64_t l[8], const secp256k1_scalar *a) {
     "addq %%rax, %%r8\n"
     "adcq %%rdx, %%r9\n"
     "adcq $0, %%r10\n"
-    /* Extract l4 */
+    /* Extract l8[4] */
     "movq %%r8, 32(%%rsi)\n"
     "xorq %%r8, %%r8\n"
     /* (r9,r10,r8) += 2 * a2 * a3 */
@@ -970,45 +975,48 @@ static void secp256k1_scalar_sqr_512(uint64_t l[8], const secp256k1_scalar *a) {
     "addq %%rax, %%r9\n"
     "adcq %%rdx, %%r10\n"
     "adcq $0, %%r8\n"
-    /* Extract l5 */
+    /* Extract l8[5] */
     "movq %%r9, 40(%%rsi)\n"
     /* (r10,r8) += a3 * a3 */
     "movq %%r14, %%rax\n"
     "mulq %%r14\n"
     "addq %%rax, %%r10\n"
     "adcq %%rdx, %%r8\n"
-    /* Extract l6 */
+    /* Extract l8[6] */
     "movq %%r10, 48(%%rsi)\n"
-    /* Extract l7 */
+    /* Extract l8[7] */
     "movq %%r8, 56(%%rsi)\n"
     :
-    : "S"(l), "D"(a->d)
+    : "S"(l8), "D"(a->d)
     : "rax", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "cc", "memory");
+
+    SECP256K1_CHECKMEM_MSAN_DEFINE(l8, sizeof(*l8) * 8);
+
 #else
     /* 160 bit accumulator. */
     uint64_t c0 = 0, c1 = 0;
     uint32_t c2 = 0;
 
-    /* l[0..7] = a[0..3] * b[0..3]. */
+    /* l8[0..7] = a[0..3] * b[0..3]. */
     muladd_fast(a->d[0], a->d[0]);
-    extract_fast(l[0]);
+    extract_fast(l8[0]);
     muladd2(a->d[0], a->d[1]);
-    extract(l[1]);
+    extract(l8[1]);
     muladd2(a->d[0], a->d[2]);
     muladd(a->d[1], a->d[1]);
-    extract(l[2]);
+    extract(l8[2]);
     muladd2(a->d[0], a->d[3]);
     muladd2(a->d[1], a->d[2]);
-    extract(l[3]);
+    extract(l8[3]);
     muladd2(a->d[1], a->d[3]);
     muladd(a->d[2], a->d[2]);
-    extract(l[4]);
+    extract(l8[4]);
     muladd2(a->d[2], a->d[3]);
-    extract(l[5]);
+    extract(l8[5]);
     muladd_fast(a->d[3], a->d[3]);
-    extract_fast(l[6]);
+    extract_fast(l8[6]);
     VERIFY_CHECK(c1 == 0);
-    l[7] = c0;
+    l8[7] = c0;
 #endif
 }
 
@@ -1085,6 +1093,7 @@ SECP256K1_INLINE static void secp256k1_scalar_mul_shift_var(secp256k1_scalar *r,
 static SECP256K1_INLINE void secp256k1_scalar_cmov(secp256k1_scalar *r, const secp256k1_scalar *a, int flag) {
     uint64_t mask0, mask1;
     volatile int vflag = flag;
+    VERIFY_CHECK(flag == 0 || flag == 1);
     SECP256K1_SCALAR_VERIFY(a);
     SECP256K1_CHECKMEM_CHECK_VERIFY(r->d, sizeof(r->d));
 

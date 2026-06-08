@@ -13,15 +13,16 @@
 #include "../../scalar.h"
 #include "../../testrand.h"
 #include "../../util.h"
+#include "../../unit_test.h"
 
 #include "../../../include/secp256k1_rangeproof.h"
 
-static void test_rangeproof_api(void) {
+static void test_rangeproof_api_internal(void) {
     unsigned char proof[5134];
     unsigned char blind[32];
     secp256k1_pedersen_commitment commit;
-    uint64_t vmin = secp256k1_testrand32();
-    uint64_t val = vmin + secp256k1_testrand32();
+    uint64_t vmin = testrand32();
+    uint64_t val = vmin + testrand32();
     size_t len = sizeof(proof);
     /* we'll switch to dylan thomas for this one */
     const unsigned char message[68] = "My tears are like the quiet drift / Of petals from some magic rose;";
@@ -29,7 +30,7 @@ static void test_rangeproof_api(void) {
     const unsigned char ext_commit[72] = "And all my grief flows from the rift / Of unremembered skies and snows.";
     size_t ext_commit_len = sizeof(ext_commit);
 
-    secp256k1_testrand256(blind);
+    testrand256(blind);
     CHECK(secp256k1_pedersen_commit(CTX, &commit, blind, val, secp256k1_generator_h));
 
     CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, 0, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h) == 1);
@@ -121,7 +122,8 @@ static void test_rangeproof_api(void) {
     CHECK(secp256k1_rangeproof_max_size(CTX, UINT64_MAX, 0) == 5134);
 }
 
-static void test_borromean(void) {
+static void test_borromean_internal(void) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
     unsigned char e0[32];
     secp256k1_scalar s[64];
     secp256k1_gej pubs[64];
@@ -136,53 +138,53 @@ static void test_borromean(void) {
     size_t i;
     size_t j;
     int c;
-    secp256k1_testrand256_test(m);
-    nrings = 1 + (secp256k1_testrand32()&7);
+    testrand256_test(m);
+    nrings = 1 + (testrand32()&7);
     c = 0;
     secp256k1_scalar_set_int(&one, 1);
-    if (secp256k1_testrand32()&1) {
+    if (testrand32()&1) {
         secp256k1_scalar_negate(&one, &one);
     }
     for (i = 0; i < nrings; i++) {
-        rsizes[i] = 1 + (secp256k1_testrand32()&7);
-        secidx[i] = secp256k1_testrand32() % rsizes[i];
-        random_scalar_order(&sec[i]);
-        random_scalar_order(&k[i]);
-        if(secp256k1_testrand32()&7) {
+        rsizes[i] = 1 + (testrand32()&7);
+        secidx[i] = testrand32() % rsizes[i];
+        testutil_random_scalar_order(&sec[i]);
+        testutil_random_scalar_order(&k[i]);
+        if(testrand32()&7) {
             sec[i] = one;
         }
-        if(secp256k1_testrand32()&7) {
+        if(testrand32()&7) {
             k[i] = one;
         }
         for (j = 0; j < rsizes[i]; j++) {
-            random_scalar_order(&s[c + j]);
-            if(secp256k1_testrand32()&7) {
+            testutil_random_scalar_order(&s[c + j]);
+            if(testrand32()&7) {
                 s[i] = one;
             }
             if (j == secidx[i]) {
                 secp256k1_ecmult_gen(&CTX->ecmult_gen_ctx, &pubs[c + j], &sec[i]);
             } else {
-                random_group_element_test(&ge);
-                random_group_element_jacobian_test(&pubs[c + j],&ge);
+                testutil_random_ge_test(&ge);
+                testutil_random_ge_jacobian_test(&pubs[c + j],&ge);
             }
         }
         c += rsizes[i];
     }
-    CHECK(secp256k1_borromean_sign(&CTX->ecmult_gen_ctx, e0, s, pubs, k, sec, rsizes, secidx, nrings, m, 32));
-    CHECK(secp256k1_borromean_verify(NULL, e0, s, pubs, rsizes, nrings, m, 32));
-    i = secp256k1_testrand32() % c;
+    CHECK(secp256k1_borromean_sign(hash_ctx, &CTX->ecmult_gen_ctx, e0, s, pubs, k, sec, rsizes, secidx, nrings, m, 32));
+    CHECK(secp256k1_borromean_verify(hash_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
+    i = testrand32() % c;
     secp256k1_scalar_negate(&s[i],&s[i]);
-    CHECK(!secp256k1_borromean_verify(NULL, e0, s, pubs, rsizes, nrings, m, 32));
+    CHECK(!secp256k1_borromean_verify(hash_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
     secp256k1_scalar_negate(&s[i],&s[i]);
     secp256k1_scalar_set_int(&one, 1);
     for(j = 0; j < 4; j++) {
-        i = secp256k1_testrand32() % c;
-        if (secp256k1_testrand32() & 1) {
+        i = testrand32() % c;
+        if (testrand32() & 1) {
             secp256k1_gej_double_var(&pubs[i],&pubs[i], NULL);
         } else {
             secp256k1_scalar_add(&s[i],&s[i],&one);
         }
-        CHECK(!secp256k1_borromean_verify(NULL, e0, s, pubs, rsizes, nrings, m, 32));
+        CHECK(!secp256k1_borromean_verify(hash_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
     }
 }
 
@@ -213,7 +215,7 @@ static void test_rangeproof(void) {
         memcpy(&message_long[i], message_short, sizeof(message_short));
     }
 
-    secp256k1_testrand256(blind);
+    testrand256(blind);
     for (i = 0; i < 11; i++) {
         v = testvs[i];
         CHECK(secp256k1_pedersen_commit(CTX, &commit, blind, v, secp256k1_generator_h));
@@ -272,7 +274,7 @@ static void test_rangeproof(void) {
             CHECK(maxv == v);
         }
     }
-    secp256k1_testrand256(blind);
+    testrand256(blind);
     v = INT64_MAX - 1;
     CHECK(secp256k1_pedersen_commit(CTX, &commit, blind, v, secp256k1_generator_h));
     for (i = 0; i < 19; i++) {
@@ -286,10 +288,10 @@ static void test_rangeproof(void) {
         /* Make sure it fails when validating with a committed message */
         CHECK(!secp256k1_rangeproof_verify(CTX, &minv, &maxv, &commit, proof, len, message_short, sizeof(message_short), secp256k1_generator_h));
     }
-    secp256k1_testrand256(blind);
+    testrand256(blind);
     {
         /*Malleability test.*/
-        v = secp256k1_testrandi64(0, 255);
+        v = testrandi64(0, 255);
         CHECK(secp256k1_pedersen_commit(CTX, &commit, blind, v, secp256k1_generator_h));
         len = 5134;
         CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, 0, &commit, blind, commit.data, 0, 3, v, NULL, 0, NULL, 0, secp256k1_generator_h));
@@ -311,19 +313,19 @@ static void test_rangeproof(void) {
     for (i = 0; i < (size_t) COUNT; i++) {
         int exp;
         int min_bits;
-        v = secp256k1_testrandi64(0, UINT64_MAX >> (secp256k1_testrand32()&63));
+        v = testrandi64(0, UINT64_MAX >> (testrand32()&63));
         vmin = 0;
-        if ((v < INT64_MAX) && (secp256k1_testrand32()&1)) {
-            vmin = secp256k1_testrandi64(0, v);
+        if ((v < INT64_MAX) && (testrand32()&1)) {
+            vmin = testrandi64(0, v);
         }
-        secp256k1_testrand256(blind);
+        testrand256(blind);
         CHECK(secp256k1_pedersen_commit(CTX, &commit, blind, v, secp256k1_generator_h));
         len = 5134;
-        exp = (int)secp256k1_testrandi64(0,18)-(int)secp256k1_testrandi64(0,18);
+        exp = (int)testrandi64(0,18)-(int)testrandi64(0,18);
         if (exp < 0) {
             exp = -exp;
         }
-        min_bits = (int)secp256k1_testrandi64(0,64)-(int)secp256k1_testrandi64(0,64);
+        min_bits = (int)testrandi64(0,64)-(int)testrandi64(0,64);
         if (min_bits < 0) {
             min_bits = -min_bits;
         }
@@ -345,13 +347,13 @@ static void test_rangeproof(void) {
     }
     for (j = 0; j < 3; j++) {
         for (i = 0; i < 96; i++) {
-            secp256k1_testrand256(&proof[i * 32]);
+            testrand256(&proof[i * 32]);
         }
         for (k = 0; k < 128; k += 3) {
             len = k;
             CHECK(!secp256k1_rangeproof_verify(CTX, &minv, &maxv, &commit2, proof, len, NULL, 0, secp256k1_generator_h));
         }
-        len = secp256k1_testrandi64(0, 3072);
+        len = testrandi64(0, 3072);
         CHECK(!secp256k1_rangeproof_verify(CTX, &minv, &maxv, &commit2, proof, len, NULL, 0, secp256k1_generator_h));
     }
 }
@@ -394,10 +396,10 @@ static void test_rangeproof_null_blinder(void) {
         size_t msg_len = sizeof(msg);
 
         len = 1000;
-        secp256k1_testrand256(msg);
-        secp256k1_testrand256(&msg[32]);
-        secp256k1_testrand256(&msg[64]);
-        secp256k1_testrand256(&msg[96]);
+        testrand256(msg);
+        testrand256(&msg[32]);
+        testrand256(&msg[64]);
+        testrand256(&msg[96]);
         CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, v, &commit, blind, commit.data, 0, 3, v, msg, sizeof(msg), NULL, 0, secp256k1_generator_h));
         CHECK(secp256k1_rangeproof_rewind(CTX, blind_out, &value_out, msg_out, &msg_len, commit.data, &minv, &maxv, &commit, proof, len, NULL, 0, secp256k1_generator_h) != 0);
         CHECK(secp256k1_memcmp_var(blind, blind_out, sizeof(blind)) == 0);
@@ -414,7 +416,7 @@ static void test_single_value_proof(uint64_t val) {
     unsigned char blind[32];
     unsigned char blind_out[32];
     unsigned char nonce[32];
-    const unsigned char message[1] = " "; /* no message will fit into a single-value proof */
+    const unsigned char message[] = { ' ' }; /* no message will fit into a single-value proof */
     unsigned char message_out[sizeof(proof)] = { 0 };
     size_t plen = sizeof(proof);
     uint64_t min_val_out = 0;
@@ -424,8 +426,8 @@ static void test_single_value_proof(uint64_t val) {
     size_t m_len_out = 0;
     size_t i;
 
-    secp256k1_testrand256(blind);
-    secp256k1_testrand256(nonce);
+    testrand256(blind);
+    testrand256(nonce);
     CHECK(secp256k1_pedersen_commit(CTX, &commit, blind, val, secp256k1_generator_h));
 
     CHECK(secp256k1_rangeproof_sign(
@@ -524,8 +526,8 @@ static void test_single_value_proof(uint64_t val) {
 
 #define MAX_N_GENS	30
 static void test_multiple_generators(void) {
-    const size_t n_inputs = (secp256k1_testrand32() % (MAX_N_GENS / 2)) + 1;
-    const size_t n_outputs = (secp256k1_testrand32() % (MAX_N_GENS / 2)) + 1;
+    const size_t n_inputs = (testrand32() % (MAX_N_GENS / 2)) + 1;
+    const size_t n_outputs = (testrand32() % (MAX_N_GENS / 2)) + 1;
     const size_t n_generators = n_inputs + n_outputs;
     unsigned char *generator_blind[MAX_N_GENS];
     unsigned char *pedersen_blind[MAX_N_GENS];
@@ -539,16 +541,16 @@ static void test_multiple_generators(void) {
     secp256k1_scalar s;
 
     unsigned char generator_seed[32];
-    random_scalar_order(&s);
+    testutil_random_scalar_order(&s);
     secp256k1_scalar_get_b32(generator_seed, &s);
     /* Create all the needed generators */
     for (i = 0; i < n_generators; i++) {
-        generator_blind[i] = (unsigned char*) malloc(32);
-        pedersen_blind[i] = (unsigned char*) malloc(32);
+        generator_blind[i] = malloc(32);
+        pedersen_blind[i] = malloc(32);
 
-        random_scalar_order(&s);
+        testutil_random_scalar_order(&s);
         secp256k1_scalar_get_b32(generator_blind[i], &s);
-        random_scalar_order(&s);
+        testutil_random_scalar_order(&s);
         secp256k1_scalar_get_b32(pedersen_blind[i], &s);
 
         CHECK(secp256k1_generator_generate_blinded(CTX, &generator[i], generator_seed, generator_blind[i]));
@@ -559,11 +561,11 @@ static void test_multiple_generators(void) {
     /* Compute all the values -- can be positive or negative */
     total_value = 0;
     for (i = 0; i < n_outputs; i++) {
-        value[n_inputs + i] = secp256k1_testrandi64(0, INT64_MAX - total_value);
+        value[n_inputs + i] = testrandi64(0, INT64_MAX - total_value);
         total_value += value[n_inputs + i];
     }
     for (i = 0; i < n_inputs - 1; i++) {
-        value[i] = secp256k1_testrandi64(0, total_value);
+        value[i] = testrandi64(0, total_value);
         total_value -= value[i];
     }
     value[i] = total_value;
@@ -1346,24 +1348,25 @@ static void test_rangeproof_fixed_vectors_reproducible(void) {
     }
 }
 
-static void run_rangeproof_tests(void) {
-    int i;
-    for (i = 0; i < COUNT; i++) {
-        test_rangeproof_api();
-    }
-
+static void test_single_value_proof_all(void) {
     test_single_value_proof(0);
     test_single_value_proof(12345678);
     test_single_value_proof(UINT64_MAX);
-
-    test_rangeproof_fixed_vectors();
-    test_rangeproof_fixed_vectors_reproducible();
-    for (i = 0; i < COUNT / 2 + 1; i++) {
-        test_borromean();
-    }
-    test_rangeproof();
-    test_rangeproof_null_blinder();
-    test_multiple_generators();
 }
+
+/* --- Test registry --- */
+REPEAT_TEST(test_rangeproof_api)
+REPEAT_TEST(test_borromean)
+
+static const struct tf_test_entry tests_rangeproof[] = {
+    CASE1(test_rangeproof_api),
+    CASE1(test_single_value_proof_all),
+    CASE1(test_rangeproof_fixed_vectors),
+    CASE1(test_rangeproof_fixed_vectors_reproducible),
+    CASE1(test_borromean),
+    CASE1(test_rangeproof),
+    CASE1(test_rangeproof_null_blinder),
+    CASE1(test_multiple_generators),
+};
 
 #endif

@@ -2,19 +2,19 @@
 #define SECP256K1_MODULE_SCHNORRSIG_HALFAGG_TESTS_H
 
 #include "../../../include/secp256k1_schnorrsig_halfagg.h"
+#include "../../unit_test.h"
 
 #define N_MAX 50
 
 /* We test that the hash initialized by secp256k1_schnorrsig_sha256_tagged_aggregate
  * has the expected state. */
 void test_schnorrsig_sha256_tagged_aggregate(void) {
-    unsigned char tag[18] = "HalfAgg/randomizer";
-    secp256k1_sha256 sha;
+    static const unsigned char tag[] = {'H', 'a', 'l', 'f', 'A', 'g', 'g', '/', 'r', 'a', 'n', 'd', 'o', 'm', 'i', 'z', 'e', 'r'};
     secp256k1_sha256 sha_optimized;
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
 
-    secp256k1_sha256_initialize_tagged(&sha, (unsigned char *) tag, sizeof(tag));
     secp256k1_schnorrsig_sha256_tagged_aggregation(&sha_optimized);
-    test_sha256_eq(&sha, &sha_optimized);
+    test_sha256_tag_midstate(hash_ctx, &sha_optimized, tag, sizeof(tag));
 }
 
 /* Create n many x-only pubkeys and sigs for random messages */
@@ -23,8 +23,8 @@ void test_schnorrsig_aggregate_input_helper(secp256k1_xonly_pubkey *pubkeys, uns
     for (i = 0; i < n; ++i) {
         unsigned char sk[32];
         secp256k1_keypair keypair;
-        secp256k1_testrand256(sk);
-        secp256k1_testrand256(&msgs32[i*32]);
+        testrand256(sk);
+        testrand256(&msgs32[i*32]);
 
         CHECK(secp256k1_keypair_create(CTX, &keypair, sk));
         CHECK(secp256k1_keypair_xonly_pub(CTX, &pubkeys[i], NULL, &keypair));
@@ -36,15 +36,15 @@ void test_schnorrsig_aggregate_input_helper(secp256k1_xonly_pubkey *pubkeys, uns
  * aggregate some of them in one shot, and then
  * aggregate the others incrementally to the already aggregated ones.
  * The aggregate signature should verify after both steps. */
-void test_schnorrsig_aggregate(void) {
+void test_schnorrsig_aggregate_internal(void) {
     secp256k1_xonly_pubkey pubkeys[N_MAX];
     unsigned char msgs32[N_MAX*32];
     unsigned char sigs64[N_MAX*64];
     unsigned char aggsig[32*(N_MAX + 1) + 17];
     size_t aggsig_len = sizeof(aggsig);
 
-    size_t n = secp256k1_testrand_int(N_MAX + 1);
-    size_t n_initial = secp256k1_testrand_int(n + 1);
+    size_t n = testrand_int(N_MAX + 1);
+    size_t n_initial = testrand_int(n + 1);
     size_t n_new = n - n_initial;
     test_schnorrsig_aggregate_input_helper(pubkeys, msgs32, sigs64, n);
 
@@ -167,9 +167,9 @@ void test_schnorrsig_aggverify_spec_vectors(void) {
     }
 }
 
-static void test_schnorrsig_aggregate_api(void) {
-    size_t n = secp256k1_testrand_int(N_MAX + 1);
-    size_t n_initial = secp256k1_testrand_int(n + 1);
+static void test_schnorrsig_aggregate_api_internal(void) {
+    size_t n = testrand_int(N_MAX + 1);
+    size_t n_initial = testrand_int(n + 1);
     size_t n_new = n - n_initial;
 
     /* Test preparation. */
@@ -243,13 +243,13 @@ static void test_schnorrsig_aggregate_api(void) {
 
 /* In this test, we make sure that trivial attempts to break
  * the security of verification do not work. */
-static void test_schnorrsig_aggregate_unforge(void) {
+static void test_schnorrsig_aggregate_unforge_internal(void) {
     secp256k1_xonly_pubkey pubkeys[N_MAX];
     unsigned char msgs32[N_MAX*32];
     unsigned char sigs64[N_MAX*64];
     unsigned char aggsig[32*(N_MAX + 1)];
 
-    size_t n = secp256k1_testrand_int(N_MAX + 1);
+    size_t n = testrand_int(N_MAX + 1);
 
     /* Test 1: We fix a set of n messages and compute
      * a random aggsig for them. This should not verify. */
@@ -259,7 +259,7 @@ static void test_schnorrsig_aggregate_unforge(void) {
         size_t i;
         /* Sample aggsig randomly */
         for (i = 0; i < n + 1; ++i) {
-            secp256k1_testrand256(&aggsig[i*32]);
+            testrand256(&aggsig[i*32]);
         }
         /* Make sure that it does not verify */
         CHECK(secp256k1_schnorrsig_aggverify(CTX, pubkeys, msgs32, n, aggsig, aggsig_len) == 0);
@@ -272,9 +272,9 @@ static void test_schnorrsig_aggregate_unforge(void) {
     if (n > 0) {
         size_t aggsig_len = sizeof(aggsig);
         /* Replace a randomly chosen real sig with a random one. */
-        size_t k = secp256k1_testrand_int(n);
-        secp256k1_testrand256(&sigs64[k*64]);
-        secp256k1_testrand256(&sigs64[k*64+32]);
+        size_t k = testrand_int(n);
+        testrand256(&sigs64[k*64]);
+        testrand256(&sigs64[k*64+32]);
         /* Aggregate the n signatures */
         CHECK(secp256k1_schnorrsig_aggregate(CTX, aggsig, &aggsig_len, pubkeys, msgs32, sigs64, n));
         /* Make sure the result does not verify */
@@ -290,7 +290,7 @@ static void test_schnorrsig_aggregate_unforge(void) {
         /* Aggregate the n signatures */
         CHECK(secp256k1_schnorrsig_aggregate(CTX, aggsig, &aggsig_len, pubkeys, msgs32, sigs64, n));
         /* Change one of the messages */
-        k = secp256k1_testrand_int(32*n);
+        k = testrand_int(32*n);
         msgs32[k] = msgs32[k]^0xff;
         /* Make sure the result does not verify */
         CHECK(secp256k1_schnorrsig_aggverify(CTX, pubkeys, msgs32, n, aggsig, aggsig_len) == 0);
@@ -299,12 +299,12 @@ static void test_schnorrsig_aggregate_unforge(void) {
 
 /* In this test, we make sure that the algorithms properly reject
  * for overflowing and non parseable values. */
-static void test_schnorrsig_aggregate_overflow(void) {
+static void test_schnorrsig_aggregate_overflow_internal(void) {
     secp256k1_xonly_pubkey pubkeys[N_MAX];
     unsigned char msgs32[N_MAX*32];
     unsigned char sigs64[N_MAX*64];
     unsigned char aggsig[32*(N_MAX + 1)];
-    size_t n = secp256k1_testrand_int(N_MAX + 1);
+    size_t n = testrand_int(N_MAX + 1);
 
     /* We check that verification returns 0 if the s in aggsig overflows. */
     test_schnorrsig_aggregate_input_helper(pubkeys, msgs32, sigs64, n);
@@ -319,19 +319,20 @@ static void test_schnorrsig_aggregate_overflow(void) {
     }
 }
 
-static void run_schnorrsig_halfagg_tests(void) {
-    int i;
+/* --- Test registry --- */
+REPEAT_TEST(test_schnorrsig_aggregate)
+REPEAT_TEST(test_schnorrsig_aggregate_api)
+REPEAT_TEST(test_schnorrsig_aggregate_unforge)
+REPEAT_TEST(test_schnorrsig_aggregate_overflow)
 
-    test_schnorrsig_sha256_tagged_aggregate();
-    test_schnorrsig_aggverify_spec_vectors();
-
-    for (i = 0; i < COUNT; i++) {
-        test_schnorrsig_aggregate();
-        test_schnorrsig_aggregate_api();
-        test_schnorrsig_aggregate_unforge();
-        test_schnorrsig_aggregate_overflow();
-    }
-}
+static const struct tf_test_entry tests_schnorrsig_halfagg[] = {
+    CASE1(test_schnorrsig_sha256_tagged_aggregate),
+    CASE1(test_schnorrsig_aggverify_spec_vectors),
+    CASE1(test_schnorrsig_aggregate),
+    CASE1(test_schnorrsig_aggregate_api),
+    CASE1(test_schnorrsig_aggregate_unforge),
+    CASE1(test_schnorrsig_aggregate_overflow),
+};
 
 #undef N_MAX
 

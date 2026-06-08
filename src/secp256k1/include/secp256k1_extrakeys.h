@@ -90,7 +90,7 @@ SECP256K1_API int secp256k1_xonly_pubkey_cmp(
  *                     the negation of the pubkey and set to 0 otherwise.
  *  In:        pubkey: pointer to a public key that is converted.
  */
-SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_xonly_pubkey_from_pubkey(
+SECP256K1_API int secp256k1_xonly_pubkey_from_pubkey(
     const secp256k1_context *ctx,
     secp256k1_xonly_pubkey *xonly_pubkey,
     int *pk_parity,
@@ -179,7 +179,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_keypair_create(
  *  Out: seckey: pointer to a 32-byte buffer for the secret key.
  *  In: keypair: pointer to a keypair.
  */
-SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_keypair_sec(
+SECP256K1_API int secp256k1_keypair_sec(
     const secp256k1_context *ctx,
     unsigned char *seckey,
     const secp256k1_keypair *keypair
@@ -192,7 +192,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_keypair_sec(
  *  Out: pubkey: pointer to a pubkey object, set to the keypair public key.
  *  In: keypair: pointer to a keypair.
  */
-SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_keypair_pub(
+SECP256K1_API int secp256k1_keypair_pub(
     const secp256k1_context *ctx,
     secp256k1_pubkey *pubkey,
     const secp256k1_keypair *keypair
@@ -211,7 +211,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_keypair_pub(
  *               pk_parity argument of secp256k1_xonly_pubkey_from_pubkey.
  *  In: keypair: pointer to a keypair.
  */
-SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_keypair_xonly_pub(
+SECP256K1_API int secp256k1_keypair_xonly_pub(
     const secp256k1_context *ctx,
     secp256k1_xonly_pubkey *pubkey,
     int *pk_parity,
@@ -242,21 +242,6 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_keypair_xonly_tweak_add
     secp256k1_keypair *keypair,
     const unsigned char *tweak32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
-
-/** Sort public keys using lexicographic order of their compressed
- *  serialization.
- *
- *  Returns: 0 if the arguments are invalid. 1 otherwise.
- *
- *  Args:     ctx: pointer to a context object
- *  In:   pubkeys: array of pointers to pubkeys to sort
- *      n_pubkeys: number of elements in the pubkeys array
- */
-SECP256K1_API int secp256k1_pubkey_sort(
-    const secp256k1_context *ctx,
-    const secp256k1_pubkey **pubkeys,
-    size_t n_pubkeys
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
 
 #ifdef __cplusplus
 }
