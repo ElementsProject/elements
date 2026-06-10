@@ -556,11 +556,10 @@ static RPCHelpMan getblocktemplate()
             {"template_request", RPCArg::Type::OBJ, RPCArg::Default{UniValue::VOBJ}, "Format of the template",
             {
                 {"mode", RPCArg::Type::STR, /* treat as named arg */ RPCArg::Optional::OMITTED_NAMED_ARG, "This must be set to \"template\", \"proposal\" (see BIP 23), or omitted"},
-                {"capabilities", RPCArg::Type::ARR, /* treat as named arg */ RPCArg::Optional::OMITTED_NAMED_ARG, "A list of strings",
-                {
-                    {"str", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "client side supported feature, 'longpoll', 'coinbasevalue', 'proposal', 'serverlist', 'workid'"},
-                }},
-                {"rules", RPCArg::Type::ARR, RPCArg::Optional::NO, "A list of strings",
+                {"longpollid", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "The longpollid from a previous template to wait for an update"},
+                {"data", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The hex-encoded block data to validate when mode is \"proposal\" (see BIP 23)"},
+                {"maxversion", RPCArg::Type::NUM, RPCArg::Optional::OMITTED_NAMED_ARG, "Legacy maximum block version. Used only when \"rules\" is not provided"},
+                {"rules", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A list of strings",
                 {
                     {"segwit", RPCArg::Type::STR, RPCArg::Optional::NO, "(literal) indicates client side segwit support"},
                     {"str", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "other client side supported softfork deployment"},
