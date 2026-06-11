@@ -164,6 +164,12 @@ RPCHelpMan getpeginaddress()
                     {
                         {RPCResult::Type::STR, "mainchain_address", "mainchain deposit address to send bitcoin to"},
                         {RPCResult::Type::STR_HEX, "claim_script", "claim script committed to by the mainchain address. This may be required in `claimpegin` to retrieve pegged-in funds\n"},
+                        {RPCResult::Type::STR_AMOUNT, "pegin_min_amount", /*optional=*/true, "Minimum peg-in amount in " + CURRENCY_UNIT},
+                        {RPCResult::Type::NUM, "pegin_min_height", /*optional=*/true, "Minimum block height for peg-in amount rule"},
+                        {RPCResult::Type::BOOL, "pegin_min_active", /*optional=*/true, "Whether the peg-in minimum height rule is active at the current tip"},
+                        {RPCResult::Type::STR_AMOUNT, "pegin_subsidy_threshold", /*optional=*/true, "Peg-in subsidy threshold amount"},
+                        {RPCResult::Type::NUM, "pegin_subsidy_height", /*optional=*/true, "Block height at which peg-in subsidy activates"},
+                        {RPCResult::Type::BOOL, "pegin_subsidy_active", /*optional=*/true, "Whether peg-in subsidy is active at the current tip"},
                     },
                 },
                 RPCExamples{
@@ -1689,7 +1695,7 @@ RPCHelpMan listissuances()
     return RPCHelpMan{"listissuances",
                 "\nList all issuances known to the wallet for the given asset, or for all issued assets if none provided.\n",
                 {
-                    {"asset", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The asset whose issaunces you wish to list. Accepts either the asset hex or the locally assigned asset label."},
+                    {"asset", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The asset whose issuances you wish to list. Accepts either the asset hex or the locally assigned asset label."},
                 },
                 RPCResult{
                     RPCResult::Type::ARR, "", "List of transaction issuances and information in wallet",
@@ -1700,7 +1706,7 @@ RPCHelpMan listissuances()
                             {RPCResult::Type::STR_HEX, "entropy", "Entropy of the asset type"},
                             {RPCResult::Type::STR_HEX, "asset", "Asset type for issuance if known"},
                             {RPCResult::Type::STR, "assetlabel", "Asset label for issuance if set"},
-                            {RPCResult::Type::STR_HEX, "token", "Token type for issuancen"},
+                            {RPCResult::Type::STR_HEX, "token", "Token type for issuance"},
                             {RPCResult::Type::NUM, "vin", "The input position of the issuance in the transaction"},
                             {RPCResult::Type::STR_AMOUNT, "assetamount", "The amount of asset issued. Is -1 if blinded and unknown to wallet"},
                             {RPCResult::Type::STR_AMOUNT, "tokenamount", "The reissuance token amount issued. Is -1 if blinded and unknown to wallet"},
