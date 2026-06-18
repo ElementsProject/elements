@@ -81,7 +81,8 @@ static constexpr unsigned int STANDARD_SCRIPT_VERIFY_FLAGS = MANDATORY_SCRIPT_VE
                                                              SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_TAPROOT_VERSION |
                                                              SCRIPT_VERIFY_DISCOURAGE_OP_SUCCESS |
                                                              SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_PUBKEYTYPE |
-                                                             SCRIPT_VERIFY_SIMPLICITY;
+                                                             SCRIPT_VERIFY_SIMPLICITY |
+                                                             SCRIPT_VERIFY_ANNEX_PADDING;
 
 
 /** For convenience, standard but not mandatory verify flags. */
