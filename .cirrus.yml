@@ -86,10 +86,10 @@ win64_native_common: &win64_native_common
   windows_container:
     cpu: 4
     memory: 8G
-    image: cirrusci/windowsservercore:visualstudio2019
+    image: cirrusci/windowsservercore:visualstudio2022
   timeout_in: 120m
   env:
-    PATH: 'C:\jom;C:\Python39;C:\Python39\Scripts;C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin;%PATH%'
+    PATH: 'C:\jom;C:\Python39;C:\Python39\Scripts;C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin;%PATH%'
     PYTHONUTF8: 1
     CI_VCPKG_TAG: '2021.05.12'
     VCPKG_DOWNLOADS: 'C:\Users\ContainerAdministrator\AppData\Local\vcpkg\downloads'
@@ -98,7 +98,7 @@ win64_native_common: &win64_native_common
     QT_LOCAL_PATH: 'C:\qt-everywhere-opensource-src-5.15.3.zip'
     QT_SOURCE_DIR: 'C:\qt-everywhere-src-5.15.3'
     QTBASEDIR: 'C:\Qt_static'
-    x64_NATIVE_TOOLS: '"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvars64.bat"'
+    x64_NATIVE_TOOLS: '"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"'
     IgnoreWarnIntDirInTempDetected: 'true'
   merge_script:
     - git config --global user.email "ci@ci.ci"
@@ -161,19 +161,25 @@ win64_native_common: &win64_native_common
     - msbuild build_msvc\bitcoin.sln -property:Configuration=Release -maxCpuCount -verbosity:minimal -noLogo
 
 task:
-  name: "Win64 native [msvc] (Short running functional tests)"
+  name: "Win64 native [vs2022] (Short running functional tests)"
   <<: *win64_native_common
   functional_tests_script:
     # Increase the dynamic port range to the maximum allowed value to mitigate "OSError: [WinError 10048] Only one usage of each socket address (protocol/network address/port) is normally permitted".
     # See: https://docs.microsoft.com/en-us/biztalk/technical-guides/settings-that-can-be-modified-to-improve-network-performance
     - netsh int ipv4 set dynamicport tcp start=1025 num=64511
     - netsh int ipv6 set dynamicport tcp start=1025 num=64511
+    - mkdir artifactsdir
     # Heavier tests are moved to a secondary task
     # Exclude feature_dbcrash and feature_fee_estimation, failing https://github.com/ElementsProject/elements/pull/1298
-    - python test\functional\test_runner.py --nocleanup --ci --quiet --combinedlogslen=4000 --jobs=4 --timeout-factor=8 --extended --exclude wallet_avoidreuse,feature_trim_headers,feature_dbcrash,feature_fee_estimation
+    - python test\functional\test_runner.py --tmpdirprefix=artifactsdir/ --ci --quiet --combinedlogslen=4000 --jobs=4 --timeout-factor=8 --extended --exclude wallet_avoidreuse,feature_trim_headers,feature_dbcrash,feature_fee_estimation
+  artifacts:
+    paths:
+      - artifactsdir/**/*.log
+      - artifactsdir/**/tmp*
+      - artifactsdir/**/*.conf
 
 task:
-  name: "Win64 native [msvc] (Long running functional tests + unit tests)"
+  name: "Win64 native [vs2022] (Long running functional tests + unit tests)"
   <<: *win64_native_common
   unit_tests_script:
     - src\test_elements.exe -l test_suite
@@ -185,9 +191,15 @@ task:
     # See: https://docs.microsoft.com/en-us/biztalk/technical-guides/settings-that-can-be-modified-to-improve-network-performance
     - netsh int ipv4 set dynamicport tcp start=1025 num=64511
     - netsh int ipv6 set dynamicport tcp start=1025 num=64511
+    - mkdir artifactsdir
     # Execute tests excluded from the main task
     # Ignore failures for now until https://github.com/ElementsProject/elements/pull/1298 is merged
-    - python test\functional\test_runner.py --nocleanup --ci --quiet --combinedlogslen=4000 --jobs=4 --timeout-factor=8 wallet_avoidreuse feature_trim_headers feature_dbcrash feature_fee_estimation || true
+    - python test\functional\test_runner.py --tmpdirprefix=artifactsdir/ --ci --quiet --combinedlogslen=4000 --jobs=4 --timeout-factor=8 wallet_avoidreuse feature_trim_headers feature_dbcrash feature_fee_estimation || true
+  artifacts:
+    paths:
+      - artifactsdir/**/*.log
+      - artifactsdir/**/tmp*
+      - artifactsdir/**/*.conf
 
 task:
   name: 'ARM [unit tests, no functional tests] [bullseye]'
