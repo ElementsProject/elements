@@ -134,11 +134,13 @@ def send_tx(node, utxo, feerate):
     """Broadcast a 1in-1out transaction with a specific input and feerate (sat/vb)."""
     tx = CTransaction()
     tx.vin = [CTxIn(COutPoint(int(utxo["txid"], 16), utxo["vout"]), REDEEM_SCRIPT)]
-    tx.vout = [CTxOut(int(utxo["amount"] * COIN), P2SH)]
+    tx.vout = [CTxOut(int(utxo["amount"] * COIN), P2SH), CTxOut(int(utxo["amount"] * COIN))]
 
     # vbytes == bytes as we are using legacy transactions
     fee = tx.get_vsize() * feerate
-    tx.vout[0].nValue -= fee
+    amount = tx.vout[0].nValue.getAmount()
+    tx.vout[0].nValue.setToAmount(amount - fee)
+    tx.vout[1].nValue.setToAmount(fee)
 
     return node.sendrawtransaction(tx.serialize().hex())
 
@@ -208,7 +210,7 @@ class EstimateFeeTest(BitcoinTestFramework):
 
     def initial_split(self, node):
         """Split two coinbase UTxOs into many small coins"""
-        utxo_count = 2048
+        utxo_count = 1450 # ELEMENTS reduced to fit into max tx weight
         self.confutxo = []
         splitted_amount = Decimal("0.04")
         fee = Decimal("0.1")
@@ -220,6 +222,7 @@ class EstimateFeeTest(BitcoinTestFramework):
         ]
         tx.vout = [CTxOut(int(splitted_amount * COIN), P2SH) for _ in range(utxo_count)]
         tx.vout.append(CTxOut(int(change * COIN), P2SH))
+        tx.vout.append(CTxOut(int(fee * COIN)))
         txhex = node.signrawtransactionwithwallet(tx.serialize().hex())["hex"]
         txid = node.sendrawtransaction(txhex)
         self.confutxo = [

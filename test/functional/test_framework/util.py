@@ -519,7 +519,10 @@ def create_confirmed_utxos(test_framework, fee, node, count, **kwargs):
         inputs = []
         inputs.append({"txid": t["txid"], "vout": t["vout"]})
         send_value = t['amount'] - fee
-        outputs = [{addr1: satoshi_round(send_value / 2)}, {addr2: satoshi_round(send_value / 2)}, {"fee": fee}]
+        # ELEMENTS: ensure outputs balance with inputs
+        val1 = satoshi_round(send_value / 2)
+        val2 = send_value - val1
+        outputs = [{addr1: val1}, {addr2: val2}, {"fee": fee}]
         raw_tx = node.createrawtransaction(inputs, outputs)
         signed_tx = node.signrawtransactionwithwallet(raw_tx)["hex"]
         node.sendrawtransaction(signed_tx)
