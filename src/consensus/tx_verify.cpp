@@ -14,6 +14,7 @@
 #include <script/interpreter.h>
 #include <script/pegins.h>
 #include <util/moneystr.h>
+#include <chainparams.h>
 
 bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
 {
@@ -254,7 +255,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, 
             return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-in-ne-out", "value in != value out");
         }
         fee_map += GetFeeMap(tx);
-        if (!MoneyRange(fee_map)) {
+        if (!MoneyRange(fee_map[::Params().GetConsensus().pegged_asset])) {
             return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-block-total-fee-outofrange");
         }
     } else {
