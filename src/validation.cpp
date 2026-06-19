@@ -746,7 +746,7 @@ private:
             // calculate the burned subsidy value from the tx
             CAmount subsidy = 0;
             for (const CTxOut& txout : tx.vout) {
-                if (txout.scriptPubKey.IsUnspendable() && txout.nAsset.GetAsset() == Params().GetConsensus().pegged_asset && !txout.IsFee()) {
+                if (txout.scriptPubKey.IsUnspendable() && !txout.IsFee() && txout.nAsset.IsExplicit() && txout.nValue.IsExplicit() && txout.nAsset.GetAsset() == Params().GetConsensus().pegged_asset) {
                     subsidy += txout.nValue.GetAmount();
                 }
             }

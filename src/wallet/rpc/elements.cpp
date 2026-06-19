@@ -1379,6 +1379,9 @@ RPCHelpMan blindrawtransaction()
         // Vacuous, just return the transaction
         return EncodeHexTx(CTransaction(tx));
     } else if (n_blinded_ins > 0 && num_pubkeys == 0) {
+        if (tx.vout.empty()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: transaction has no outputs to balance blinded inputs against.");
+        }
         // Blinded inputs need to balanced with something to be valid, make a dummy.
         CTxOut newTxOut(tx.vout.back().nAsset.GetAsset(), 0, CScript() << OP_RETURN);
         tx.vout.push_back(newTxOut);
