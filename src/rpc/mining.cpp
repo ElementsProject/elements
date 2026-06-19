@@ -1501,8 +1501,8 @@ static RPCHelpMan consumegetblocktxn()
     return RPCHelpMan{"consumegetblocktxn",
                 "Consumes a transaction request for a compact block sketch.",
                 {
-                    {"full_block", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialied block that corresponds to the block request `block_tx_req`."},
-                    {"block_tx_req", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialied BlockTransactionsRequest, aka getblocktxn network message."},
+                    {"full_block", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialized block that corresponds to the block request `block_tx_req`."},
+                    {"block_tx_req", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialized BlockTransactionsRequest, aka getblocktxn network message."},
                 },
                 RPCResult{
                     RPCResult::Type::STR_HEX, "block_transactions", "The serialized list of found transactions aka BlockTransactions",

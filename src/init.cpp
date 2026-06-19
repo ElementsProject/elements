@@ -1834,6 +1834,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
                   index_cache_sizes.filter_index * (1.0 / 1024 / 1024), BlockFilterTypeName(filter_type));
     }
     LogInfo("* Using %.1f MiB for chain state database", kernel_cache_sizes.coins_db * (1.0 / 1024 / 1024));
+    LogInfo("ELIP 203 is%s active\n", (chainparams.GetAcceptUnlimitedIssuances())?"":" not");
 
     assert(!node.mempool);
     assert(!node.chainman);

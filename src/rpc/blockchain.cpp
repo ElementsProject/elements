@@ -639,34 +639,34 @@ static RPCHelpMan getblockheader()
                             {RPCResult::Type::STR_HEX, "merkleroot", "The merkle root"},
                             {RPCResult::Type::NUM_TIME, "time", "The block time expressed in " + UNIX_EPOCH_TIME},
                             {RPCResult::Type::NUM_TIME, "mediantime", "The median block time expressed in " + UNIX_EPOCH_TIME},
-                            {RPCResult::Type::NUM, "nonce", /*optional=*/true, "The nonce"}, // Not for elements
+                            {RPCResult::Type::NUM, "nonce", /*optional=*/true, "The nonce"},
                             {RPCResult::Type::STR_HEX, "bits", /*optional=*/true, "The bits"},
                             {RPCResult::Type::STR_HEX, "target", /*optional=*/true, "The difficulty target"},
-                            {RPCResult::Type::NUM, "difficulty", /*optional=*/true, "The difficulty"}, // Not for elements
-                            {RPCResult::Type::STR_HEX, "chainwork", /*optional=*/true, "Expected number of hashes required to produce the current chain"}, // Not for elements
+                            {RPCResult::Type::NUM, "difficulty", /*optional=*/true, "The difficulty"},
+                            {RPCResult::Type::STR_HEX, "chainwork", /*optional=*/true, "Expected number of hashes required to produce the current chain"},
                             {RPCResult::Type::NUM, "nTx", "The number of transactions in the block"},
-                            {RPCResult::Type::STR, "signblock_challenge", /*optional=*/true, "The challenge for blocksigning (pre-dynafed)"},
                             {RPCResult::Type::STR, "signblock_witness_asm", /*optional=*/true, "ASM of sign block witness data"},
-                            {RPCResult::Type::STR_HEX, "signblock_witness_hex", "Hex of sign block witness data", {}, /*skip_type_check=*/true},
+                            {RPCResult::Type::STR_HEX, "signblock_witness_hex", /*optional=*/true, "Hex of sign block witness data"},
+                            {RPCResult::Type::STR_HEX, "signblock_challenge", /*optional=*/true, "Hex of sign block challenge"},
+                            {RPCResult::Type::STR, "warning", /*optional=*/true, "Warning message if block was not loaded cleanly"},
                             {RPCResult::Type::OBJ, "dynamic_parameters", /*optional=*/true, "Dynamic federation parameters in the block, if any",
                             {
-                                {RPCResult::Type::OBJ, "current", "enforced dynamic federation parameters. The signblockscript is published for each block, while others are published only at epoch start",
+                                {RPCResult::Type::OBJ, "current", "enforced dynamic federation parameters",
                                 {
-                                    {RPCResult::Type::STR_HEX, "signblockscript", "signblock script"},
-                                    {RPCResult::Type::NUM, "max_block_witness", "Maximum serialized size of the block witness stack"},
-                                    {RPCResult::Type::STR_HEX, "fedpegscript", /*optional=*/true, "fedpeg script"},
-                                    {RPCResult::Type::STR_HEX, "fedpeg_program", /*optional=*/true, "fedpeg program"},
-                                    {RPCResult::Type::STR_HEX, "root", "The Merkle root"},
-                                    {RPCResult::Type::STR_HEX, "extra_root", "extra Merkle root"},
-                                    {RPCResult::Type::STR, "type", "type of parameter encoding (null, compact, full)"},
-                                    {RPCResult::Type::ARR, "extension_space", /*optional=*/true, "array of hex-encoded strings",
+                                    {RPCResult::Type::STR_HEX, "root", /*optional=*/true, "parameter root"},
+                                    {RPCResult::Type::STR_HEX, "signblockscript", /*optional=*/true, "signblock script as hex"},
+                                    {RPCResult::Type::NUM, "max_block_witness", /*optional=*/true, "maximum serialized size of the block witness stack"},
+                                    {RPCResult::Type::STR_HEX, "extra_root", /*optional=*/true, "extra root"},
+                                    {RPCResult::Type::STR_HEX, "fedpeg_program", /*optional=*/true, "fedpeg program scriptPubKey in hex"},
+                                    {RPCResult::Type::STR_HEX, "fedpegscript", /*optional=*/true, "fedpeg script in hex"},
+                                    {RPCResult::Type::ARR, "extension_space", /*optional=*/true, "extension space as hex strings",
                                     {
                                         {RPCResult::Type::ELISION, "", ""}
                                     }}
                                 }},
                                 {RPCResult::Type::OBJ, "proposed", "Proposed parameters. Unenforced. Must be published in full",
                                 {
-                                    {RPCResult::Type::ELISION, "", "same entries as current"}
+                                    {RPCResult::Type::ELISION, "", "same entries as \"current\""}
                                 }},
                             }},
                             {RPCResult::Type::STR_HEX, "previousblockhash", /*optional=*/true, "The hash of the previous block (if available)"},
@@ -841,29 +841,35 @@ static RPCHelpMan getblock()
                         {{RPCResult::Type::STR_HEX, "", "The transaction id"}}},
                     {RPCResult::Type::NUM_TIME, "time",       "The block time expressed in " + UNIX_EPOCH_TIME},
                     {RPCResult::Type::NUM_TIME, "mediantime", "The median block time expressed in " + UNIX_EPOCH_TIME},
-                    {RPCResult::Type::NUM, "nonce", "The nonce"},
-                    {RPCResult::Type::STR_HEX, "bits", "nBits: compact representation of the block difficulty target"},
-                    {RPCResult::Type::STR_HEX, "target", "The difficulty target"},
-                    {RPCResult::Type::NUM, "difficulty", "The difficulty"},
-                    {RPCResult::Type::STR_HEX, "chainwork", "Expected number of hashes required to produce the chain up to this block (in hex)"},
+                    {RPCResult::Type::NUM, "nonce", /*optional=*/true, "The nonce"},
+                    {RPCResult::Type::STR_HEX, "bits", /*optional=*/true, "The bits"},
+                    {RPCResult::Type::STR_HEX, "target", /*optional=*/true, "The difficulty target"},
+                    {RPCResult::Type::NUM, "difficulty", /*optional=*/true, "The difficulty"},
+                    {RPCResult::Type::STR_HEX, "chainwork", /*optional=*/true, "Expected number of hashes required to produce the chain up to this block"},
                     {RPCResult::Type::NUM, "nTx", "The number of transactions in the block"},
-                    {RPCResult::Type::STR, "signblock_witness_asm", "ASM of sign block witness data"},
-                    {RPCResult::Type::STR_HEX, "signblock_witness_hex", "Hex of sign block witness data"},
-                    {RPCResult::Type::OBJ, "dynamic_parameters", "Dynamic federation parameters in the block, if any",
+                    {RPCResult::Type::STR, "signblock_witness_asm", /*optional=*/true, "ASM of sign block witness data"},
+                    {RPCResult::Type::STR_HEX, "signblock_witness_hex", /*optional=*/true, "Hex of sign block witness data"},
+                    {RPCResult::Type::STR_HEX, "signblock_challenge", /*optional=*/true, "Hex of sign block challenge"},
+                    {RPCResult::Type::STR, "warning", /*optional=*/true, "Warning message if block was not loaded cleanly"},
+                    {RPCResult::Type::OBJ, "dynamic_parameters", /*optional=*/true, "Dynamic federation parameters in the block, if any",
                     {
                         {RPCResult::Type::OBJ, "current", "enforced dynamic federation parameters. The signblockscript is published for each block, while others are published only at epoch start",
                         {
-                            {RPCResult::Type::STR_HEX, "signblockscript", "signblock script"},
-                            {RPCResult::Type::NUM, "max_block_witness", "Maximum serialized size of the block witness stack"},
-                            {RPCResult::Type::STR_HEX, "fedpegscript", "fedpeg script"},
-                            {RPCResult::Type::ARR, "extension_space", "array of hex-encoded strings",
+                            {RPCResult::Type::STR, "type", "one of \"null\", \"compact\", \"full\""},
+                            {RPCResult::Type::STR_HEX, "root", /*optional=*/true, "parameter root"},
+                            {RPCResult::Type::STR_HEX, "signblockscript", /*optional=*/true, "signblock script as hex"},
+                            {RPCResult::Type::NUM, "max_block_witness", /*optional=*/true, "maximum serialized size of the block witness stack"},
+                            {RPCResult::Type::STR_HEX, "extra_root", /*optional=*/true, "extra root"},
+                            {RPCResult::Type::STR_HEX, "fedpeg_program", /*optional=*/true, "fedpeg program scriptPubKey in hex"},
+                            {RPCResult::Type::STR_HEX, "fedpegscript", /*optional=*/true, "fedpeg script in hex"},
+                            {RPCResult::Type::ARR, "extension_space", /*optional=*/true, "extension space as hex strings",
                             {
                                 {RPCResult::Type::ELISION, "", ""}
                             }},
                         }},
                         {RPCResult::Type::OBJ, "proposed", "Proposed parameters. Uninforced. Must be published in full",
                         {
-                            {RPCResult::Type::ELISION, "", "same entries as current"}
+                            {RPCResult::Type::ELISION, "", "same entries as \"current\""}
                         }},
                     }},
                     {RPCResult::Type::STR_HEX, "previousblockhash", /*optional=*/true, "The hash of the previous block (if available)"},
@@ -1237,11 +1243,11 @@ static RPCHelpMan gettxout()
             RPCResult{"Otherwise", RPCResult::Type::OBJ, "", "", {
                 {RPCResult::Type::STR_HEX, "bestblock", "The hash of the block at the tip of the chain"},
                 {RPCResult::Type::NUM, "confirmations", "The number of confirmations"},
-                {RPCResult::Type::STR_AMOUNT, "value", /*optional=*/true, "The transaction value in " + CURRENCY_UNIT + " if known"}, // ELEMENTS: only known if non-confidential
-                {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "The asset of the output, if known"},
-                {RPCResult::Type::STR_HEX, "valuecommitment", /*optional=*/true, "The commitment for the value"},
-                {RPCResult::Type::STR_HEX, "commitmentnonce", /*optional=*/true, "The commitment nonce"},
-                {RPCResult::Type::STR_HEX, "assetcommitment", /*optional=*/true, "Commitment for the asset"},
+                {RPCResult::Type::STR_AMOUNT, "value", /*optional=*/true, "The transaction value in " + CURRENCY_UNIT},
+                {RPCResult::Type::STR_HEX, "valuecommitment", /*optional=*/true, "Hex-encoded value commitment"},
+                {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "Explicit asset id"},
+                {RPCResult::Type::STR_HEX, "assetcommitment", /*optional=*/true, "Hex-encoded asset commitment"},
+                {RPCResult::Type::STR_HEX, "commitmentnonce", /*optional=*/true, "Output nonce / commitment field"},
                 {RPCResult::Type::OBJ, "scriptPubKey", "", {
                     {RPCResult::Type::STR, "asm", "Disassembly of the output script"},
                     {RPCResult::Type::STR, "desc", "Inferred descriptor for the output"},
@@ -1458,27 +1464,23 @@ RPCHelpMan getblockchaininfo()
                 /* ELEMENTS: not present {RPCResult::Type::STR_HEX, "chainwork", "total amount of work in active chain, in hexadecimal"}, */
                 {RPCResult::Type::NUM, "size_on_disk", "the estimated size of the block and undo files on disk"},
                 {RPCResult::Type::BOOL, "pruned", "if the blocks are subject to pruning"},
-                {RPCResult::Type::BOOL, "trim_headers", "if trim_headers is enabled"},
-                {RPCResult::Type::STR_HEX, "current_params_root", /*optional=*/true, "the root of the currently active dynafed params"}, // present if dynafed is active
-                {RPCResult::Type::STR, "signblock_asm", /*optional=*/true, "ASM of sign block challenge data from genesis block"}, // not present if dynafed is active
-                {RPCResult::Type::STR, "signblock_asm", /*optional=*/true, "ASM of sign block challenge data from genesis block"}, // not present if dynafed is active
-                {RPCResult::Type::STR_HEX, "signblock_hex", /*optional=*/true, "Hex of sign block challenge data from genesis block"}, // not present if dynafed is active
-                {RPCResult::Type::STR, "current_signblock_asm", /*optional=*/true, "ASM of sign block challenge data enforced on the next block"}, // present if dynafed is active
-                {RPCResult::Type::STR_HEX, "current_signblock_hex", /*optional=*/true, "Hex of sign block challenge data enforced on the next block"}, // present if dynafed is active
-                {RPCResult::Type::NUM, "max_block_witness", "maximum sized block witness serialized size for the next block"},
-                {RPCResult::Type::NUM, "epoch_length", /*optional=*/true, "length of dynamic federations epoch, or signaling period"}, // present if dynafed is active
-                {RPCResult::Type::NUM, "total_valid_epochs", /*optional=*/true, "number of epochs a given fedpscript is valid for, defined per chain"}, // present if dynafed is active
-                {RPCResult::Type::NUM, "epoch_age", /*optional=*/true, "number of blocks into a dynamic federation epoch chain tip is. This number is between 0 to epoch_length-1"}, // present if dynafed is active
-                {RPCResult::Type::ARR, "extension_space", "array of extension fields in dynamic blockheader",
+                {RPCResult::Type::BOOL, "trim_headers", "whether header trimming is enabled (-trim-headers)"},
+                {RPCResult::Type::STR_HEX, "current_params_root", /*optional=*/true, "the root of the currently active dynafed params"},
+                {RPCResult::Type::STR_HEX, "current_fedpeg_program", /*optional=*/true, "The fedpeg program enforced on the next block"},
+                {RPCResult::Type::STR_HEX, "current_fedpeg_script", /*optional=*/true, "The fedpeg script enforced on the next block"},
+                {RPCResult::Type::STR, "current_signblock_asm", /*optional=*/true, "ASM of sign block challenge data enforced on the next block"},
+                {RPCResult::Type::STR_HEX, "current_signblock_hex", /*optional=*/true, "Hex of sign block challenge data enforced on the next block"},
+                {RPCResult::Type::NUM, "max_block_witness", /*optional=*/true, "maximum sized block witness serialized size for the next block"},
+                {RPCResult::Type::NUM, "epoch_length", /*optional=*/true, "length of dynamic federations epoch, or signaling period"},
+                {RPCResult::Type::NUM, "total_valid_epochs", /*optional=*/true, "number of epochs a given fedpegscript is valid for, defined per chain"},
+                {RPCResult::Type::NUM, "epoch_age", /*optional=*/true, "number of blocks into a dynamic federation epoch chain tip is. This number is between 0 to epoch_length-1"},
+                {RPCResult::Type::ARR, "extension_space", /*optional=*/true, "array of extension fields in dynamic blockheader",
                 {
                     {RPCResult::Type::ELISION, "", ""}
                 }},
-                {RPCResult::Type::STR_HEX, "current_fedpeg_program", /*optional=*/true, "Current dynafed fedpeg program"},
-                {RPCResult::Type::STR_HEX, "current_fedpeg_script", /*optional=*/true, "Current dynafed fedpeg script"},
-                {RPCResult::Type::NUM, "pruneheight", /*optional=*/true, "height of the last block pruned, plus one (only present if pruning is enabled)"},
+                {RPCResult::Type::NUM, "pruneheight", /*optional=*/true, "lowest-height complete block stored (only present if pruning is enabled)"},
                 {RPCResult::Type::BOOL, "automatic_pruning", /*optional=*/true, "whether automatic pruning is enabled (only present if pruning is enabled)"},
                 {RPCResult::Type::NUM, "prune_target_size", /*optional=*/true, "the target size used by pruning (only present if automatic pruning is enabled)"},
-                {RPCResult::Type::STR_HEX, "signet_challenge", /*optional=*/true, "the block challenge (aka. block script), in hexadecimal (only present if the current network is a signet)"},
                 (IsDeprecatedRPCEnabled("warnings") ?
                     RPCResult{RPCResult::Type::STR, "warnings", "any network and blockchain warnings (DEPRECATED)"} :
                     RPCResult{RPCResult::Type::ARR, "warnings", "any network and blockchain warnings (run with `-deprecatedrpc=warnings` to return the latest warning as a single string)",
@@ -2482,7 +2484,7 @@ static RPCHelpMan scantxoutset()
                         {RPCResult::Type::NUM, "confirmations", "Number of confirmations of the unspent transaction output when the scan was done"},
                     }},
                 }},
-                {RPCResult::Type::STR_AMOUNT, "total_unblinded_bitcoin_amount", "The total amount of all found unspent unblinded outputs in " + CURRENCY_UNIT},
+                {RPCResult::Type::STR_AMOUNT, "total_unblinded_bitcoin_amount", /*optional=*/true, "The total amount of all found unspent unblinded outputs in " + CURRENCY_UNIT},
                 {RPCResult::Type::STR_AMOUNT, "total_amount", /*optional=*/true, "The total amount of all found unspent outputs in " + CURRENCY_UNIT},
             }},
             scan_result_abort,
@@ -3690,6 +3692,12 @@ static RPCHelpMan getsidechaininfo()
                         {RPCResult::Type::STR_HEX, "parent_pegged_asset", /*optional=*/true, "If the parent chain has Confidential Assets, the asset id of the pegged asset in that chain"},
                         {RPCResult::Type::NUM, "pegin_confirmation_depth", "The number of mainchain confirmations required for a peg-in transaction to become valid"},
                         {RPCResult::Type::BOOL, "enforce_pak", "If peg-out authorization is being enforced"},
+                        {RPCResult::Type::STR, "pegin_min_amount", /*optional=*/true, "minimum peg-in amount enforced by consensus"},
+                        {RPCResult::Type::NUM, "pegin_min_height", /*optional=*/true, "block height from which the minimum peg-in amount applies"},
+                        {RPCResult::Type::BOOL, "pegin_min_active", /*optional=*/true, "whether the minimum peg-in rule is active at the current tip"},
+                        {RPCResult::Type::STR, "pegin_subsidy_threshold", /*optional=*/true, "peg-in subsidy threshold amount"},
+                        {RPCResult::Type::NUM, "pegin_subsidy_height", /*optional=*/true, "block height from which the peg-in subsidy rule applies"},
+                        {RPCResult::Type::BOOL, "pegin_subsidy_active", /*optional=*/true, "whether the peg-in subsidy rule is active at the current tip"},
                     }},
                 RPCExamples{
                     HelpExampleCli("getsidechaininfo", "")

@@ -260,9 +260,9 @@ RPCHelpMan listreceivedbyaddress()
                 RPCExamples{
                     HelpExampleCli("listreceivedbyaddress", "")
             + HelpExampleCli("listreceivedbyaddress", "6 true")
-            + HelpExampleCli("listreceivedbyaddress", "6 true true \"\" true")
+            + HelpExampleCli("listreceivedbyaddress", "6 true true \"\" \"\" true")
             + HelpExampleRpc("listreceivedbyaddress", "6, true, true")
-            + HelpExampleRpc("listreceivedbyaddress", "6, true, true, \"" + EXAMPLE_ADDRESS[0] + "\", true")
+            + HelpExampleRpc("listreceivedbyaddress", "6, true, true, \"" + EXAMPLE_ADDRESS[0] + "\", \"\", true")
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
@@ -309,6 +309,7 @@ RPCHelpMan listreceivedbylabel()
                 RPCExamples{
                     HelpExampleCli("listreceivedbylabel", "")
             + HelpExampleCli("listreceivedbylabel", "6 true")
+            + HelpExampleCli("listreceivedbylabel", "6 true true true")
             + HelpExampleRpc("listreceivedbylabel", "6, true, true, true")
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
@@ -620,6 +621,9 @@ RPCHelpMan listsinceblock()
                                     "\"orphan\"                Orphaned coinbase transactions received."},
                                 {RPCResult::Type::STR_AMOUNT, "amount", "The amount in " + CURRENCY_UNIT + ". This is negative for the 'send' category, and is positive\n"
                                     "for all other categories"},
+                                {RPCResult::Type::STR_HEX, "amountblinder", "The amount blinding factor in hex"},
+                                {RPCResult::Type::STR_HEX, "asset", "The asset id in hex"},
+                                {RPCResult::Type::STR_HEX, "assetblinder", "The asset blinding factor in hex"},
                                 {RPCResult::Type::NUM, "vout", "the vout value"},
                                 {RPCResult::Type::STR_HEX, "amountblinder", /*optional=*/true, "The amount blinder"},
                                 {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "The asset type"},
@@ -924,7 +928,7 @@ RPCHelpMan rescanblockchain()
                     RPCResult::Type::OBJ, "", "",
                     {
                         {RPCResult::Type::NUM, "start_height", "The block height where the rescan started (the requested height or 0)"},
-                        {RPCResult::Type::NUM, "stop_height", "The height of the last rescanned block. May be null in rare cases if there was a reorg and the call didn't scan any blocks because they were already scanned in the background."},
+                        {RPCResult::Type::NUM, "stop_height", /*optional=*/true, "The height of the last rescanned block. May be null in rare cases if there was a reorg and the call didn't scan any blocks because they were already scanned in the background."},
                     }
                 },
                 RPCExamples{
