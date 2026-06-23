@@ -58,12 +58,8 @@
         <translation type="unfinished">​ရွေးပါ</translation>
     </message>
     <message>
-        <source>Sending addresses</source>
-        <translation type="unfinished">လိပ်စာပေးပို့နေသည်</translation>
-    </message>
-    <message>
-        <source>Receiving addresses</source>
-        <translation type="unfinished">လိပ်စာလက်ခံရရှိသည်</translation>
+        <source>&amp;Edit</source>
+        <translation type="unfinished">&amp;ပြင်ဆင်</translation>
     </message>
     <message>
         <source>Exporting Failed</source>
@@ -82,7 +78,42 @@
     </message>
     </context>
 <context>
+    <name>AskPassphraseDialog</name>
+    <message>
+        <source>Passphrase Dialog</source>
+        <translation type="unfinished">စကားဝှက် ဒိုင်ယာလော့ဂ်</translation>
+    </message>
+    <message>
+        <source>Enter passphrase</source>
+        <translation type="unfinished">စကားဝှက် ရိုက်ထည့်ရန်</translation>
+    </message>
+    <message>
+        <source>New passphrase</source>
+        <translation type="unfinished">စကားဝှက် အသစ်</translation>
+    </message>
+    <message>
+        <source>Repeat new passphrase</source>
+        <translation type="unfinished">စကားဝှက် အသစ်ပြန်ရိုက်ပါ</translation>
+    </message>
+    <message>
+        <source>Show passphrase</source>
+        <translation type="unfinished">စကားဝှက် ပြရန်</translation>
+    </message>
+    <message>
+        <source>Encrypt wallet</source>
+        <translation type="unfinished">ပိုက်ဆံအိတ် ကို ဝှက်စာပြုလုပ်ပါ</translation>
+    </message>
+    <message>
+        <source>This operation needs your wallet passphrase to unlock the wallet.</source>
+        <translation type="unfinished">ဤလုပ်ဆောင်ချက်သည် ပိုက်ဆံအိတ်ကို လော့ခ်ဖွင့်ရန် သင့်ပိုက်ဆံအိတ် စကားဝှက် လိုအပ်ပါသည်။</translation>
+    </message>
+    </context>
+<context>
     <name>QObject</name>
+    <message>
+        <source>Error: %1</source>
+        <translation type="unfinished">အမှား-%1</translation>
+    </message>
     <message numerus="yes">
         <source>%n second(s)</source>
         <translation type="unfinished">
@@ -155,6 +186,10 @@
             <numerusform />
         </translation>
     </message>
+    <message>
+        <source>Error: %1</source>
+        <translation type="unfinished">အမှား-%1</translation>
+    </message>
     </context>
 <context>
     <name>CoinControlDialog</name>
@@ -162,17 +197,27 @@
         <source>Date</source>
         <translation type="unfinished">နေ့စွဲ</translation>
     </message>
-    <message>
-        <source>yes</source>
-        <translation type="unfinished">ဟုတ်တယ်</translation>
-    </message>
-    <message>
-        <source>no</source>
-        <translation type="unfinished">မဟုတ်ဘူး</translation>
-    </message>
     </context>
 <context>
     <name>Intro</name>
+    <message numerus="yes">
+        <source>%n GB of space available</source>
+        <translation type="unfinished">
+            <numerusform />
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>(of %n GB needed)</source>
+        <translation type="unfinished">
+            <numerusform />
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>(%n GB needed for full chain)</source>
+        <translation type="unfinished">
+            <numerusform />
+        </translation>
+    </message>
     <message numerus="yes">
         <source>(sufficient to restore backups %n day(s) old)</source>
         <extracomment>Explanatory text on the capability of the current prune target.</extracomment>

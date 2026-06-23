@@ -35,6 +35,9 @@ class CTTest(BitcoinTestFramework):
             args + ["-acceptdiscountct=0", "-creatediscountct=1"],
         ]
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
         self.skip_if_no_bdb()
@@ -92,7 +95,13 @@ class CTTest(BitcoinTestFramework):
         self.log.info("Send explicit tx to node 1")
         addr = node1.getnewaddress()
         info = node1.getaddressinfo(addr)
+        ct_utxos = [{'txid': u['txid'], 'vout': u['vout']}
+                    for u in node0.listunspent() if u['amount'] != Decimal('1')]
+        if ct_utxos:
+            node0.lockunspent(False, ct_utxos)
         txid = node0.sendtoaddress(info['unconfidential'], 1.0, "", "", False, None, None, None, None, None, None, feerate)
+        if ct_utxos:
+            node0.lockunspent(True, ct_utxos)
         tx = node0.gettransaction(txid, True, True)
         decoded = tx['decoded']
         vin = decoded['vin']
@@ -361,4 +370,4 @@ class CTTest(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    CTTest().main()
+    CTTest(__file__).main()

@@ -28,7 +28,7 @@ void GenerateAssetEntropy(uint256& entropy, const COutPoint& prevout, const uint
     // E = H( H(I) || H(C) )
     std::vector<uint256> leaves;
     leaves.reserve(2);
-    leaves.push_back(SerializeHash(prevout, SER_GETHASH, 0));
+    leaves.push_back((HashWriter{} << prevout).GetHash());
     leaves.push_back(contracthash);
     entropy = ComputeFastMerkleRoot(leaves);
 }
@@ -79,7 +79,7 @@ void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevout, cons
 
     // Note: Genesis block isn't actually validated, outputs are entered into utxo db only
     CMutableTransaction txNew;
-    txNew.nVersion = 1;
+    txNew.version = 1;
     txNew.vin.resize(1);
     txNew.vin[0].prevout = prevout;
     txNew.vin[0].assetIssuance.assetEntropy = contract;
@@ -87,10 +87,10 @@ void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevout, cons
     txNew.vin[0].assetIssuance.nInflationKeys = CConfidentialValue(reissuance_values * reissuance_outputs);
 
     for (unsigned int i = 0; i < asset_outputs; i++) {
-        txNew.vout.push_back(CTxOut(asset, CConfidentialValue(asset_values), issuance_destination));
+        txNew.vout.emplace_back(asset, CConfidentialValue(asset_values), issuance_destination);
     }
     for (unsigned int i = 0; i < reissuance_outputs; i++) {
-        txNew.vout.push_back(CTxOut(reissuance, CConfidentialValue(reissuance_values), issuance_destination));
+        txNew.vout.emplace_back(reissuance, CConfidentialValue(reissuance_values), issuance_destination);
     }
 
     genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew)));

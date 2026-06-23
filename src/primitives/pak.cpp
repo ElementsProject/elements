@@ -74,9 +74,9 @@ void CPAKList::ToBytes(std::vector<std::vector<unsigned char> >& offline_keys, s
         unsigned char pubkey[33];
         size_t outputlen = 33;
         secp256k1_ec_pubkey_serialize(secp256k1_ctx_pak, pubkey, &outputlen, &m_offline_keys[i], SECP256K1_EC_COMPRESSED);
-        offline_keys.push_back(std::vector<unsigned char>(pubkey, pubkey+outputlen));
+        offline_keys.emplace_back(pubkey, pubkey + outputlen);
         secp256k1_ec_pubkey_serialize(secp256k1_ctx_pak, pubkey, &outputlen, &m_online_keys[i], SECP256K1_EC_COMPRESSED);
-        online_keys.push_back(std::vector<unsigned char>(pubkey, pubkey+outputlen));
+        online_keys.emplace_back(pubkey, pubkey + outputlen);
     }
 }
 

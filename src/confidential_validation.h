@@ -28,13 +28,13 @@ CAmountMap GetFeeMap(const CTransaction& tx);
 class CCheck
  {
  protected:
-     ScriptError error;
+     ScriptError error{SCRIPT_ERR_UNKNOWN_ERROR};
 
  public:
-     CCheck() : error(SCRIPT_ERR_UNKNOWN_ERROR) {}
-     virtual ~CCheck() {}
+     CCheck() = default;
+     virtual ~CCheck() = default;
 
-     virtual bool operator()() = 0;
+     virtual std::optional<std::pair<ScriptError, std::string>> operator()() = 0;
 
      ScriptError GetScriptError() const { return error; }
 };
@@ -53,7 +53,7 @@ private:
 public:
     CRangeCheck(const CConfidentialValue* val_, const std::vector<unsigned char>& rangeproof_, const std::vector<unsigned char>& assetCommitment_, const CScript& scriptPubKey_, const bool storeIn) : val(val_), rangeproof(rangeproof_), assetCommitment(assetCommitment_), scriptPubKey(scriptPubKey_), store(storeIn) {}
 
-    bool operator()() override;
+    std::optional<std::pair<ScriptError, std::string>> operator()() override;
 };
 
 /** Closure representing a transaction amount balance check. */
@@ -70,7 +70,7 @@ public:
         vpCommitsOut.swap(vpCommitsOut_);
     }
 
-    bool operator()() override;
+    std::optional<std::pair<ScriptError, std::string>> operator()() override;
 };
 
 class CSurjectionCheck : public CCheck
@@ -84,7 +84,7 @@ private:
 public:
     CSurjectionCheck(secp256k1_surjectionproof& proof_in, std::vector<secp256k1_generator>& tags_in, secp256k1_generator& gen_in, uint256& wtxid_in, const bool store_in) : proof(proof_in), vTags(tags_in), gen(gen_in), wtxid(wtxid_in), store(store_in) {}
 
-    bool operator()() override;
+    std::optional<std::pair<ScriptError, std::string>> operator()() override;
 };
 
 ScriptError QueueCheck(std::vector<CCheck*>* queue, CCheck* check);

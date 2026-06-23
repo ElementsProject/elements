@@ -2,7 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <util/system.h>
+#include <common/args.h>
+#include <logging.h>
 #include <walletinitinterface.h>
 
 class ArgsManager;
@@ -50,7 +51,9 @@ void DummyWalletInit::AddWalletOptions(ArgsManager& argsman) const
         "-flushwallet",
         "-privdb",
         "-walletrejectlongchains",
+        "-walletcrosschain",
         "-unsafesqlitesync",
+        "-swapbdbendian",
     });
 }
 

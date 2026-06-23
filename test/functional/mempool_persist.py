@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2014-2021 The Bitcoin Core developers
+# Copyright (c) 2014-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test mempool persistence.
@@ -46,17 +46,19 @@ from test_framework.util import (
     assert_greater_than_or_equal,
     assert_raises_rpc_error,
 )
-from test_framework.wallet import MiniWallet
+from test_framework.wallet import MiniWallet, COIN
 
 
 class MempoolPersistTest(BitcoinTestFramework):
+    def add_options(self, parser):
+        self.add_wallet_options(parser, legacy=False)
+
     def set_test_params(self):
         self.num_nodes = 3
         self.extra_args = [[], ["-persistmempool=0"], []]
 
     def run_test(self):
         self.mini_wallet = MiniWallet(self.nodes[2])
-        self.mini_wallet.rescan_utxos()
         if self.is_sqlite_compiled():
             self.nodes[2].createwallet(
                 wallet_name="watch",
@@ -105,6 +107,11 @@ class MempoolPersistTest(BitcoinTestFramework):
         assert_equal(len(self.nodes[0].p2ps), 0)
         self.mini_wallet.send_self_transfer(from_node=self.nodes[0])
 
+        # Test persistence of prioritisation for transactions not in the mempool.
+        # Create a tx and prioritise but don't submit until after the restart.
+        tx_prioritised_not_submitted = self.mini_wallet.create_self_transfer()
+        self.nodes[0].prioritisetransaction(txid=tx_prioritised_not_submitted['txid'], fee_delta=9999)
+
         self.log.debug("Stop-start the nodes. Verify that node0 has the transactions in its mempool and node1 does not. Verify that node2 calculates its balance correctly after loading wallet transactions.")
         self.stop_nodes()
         # Give this node a head-start, so we can be "extra-sure" that it didn't load anything later
@@ -125,6 +132,9 @@ class MempoolPersistTest(BitcoinTestFramework):
 
         self.log.debug('Verify all fields are loaded correctly')
         assert_equal(last_entry, self.nodes[0].getmempoolentry(txid=last_txid))
+        self.nodes[0].sendrawtransaction(tx_prioritised_not_submitted['hex'])
+        entry_prioritised_before_restart = self.nodes[0].getmempoolentry(txid=tx_prioritised_not_submitted['txid'])
+        assert_equal(entry_prioritised_before_restart['fees']['base'] + Decimal('0.00009999'), entry_prioritised_before_restart['fees']['modified'])
 
         # Verify accounting of mempool transactions after restart is correct
         if self.is_sqlite_compiled():
@@ -133,32 +143,50 @@ class MempoolPersistTest(BitcoinTestFramework):
             self.nodes[2].syncwithvalidationinterfacequeue()  # Flush mempool to wallet
             assert_equal(node2_balance, wallet_watch.getbalance())
 
+        mempooldat0 = os.path.join(self.nodes[0].chain_path, 'mempool.dat')
+        mempooldat1 = os.path.join(self.nodes[1].chain_path, 'mempool.dat')
+
+        self.log.debug("Force -persistmempool=0 node1 to savemempool to disk via RPC")
+        assert not os.path.exists(mempooldat1)
+        result1 = self.nodes[1].savemempool()
+        assert os.path.isfile(mempooldat1)
+        assert_equal(result1['filename'], mempooldat1)
+        os.remove(mempooldat1)
+
         self.log.debug("Stop-start node0 with -persistmempool=0. Verify that it doesn't load its mempool.dat file.")
         self.stop_nodes()
         self.start_node(0, extra_args=["-persistmempool=0"])
         assert self.nodes[0].getmempoolinfo()["loaded"]
         assert_equal(len(self.nodes[0].getrawmempool()), 0)
 
+        self.log.debug("Import mempool at runtime to node0.")
+        assert_equal({}, self.nodes[0].importmempool(mempooldat0))
+        assert_equal(len(self.nodes[0].getrawmempool()), 7)
+        fees = self.nodes[0].getmempoolentry(txid=last_txid)["fees"]
+        assert_equal(fees["base"], fees["modified"])
+        assert_equal({}, self.nodes[0].importmempool(mempooldat0, {"apply_fee_delta_priority": True, "apply_unbroadcast_set": True}))
+        assert_equal(2, self.nodes[0].getmempoolinfo()["unbroadcastcount"])
+        fees = self.nodes[0].getmempoolentry(txid=last_txid)["fees"]
+        assert_equal(fees["base"] + Decimal("0.00001000"), fees["modified"])
+
         self.log.debug("Stop-start node0. Verify that it has the transactions in its mempool.")
         self.stop_nodes()
         self.start_node(0)
         assert self.nodes[0].getmempoolinfo()["loaded"]
-        assert_equal(len(self.nodes[0].getrawmempool()), 6)
+        assert_equal(len(self.nodes[0].getrawmempool()), 7)
 
-        mempooldat0 = os.path.join(self.nodes[0].datadir, self.chain, 'mempool.dat')
-        mempooldat1 = os.path.join(self.nodes[1].datadir, self.chain, 'mempool.dat')
         self.log.debug("Remove the mempool.dat file. Verify that savemempool to disk via RPC re-creates it")
         os.remove(mempooldat0)
         result0 = self.nodes[0].savemempool()
         assert os.path.isfile(mempooldat0)
         assert_equal(result0['filename'], mempooldat0)
 
-        self.log.debug("Stop nodes, make node1 use mempool.dat from node0. Verify it has 6 transactions")
+        self.log.debug("Stop nodes, make node1 use mempool.dat from node0. Verify it has 7 transactions")
         os.rename(mempooldat0, mempooldat1)
         self.stop_nodes()
         self.start_node(1, extra_args=["-persistmempool"])
         assert self.nodes[1].getmempoolinfo()["loaded"]
-        assert_equal(len(self.nodes[1].getrawmempool()), 6)
+        assert_equal(len(self.nodes[1].getrawmempool()), 7)
 
         self.log.debug("Prevent bitcoind from writing mempool.dat to disk. Verify that `savemempool` fails")
         # to test the exception we are creating a tmp folder called mempool.dat.new
@@ -168,11 +196,13 @@ class MempoolPersistTest(BitcoinTestFramework):
         assert_raises_rpc_error(-1, "Unable to dump mempool to disk", self.nodes[1].savemempool)
         os.rmdir(mempooldotnew1)
 
+        self.test_importmempool_union()
         self.test_persist_unbroadcast()
 
     def test_persist_unbroadcast(self):
         node0 = self.nodes[0]
         self.start_node(0)
+        self.start_node(2)
 
         # clear out mempool
         self.generate(node0, 1, sync_fun=self.no_op)
@@ -191,6 +221,46 @@ class MempoolPersistTest(BitcoinTestFramework):
         node0.mockscheduler(16 * 60)  # 15 min + 1 for buffer
         self.wait_until(lambda: len(conn.get_invs()) == 1)
 
+    def test_importmempool_union(self):
+        self.log.debug("Submit different transactions to node0 and node1's mempools")
+        self.start_node(0)
+        self.start_node(2)
+        tx_node0 = self.mini_wallet.send_self_transfer(from_node=self.nodes[0])
+        tx_node1 = self.mini_wallet.send_self_transfer(from_node=self.nodes[1])
+        tx_node01 = self.mini_wallet.create_self_transfer()
+        tx_node01_secret = self.mini_wallet.create_self_transfer()
+        self.nodes[0].prioritisetransaction(tx_node01["txid"], 0, COIN)
+        self.nodes[0].prioritisetransaction(tx_node01_secret["txid"], 0, 2 * COIN)
+        self.nodes[1].prioritisetransaction(tx_node01_secret["txid"], 0, 3 * COIN)
+        self.nodes[0].sendrawtransaction(tx_node01["hex"])
+        self.nodes[1].sendrawtransaction(tx_node01["hex"])
+        assert tx_node0["txid"] in self.nodes[0].getrawmempool()
+        assert not tx_node0["txid"] in self.nodes[1].getrawmempool()
+        assert not tx_node1["txid"] in self.nodes[0].getrawmempool()
+        assert tx_node1["txid"] in self.nodes[1].getrawmempool()
+        assert tx_node01["txid"] in self.nodes[0].getrawmempool()
+        assert tx_node01["txid"] in self.nodes[1].getrawmempool()
+        assert not tx_node01_secret["txid"] in self.nodes[0].getrawmempool()
+        assert not tx_node01_secret["txid"] in self.nodes[1].getrawmempool()
+
+        self.log.debug("Check that importmempool can add txns without replacing the entire mempool")
+        mempooldat0 = str(self.nodes[0].chain_path / "mempool.dat")
+        result0 = self.nodes[0].savemempool()
+        assert_equal(mempooldat0, result0["filename"])
+        assert_equal({}, self.nodes[1].importmempool(mempooldat0, {"apply_fee_delta_priority": True}))
+        # All transactions should be in node1's mempool now.
+        assert tx_node0["txid"] in self.nodes[1].getrawmempool()
+        assert tx_node1["txid"] in self.nodes[1].getrawmempool()
+        assert not tx_node1["txid"] in self.nodes[0].getrawmempool()
+        # For transactions that already existed, priority should be changed
+        entry_node01 = self.nodes[1].getmempoolentry(tx_node01["txid"])
+        assert_equal(entry_node01["fees"]["base"] + 1, entry_node01["fees"]["modified"])
+        # Deltas for not-yet-submitted transactions should be applied as well (prioritisation is stackable).
+        self.nodes[1].sendrawtransaction(tx_node01_secret["hex"])
+        entry_node01_secret = self.nodes[1].getmempoolentry(tx_node01_secret["txid"])
+        assert_equal(entry_node01_secret["fees"]["base"] + 5, entry_node01_secret["fees"]["modified"])
+        self.stop_nodes()
+
 
 if __name__ == "__main__":
-    MempoolPersistTest().main()
+    MempoolPersistTest(__file__).main()

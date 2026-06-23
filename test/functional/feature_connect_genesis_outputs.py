@@ -19,6 +19,9 @@ class ConnectGenesisTest(BitcoinTestFramework):
         self.extra_args = [["-con_connect_genesis_outputs=0", "-initialfreecoins={}".format(NUM_INITIAL_COINS * COIN), '-txindex=1'],
                            ["-con_connect_genesis_outputs=1", "-initialfreecoins={}".format(NUM_INITIAL_COINS * COIN), '-anyonecanspendaremine=1']]
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
@@ -67,4 +70,4 @@ class ConnectGenesisTest(BitcoinTestFramework):
         self.nodes[1].gettransaction(issuance_tx)
 
 if __name__ == '__main__':
-    ConnectGenesisTest().main()
+    ConnectGenesisTest(__file__).main()

@@ -58,14 +58,6 @@
         <translation type="unfinished">Ô&amp;bier</translation>
     </message>
     <message>
-        <source>Sending addresses</source>
-        <translation type="unfinished">Adresy posyłaniŏ</translation>
-    </message>
-    <message>
-        <source>Receiving addresses</source>
-        <translation type="unfinished">Adresy ôdbiyraniŏ</translation>
-    </message>
-    <message>
         <source>These are your Bitcoin addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
         <translation type="unfinished">Tukej sōm adresy Bitcoin na kere posyłŏsz płaty. Dycki wybaduj wielość i adresã ôdbiyrŏcza przed posłaniym mōnet.</translation>
     </message>
@@ -268,70 +260,11 @@
             <numerusform />
         </translation>
     </message>
-    </context>
-<context>
-    <name>bitcoin-core</name>
     <message>
-        <source>The %s developers</source>
-        <translation type="unfinished">Twōrcy %s</translation>
+        <source>default wallet</source>
+        <translation type="unfinished">wychodny portmanyj</translation>
     </message>
-    <message>
-        <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
-        <translation type="unfinished">Imyntnŏ dugość kety wersyje (%i) przekrŏczŏ maksymalnõ dopuszczalnõ dugość (%i). Zmyńsz wielość abo miara parametra uacomment.</translation>
-    </message>
-    <message>
-        <source>Warning: Private keys detected in wallet {%s} with disabled private keys</source>
-        <translation type="unfinished">Pozōr: Wykryto było klucze prywatne w portmanyju {%s} kery mŏ zastawiōne klucze prywatne</translation>
-    </message>
-    <message>
-        <source>Done loading</source>
-        <translation type="unfinished">Wgrŏwanie zakōńczōne</translation>
-    </message>
-    <message>
-        <source>Error loading %s</source>
-        <translation type="unfinished">Feler wgrŏwaniŏ %s</translation>
-    </message>
-    <message>
-        <source>Error loading %s: Private keys can only be disabled during creation</source>
-        <translation type="unfinished">Feler wgrŏwaniŏ %s: Klucze prywatne mogōm być zastawiōne ino w czasie tworzyniŏ</translation>
-    </message>
-    <message>
-        <source>Error loading %s: Wallet corrupted</source>
-        <translation type="unfinished">Feler wgrŏwaniŏ %s: Portmanyj poprzniōny</translation>
-    </message>
-    <message>
-        <source>Error loading %s: Wallet requires newer version of %s</source>
-        <translation type="unfinished">Feler wgrŏwaniŏ %s: Portmanyj fołdruje nowszyj wersyje %s</translation>
-    </message>
-    <message>
-        <source>Error loading block database</source>
-        <translation type="unfinished">Feler wgrŏwaniŏ bazy blokōw</translation>
-    </message>
-    <message>
-        <source>Error: Disk space is low for %s</source>
-        <translation type="unfinished">Feler: Za mało wolnego placu na dysku dlŏ %s</translation>
-    </message>
-    <message>
-        <source>Signing transaction failed</source>
-        <translation type="unfinished">Szkryftniyńcie transakcyji niy podarziło sie</translation>
-    </message>
-    <message>
-        <source>This is experimental software.</source>
-        <translation type="unfinished">To je eksperymyntalny softwer.</translation>
-    </message>
-    <message>
-        <source>Transaction too large</source>
-        <translation type="unfinished">Transakcyjŏ za srogŏ</translation>
-    </message>
-    <message>
-        <source>Unknown network specified in -onlynet: '%s'</source>
-        <translation type="unfinished">Niyznōmy nec ôkryślōny w -onlynet: '%s'</translation>
-    </message>
-    <message>
-        <source>Unsupported logging category %s=%s.</source>
-        <translation type="unfinished">Niypodpiyranŏ kategoryjŏ registrowaniŏ %s=%s.</translation>
-    </message>
-    </context>
+</context>
 <context>
     <name>BitcoinGUI</name>
     <message>
@@ -498,10 +431,6 @@
         <translation type="unfinished">Pokŏż pōmoc %1 coby zobŏczyć wykŏz wszyjskich ôpcyji piski nakŏzań.</translation>
     </message>
     <message>
-        <source>default wallet</source>
-        <translation type="unfinished">wychodny portmanyj</translation>
-    </message>
-    <message>
         <source>&amp;Window</source>
         <translation type="unfinished">Ô&amp;kno</translation>
     </message>
@@ -604,10 +533,6 @@
         <translation type="unfinished">Ôpłŏcka:</translation>
     </message>
     <message>
-        <source>Dust:</source>
-        <translation type="unfinished">Sztaub:</translation>
-    </message>
-    <message>
         <source>After Fee:</source>
         <translation type="unfinished">Po ôpłŏcce:</translation>
     </message>
@@ -672,28 +597,12 @@
         <translation type="unfinished">Kopiyruj wielość bajtōw</translation>
     </message>
     <message>
-        <source>Copy dust</source>
-        <translation type="unfinished">Kopiyruj sztaub</translation>
-    </message>
-    <message>
         <source>Copy change</source>
         <translation type="unfinished">Kopiyruj wydŏwkã</translation>
     </message>
     <message>
         <source>(%1 locked)</source>
         <translation type="unfinished">(%1 zaszperowane)</translation>
-    </message>
-    <message>
-        <source>yes</source>
-        <translation type="unfinished">ja</translation>
-    </message>
-    <message>
-        <source>no</source>
-        <translation type="unfinished">niy</translation>
-    </message>
-    <message>
-        <source>This label turns red if any recipient receives an amount smaller than the current dust threshold.</source>
-        <translation type="unfinished">Ta etyketa stŏwŏ sie czyrwōnŏ jeźli keryś z ôdbiyrŏczy dostŏwŏ kwotã myńszõ aniżeli terŏźny prōg sztaubu.</translation>
     </message>
     <message>
         <source>Can vary +/- %1 satoshi(s) per input.</source>
@@ -712,13 +621,6 @@
         <translation type="unfinished">(wydŏwka)</translation>
     </message>
 </context>
-<context>
-    <name>OpenWalletActivity</name>
-    <message>
-        <source>default wallet</source>
-        <translation type="unfinished">wychodny portmanyj</translation>
-    </message>
-    </context>
 <context>
     <name>CreateWalletDialog</name>
     <message>
@@ -802,6 +704,24 @@
 </context>
 <context>
     <name>Intro</name>
+    <message numerus="yes">
+        <source>%n GB of space available</source>
+        <translation type="unfinished">
+            <numerusform />
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>(of %n GB needed)</source>
+        <translation type="unfinished">
+            <numerusform>(z %n GB przidajnego)</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>(%n GB needed for full chain)</source>
+        <translation type="unfinished">
+            <numerusform />
+        </translation>
+    </message>
     <message>
         <source>At least %1 GB of data will be stored in this directory, and it will grow over time.</source>
         <translation type="unfinished">Co nojmynij %1 GB datōw ôstanie spamiyntane w tym katalogu, daty te bydōm z czasym corŏz srogsze.</translation>
@@ -844,10 +764,6 @@
     <message>
         <source>As this is the first time the program is launched, you can choose where %1 will store its data.</source>
         <translation type="unfinished">Pōniywŏż je to piyrsze sztartniyńcie programu, możesz ôbrać kaj %1 bydzie spamiyntować swoje daty.</translation>
-    </message>
-    <message>
-        <source>When you click OK, %1 will begin to download and process the full %4 block chain (%2GB) starting with the earliest transactions in %3 when %4 initially launched.</source>
-        <translation type="unfinished">Kej naciśniesz OK, %1 zacznie pobiyrać i przetwŏrzać cołkõ %4 keta blokōw (%2GB) przi zaczynaniu ôd piyrszych transakcyji w %3 kej %4 ôstoł sztartniynty.</translation>
     </message>
     <message>
         <source>This initial synchronisation is very demanding, and may expose hardware problems with your computer that had previously gone unnoticed. Each time you run %1, it will continue downloading where it left off.</source>
@@ -1005,14 +921,6 @@
     <message>
         <source>&amp;Spend unconfirmed change</source>
         <translation type="unfinished">&amp;Wydej niyprzituplowanõ wydŏwkã</translation>
-    </message>
-    <message>
-        <source>Automatically open the Bitcoin client port on the router. This only works when your router supports UPnP and it is enabled.</source>
-        <translation type="unfinished">Autōmatycznie ôdewrzij port klijynta Bitcoin na routerze. Ta ôpcyjŏ funguje ino jeźli twōj router podpiyrŏ UPnP i je ôno zapuszczone.</translation>
-    </message>
-    <message>
-        <source>Map port using &amp;UPnP</source>
-        <translation type="unfinished">Mapuj port przi używaniu &amp;UPnP</translation>
     </message>
     <message>
         <source>Accept connections from outside.</source>
@@ -1410,10 +1318,6 @@
         <translation type="unfinished">Włŏsne:</translation>
     </message>
     <message>
-        <source>Dust:</source>
-        <translation type="unfinished">Sztaub:</translation>
-    </message>
-    <message>
         <source>Balance:</source>
         <translation type="unfinished">Saldo:</translation>
     </message>
@@ -1436,10 +1340,6 @@
     <message>
         <source>Copy bytes</source>
         <translation type="unfinished">Kopiyruj wielość bajtōw</translation>
-    </message>
-    <message>
-        <source>Copy dust</source>
-        <translation type="unfinished">Kopiyruj sztaub</translation>
     </message>
     <message>
         <source>Copy change</source>
@@ -1498,7 +1398,7 @@
         <source>A message that was attached to the bitcoin: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Bitcoin network.</source>
         <translation type="unfinished">Wiadōmość, kerŏ ôstała prziwstōnŏ do URI bitcoin:, kerŏ bydzie przechowowanŏ z transakcyjōm w cylach informacyjnych. Napōmniynie: Ta wiadōmość niy bydzie rozszyrzowanŏ w necu Bitcoin.</translation>
     </message>
-    </context>
+</context>
 <context>
     <name>SignVerifyMessageDialog</name>
     <message>
@@ -1606,10 +1506,6 @@
         <translation type="unfinished">Ôdebrane ôd</translation>
     </message>
     <message>
-        <source>Payment to yourself</source>
-        <translation type="unfinished">Płat do siebie</translation>
-    </message>
-    <message>
         <source>(no label)</source>
         <translation type="unfinished">(chyba etykety)</translation>
     </message>
@@ -1682,11 +1578,7 @@
         <source>New fee:</source>
         <translation type="unfinished">Nowŏ ôpłŏcka:</translation>
     </message>
-    <message>
-        <source>default wallet</source>
-        <translation type="unfinished">wychodny portmanyj</translation>
-    </message>
-</context>
+    </context>
 <context>
     <name>WalletView</name>
     <message>
@@ -1706,4 +1598,67 @@
         <translation type="unfinished">Pociep</translation>
     </message>
 </context>
+<context>
+    <name>bitcoin-core</name>
+    <message>
+        <source>The %s developers</source>
+        <translation type="unfinished">Twōrcy %s</translation>
+    </message>
+    <message>
+        <source>Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.</source>
+        <translation type="unfinished">Imyntnŏ dugość kety wersyje (%i) przekrŏczŏ maksymalnõ dopuszczalnõ dugość (%i). Zmyńsz wielość abo miara parametra uacomment.</translation>
+    </message>
+    <message>
+        <source>Warning: Private keys detected in wallet {%s} with disabled private keys</source>
+        <translation type="unfinished">Pozōr: Wykryto było klucze prywatne w portmanyju {%s} kery mŏ zastawiōne klucze prywatne</translation>
+    </message>
+    <message>
+        <source>Done loading</source>
+        <translation type="unfinished">Wgrŏwanie zakōńczōne</translation>
+    </message>
+    <message>
+        <source>Error loading %s</source>
+        <translation type="unfinished">Feler wgrŏwaniŏ %s</translation>
+    </message>
+    <message>
+        <source>Error loading %s: Private keys can only be disabled during creation</source>
+        <translation type="unfinished">Feler wgrŏwaniŏ %s: Klucze prywatne mogōm być zastawiōne ino w czasie tworzyniŏ</translation>
+    </message>
+    <message>
+        <source>Error loading %s: Wallet corrupted</source>
+        <translation type="unfinished">Feler wgrŏwaniŏ %s: Portmanyj poprzniōny</translation>
+    </message>
+    <message>
+        <source>Error loading %s: Wallet requires newer version of %s</source>
+        <translation type="unfinished">Feler wgrŏwaniŏ %s: Portmanyj fołdruje nowszyj wersyje %s</translation>
+    </message>
+    <message>
+        <source>Error loading block database</source>
+        <translation type="unfinished">Feler wgrŏwaniŏ bazy blokōw</translation>
+    </message>
+    <message>
+        <source>Error: Disk space is low for %s</source>
+        <translation type="unfinished">Feler: Za mało wolnego placu na dysku dlŏ %s</translation>
+    </message>
+    <message>
+        <source>Signing transaction failed</source>
+        <translation type="unfinished">Szkryftniyńcie transakcyji niy podarziło sie</translation>
+    </message>
+    <message>
+        <source>This is experimental software.</source>
+        <translation type="unfinished">To je eksperymyntalny softwer.</translation>
+    </message>
+    <message>
+        <source>Transaction too large</source>
+        <translation type="unfinished">Transakcyjŏ za srogŏ</translation>
+    </message>
+    <message>
+        <source>Unknown network specified in -onlynet: '%s'</source>
+        <translation type="unfinished">Niyznōmy nec ôkryślōny w -onlynet: '%s'</translation>
+    </message>
+    <message>
+        <source>Unsupported logging category %s=%s.</source>
+        <translation type="unfinished">Niypodpiyranŏ kategoryjŏ registrowaniŏ %s=%s.</translation>
+    </message>
+    </context>
 </TS>

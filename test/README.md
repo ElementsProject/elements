@@ -13,12 +13,14 @@ interfaces.
 - [util](/test/util) which tests the utilities (bitcoin-util, bitcoin-tx, ...).
 - [lint](/test/lint/) which perform various static analysis checks.
 
-The util tests are run as part of `make check` target. The fuzz tests, functional
+The util tests are run as part of `ctest` invocation. The fuzz tests, functional
 tests and lint scripts can be run as explained in the sections below.
 
 # Running tests locally
 
 Before tests can be run locally, Bitcoin Core must be built.  See the [building instructions](/doc#building) for help.
+
+The following examples assume that the build directory is named `build`.
 
 ## Fuzz tests
 
@@ -45,19 +47,19 @@ set PYTHONUTF8=1
 Individual tests can be run by directly calling the test script, e.g.:
 
 ```
-test/functional/feature_rbf.py
+build/test/functional/feature_rbf.py
 ```
 
 or can be run through the test_runner harness, eg:
 
 ```
-test/functional/test_runner.py feature_rbf.py
+build/test/functional/test_runner.py feature_rbf.py
 ```
 
 You can run any combination (incl. duplicates) of tests by calling:
 
 ```
-test/functional/test_runner.py <testname1> <testname2> <testname3> ...
+build/test/functional/test_runner.py <testname1> <testname2> <testname3> ...
 ```
 
 Wildcard test names can be passed, if the paths are coherent and the test runner
@@ -65,47 +67,100 @@ is called from a `bash` shell or similar that does the globbing. For example,
 to run all the wallet tests:
 
 ```
-test/functional/test_runner.py test/functional/wallet*
-functional/test_runner.py functional/wallet* (called from the test/ directory)
-test_runner.py wallet* (called from the test/functional/ directory)
+build/test/functional/test_runner.py test/functional/wallet*
+functional/test_runner.py functional/wallet*  # (called from the build/test/ directory)
+test_runner.py wallet*  # (called from the build/test/functional/ directory)
 ```
 
 but not
 
 ```
-test/functional/test_runner.py wallet*
+build/test/functional/test_runner.py wallet*
 ```
 
 Combinations of wildcards can be passed:
 
 ```
-test/functional/test_runner.py ./test/functional/tool* test/functional/mempool*
+build/test/functional/test_runner.py ./test/functional/tool* test/functional/mempool*
 test_runner.py tool* mempool*
 ```
 
 Run the regression test suite with:
 
 ```
-test/functional/test_runner.py
+build/test/functional/test_runner.py
 ```
 
 Run all possible tests with
 
 ```
-test/functional/test_runner.py --extended
+build/test/functional/test_runner.py --extended
 ```
 
-In order to run backwards compatibility tests, download the previous node binaries:
+In order to run backwards compatibility tests, first run:
 
 ```
-test/get_previous_releases.py -b v22.0 v0.21.0 v0.20.1 v0.19.1 v0.18.1 v0.17.2 v0.16.3 v0.15.2
+test/get_previous_releases.py -b
 ```
+
+to download the necessary previous release binaries.
 
 By default, up to 4 tests will be run in parallel by test_runner. To specify
 how many jobs to run, append `--jobs=n`
 
 The individual tests and the test_runner harness have many command-line
-options. Run `test/functional/test_runner.py -h` to see them all.
+options. Run `build/test/functional/test_runner.py -h` to see them all.
+
+#### Speed up test runs with a RAM disk
+
+If you have available RAM on your system you can create a RAM disk to use as the `cache` and `tmp` directories for the functional tests in order to speed them up.
+Speed-up amount varies on each system (and according to your RAM speed and other variables), but a 2-3x speed-up is not uncommon.
+
+**Linux**
+
+To create a 4 GiB RAM disk at `/mnt/tmp/`:
+
+```bash
+sudo mkdir -p /mnt/tmp
+sudo mount -t tmpfs -o size=4g tmpfs /mnt/tmp/
+```
+
+Configure the size of the RAM disk using the `size=` option.
+The size of the RAM disk needed is relative to the number of concurrent jobs the test suite runs.
+For example running the test suite with `--jobs=100` might need a 4 GiB RAM disk, but running with `--jobs=32` will only need a 2.5 GiB RAM disk.
+
+To use, run the test suite specifying the RAM disk as the `cachedir` and `tmpdir`:
+
+```bash
+build/test/functional/test_runner.py --cachedir=/mnt/tmp/cache --tmpdir=/mnt/tmp
+```
+
+Once finished with the tests and the disk, and to free the RAM, simply unmount the disk:
+
+```bash
+sudo umount /mnt/tmp
+```
+
+**macOS**
+
+To create a 4 GiB RAM disk named "ramdisk" at `/Volumes/ramdisk/`:
+
+```bash
+diskutil erasevolume HFS+ ramdisk $(hdiutil attach -nomount ram://8388608)
+```
+
+Configure the RAM disk size, expressed as the number of blocks, at the end of the command
+(`4096 MiB * 2048 blocks/MiB = 8388608 blocks` for 4 GiB). To run the tests using the RAM disk:
+
+```bash
+build/test/functional/test_runner.py --cachedir=/Volumes/ramdisk/cache --tmpdir=/Volumes/ramdisk/tmp
+```
+
+To unmount:
+
+```bash
+umount /Volumes/ramdisk
+```
 
 #### Troubleshooting and debugging test failures
 
@@ -140,14 +195,14 @@ pkill -9 bitcoind
 ##### Data directory cache
 
 A pre-mined blockchain with 200 blocks is generated the first time a
-functional test is run and is stored in test/cache. This speeds up
+functional test is run and is stored in build/test/cache. This speeds up
 test startup times since new blockchains don't need to be generated for
 each test. However, the cache may get into a bad state, in which case
 tests will fail. If this happens, remove the cache directory (and make
 sure bitcoind processes are stopped as above):
 
 ```bash
-rm -rf test/cache
+rm -rf build/test/cache
 killall bitcoind
 ```
 
@@ -183,7 +238,7 @@ aggregate log by running the `combine_logs.py` script. The output can be plain
 text, colorized text or html. For example:
 
 ```
-test/functional/combine_logs.py -c <test data directory> | less -r
+build/test/functional/combine_logs.py -c <test data directory> | less -r
 ```
 
 will pipe the colorized logs from the test into less.
@@ -242,9 +297,9 @@ gdb /home/example/bitcoind <pid>
 Note: gdb attach step may require ptrace_scope to be modified, or `sudo` preceding the `gdb`.
 See this link for considerations: https://www.kernel.org/doc/Documentation/security/Yama.txt
 
-Often while debugging rpc calls from functional tests, the test might reach timeout before
-process can return a response. Use `--timeout-factor 0` to disable all rpc timeouts for that particular
-functional test. Ex: `test/functional/wallet_hd.py --timeout-factor 0`.
+Often while debugging RPC calls in functional tests, the test might time out before the
+process can return a response. Use `--timeout-factor 0` to disable all RPC timeouts for that particular
+functional test. Ex: `build/test/functional/wallet_hd.py --timeout-factor 0`.
 
 ##### Profiling
 
@@ -268,38 +323,12 @@ For ways to generate more granular profiles, see the README in
 
 ### Util tests
 
-Util tests can be run locally by running `test/util/test_runner.py`.
+Util tests can be run locally by running `build/test/util/test_runner.py`.
 Use the `-v` option for verbose output.
 
 ### Lint tests
 
-#### Dependencies
-
-| Lint test | Dependency |
-|-----------|:----------:|
-| [`lint-python.sh`](lint/lint-python.sh) | [flake8](https://gitlab.com/pycqa/flake8)
-| [`lint-python.sh`](lint/lint-python.sh) | [mypy](https://github.com/python/mypy)
-| [`lint-python.sh`](lint/lint-python.sh) | [pyzmq](https://github.com/zeromq/pyzmq)
-| [`lint-shell.sh`](lint/lint-shell.sh) | [ShellCheck](https://github.com/koalaman/shellcheck)
-| [`lint-spelling.sh`](lint/lint-spelling.sh) | [codespell](https://github.com/codespell-project/codespell)
-
-In use versions and install instructions are available in the [CI setup](../ci/lint/04_install.sh).
-
-Please be aware that on Linux distributions all dependencies are usually available as packages, but could be outdated.
-
-#### Running the tests
-
-Individual tests can be run by directly calling the test script, e.g.:
-
-```
-test/lint/lint-files.sh
-```
-
-You can run all the shell-based lint tests by running:
-
-```
-test/lint/lint-all.sh
-```
+See the README in [test/lint](/test/lint).
 
 # Writing functional tests
 

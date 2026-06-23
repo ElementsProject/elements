@@ -31,6 +31,9 @@ class CTTest(BitcoinTestFramework):
             self.args + ["-acceptdiscountct=1", "-creatediscountct=1"],
         ]
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
         self.skip_if_no_bdb()
@@ -290,4 +293,4 @@ class CTTest(BitcoinTestFramework):
         print("---")
 
 if __name__ == '__main__':
-    CTTest().main()
+    CTTest(__file__).main()

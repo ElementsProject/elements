@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -10,15 +10,13 @@
 #include <script/sign.h>
 #include <serialize.h>
 #include <streams.h>
-#include <univalue.h>
+#include <util/result.h>
 #include <util/strencodings.h>
-#include <version.h>
-
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
 
 #include <algorithm>
 #include <string>
+
+using util::SplitString;
 
 namespace {
 class OpCodeParser
@@ -41,7 +39,7 @@ public:
             }
             mapOpNames[strName] = static_cast<opcodetype>(op);
             // Convenience: OP_ADD and just ADD are both recognized:
-            if (strName.compare(0, 3, "OP_") == 0) { // strName starts with "OP_"
+            if (strName.starts_with("OP_")) {
                 mapOpNames[strName.substr(3)] = static_cast<opcodetype>(op);
             }
         }
@@ -66,12 +64,11 @@ CScript ParseScript(const std::string& s)
 {
     CScript result;
 
-    std::vector<std::string> words;
-    boost::algorithm::split(words, s, boost::algorithm::is_any_of(" \t\n"), boost::algorithm::token_compress_on);
+    std::vector<std::string> words = SplitString(s, " \t\n");
 
     for (const std::string& w : words) {
         if (w.empty()) {
-            // Empty string, ignore. (boost::split given '' will return one word)
+            // Empty string, ignore. (SplitString doesn't combine multiple separators)
         } else if (std::all_of(w.begin(), w.end(), ::IsDigit) ||
                    (w.front() == '-' && w.size() > 1 && std::all_of(w.begin() + 1, w.end(), ::IsDigit)))
         {
@@ -146,9 +143,9 @@ static bool DecodeTx(CMutableTransaction& tx, const std::vector<unsigned char>& 
     // Try decoding with extended serialization support, and remember if the result successfully
     // consumes the entire input.
     if (try_witness) {
-        CDataStream ssData(tx_data, SER_NETWORK, PROTOCOL_VERSION);
+        DataStream ssData(MakeByteSpan(tx_data));
         try {
-            ssData >> tx_extended;
+            ssData >> TX_WITH_WITNESS(tx_extended);
             if (ssData.empty()) ok_extended = true;
         } catch (const std::exception&) {
             // Fall through.
@@ -164,9 +161,9 @@ static bool DecodeTx(CMutableTransaction& tx, const std::vector<unsigned char>& 
 
     // Try decoding with legacy serialization, and remember if the result successfully consumes the entire input.
     if (try_no_witness) {
-        CDataStream ssData(tx_data, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+        DataStream ssData(MakeByteSpan(tx_data));
         try {
-            ssData >> tx_legacy;
+            ssData >> TX_NO_WITNESS(tx_legacy);
             if (ssData.empty()) ok_legacy = true;
         } catch (const std::exception&) {
             // Fall through.
@@ -211,9 +208,9 @@ bool DecodeHexBlockHeader(CBlockHeader& header, const std::string& hex_header)
     if (!IsHex(hex_header)) return false;
 
     const std::vector<unsigned char> header_data{ParseHex(hex_header)};
-    CDataStream ser_header(header_data, SER_NETWORK, PROTOCOL_VERSION);
+    DataStream ser_header(MakeByteSpan(header_data));
     try {
-        ser_header >> header;
+        ser_header >> TX_WITH_WITNESS(header);
     } catch (const std::exception&) {
         return false;
     }
@@ -226,9 +223,9 @@ bool DecodeHexBlk(CBlock& block, const std::string& strHexBlk)
         return false;
 
     std::vector<unsigned char> blockData(ParseHex(strHexBlk));
-    CDataStream ssBlock(blockData, SER_NETWORK, PROTOCOL_VERSION);
+    DataStream ssBlock(MakeByteSpan(blockData));
     try {
-        ssBlock >> block;
+        ssBlock >> TX_WITH_WITNESS(block);
     }
     catch (const std::exception&) {
         return false;
@@ -237,51 +234,27 @@ bool DecodeHexBlk(CBlock& block, const std::string& strHexBlk)
     return true;
 }
 
-bool ParseHashStr(const std::string& strHex, uint256& result)
+util::Result<int> SighashFromStr(const std::string& sighash)
 {
-    if ((strHex.size() != 64) || !IsHex(strHex))
-        return false;
-
-    result.SetHex(strHex);
-    return true;
-}
-
-std::vector<unsigned char> ParseHexUV(const UniValue& v, const std::string& strName)
-{
-    std::string strHex;
-    if (v.isStr())
-        strHex = v.getValStr();
-    if (!IsHex(strHex))
-        throw std::runtime_error(strName + " must be hexadecimal string (not '" + strHex + "')");
-    return ParseHex(strHex);
-}
-
-int ParseSighashString(const UniValue& sighash)
-{
-    int hash_type = SIGHASH_DEFAULT;
-    if (!sighash.isNull()) {
-        static std::map<std::string, int> map_sighash_values = {
-            {std::string("DEFAULT"), int(SIGHASH_DEFAULT)},
-            {std::string("ALL"), int(SIGHASH_ALL)},
-            {std::string("ALL|ANYONECANPAY"), int(SIGHASH_ALL|SIGHASH_ANYONECANPAY)},
-            {std::string("ALL|RANGEPROOF"), int(SIGHASH_ALL|SIGHASH_RANGEPROOF)},
-            {std::string("ALL|ANYONECANPAY|RANGEPROOF"), int(SIGHASH_ALL|SIGHASH_ANYONECANPAY|SIGHASH_RANGEPROOF)},
-            {std::string("NONE"), int(SIGHASH_NONE)},
-            {std::string("NONE|ANYONECANPAY"), int(SIGHASH_NONE|SIGHASH_ANYONECANPAY)},
-            {std::string("NONE|RANGEPROOF"), int(SIGHASH_NONE|SIGHASH_RANGEPROOF)},
-            {std::string("NONE|ANYONECANPAY|RANGEPROOF"), int(SIGHASH_NONE|SIGHASH_ANYONECANPAY|SIGHASH_RANGEPROOF)},
-            {std::string("SINGLE"), int(SIGHASH_SINGLE)},
-            {std::string("SINGLE|ANYONECANPAY"), int(SIGHASH_SINGLE|SIGHASH_ANYONECANPAY)},
-            {std::string("SINGLE|RANGEPROOF"), int(SIGHASH_SINGLE|SIGHASH_RANGEPROOF)},
-            {std::string("SINGLE|ANYONECANPAY|RANGEPROOF"), int(SIGHASH_SINGLE|SIGHASH_ANYONECANPAY|SIGHASH_RANGEPROOF)},
-        };
-        std::string strHashType = sighash.get_str();
-        const auto& it = map_sighash_values.find(strHashType);
-        if (it != map_sighash_values.end()) {
-            hash_type = it->second;
-        } else {
-            throw std::runtime_error(strHashType + " is not a valid sighash parameter.");
-        }
+    static const std::map<std::string, int> map_sighash_values = {
+        {std::string("DEFAULT"), int(SIGHASH_DEFAULT)},
+        {std::string("ALL"), int(SIGHASH_ALL)},
+        {std::string("ALL|ANYONECANPAY"), int(SIGHASH_ALL|SIGHASH_ANYONECANPAY)},
+        {std::string("ALL|RANGEPROOF"), int(SIGHASH_ALL|SIGHASH_RANGEPROOF)},
+        {std::string("ALL|ANYONECANPAY|RANGEPROOF"), int(SIGHASH_ALL|SIGHASH_ANYONECANPAY|SIGHASH_RANGEPROOF)},
+        {std::string("NONE"), int(SIGHASH_NONE)},
+        {std::string("NONE|ANYONECANPAY"), int(SIGHASH_NONE|SIGHASH_ANYONECANPAY)},
+        {std::string("NONE|RANGEPROOF"), int(SIGHASH_NONE|SIGHASH_RANGEPROOF)},
+        {std::string("NONE|ANYONECANPAY|RANGEPROOF"), int(SIGHASH_NONE|SIGHASH_ANYONECANPAY|SIGHASH_RANGEPROOF)},
+        {std::string("SINGLE"), int(SIGHASH_SINGLE)},
+        {std::string("SINGLE|ANYONECANPAY"), int(SIGHASH_SINGLE|SIGHASH_ANYONECANPAY)},
+        {std::string("SINGLE|RANGEPROOF"), int(SIGHASH_SINGLE|SIGHASH_RANGEPROOF)},
+        {std::string("SINGLE|ANYONECANPAY|RANGEPROOF"), int(SIGHASH_SINGLE|SIGHASH_ANYONECANPAY|SIGHASH_RANGEPROOF)},
+    };
+    const auto& it = map_sighash_values.find(sighash);
+    if (it != map_sighash_values.end()) {
+        return it->second;
+    } else {
+        return util::Error{Untranslated("'" + sighash + "' is not a valid sighash parameter.")};
     }
-    return hash_type;
 }

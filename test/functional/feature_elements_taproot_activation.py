@@ -29,6 +29,9 @@ class TaprootActivationTest(BitcoinTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def test_activation(self, rpc, activation_height):
         self.log.info("Testing activation at height %d" % activation_height)
         activation_height = 128 * ((activation_height + 127) // 128)
@@ -121,4 +124,4 @@ class TaprootActivationTest(BitcoinTestFramework):
         self.test_activation(self.nodes[0], 500)
 
 if __name__ == '__main__':
-    TaprootActivationTest().main()
+    TaprootActivationTest(__file__).main()

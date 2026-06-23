@@ -11,11 +11,9 @@
 #include <thread>
 #include <vector>
 
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h>
-#endif
-
 #include <boost/test/unit_test.hpp>
+
+using util::ToString;
 
 BOOST_AUTO_TEST_SUITE(util_threadnames_tests)
 
@@ -38,8 +36,9 @@ std::set<std::string> RenameEnMasse(int num_threads)
         names.insert(util::ThreadGetInternalName());
     };
 
+    threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
-        threads.push_back(std::thread(RenameThisThread, i));
+        threads.emplace_back(RenameThisThread, i);
     }
 
     for (std::thread& thread : threads) thread.join();
@@ -53,11 +52,6 @@ std::set<std::string> RenameEnMasse(int num_threads)
  */
 BOOST_AUTO_TEST_CASE(util_threadnames_test_rename_threaded)
 {
-#if !defined(HAVE_THREAD_LOCAL)
-    // This test doesn't apply to platforms where we don't have thread_local.
-    return;
-#endif
-
     std::set<std::string> names = RenameEnMasse(100);
 
     BOOST_CHECK_EQUAL(names.size(), 100U);

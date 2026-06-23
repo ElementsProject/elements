@@ -1,11 +1,14 @@
-// Copyright (c) 2017-2021 The Bitcoin Core developers
+// Copyright (c) 2017-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_RPC_RAWTRANSACTION_UTIL_H
 #define BITCOIN_RPC_RAWTRANSACTION_UTIL_H
 
+#include <addresstype.h>
+#include <consensus/amount.h>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -18,7 +21,7 @@
 #include <psbt.h>
 
 struct bilingual_str;
-class FillableSigningProvider;
+struct FlatSigningProvider;
 class UniValue;
 struct CMutableTransaction;
 class Coin;
@@ -44,12 +47,26 @@ void SignTransactionResultToJSON(CMutableTransaction& mtx, bool complete, const 
   * @param  keystore      A pointer to the temporary keystore if there is one
   * @param  coins         Map of unspent outputs - coins in mempool and current chain UTXO set, may be extended by previous txns outputs after call
   */
-void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keystore, std::map<COutPoint, Coin>& coins);
+void ParsePrevouts(const UniValue& prevTxsUnival, FlatSigningProvider* keystore, std::map<COutPoint, Coin>& coins);
+
+/** Normalize univalue-represented inputs and add them to the transaction */
+void AddInputs(CMutableTransaction& rawTx, const UniValue& inputs_in, bool rbf, const CBlockIndex* active_chain_tip, bool allow_peg_in = true, bool allow_issuance = true);
+
+/** Normalize univalue-represented outputs */
+UniValue NormalizeOutputs(const UniValue& outputs_in);
+
+/** Parse normalized outputs into destination, amount tuples */
+std::vector<std::pair<CTxDestination, CTxOut>> ParseOutputs(const UniValue& outputs, std::map<CTxOut, PSBTOutput>* outputs_aux = nullptr);
+
+/** Normalize, parse, and add outputs to the transaction */
+void AddOutputs(CMutableTransaction& rawTx, const UniValue& outputs_in, std::map<CTxOut, PSBTOutput>* outputs_aux = nullptr);
 
 /** Create a transaction from univalue parameters. If (and only if)
     output_pubkeys_out is null, the "nonce hack" of storing Confidential
     Assets output pubkeys in nonces will be used. */
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const CBlockIndex* active_chain_tip, std::map<CTxOut, PSBTOutput>* outputs_aux = nullptr, bool allow_peg_in = true, bool allow_issuance = true);
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, std::optional<bool> rbf, const CBlockIndex* active_chain_tip, std::map<CTxOut, PSBTOutput>* outputs_aux = nullptr, bool allow_peg_in = true, bool allow_issuance = true);
+
+// ELEMENTS
 
 /** Create a peg-in input */
 void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, CTransactionRef& tx_btc, CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData, const CBlockIndex* active_chain_tip);

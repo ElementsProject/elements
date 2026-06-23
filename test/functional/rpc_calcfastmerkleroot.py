@@ -23,4 +23,4 @@ class CalcFastMerkleRoot(BitcoinTestFramework):
             leaves.append(test_leaves[i])
 
 if __name__ == '__main__':
-    CalcFastMerkleRoot().main()
+    CalcFastMerkleRoot(__file__).main()

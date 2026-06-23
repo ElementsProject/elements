@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-# Copyright (c) 2021 The Bitcoin Core developers
+# Copyright (c) 2021-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """
 Test Inactive HD Chains.
 """
-import os
 import shutil
-import time
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import BitcoinTestFramework
@@ -17,6 +15,9 @@ from test_framework.wallet_util import (
 
 
 class InactiveHDChainsTest(BitcoinTestFramework):
+    def add_options(self, parser):
+        self.add_wallet_options(parser, descriptors=False)
+
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
@@ -73,12 +74,13 @@ class InactiveHDChainsTest(BitcoinTestFramework):
         self.generate(self.nodes[0], 1)
 
         # Wait for the test wallet to see the transaction
-        while True:
+        def is_tx_available(txid):
             try:
                 test_wallet.gettransaction(txid)
-                break
+                return True
             except JSONRPCException:
-                time.sleep(0.1)
+                return False
+        self.nodes[0].wait_until(lambda: is_tx_available(txid), timeout=10, check_interval=0.1)
 
         if encrypt:
             # The test wallet will not be able to generate the topped up keypool
@@ -127,8 +129,8 @@ class InactiveHDChainsTest(BitcoinTestFramework):
 
         # Copy test wallet to node 0
         test_wallet.unloadwallet()
-        test_wallet_dir = os.path.join(self.nodes[1].datadir, "regtest/wallets/keymeta_test")
-        new_test_wallet_dir = os.path.join(self.nodes[0].datadir, "regtest/wallets/keymeta_test")
+        test_wallet_dir = self.nodes[1].wallets_path / "keymeta_test"
+        new_test_wallet_dir = self.nodes[0].wallets_path / "keymeta_test"
         shutil.copytree(test_wallet_dir, new_test_wallet_dir)
         self.nodes[0].loadwallet("keymeta_test")
         test_wallet = self.nodes[0].get_wallet_rpc("keymeta_test")
@@ -144,4 +146,4 @@ class InactiveHDChainsTest(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    InactiveHDChainsTest().main()
+    InactiveHDChainsTest(__file__).main()

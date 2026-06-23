@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -7,13 +7,11 @@
 
 #include <util/macros.h>
 
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h>
-#endif //HAVE_CONFIG_H
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 // Check that required client information is defined
 #if !defined(CLIENT_VERSION_MAJOR) || !defined(CLIENT_VERSION_MINOR) || !defined(CLIENT_VERSION_BUILD) || !defined(CLIENT_VERSION_IS_RELEASE) || !defined(COPYRIGHT_YEAR)
-#error Client version information missing: version is not defined by bitcoin-config.h or in any other way
+#error Client version information missing: version is not defined by bitcoin-build-config.h or in any other way
 #endif
 
 //! Copyright string used in Windows .rc files
@@ -35,7 +33,7 @@ static const int CLIENT_VERSION =
                          +     100 * CLIENT_VERSION_MINOR
                          +       1 * CLIENT_VERSION_BUILD;
 
-extern const std::string CLIENT_NAME;
+extern const std::string UA_NAME;
 
 
 std::string FormatFullVersion();

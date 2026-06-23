@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -61,8 +61,8 @@ bool CastToBool(const valtype& vch)
  * Script is a stack machine (like Forth) that evaluates a predicate
  * returning a bool indicating valid or not.  There are no loops.
  */
-#define stacktop(i)  (stack.at(stack.size()+(i)))
-#define altstacktop(i)  (altstack.at(altstack.size()+(i)))
+#define stacktop(i) (stack.at(size_t(int64_t(stack.size()) + int64_t{i})))
+#define altstacktop(i) (altstack.at(size_t(int64_t(altstack.size()) + int64_t{i})))
 static inline void popstack(std::vector<valtype>& stack)
 {
     if (stack.empty())
@@ -85,13 +85,13 @@ static inline int64_t read_le8_signed(const unsigned char* ptr)
 
 static inline void push4_le(std::vector<valtype>& stack, uint32_t v)
 {
-    uint32_t v_le = htole32(v);
+    uint32_t v_le = htole32_internal(v);
     stack.emplace_back(reinterpret_cast<unsigned char*>(&v_le), reinterpret_cast<unsigned char*>(&v_le) + sizeof(v_le));
 }
 
 static inline void push8_le(std::vector<valtype>& stack, uint64_t v)
 {
-    uint64_t v_le = htole64(v);
+    uint64_t v_le = htole64_internal(v);
     stack.emplace_back(reinterpret_cast<unsigned char*>(&v_le), reinterpret_cast<unsigned char*>(&v_le) + sizeof(v_le));
 }
 
@@ -317,31 +317,6 @@ bool static CheckPubKeyEncoding(const valtype &vchPubKey, unsigned int flags, co
     // Only compressed keys are accepted in segwit
     if ((flags & SCRIPT_VERIFY_WITNESS_PUBKEYTYPE) != 0 && sigversion == SigVersion::WITNESS_V0 && !IsCompressedPubKey(vchPubKey)) {
         return set_error(serror, SCRIPT_ERR_WITNESS_PUBKEYTYPE);
-    }
-    return true;
-}
-
-bool CheckMinimalPush(const valtype& data, opcodetype opcode) {
-    // Excludes OP_1NEGATE, OP_1-16 since they are by definition minimal
-    assert(0 <= opcode && opcode <= OP_PUSHDATA4);
-    if (data.size() == 0) {
-        // Should have used OP_0.
-        return opcode == OP_0;
-    } else if (data.size() == 1 && data[0] >= 1 && data[0] <= 16) {
-        // Should have used OP_1 .. OP_16.
-        return false;
-    } else if (data.size() == 1 && data[0] == 0x81) {
-        // Should have used OP_1NEGATE.
-        return false;
-    } else if (data.size() <= 75) {
-        // Must have used a direct push (opcode indicating number of bytes pushed + those bytes).
-        return opcode == data.size();
-    } else if (data.size() <= 255) {
-        // Must have used OP_PUSHDATA.
-        return opcode == OP_PUSHDATA1;
-    } else if (data.size() <= 65535) {
-        // Must have used OP_PUSHDATA2.
-        return opcode == OP_PUSHDATA2;
     }
     return true;
 }
@@ -572,9 +547,9 @@ static bool EvalChecksig(const valtype& sig, const valtype& pubkey, CScript::con
     assert(false);
 }
 
-const CHashWriter HASHER_TAPLEAF_ELEMENTS = TaggedHash("TapLeaf/elements");
-const CHashWriter HASHER_TAPBRANCH_ELEMENTS = TaggedHash("TapBranch/elements");
-const CHashWriter HASHER_TAPSIGHASH_ELEMENTS = TaggedHash("TapSighash/elements");
+const HashWriter HASHER_TAPLEAF_ELEMENTS = TaggedHash("TapLeaf/elements");
+const HashWriter HASHER_TAPBRANCH_ELEMENTS = TaggedHash("TapBranch/elements");
+const HashWriter HASHER_TAPSIGHASH_ELEMENTS = TaggedHash("TapSighash/elements");
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, SigVersion sigversion, ScriptExecutionData& execdata, ScriptError* serror)
 {
@@ -1689,7 +1664,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     hasher.Write(vchSeed.data(), vchSeed.size());
                     do {
                         if (nHashIndex >= 3) {
-                            uint64_t le_counter = htole64(nCounter);
+                            uint64_t le_counter = htole64_internal(nCounter);
                             CSHA256(hasher).Write((const unsigned char*)&le_counter, sizeof(nCounter)).Finalize(vchHash.data());
                             nHashIndex = 0;
                             nCounter++;
@@ -1861,7 +1836,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                         case OP_INSPECTINPUTOUTPOINT:
                         {
                             // Push prev txid
-                            stack.emplace_back(inp.prevout.hash.begin(), inp.prevout.hash.end());
+                            stack.emplace_back(inp.prevout.hash.ToUint256().begin(), inp.prevout.hash.ToUint256().end());
                             push4_le(stack, inp.prevout.n);
 
                             // Push the outpoint flag
@@ -2336,7 +2311,7 @@ public:
         // Serialize the nSequence
         if (nInput != nIn && (fHashSingle || fHashNone))
             // let the others update at will
-            ::Serialize(s, (int)0);
+            ::Serialize(s, int32_t{0});
         else
             ::Serialize(s, txTo.vin[nInput].nSequence);
         // Serialize the asset issuance object
@@ -2371,8 +2346,8 @@ public:
     /** Serialize txTo */
     template<typename S>
     void Serialize(S &s) const {
-        // Serialize nVersion
-        ::Serialize(s, txTo.nVersion);
+        // Serialize version
+        ::Serialize(s, txTo.version);
         // Serialize vin
         unsigned int nInputs = fAnyoneCanPay ? 1 : txTo.vin.size();
         ::WriteCompactSize(s, nInputs);
@@ -2392,7 +2367,7 @@ public:
 template <class T>
 uint256 GetOutpointFlagsSHA256(const T& txTo)
 {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (const auto& txin : txTo.vin) {
         ss << GetOutpointFlag(txin);
     }
@@ -2403,7 +2378,7 @@ uint256 GetOutpointFlagsSHA256(const T& txTo)
 template <class T>
 uint256 GetPrevoutsSHA256(const T& txTo)
 {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (const auto& txin : txTo.vin) {
         ss << txin.prevout;
     }
@@ -2414,7 +2389,7 @@ uint256 GetPrevoutsSHA256(const T& txTo)
 template <class T>
 uint256 GetSequencesSHA256(const T& txTo)
 {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (const auto& txin : txTo.vin) {
         ss << txin.nSequence;
     }
@@ -2426,7 +2401,7 @@ uint256 GetSequencesSHA256(const T& txTo)
 template <class T>
 uint256 GetIssuanceSHA256(const T& txTo)
 {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (const auto& txin : txTo.vin) {
         if (txin.assetIssuance.IsNull())
             ss << (unsigned char)0;
@@ -2442,7 +2417,7 @@ uint256 GetIssuanceSHA256(const T& txTo)
 template <class T>
 uint256 GetOutputWitnessesSHA256(const T& txTo)
 {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (const auto& outwit : txTo.witness.vtxoutwit) {
         ss << outwit;
     }
@@ -2455,7 +2430,7 @@ uint256 GetOutputWitnessesSHA256(const T& txTo)
 template <class T>
 uint256 GetIssuanceRangeproofsSHA256(const T& txTo)
 {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (const auto& inwit : txTo.witness.vtxinwit) {
         ss << inwit.vchIssuanceAmountRangeproof;
         ss << inwit.vchInflationKeysRangeproof;
@@ -2467,7 +2442,7 @@ uint256 GetIssuanceRangeproofsSHA256(const T& txTo)
 template <class T>
 uint256 GetOutputsSHA256(const T& txTo)
 {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (const auto& txout : txTo.vout) {
         ss << txout;
     }
@@ -2478,7 +2453,7 @@ uint256 GetOutputsSHA256(const T& txTo)
 // Elements TapHash only
 uint256 GetSpentAssetsAmountsSHA256(const std::vector<CTxOut>& outputs_spent)
 {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (const auto& txout : outputs_spent) {
         ss << txout.nAsset;
         ss << txout.nValue;
@@ -2489,7 +2464,7 @@ uint256 GetSpentAssetsAmountsSHA256(const std::vector<CTxOut>& outputs_spent)
 /** Compute the (single) SHA256 of the concatenation of all scriptPubKeys spent by a tx. */
 uint256 GetSpentScriptsSHA256(const std::vector<CTxOut>& outputs_spent)
 {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (const auto& txout : outputs_spent) {
         ss << txout.scriptPubKey;
     }
@@ -2527,7 +2502,7 @@ std::vector<uint256> GetOutputScriptPubKeysSHA256(const T& txTo)
 
 template <class T>
 uint256 GetRangeproofsHash(const T& txTo) {
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     for (size_t i = 0; i < txTo.vout.size(); i++) {
         if (i < txTo.witness.vtxoutwit.size()) {
             ss << txTo.witness.vtxoutwit[i].vchRangeproof;
@@ -2593,7 +2568,7 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
     if (uses_bip341_taproot && m_spent_outputs_ready) {
         // line copied from GetTransactionWeight() in src/consensus/validation.h
         // (we cannot directly use that function for type reasons)
-        m_tx_weight = ::GetSerializeSize(txTo, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR - 1) + ::GetSerializeSize(txTo, PROTOCOL_VERSION);
+        m_tx_weight = ::GetSerializeSize(TX_NO_WITNESS(txTo)) * (WITNESS_SCALE_FACTOR - 1) + ::GetSerializeSize(TX_WITH_WITNESS(txTo));
         m_outpoints_flag_single_hash = GetOutpointFlagsSHA256(txTo);
         m_spent_asset_amounts_single_hash = GetSpentAssetsAmountsSHA256(m_spent_outputs);
         m_issuance_rangeproofs_single_hash = GetIssuanceRangeproofsSHA256(txTo);
@@ -2605,18 +2580,18 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
         std::vector<rawElementsBuffer> simplicityRawAnnex(txTo.witness.vtxinwit.size());
         std::vector<rawElementsInput> simplicityRawInput(txTo.vin.size());
         for (size_t i = 0; i < txTo.vin.size(); ++i) {
-            simplicityRawInput[i].prevTxid = txTo.vin[i].prevout.hash.begin();
+            simplicityRawInput[i].prevTxid = txTo.vin[i].prevout.hash.ToUint256().begin();
             simplicityRawInput[i].prevIx = txTo.vin[i].prevout.n;
             simplicityRawInput[i].sequence = txTo.vin[i].nSequence;
-            simplicityRawInput[i].txo.asset = m_spent_outputs[i].nAsset.vchCommitment.empty() ? NULL : m_spent_outputs[i].nAsset.vchCommitment.data();
-            simplicityRawInput[i].txo.value = m_spent_outputs[i].nValue.vchCommitment.empty() ? NULL : m_spent_outputs[i].nValue.vchCommitment.data();
+            simplicityRawInput[i].txo.asset = m_spent_outputs[i].nAsset.vchCommitment.empty() ? nullptr : m_spent_outputs[i].nAsset.vchCommitment.data();
+            simplicityRawInput[i].txo.value = m_spent_outputs[i].nValue.vchCommitment.empty() ? nullptr : m_spent_outputs[i].nValue.vchCommitment.data();
             simplicityRawInput[i].txo.scriptPubKey.buf = m_spent_outputs[i].scriptPubKey.data();
             simplicityRawInput[i].txo.scriptPubKey.len = m_spent_outputs[i].scriptPubKey.size();
             simplicityRawInput[i].issuance.blindingNonce = txTo.vin[i].assetIssuance.assetBlindingNonce.begin();
             simplicityRawInput[i].issuance.assetEntropy = txTo.vin[i].assetIssuance.assetEntropy.begin();
-            simplicityRawInput[i].issuance.amount = txTo.vin[i].assetIssuance.nAmount.vchCommitment.empty() ? NULL : txTo.vin[i].assetIssuance.nAmount.vchCommitment.data();
-            simplicityRawInput[i].issuance.inflationKeys = txTo.vin[i].assetIssuance.nInflationKeys.vchCommitment.empty() ? NULL : txTo.vin[i].assetIssuance.nInflationKeys.vchCommitment.data();
-            simplicityRawInput[i].annex = NULL;
+            simplicityRawInput[i].issuance.amount = txTo.vin[i].assetIssuance.nAmount.vchCommitment.empty() ? nullptr : txTo.vin[i].assetIssuance.nAmount.vchCommitment.data();
+            simplicityRawInput[i].issuance.inflationKeys = txTo.vin[i].assetIssuance.nInflationKeys.vchCommitment.empty() ? nullptr : txTo.vin[i].assetIssuance.nInflationKeys.vchCommitment.data();
+            simplicityRawInput[i].annex = nullptr;
             if (i < txTo.witness.vtxinwit.size()) {
                 Span<const valtype> stack{txTo.witness.vtxinwit[i].scriptWitness.stack};
                 if (stack.size() >= 2 && !stack.back().empty() && stack.back()[0] == ANNEX_TAG) {
@@ -2629,22 +2604,22 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
                 simplicityRawInput[i].issuance.inflationKeysRangePrf.buf = txTo.witness.vtxinwit[i].vchInflationKeysRangeproof.data();
                 simplicityRawInput[i].issuance.inflationKeysRangePrf.len = txTo.witness.vtxinwit[i].vchInflationKeysRangeproof.size();
                 assert(!txTo.vin[i].m_is_pegin || ( txTo.witness.vtxinwit[i].m_pegin_witness.stack.size() >= 4 && txTo.witness.vtxinwit[i].m_pegin_witness.stack[2].size() == 32));
-                simplicityRawInput[i].pegin = txTo.vin[i].m_is_pegin ? txTo.witness.vtxinwit[i].m_pegin_witness.stack[2].data() : 0;
+                simplicityRawInput[i].pegin = txTo.vin[i].m_is_pegin ? txTo.witness.vtxinwit[i].m_pegin_witness.stack[2].data() : nullptr;
             } else {
-                simplicityRawInput[i].issuance.amountRangePrf.buf = NULL;
+                simplicityRawInput[i].issuance.amountRangePrf.buf = nullptr;
                 simplicityRawInput[i].issuance.amountRangePrf.len = 0;
-                simplicityRawInput[i].issuance.inflationKeysRangePrf.buf = NULL;
+                simplicityRawInput[i].issuance.inflationKeysRangePrf.buf = nullptr;
                 simplicityRawInput[i].issuance.inflationKeysRangePrf.len = 0;
                 assert(!txTo.vin[i].m_is_pegin);
-                simplicityRawInput[i].pegin = 0;
+                simplicityRawInput[i].pegin = nullptr;
             }
         }
 
         std::vector<rawElementsOutput> simplicityRawOutput(txTo.vout.size());
         for (size_t i = 0; i < txTo.vout.size(); ++i) {
-            simplicityRawOutput[i].asset = txTo.vout[i].nAsset.vchCommitment.empty() ? NULL : txTo.vout[i].nAsset.vchCommitment.data();
-            simplicityRawOutput[i].value = txTo.vout[i].nValue.vchCommitment.empty() ? NULL : txTo.vout[i].nValue.vchCommitment.data();
-            simplicityRawOutput[i].nonce = txTo.vout[i].nNonce.vchCommitment.empty() ? NULL : txTo.vout[i].nNonce.vchCommitment.data();
+            simplicityRawOutput[i].asset = txTo.vout[i].nAsset.vchCommitment.empty() ? nullptr : txTo.vout[i].nAsset.vchCommitment.data();
+            simplicityRawOutput[i].value = txTo.vout[i].nValue.vchCommitment.empty() ? nullptr : txTo.vout[i].nValue.vchCommitment.data();
+            simplicityRawOutput[i].nonce = txTo.vout[i].nNonce.vchCommitment.empty() ? nullptr : txTo.vout[i].nNonce.vchCommitment.data();
             simplicityRawOutput[i].scriptPubKey.buf = txTo.vout[i].scriptPubKey.data();
             simplicityRawOutput[i].scriptPubKey.len = txTo.vout[i].scriptPubKey.size();
             if (i < txTo.witness.vtxoutwit.size()) {
@@ -2653,9 +2628,9 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
                 simplicityRawOutput[i].rangeProof.buf = txTo.witness.vtxoutwit[i].vchRangeproof.data();
                 simplicityRawOutput[i].rangeProof.len = txTo.witness.vtxoutwit[i].vchRangeproof.size();
             } else {
-                simplicityRawOutput[i].surjectionProof.buf = NULL;
+                simplicityRawOutput[i].surjectionProof.buf = nullptr;
                 simplicityRawOutput[i].surjectionProof.len = 0;
-                simplicityRawOutput[i].rangeProof.buf = NULL;
+                simplicityRawOutput[i].rangeProof.buf = nullptr;
                 simplicityRawOutput[i].rangeProof.len = 0;
             }
         }
@@ -2667,7 +2642,7 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
         simplicityRawTx.numInputs = simplicityRawInput.size();
         simplicityRawTx.output = simplicityRawOutput.data();
         simplicityRawTx.numOutputs = simplicityRawOutput.size();
-        simplicityRawTx.version = txTo.nVersion;
+        simplicityRawTx.version = (uint32_t)txTo.version;
         simplicityRawTx.lockTime = txTo.nLockTime;
 
         m_simplicity_tx_data = SimplicityTransactionUniquePtr(simplicity_elements_mallocTransaction(&simplicityRawTx));
@@ -2695,7 +2670,7 @@ template PrecomputedTransactionData::PrecomputedTransactionData(const CMutableTr
 
 PrecomputedTransactionData::PrecomputedTransactionData(const uint256& hash_genesis_block)
         : m_hash_genesis_block(hash_genesis_block)
-        , m_tapsighash_hasher(CHashWriter(HASHER_TAPSIGHASH_ELEMENTS) << hash_genesis_block << hash_genesis_block) {}
+        , m_tapsighash_hasher(HashWriter(HASHER_TAPSIGHASH_ELEMENTS) << hash_genesis_block << hash_genesis_block) {}
 
 static bool HandleMissingData(MissingDataBehavior mdb)
 {
@@ -2734,7 +2709,7 @@ bool SignatureHashSchnorr(uint256& hash_out, ScriptExecutionData& execdata, cons
         return HandleMissingData(mdb);
     }
 
-    CHashWriter ss = cache.m_tapsighash_hasher;
+    HashWriter ss = cache.m_tapsighash_hasher;
 
     // no epoch in elements taphash
     // static constexpr uint8_t EPOCH = 0;
@@ -2747,7 +2722,7 @@ bool SignatureHashSchnorr(uint256& hash_out, ScriptExecutionData& execdata, cons
     ss << hash_type;
 
     // Transaction level data
-    ss << tx_to.nVersion;
+    ss << tx_to.version;
     ss << tx_to.nLockTime;
     if (input_type != SIGHASH_ANYONECANPAY) {
         ss << cache.m_outpoints_flag_single_hash;
@@ -2784,7 +2759,7 @@ bool SignatureHashSchnorr(uint256& hash_out, ScriptExecutionData& execdata, cons
         } else {
             ss << tx_to.vin[in_pos].assetIssuance;
 
-            CHashWriter sha_single_input_issuance_witness(SER_GETHASH, 0);
+            HashWriter sha_single_input_issuance_witness{};
             sha_single_input_issuance_witness << tx_to.witness.vtxinwit[in_pos].vchIssuanceAmountRangeproof;
             sha_single_input_issuance_witness << tx_to.witness.vtxinwit[in_pos].vchInflationKeysRangeproof;
             ss << sha_single_input_issuance_witness.GetSHA256();
@@ -2799,7 +2774,7 @@ bool SignatureHashSchnorr(uint256& hash_out, ScriptExecutionData& execdata, cons
     if (output_type == SIGHASH_SINGLE) {
         if (in_pos >= tx_to.vout.size()) return false;
         if (!execdata.m_output_hash) {
-            CHashWriter sha_single_output(SER_GETHASH, 0);
+            HashWriter sha_single_output{};
             sha_single_output << tx_to.vout[in_pos];
             execdata.m_output_hash = sha_single_output.GetSHA256();
         }
@@ -2807,7 +2782,7 @@ bool SignatureHashSchnorr(uint256& hash_out, ScriptExecutionData& execdata, cons
 
         // ELEMENTS
         if (!execdata.m_output_witness_hash) {
-            CHashWriter sha_single_output_witness(SER_GETHASH, 0);
+            HashWriter sha_single_output_witness{};
             sha_single_output_witness << tx_to.witness.vtxoutwit[in_pos];
             execdata.m_output_witness_hash = sha_single_output_witness.GetSHA256();
         }
@@ -2828,7 +2803,7 @@ bool SignatureHashSchnorr(uint256& hash_out, ScriptExecutionData& execdata, cons
 }
 
 template <class T>
-uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn, int nHashType, const CConfidentialValue& amount, SigVersion sigversion, unsigned int flags, const PrecomputedTransactionData* cache)
+uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn, int32_t nHashType, const CConfidentialValue& amount, SigVersion sigversion, unsigned int flags, const PrecomputedTransactionData* cache)
 {
     assert(nIn < txTo.vin.size());
 
@@ -2860,12 +2835,12 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
                 hashRangeproofs = cacheready ? cache->hashRangeproofs : GetRangeproofsHash(txTo);
             }
         } else if ((nHashType & 0x1f) == SIGHASH_SINGLE && nIn < txTo.vout.size()) {
-            CHashWriter ss(SER_GETHASH, 0);
+            HashWriter ss{};
             ss << txTo.vout[nIn];
             hashOutputs = ss.GetHash();
 
             if (fRangeproof) {
-                CHashWriter ss(SER_GETHASH, 0);
+                HashWriter ss{};
                 if (nIn < txTo.witness.vtxoutwit.size()) {
                     ss << txTo.witness.vtxoutwit[nIn].vchRangeproof;
                     ss << txTo.witness.vtxoutwit[nIn].vchSurjectionproof;
@@ -2877,9 +2852,9 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
             }
         }
 
-        CHashWriter ss(SER_GETHASH, 0);
+        HashWriter ss{};
         // Version
-        ss << txTo.nVersion;
+        ss << txTo.version;
         // Input prevouts/nSequence (none/all, depending on flags)
         ss << hashPrevouts;
         ss << hashSequence;
@@ -2928,7 +2903,7 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
     CTransactionSignatureSerializer<T> txTmp(txTo, scriptCode, nIn, nHashType, flags);
 
     // Serialize and hash
-    CHashWriter ss(SER_GETHASH, 0);
+    HashWriter ss{};
     ss << txTmp << nHashType;
     return ss.GetHash();
 }
@@ -3044,7 +3019,7 @@ bool GenericTransactionSignatureChecker<T>::CheckSequence(const CScriptNum& nSeq
 
     // Fail if the transaction's version number is not set high
     // enough to trigger BIP 68 rules.
-    if (static_cast<uint32_t>(txTo->nVersion) < 2)
+    if (txTo->version < 2)
         return false;
 
     // Sequence numbers with their most significant bit set are not
@@ -3091,7 +3066,7 @@ uint32_t GenericTransactionSignatureChecker<T>::GetLockTime() const
 template <class T>
 int32_t GenericTransactionSignatureChecker<T>::GetTxVersion() const
 {
-    return txTo->nVersion;
+    return txTo->version;
 }
 
 template <class T>
@@ -3126,7 +3101,7 @@ bool GenericTransactionSignatureChecker<T>::CheckSimplicity(const valtype& progr
 
     assert(txdata->m_simplicity_tx_data);
     assert(simplicityTapEnv);
-    if (!simplicity_elements_execSimplicity(&error, 0, txdata->m_simplicity_tx_data.get(), nIn, simplicityTapEnv, txdata->m_hash_genesis_block.data(), 0, budget, 0, program.data(), program.size(), witness.data(), witness.size())) {
+    if (!simplicity_elements_execSimplicity(&error, nullptr, txdata->m_simplicity_tx_data.get(), nIn, simplicityTapEnv, txdata->m_hash_genesis_block.data(), 0, budget, nullptr, program.data(), program.size(), witness.data(), witness.size())) {
         assert(!"simplicity_elements_execSimplicity internal error");
     }
     simplicity_elements_freeTapEnv(simplicityTapEnv);
@@ -3208,24 +3183,33 @@ static bool ExecuteWitnessScript(const Span<const valtype>& stack_span, const CS
     return true;
 }
 
-uint256 ComputeTapleafHash(uint8_t leaf_version, const CScript& script)
+uint256 ComputeTapleafHash(uint8_t leaf_version, Span<const unsigned char> script)
 {
-    return (CHashWriter(HASHER_TAPLEAF_ELEMENTS) << leaf_version << script).GetSHA256();
+    return (HashWriter{HASHER_TAPLEAF_ELEMENTS} << leaf_version << CompactSizeWriter(script.size()) << script).GetSHA256();
+}
+
+uint256 ComputeTapbranchHash(Span<const unsigned char> a, Span<const unsigned char> b)
+{
+    HashWriter ss_branch{HASHER_TAPBRANCH_ELEMENTS};
+    if (std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end())) {
+        ss_branch << a << b;
+    } else {
+        ss_branch << b << a;
+    }
+    return ss_branch.GetSHA256();
 }
 
 uint256 ComputeTaprootMerkleRoot(Span<const unsigned char> control, const uint256& tapleaf_hash)
 {
+    assert(control.size() >= TAPROOT_CONTROL_BASE_SIZE);
+    assert(control.size() <= TAPROOT_CONTROL_MAX_SIZE);
+    assert((control.size() - TAPROOT_CONTROL_BASE_SIZE) % TAPROOT_CONTROL_NODE_SIZE == 0);
+
     const int path_len = (control.size() - TAPROOT_CONTROL_BASE_SIZE) / TAPROOT_CONTROL_NODE_SIZE;
     uint256 k = tapleaf_hash;
     for (int i = 0; i < path_len; ++i) {
-        CHashWriter ss_branch = CHashWriter{HASHER_TAPBRANCH_ELEMENTS};
         Span node{Span{control}.subspan(TAPROOT_CONTROL_BASE_SIZE + TAPROOT_CONTROL_NODE_SIZE * i, TAPROOT_CONTROL_NODE_SIZE)};
-        if (std::lexicographical_compare(k.begin(), k.end(), node.begin(), node.end())) {
-            ss_branch << k << node;
-        } else {
-            ss_branch << node << k;
-        }
-        k = ss_branch.GetSHA256();
+        k = ComputeTapbranchHash(k, node);
     }
     return k;
 }
@@ -3281,7 +3265,7 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
         if (stack.size() >= 2 && !stack.back().empty() && stack.back()[0] == ANNEX_TAG) {
             // Drop annex (this is non-standard; see IsWitnessStandard)
             const valtype& annex = SpanPopBack(stack);
-            execdata.m_annex_hash = (CHashWriter(SER_GETHASH, 0) << annex).GetSHA256();
+            execdata.m_annex_hash = (HashWriter{} << annex).GetSHA256();
             execdata.m_annex_present = true;
         } else {
             execdata.m_annex_present = false;
@@ -3296,32 +3280,32 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
         } else {
             // Script path spending (stack size is >1 after removing optional annex)
             const valtype& control = SpanPopBack(stack);
-            const valtype& script_bytes = SpanPopBack(stack);
-            exec_script = CScript(script_bytes.begin(), script_bytes.end());
+            const valtype& script = SpanPopBack(stack);
             if (control.size() < TAPROOT_CONTROL_BASE_SIZE || control.size() > TAPROOT_CONTROL_MAX_SIZE || ((control.size() - TAPROOT_CONTROL_BASE_SIZE) % TAPROOT_CONTROL_NODE_SIZE) != 0) {
                 return set_error(serror, SCRIPT_ERR_TAPROOT_WRONG_CONTROL_SIZE);
             }
-            execdata.m_tapleaf_hash = ComputeTapleafHash(control[0] & TAPROOT_LEAF_MASK, exec_script);
+            execdata.m_tapleaf_hash = ComputeTapleafHash(control[0] & TAPROOT_LEAF_MASK, script);
             if (!VerifyTaprootCommitment(control, program, execdata.m_tapleaf_hash)) {
                 return set_error(serror, SCRIPT_ERR_WITNESS_PROGRAM_MISMATCH);
             }
             execdata.m_tapleaf_hash_init = true;
             if ((control[0] & TAPROOT_LEAF_MASK) == TAPROOT_LEAF_TAPSCRIPT) {
                 // Tapscript (leaf version 0xc4)
-                execdata.m_validation_weight_left = ::GetSerializeSize(witness.stack, PROTOCOL_VERSION) + VALIDATION_WEIGHT_OFFSET;
+                exec_script = CScript(script.begin(), script.end());
+                execdata.m_validation_weight_left = ::GetSerializeSize(witness.stack) + VALIDATION_WEIGHT_OFFSET;
                 execdata.m_validation_weight_left_init = true;
                 return ExecuteWitnessScript(stack, exec_script, flags, SigVersion::TAPSCRIPT, checker, execdata, serror);
             }
             if ((flags & SCRIPT_VERIFY_SIMPLICITY) && (control[0] & TAPROOT_LEAF_MASK) == TAPROOT_LEAF_TAPSIMPLICITY) {
-                if (stack.size() != 2 || script_bytes.size() != 32) return set_error(serror, SCRIPT_ERR_SIMPLICITY_WRONG_LENGTH);
+                if (stack.size() != 2 || script.size() != 32) return set_error(serror, SCRIPT_ERR_SIMPLICITY_WRONG_LENGTH);
                 // Tapsimplicity (leaf version 0xbe)
                 const valtype& simplicity_program = SpanPopBack(stack);
                 const valtype& simplicity_witness = SpanPopBack(stack);
-                const int64_t budget = ::GetSerializeSize(witness.stack, PROTOCOL_VERSION) + VALIDATION_WEIGHT_OFFSET;
+                const int64_t budget = ::GetSerializeSize(witness.stack) + VALIDATION_WEIGHT_OFFSET;
                 rawElementsTapEnv simplicityRawTap;
                 simplicityRawTap.controlBlock = control.data();
                 simplicityRawTap.pathLen = (control.size() - TAPROOT_CONTROL_BASE_SIZE) / TAPROOT_CONTROL_NODE_SIZE;
-                simplicityRawTap.scriptCMR = script_bytes.data();
+                simplicityRawTap.scriptCMR = script.data();
                 return checker.CheckSimplicity(simplicity_program, simplicity_witness, simplicityRawTap, budget, serror);
             }
             if (flags & SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_TAPROOT_VERSION) {
@@ -3329,6 +3313,8 @@ static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, 
             }
             return set_success(serror);
         }
+    } else if (!is_p2sh && CScript::IsPayToAnchor(witversion, program)) {
+        return true;
     } else {
         if (flags & SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM) {
             return set_error(serror, SCRIPT_ERR_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM);
@@ -3379,7 +3365,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
                 // The scriptSig must be _exactly_ CScript(), otherwise we reintroduce malleability.
                 return set_error(serror, SCRIPT_ERR_WITNESS_MALLEATED);
             }
-            if (!VerifyWitnessProgram(*witness, witnessversion, witnessprogram, flags, checker, serror, /* is_p2sh */ false)) {
+            if (!VerifyWitnessProgram(*witness, witnessversion, witnessprogram, flags, checker, serror, /*is_p2sh=*/false)) {
                 return false;
             }
             // Bypass the cleanstack check at the end. The actual stack is obviously not clean
@@ -3424,7 +3410,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
                     // reintroduce malleability.
                     return set_error(serror, SCRIPT_ERR_WITNESS_MALLEATED_P2SH);
                 }
-                if (!VerifyWitnessProgram(*witness, witnessversion, witnessprogram, flags, checker, serror, /* is_p2sh */ true)) {
+                if (!VerifyWitnessProgram(*witness, witnessversion, witnessprogram, flags, checker, serror, /*is_p2sh=*/true)) {
                     return false;
                 }
                 // Bypass the cleanstack check at the end. The actual stack is obviously not clean

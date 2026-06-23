@@ -1,4 +1,4 @@
-// Copyright (c) 2021 The Bitcoin Core developers
+// Copyright (c) 2021-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -31,7 +31,7 @@ bool IsProtected(int num_peers,
     for (NodeEvictionCandidate& candidate : candidates) {
         candidate_setup_fn(candidate);
     }
-    Shuffle(candidates.begin(), candidates.end(), random_context);
+    std::shuffle(candidates.begin(), candidates.end(), random_context);
 
     const size_t size{candidates.size()};
     const size_t expected{size - size / 2}; // Expect half the candidates will be protected.
@@ -478,8 +478,8 @@ BOOST_AUTO_TEST_CASE(peer_protection_test)
                 c.m_network = NET_IPV6;
             }
         },
-        /* protected_peer_ids */ {0, 4},
-        /* unprotected_peer_ids */ {1, 2, 3},
+        /*protected_peer_ids=*/{0, 4},
+        /*unprotected_peer_ids=*/{1, 2, 3},
         random_context));
 
     // Combined test: expect having 1 CJDNS, 1 I2P, 1 localhost and 1 onion peer
@@ -572,7 +572,7 @@ BOOST_AUTO_TEST_CASE(peer_protection_test)
 // Returns true if any of the node ids in node_ids are selected for eviction.
 bool IsEvicted(std::vector<NodeEvictionCandidate> candidates, const std::unordered_set<NodeId>& node_ids, FastRandomContext& random_context)
 {
-    Shuffle(candidates.begin(), candidates.end(), random_context);
+    std::shuffle(candidates.begin(), candidates.end(), random_context);
     const std::optional<NodeId> evicted_node_id = SelectNodeToEvict(std::move(candidates));
     if (!evicted_node_id) {
         return false;
@@ -627,7 +627,7 @@ BOOST_AUTO_TEST_CASE(peer_eviction_test)
                         number_of_nodes, [number_of_nodes](NodeEvictionCandidate& candidate) {
                             candidate.m_last_block_time = std::chrono::seconds{number_of_nodes - candidate.id};
                             if (candidate.id <= 7) {
-                                candidate.fRelayTxes = false;
+                                candidate.m_relay_txs = false;
                                 candidate.fRelevantServices = true;
                             }
                         },
@@ -646,7 +646,7 @@ BOOST_AUTO_TEST_CASE(peer_eviction_test)
                         number_of_nodes, [number_of_nodes](NodeEvictionCandidate& candidate) {
                             candidate.m_last_block_time = std::chrono::seconds{number_of_nodes - candidate.id};
                             if (candidate.id <= 7) {
-                                candidate.fRelayTxes = false;
+                                candidate.m_relay_txs = false;
                                 candidate.fRelevantServices = true;
                             }
                         },

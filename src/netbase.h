@@ -1,24 +1,22 @@
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_NETBASE_H
 #define BITCOIN_NETBASE_H
 
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h>
-#endif
-
-#include <compat.h>
+#include <compat/compat.h>
 #include <netaddress.h>
 #include <serialize.h>
 #include <util/sock.h>
+#include <util/threadinterrupt.h>
 
 #include <functional>
 #include <memory>
 #include <stdint.h>
 #include <string>
 #include <type_traits>
+#include <unordered_set>
 #include <vector>
 
 extern int nConnectTimeout;
@@ -28,6 +26,9 @@ extern bool fNameLookup;
 static const int DEFAULT_CONNECT_TIMEOUT = 5000;
 //! -dns default
 static const int DEFAULT_NAME_LOOKUP = true;
+
+/** Prefix for unix domain socket addresses (which are local filesystem paths) */
+const std::string ADDR_PREFIX_UNIX = "unix:";
 
 enum class ConnectionDirection {
     None = 0,
@@ -45,16 +46,46 @@ static inline bool operator&(ConnectionDirection a, ConnectionDirection b) {
     return (underlying(a) & underlying(b));
 }
 
+/**
+ * Check if a string is a valid UNIX domain socket path
+ *
+ * @param      name     The string provided by the user representing a local path
+ *
+ * @returns Whether the string has proper format, length, and points to an existing file path
+ */
+bool IsUnixSocketPath(const std::string& name);
+
 class Proxy
 {
 public:
-    Proxy(): randomize_credentials(false) {}
-    explicit Proxy(const CService &_proxy, bool _randomize_credentials=false): proxy(_proxy), randomize_credentials(_randomize_credentials) {}
-
-    bool IsValid() const { return proxy.IsValid(); }
+    Proxy() : m_is_unix_socket(false), m_randomize_credentials(false) {}
+    explicit Proxy(const CService& _proxy, bool _randomize_credentials = false) : proxy(_proxy), m_is_unix_socket(false), m_randomize_credentials(_randomize_credentials) {}
+    explicit Proxy(const std::string path, bool _randomize_credentials = false) : m_unix_socket_path(path), m_is_unix_socket(true), m_randomize_credentials(_randomize_credentials) {}
 
     CService proxy;
-    bool randomize_credentials;
+    std::string m_unix_socket_path;
+    bool m_is_unix_socket;
+    bool m_randomize_credentials;
+
+    bool IsValid() const
+    {
+        if (m_is_unix_socket) return IsUnixSocketPath(m_unix_socket_path);
+        return proxy.IsValid();
+    }
+
+    sa_family_t GetFamily() const
+    {
+        if (m_is_unix_socket) return AF_UNIX;
+        return proxy.GetSAFamily();
+    }
+
+    std::string ToString() const
+    {
+        if (m_is_unix_socket) return m_unix_socket_path;
+        return proxy.ToStringAddrPort();
+    }
+
+    std::unique_ptr<Sock> Connect() const;
 };
 
 /** Credentials for proxy authentication */
@@ -63,6 +94,68 @@ struct ProxyCredentials
     std::string username;
     std::string password;
 };
+
+/**
+ * List of reachable networks. Everything is reachable by default.
+ */
+class ReachableNets {
+public:
+    void Add(Network net) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
+    {
+        AssertLockNotHeld(m_mutex);
+        LOCK(m_mutex);
+        m_reachable.insert(net);
+    }
+
+    void Remove(Network net) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
+    {
+        AssertLockNotHeld(m_mutex);
+        LOCK(m_mutex);
+        m_reachable.erase(net);
+    }
+
+    void RemoveAll() EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
+    {
+        AssertLockNotHeld(m_mutex);
+        LOCK(m_mutex);
+        m_reachable.clear();
+    }
+
+    [[nodiscard]] bool Contains(Network net) const EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
+    {
+        AssertLockNotHeld(m_mutex);
+        LOCK(m_mutex);
+        return m_reachable.count(net) > 0;
+    }
+
+    [[nodiscard]] bool Contains(const CNetAddr& addr) const EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
+    {
+        AssertLockNotHeld(m_mutex);
+        return Contains(addr.GetNetwork());
+    }
+
+    [[nodiscard]] std::unordered_set<Network> All() const EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
+    {
+        AssertLockNotHeld(m_mutex);
+        LOCK(m_mutex);
+        return m_reachable;
+    }
+
+private:
+    mutable Mutex m_mutex;
+
+    std::unordered_set<Network> m_reachable GUARDED_BY(m_mutex){
+        NET_UNROUTABLE,
+        NET_IPV4,
+        NET_IPV6,
+        NET_ONION,
+        NET_I2P,
+        NET_CJDNS,
+        NET_INTERNAL
+    };
+};
+
+extern ReachableNets g_reachable_nets;
 
 /**
  * Wrapper for getaddrinfo(3). Do not use directly: call Lookup/LookupHost/LookupNumeric/LookupSubNet.
@@ -105,24 +198,25 @@ extern DNSLookupFn g_dns_lookup;
  * @param name    The string representing a host. Could be a name or a numerical
  *                IP address (IPv6 addresses in their bracketed form are
  *                allowed).
- * @param[out] vIP The resulting network addresses to which the specified host
- *                 string resolved.
  *
- * @returns Whether or not the specified host string successfully resolved to
- *          any resulting network addresses.
+ * @returns The resulting network addresses to which the specified host
+ *          string resolved.
  *
- * @see Lookup(const std::string&, std::vector<CService>&, uint16_t, bool, unsigned int, DNSLookupFn)
+ * @see Lookup(const std::string&, uint16_t, bool, unsigned int, DNSLookupFn)
  *      for additional parameter descriptions.
  */
-bool LookupHost(const std::string& name, std::vector<CNetAddr>& vIP, unsigned int nMaxSolutions, bool fAllowLookup, DNSLookupFn dns_lookup_function = g_dns_lookup);
+std::vector<CNetAddr> LookupHost(const std::string& name, unsigned int nMaxSolutions, bool fAllowLookup, DNSLookupFn dns_lookup_function = g_dns_lookup);
 
 /**
  * Resolve a host string to its first corresponding network address.
  *
- * @see LookupHost(const std::string&, std::vector<CNetAddr>&, uint16_t, bool, DNSLookupFn)
+ * @returns The resulting network address to which the specified host
+ *          string resolved or std::nullopt if host does not resolve to an address.
+ *
+ * @see LookupHost(const std::string&, unsigned int, bool, DNSLookupFn)
  *      for additional parameter descriptions.
  */
-bool LookupHost(const std::string& name, CNetAddr& addr, bool fAllowLookup, DNSLookupFn dns_lookup_function = g_dns_lookup);
+std::optional<CNetAddr> LookupHost(const std::string& name, bool fAllowLookup, DNSLookupFn dns_lookup_function = g_dns_lookup);
 
 /**
  * Resolve a service string to its corresponding service.
@@ -132,8 +226,6 @@ bool LookupHost(const std::string& name, CNetAddr& addr, bool fAllowLookup, DNSL
  *                disambiguated bracketed form), optionally followed by a uint16_t port
  *                number. (e.g. example.com:8333 or
  *                [2001:db8:85a3:8d3:1319:8a2e:370:7348]:420)
- * @param[out] vAddr The resulting services to which the specified service string
- *                   resolved.
  * @param portDefault The default port for resulting services if not specified
  *                    by the service string.
  * @param fAllowLookup Whether or not hostname lookups are permitted. If yes,
@@ -141,18 +233,18 @@ bool LookupHost(const std::string& name, CNetAddr& addr, bool fAllowLookup, DNSL
  * @param nMaxSolutions The maximum number of results we want, specifying 0
  *                      means "as many solutions as we get."
  *
- * @returns Whether or not the service string successfully resolved to any
- *          resulting services.
+ * @returns The resulting services to which the specified service string
+ *          resolved.
  */
-bool Lookup(const std::string& name, std::vector<CService>& vAddr, uint16_t portDefault, bool fAllowLookup, unsigned int nMaxSolutions, DNSLookupFn dns_lookup_function = g_dns_lookup);
+std::vector<CService> Lookup(const std::string& name, uint16_t portDefault, bool fAllowLookup, unsigned int nMaxSolutions, DNSLookupFn dns_lookup_function = g_dns_lookup);
 
 /**
  * Resolve a service string to its first corresponding service.
  *
- * @see Lookup(const std::string&, std::vector<CService>&, uint16_t, bool, unsigned int, DNSLookupFn)
+ * @see Lookup(const std::string&, uint16_t, bool, unsigned int, DNSLookupFn)
  *      for additional parameter descriptions.
  */
-bool Lookup(const std::string& name, CService& addr, uint16_t portDefault, bool fAllowLookup, DNSLookupFn dns_lookup_function = g_dns_lookup);
+std::optional<CService> Lookup(const std::string& name, uint16_t portDefault, bool fAllowLookup, DNSLookupFn dns_lookup_function = g_dns_lookup);
 
 /**
  * Resolve a service string with a numeric IP to its first corresponding
@@ -160,7 +252,7 @@ bool Lookup(const std::string& name, CService& addr, uint16_t portDefault, bool 
  *
  * @returns The resulting CService if the resolution was successful, [::]:0 otherwise.
  *
- * @see Lookup(const std::string&, std::vector<CService>&, uint16_t, bool, unsigned int, DNSLookupFn)
+ * @see Lookup(const std::string&, uint16_t, bool, unsigned int, DNSLookupFn)
  *      for additional parameter descriptions.
  */
 CService LookupNumeric(const std::string& name, uint16_t portDefault = 0, DNSLookupFn dns_lookup_function = g_dns_lookup);
@@ -172,60 +264,54 @@ CService LookupNumeric(const std::string& name, uint16_t portDefault = 0, DNSLoo
  * @param[in]  subnet_str  A string representation of a subnet of the form
  *                         `network address [ "/", ( CIDR-style suffix | netmask ) ]`
  *                         e.g. "2001:db8::/32", "192.0.2.0/255.255.255.0" or "8.8.8.8".
- * @param[out] subnet_out  Internal subnet representation, if parsable/resolvable
- *                         from `subnet_str`.
- * @returns whether the operation succeeded or not.
+ * @returns a CSubNet object (that may or may not be valid).
  */
-bool LookupSubNet(const std::string& subnet_str, CSubNet& subnet_out);
+CSubNet LookupSubNet(const std::string& subnet_str);
 
 /**
- * Create a TCP socket in the given address family.
- * @param[in] address_family The socket is created in the same address family as this address.
+ * Create a real socket from the operating system.
+ * @param[in] domain Communications domain, first argument to the socket(2) syscall.
+ * @param[in] type Type of the socket, second argument to the socket(2) syscall.
+ * @param[in] protocol The particular protocol to be used with the socket, third argument to the socket(2) syscall.
  * @return pointer to the created Sock object or unique_ptr that owns nothing in case of failure
  */
-std::unique_ptr<Sock> CreateSockTCP(const CService& address_family);
+std::unique_ptr<Sock> CreateSockOS(int domain, int type, int protocol);
 
 /**
- * Socket factory. Defaults to `CreateSockTCP()`, but can be overridden by unit tests.
+ * Socket factory. Defaults to `CreateSockOS()`, but can be overridden by unit tests.
  */
-extern std::function<std::unique_ptr<Sock>(const CService&)> CreateSock;
+extern std::function<std::unique_ptr<Sock>(int, int, int)> CreateSock;
 
 /**
- * Try to connect to the specified service on the specified socket.
+ * Create a socket and try to connect to the specified service.
  *
- * @param addrConnect The service to which to connect.
- * @param sock The socket on which to connect.
- * @param nTimeout Wait this many milliseconds for the connection to be
- *                 established.
- * @param manual_connection Whether or not the connection was manually requested
- *                          (e.g. through the addnode RPC)
+ * @param[in] dest The service to which to connect.
+ * @param[in] manual_connection Whether or not the connection was manually requested (e.g. through the addnode RPC)
  *
- * @returns Whether or not a connection was successfully made.
+ * @returns the connected socket if the operation succeeded, empty unique_ptr otherwise
  */
-bool ConnectSocketDirectly(const CService &addrConnect, const Sock& sock, int nTimeout, bool manual_connection);
+std::unique_ptr<Sock> ConnectDirectly(const CService& dest, bool manual_connection);
 
 /**
  * Connect to a specified destination service through a SOCKS5 proxy by first
  * connecting to the SOCKS5 proxy.
  *
- * @param proxy The SOCKS5 proxy.
- * @param strDest The destination service to which to connect.
- * @param port The destination port.
- * @param sock The socket on which to connect to the SOCKS5 proxy.
- * @param nTimeout Wait this many milliseconds for the connection to the SOCKS5
- *                 proxy to be established.
- * @param[out] outProxyConnectionFailed Whether or not the connection to the
- *                                      SOCKS5 proxy failed.
+ * @param[in] proxy The SOCKS5 proxy.
+ * @param[in] dest The destination service to which to connect.
+ * @param[in] port The destination port.
+ * @param[out] proxy_connection_failed Whether or not the connection to the SOCKS5 proxy failed.
  *
- * @returns Whether or not the operation succeeded.
+ * @returns the connected socket if the operation succeeded. Otherwise an empty unique_ptr.
  */
-bool ConnectThroughProxy(const Proxy& proxy, const std::string& strDest, uint16_t port, const Sock& sock, int nTimeout, bool& outProxyConnectionFailed);
+std::unique_ptr<Sock> ConnectThroughProxy(const Proxy& proxy,
+                                          const std::string& dest,
+                                          uint16_t port,
+                                          bool& proxy_connection_failed);
 
-/** Disable or enable blocking-mode for a socket */
-bool SetSocketNonBlocking(const SOCKET& hSocket, bool fNonBlocking);
-/** Set the TCP_NODELAY flag on a socket */
-bool SetSocketNoDelay(const SOCKET& hSocket);
-void InterruptSocks5(bool interrupt);
+/**
+ * Interrupt SOCKS5 reads or writes.
+ */
+extern CThreadInterrupt g_socks5_interrupt;
 
 /**
  * Connect to a specified destination service through an already connected
@@ -255,5 +341,14 @@ bool Socks5(const std::string& strDest, uint16_t port, const ProxyCredentials* a
  * @returns whether the port is bad
  */
 bool IsBadPort(uint16_t port);
+
+/**
+ * If an IPv6 address belongs to the address range used by the CJDNS network and
+ * the CJDNS network is reachable (-cjdnsreachable config is set), then change
+ * the type from NET_IPV6 to NET_CJDNS.
+ * @param[in] service Address to potentially convert.
+ * @return a copy of `service` either unmodified or changed to CJDNS.
+ */
+CService MaybeFlipIPv6toCJDNS(const CService& service);
 
 #endif // BITCOIN_NETBASE_H

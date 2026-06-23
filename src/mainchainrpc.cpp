@@ -1,7 +1,8 @@
 #include <mainchainrpc.h>
 
+#include <common/args.h>
+#include <logging.h>
 #include <chainparamsbase.h>
-#include <util/system.h>
 #include <util/strencodings.h>
 #include <util/translation.h>
 #include <rpc/request.h>
@@ -16,10 +17,8 @@
 /** Reply structure for request_done to fill in */
 struct HTTPReply
 {
-    HTTPReply(): status(0), error(-1) {}
-
-    int status;
-    int error;
+    int status{0};
+    int error{-1};
     std::string body;
 };
 
@@ -49,8 +48,8 @@ static void http_request_done(struct evhttp_request *req, void *ctx)
 {
     HTTPReply *reply = static_cast<HTTPReply*>(ctx);
 
-    if (req == NULL) {
-        /* If req is NULL, it means an error occurred while connecting: the
+    if (req == nullptr) {
+        /* If req is nullptr, it means an error occurred while connecting: the
          * error code will have been passed to http_error_cb.
          */
         reply->status = 0;
@@ -92,7 +91,7 @@ UniValue CallMainChainRPC(const std::string& strMethod, const UniValue& params)
 
     HTTPReply response;
     raii_evhttp_request req = obtain_evhttp_request(http_request_done, (void*)&response);
-    if (req == NULL)
+    if (req == nullptr)
         throw std::runtime_error("create http request failed");
 #if LIBEVENT_VERSION_NUMBER >= 0x02010300
     evhttp_request_set_error_cb(req.get(), http_error_cb);
@@ -104,8 +103,8 @@ UniValue CallMainChainRPC(const std::string& strMethod, const UniValue& params)
         // Try fall back to cookie-based authentication if no password is provided
         if (!GetMainchainAuthCookie(&strRPCUserColonPass)) {
             throw std::runtime_error(strprintf(
-                _("Could not locate mainchain RPC credentials. No authentication cookie could be found, and no mainchainrpcpassword is set in the configuration file (%s)").translated,
-                    gArgs.GetArg("-conf", BITCOIN_CONF_FILENAME).c_str()));
+                _("Could not locate mainchain RPC credentials. No authentication cookie could be found, and no mainchainrpcpassword is set in the configuration file (%s)"),
+                    gArgs.GetArg("-conf", BITCOIN_CONF_FILENAME).c_str()).translated);
         }
     } else {
         strRPCUserColonPass = gArgs.GetArg("-mainchainrpcuser", "") + ":" + gArgs.GetArg("-mainchainrpcpassword", "");
@@ -158,27 +157,27 @@ bool IsConfirmedBitcoinBlock(const uint256& hash, const int nMinConfirmationDept
         UniValue params(UniValue::VARR);
         params.push_back(hash.GetHex());
         UniValue reply = CallMainChainRPC("getblockheader", params);
-        UniValue errval = find_value(reply, "error");
+        const UniValue& errval = reply.find_value("error");
         if (!errval.isNull()) {
             LogPrintf("WARNING: Got error reply from bitcoind getblockheader: %s\n", errval.write());
             return false;
         }
-        UniValue result = find_value(reply, "result");
+        const UniValue& result = reply.find_value("result");
         if (!result.isObject()) {
             LogPrintf("ERROR: bitcoind getblockheader result was malformed (not object): %s\n", result.write());
             return false;
         }
 
-        UniValue confirmations = find_value(result.get_obj(), "confirmations");
-        if (!confirmations.isNum() || confirmations.get_int64() < nMinConfirmationDepth) {
+        UniValue confirmations = result.get_obj().find_value("confirmations");
+        if (!confirmations.isNum() || confirmations.getInt<int64_t>() < nMinConfirmationDepth) {
             LogPrintf("Insufficient confirmations (got %s, need at least %d).\n", confirmations.write(), nMinConfirmationDepth);
             return false;
         }
 
         // Only perform extra test if nbTxs has been provided (non-zero).
         if (nbTxs != 0) {
-            UniValue nTx = find_value(result.get_obj(), "nTx");
-            if (!nTx.isNum() || nTx.get_int64() != nbTxs) {
+            UniValue nTx = result.get_obj().find_value("nTx");
+            if (!nTx.isNum() || nTx.getInt<int64_t>() != nbTxs) {
                 LogPrintf("ERROR: Invalid number of transactions in merkle block for %s (got %s, need exactly %d)\n",
                         hash.GetHex(), nTx.write(), nbTxs);
                 return false;

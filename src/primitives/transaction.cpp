@@ -1,18 +1,22 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <primitives/transaction.h>
 
 #include <consensus/amount.h>
+#include <crypto/hex_base.h>
 #include <hash.h>
+#include <script/script.h>
+#include <serialize.h>
 #include <tinyformat.h>
-#include <util/strencodings.h>
+#include <uint256.h>
+#include <util/transaction_identifier.h>
 
-#include <assert.h>
-
-bool g_con_elementsmode = false;
+#include <algorithm>
+#include <cassert>
+#include <stdexcept>
 
 const int32_t CTransaction::CURRENT_VERSION = 2;
 
@@ -28,7 +32,7 @@ CTxIn::CTxIn(COutPoint prevoutIn, CScript scriptSigIn, uint32_t nSequenceIn)
     nSequence = nSequenceIn;
 }
 
-CTxIn::CTxIn(uint256 hashPrevTx, uint32_t nOut, CScript scriptSigIn, uint32_t nSequenceIn)
+CTxIn::CTxIn(Txid hashPrevTx, uint32_t nOut, CScript scriptSigIn, uint32_t nSequenceIn)
 {
     prevout = COutPoint(hashPrevTx, nOut);
     scriptSig = scriptSigIn;
@@ -69,26 +73,32 @@ std::string CTxOut::ToString() const
     return strprintf("CTxOut(%snValue=%s, scriptPubKey=%s)", strAsset, (nValue.IsExplicit() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("CONFIDENTIAL")), HexStr(scriptPubKey).substr(0, 30));
 }
 
-CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nLockTime(0) {}
+CMutableTransaction::CMutableTransaction() : version{CTransaction::CURRENT_VERSION}, nLockTime{0} {}
 CMutableTransaction::CMutableTransaction(const CTransaction& tx) :
-        vin(tx.vin), vout(tx.vout), nVersion(tx.nVersion), nLockTime(tx.nLockTime), witness(tx.witness) {}
+        vin(tx.vin), vout(tx.vout), version{tx.version}, nLockTime{tx.nLockTime}, witness(tx.witness) {}
 
-uint256 CMutableTransaction::GetHash() const
+Txid CMutableTransaction::GetHash() const
 {
-    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_NO_WITNESS);
+    return Txid::FromUint256((HashWriter{} << TX_NO_WITNESS(*this)).GetHash());
 }
 
-uint256 CTransaction::ComputeHash() const
+bool CTransaction::ComputeHasWitness() const
 {
-    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_NO_WITNESS);
+    return !witness.IsNull();
 }
 
-uint256 CTransaction::ComputeWitnessHash() const
+Txid CTransaction::ComputeHash() const
+{
+    return Txid::FromUint256((HashWriter{} << TX_NO_WITNESS(*this)).GetHash());
+}
+
+Wtxid CTransaction::ComputeWitnessHash() const
 {
     if (!HasWitness()) {
-        return hash;
+        return Wtxid::FromUint256(hash.ToUint256());
     }
-    return SerializeHash(*this, SER_GETHASH, 0);
+
+    return Wtxid::FromUint256((HashWriter{} << TX_WITH_WITNESS(*this)).GetHash());
 }
 
 // ELEMENTS ONLY
@@ -119,10 +129,8 @@ uint256 CTransaction::GetWitnessOnlyHash() const
     return ComputeFastMerkleRoot(leaves);
 }
 
-CTransaction::CTransaction(const CMutableTransaction& tx) :
-        vin(tx.vin), vout(tx.vout), nVersion(tx.nVersion), nLockTime(tx.nLockTime), witness(tx.witness), hash{ComputeHash()}, m_witness_hash{ComputeWitnessHash()} {}
-CTransaction::CTransaction(CMutableTransaction&& tx) :
-        vin(std::move(tx.vin)), vout(std::move(tx.vout)), nVersion(tx.nVersion), nLockTime(tx.nLockTime), witness(std::move(tx.witness)),hash{ComputeHash()}, m_witness_hash{ComputeWitnessHash()} {}
+CTransaction::CTransaction(const CMutableTransaction& tx) : vin(tx.vin), vout(tx.vout), version{tx.version}, nLockTime{tx.nLockTime}, witness(tx.witness), m_has_witness{ComputeHasWitness()}, hash{ComputeHash()}, m_witness_hash{ComputeWitnessHash()} {}
+CTransaction::CTransaction(CMutableTransaction&& tx) : vin(std::move(tx.vin)), vout(std::move(tx.vout)), version{tx.version}, nLockTime{tx.nLockTime}, witness(std::move(tx.witness)), m_has_witness{ComputeHasWitness()}, hash{ComputeHash()}, m_witness_hash{ComputeWitnessHash()} {}
 
 CAmountMap CTransaction::GetValueOutMap() const {
 
@@ -142,15 +150,15 @@ CAmountMap CTransaction::GetValueOutMap() const {
 
 unsigned int CTransaction::GetTotalSize() const
 {
-    return ::GetSerializeSize(*this, PROTOCOL_VERSION);
+    return ::GetSerializeSize(TX_WITH_WITNESS(*this));
 }
 
 std::string CTransaction::ToString() const
 {
     std::string str;
-    str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, nLockTime=%u)\n",
+    str += strprintf("CTransaction(hash=%s, ver=%u, vin.size=%u, vout.size=%u, nLockTime=%u)\n",
         GetHash().ToString().substr(0,10),
-        nVersion,
+        version,
         vin.size(),
         vout.size(),
         nLockTime);

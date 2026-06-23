@@ -31,6 +31,9 @@ class WalletTest(BitcoinTestFramework):
         ]] * self.num_nodes
         self.extra_args[0].append("-anyonecanspendaremine=1")
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
@@ -89,4 +92,4 @@ class WalletTest(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    WalletTest().main()
+    WalletTest(__file__).main()

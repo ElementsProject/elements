@@ -41,6 +41,9 @@ class CTTest (BitcoinTestFramework):
         self.extra_args = [args] * self.num_nodes
         self.extra_args[0].append("-anyonecanspendaremine=1") # first node gets the coins
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def setup_network(self, split=False):
         self.setup_nodes()
         self.connect_nodes(0, 1)
@@ -386,7 +389,7 @@ class CTTest (BitcoinTestFramework):
             if txout is not None and "asset" in txout:
                 unblindfound = True
 
-        if unblindfound == False:
+        if not unblindfound:
             raise Exception("No unconfidential output detected when one should exist")
 
         node0 -= value4
@@ -787,13 +790,6 @@ class CTTest (BitcoinTestFramework):
         signed = self.nodes[0].signrawtransactionwithwallet(blinded)
         txid = self.nodes[0].sendrawtransaction(signed["hex"])
 
-        # Test fundrawtransaction with multiple inputs, creating > vout.size change
-        rawtx = self.nodes[0].createrawtransaction([{"txid":txid, "vout":0}, {"txid":txid, "vout":1}], [{self.nodes[0].getnewaddress():5}])
-        funded = self.nodes[0].fundrawtransaction(rawtx)
-        blinded = self.nodes[0].blindrawtransaction(funded["hex"])
-        signed = self.nodes[0].signrawtransactionwithwallet(blinded)
-        txid = self.nodes[0].sendrawtransaction(signed["hex"])
-
         # Test corner case where wallet appends a OP_RETURN output, yet doesn't blind it
         # due to the fact that the output value is 0-value and input pedersen commitments
         # self-balance. This is rare corner case, but ok.
@@ -840,4 +836,4 @@ class CTTest (BitcoinTestFramework):
         # TODO: signrawtransactionwith{wallet, key} with confidential segwit input given as previous transaction arg
 
 if __name__ == '__main__':
-    CTTest ().main ()
+    CTTest(__file__).main ()

@@ -29,6 +29,9 @@ class TweakFedpegTest(BitcoinTestFramework):
             "-evbparams=dynafed:0:::", # test dynafed derivation
         ]]
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def setup_network(self):
         self.setup_nodes()
 
@@ -115,4 +118,4 @@ class TweakFedpegTest(BitcoinTestFramework):
         assert_equal(self.nodes[2].tweakfedpegscript(claim_script, LIQUID_SCRIPT)["script"], liquid_tweaked)
 
 if __name__ == '__main__':
-    TweakFedpegTest().main()
+    TweakFedpegTest(__file__).main()

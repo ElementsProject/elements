@@ -10,8 +10,12 @@
 #include <random.h>
 #include <uint256.h>
 
-#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
+#include <boost/multi_index/tag.hpp>
+#include <boost/multi_index_container.hpp>
+#include <boost/tuple/tuple.hpp>
 
 #include <chrono>
 #include <unordered_map>
@@ -68,16 +72,10 @@ struct Announcement {
     /** Whether this is a wtxid request. */
     const bool m_is_wtxid : 1;
 
-    /** What state this announcement is in.
-     *  This is a uint8_t instead of a State to silence a GCC warning in versions prior to 8.4 and 9.3.
-     *  See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61414 */
-    uint8_t m_state : 3;
-
-    /** Convert m_state to a State enum. */
-    State GetState() const { return static_cast<State>(m_state); }
-
-    /** Convert a State enum to a uint8_t and store it in m_state. */
-    void SetState(State state) { m_state = static_cast<uint8_t>(state); }
+    /** What state this announcement is in. */
+    State m_state : 3 {State::CANDIDATE_DELAYED};
+    State GetState() const { return m_state; }
+    void SetState(State state) { m_state = state; }
 
     /** Whether this announcement is selected. There can be at most 1 selected peer per txhash. */
     bool IsSelected() const
@@ -99,9 +97,9 @@ struct Announcement {
 
     /** Construct a new announcement from scratch, initially in CANDIDATE_DELAYED state. */
     Announcement(const GenTxid& gtxid, NodeId peer, bool preferred, std::chrono::microseconds reqtime,
-        SequenceNumber sequence) :
-        m_txhash(gtxid.GetHash()), m_time(reqtime), m_peer(peer), m_sequence(sequence), m_preferred(preferred),
-        m_is_wtxid(gtxid.IsWtxid()), m_state(static_cast<uint8_t>(State::CANDIDATE_DELAYED)) {}
+                 SequenceNumber sequence)
+        : m_txhash(gtxid.GetHash()), m_time(reqtime), m_peer(peer), m_sequence(sequence), m_preferred(preferred),
+          m_is_wtxid{gtxid.IsWtxid()} {}
 };
 
 //! Type alias for priorities.
@@ -115,12 +113,12 @@ class PriorityComputer {
     const uint64_t m_k0, m_k1;
 public:
     explicit PriorityComputer(bool deterministic) :
-        m_k0{deterministic ? 0 : GetRand(0xFFFFFFFFFFFFFFFF)},
-        m_k1{deterministic ? 0 : GetRand(0xFFFFFFFFFFFFFFFF)} {}
+        m_k0{deterministic ? 0 : FastRandomContext().rand64()},
+        m_k1{deterministic ? 0 : FastRandomContext().rand64()} {}
 
     Priority operator()(const uint256& txhash, NodeId peer, bool preferred) const
     {
-        uint64_t low_bits = CSipHasher(m_k0, m_k1).Write(txhash.begin(), txhash.size()).Write(peer).Finalize() >> 1;
+        uint64_t low_bits = CSipHasher(m_k0, m_k1).Write(txhash).Write(peer).Finalize() >> 1;
         return low_bits | uint64_t{preferred} << 63;
     }
 
@@ -214,14 +212,17 @@ struct ByTimeViewExtractor
     }
 };
 
+struct Announcement_Indices final : boost::multi_index::indexed_by<
+    boost::multi_index::ordered_unique<boost::multi_index::tag<ByPeer>, ByPeerViewExtractor>,
+    boost::multi_index::ordered_non_unique<boost::multi_index::tag<ByTxHash>, ByTxHashViewExtractor>,
+    boost::multi_index::ordered_non_unique<boost::multi_index::tag<ByTime>, ByTimeViewExtractor>
+>
+{};
+
 /** Data type for the main data structure (Announcement objects with ByPeer/ByTxHash/ByTime indexes). */
 using Index = boost::multi_index_container<
     Announcement,
-    boost::multi_index::indexed_by<
-        boost::multi_index::ordered_unique<boost::multi_index::tag<ByPeer>, ByPeerViewExtractor>,
-        boost::multi_index::ordered_non_unique<boost::multi_index::tag<ByTxHash>, ByTxHashViewExtractor>,
-        boost::multi_index::ordered_non_unique<boost::multi_index::tag<ByTime>, ByTimeViewExtractor>
-    >
+    Announcement_Indices
 >;
 
 /** Helper type to simplify syntax of iterator types. */
@@ -573,6 +574,15 @@ public:
         }
     }
 
+    void GetCandidatePeers(const uint256& txhash, std::vector<NodeId>& result_peers) const
+    {
+        auto it = m_index.get<ByTxHash>().lower_bound(ByTxHashView{txhash, State::CANDIDATE_DELAYED, 0});
+        while (it != m_index.get<ByTxHash>().end() && it->m_txhash == txhash && it->GetState() != State::COMPLETED) {
+            result_peers.push_back(it->m_peer);
+            ++it;
+        }
+    }
+
     void ReceivedInv(NodeId peer, const GenTxid& gtxid, bool preferred,
         std::chrono::microseconds reqtime)
     {
@@ -720,6 +730,7 @@ size_t TxRequestTracker::CountInFlight(NodeId peer) const { return m_impl->Count
 size_t TxRequestTracker::CountCandidates(NodeId peer) const { return m_impl->CountCandidates(peer); }
 size_t TxRequestTracker::Count(NodeId peer) const { return m_impl->Count(peer); }
 size_t TxRequestTracker::Size() const { return m_impl->Size(); }
+void TxRequestTracker::GetCandidatePeers(const uint256& txhash, std::vector<NodeId>& result_peers) const { return m_impl->GetCandidatePeers(txhash, result_peers); }
 void TxRequestTracker::SanityCheck() const { m_impl->SanityCheck(); }
 
 void TxRequestTracker::PostGetRequestableSanityCheck(std::chrono::microseconds now) const

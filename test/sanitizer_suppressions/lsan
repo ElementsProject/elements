@@ -1,8 +1,5 @@
 # Suppress warnings triggered in dependencies
 leak:libQt5Widgets
 
-# false-positive due to use of secure_allocator<>
-leak:GetRNGState
-
-# Temporary hack while figuring out why wallet destruction doesn't seem to happen according to asan
+# ELEMENTS FIXME: Temporary hack while figuring out why wallet destruction doesn't seem to happen according to asan
 leak:LoadWallets

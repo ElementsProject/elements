@@ -2,10 +2,12 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://opensource.org/licenses/mit-license.php.
 
-#include <iomanip>
-#include <stdio.h>
-#include "univalue.h"
-#include "univalue_escapes.h"
+#include <univalue.h>
+#include <univalue_escapes.h>
+
+#include <memory>
+#include <string>
+#include <vector>
 
 static std::string json_escape(const std::string& inS)
 {
@@ -25,6 +27,7 @@ static std::string json_escape(const std::string& inS)
     return outS;
 }
 
+// NOLINTNEXTLINE(misc-no-recursion)
 std::string UniValue::write(unsigned int prettyIndent,
                             unsigned int indentLevel) const
 {
@@ -64,6 +67,7 @@ static void indentStr(unsigned int prettyIndent, unsigned int indentLevel, std::
     s.append(prettyIndent * indentLevel, ' ');
 }
 
+// NOLINTNEXTLINE(misc-no-recursion)
 void UniValue::writeArray(unsigned int prettyIndent, unsigned int indentLevel, std::string& s) const
 {
     s += "[";
@@ -86,6 +90,7 @@ void UniValue::writeArray(unsigned int prettyIndent, unsigned int indentLevel, s
     s += "]";
 }
 
+// NOLINTNEXTLINE(misc-no-recursion)
 void UniValue::writeObject(unsigned int prettyIndent, unsigned int indentLevel, std::string& s) const
 {
     s += "{";

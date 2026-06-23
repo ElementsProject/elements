@@ -46,14 +46,6 @@
         <translation type="unfinished">S&amp;ciobera</translation>
     </message>
     <message>
-        <source>Sending addresses</source>
-        <translation type="unfinished">Incarreramentu de inviu</translation>
-    </message>
-    <message>
-        <source>Receiving addresses</source>
-        <translation type="unfinished">Incarreramentu destinatàriu</translation>
-    </message>
-    <message>
         <source>These are your Bitcoin addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
         <translation type="unfinished">Custus funt is incarreramentu Bitcoin tuus po mandai pagamentus. Càstia sempri sa cantidadi e s'incarreramentu destinatàriu antis de inviais is monedas</translation>
     </message>
@@ -115,6 +107,24 @@
     </context>
 <context>
     <name>Intro</name>
+    <message numerus="yes">
+        <source>%n GB of space available</source>
+        <translation type="unfinished">
+            <numerusform />
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>(of %n GB needed)</source>
+        <translation type="unfinished">
+            <numerusform />
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>(%n GB needed for full chain)</source>
+        <translation type="unfinished">
+            <numerusform />
+        </translation>
+    </message>
     <message numerus="yes">
         <source>(sufficient to restore backups %n day(s) old)</source>
         <extracomment>Explanatory text on the capability of the current prune target.</extracomment>

@@ -2,10 +2,6 @@
 <context>
     <name>AddressBookPage</name>
     <message>
-        <source>Right-click to edit address or label</source>
-        <translation type="unfinished">Fai Click co botón dereito para editar o enderezo ou etiqueta</translation>
-    </message>
-    <message>
         <source>Create a new address</source>
         <translation type="unfinished">Crea un novo enderezo</translation>
     </message>
@@ -58,16 +54,14 @@
         <translation type="unfinished">Selecciona</translation>
     </message>
     <message>
-        <source>Sending addresses</source>
-        <translation type="unfinished">Enderezos de envío</translation>
-    </message>
-    <message>
-        <source>Receiving addresses</source>
-        <translation type="unfinished">Enderezos de recepción</translation>
-    </message>
-    <message>
         <source>These are your Bitcoin addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
         <translation type="unfinished">Estes son os teus enderezos de Bitcoin para enviar pagamentos. Asegurate sempre de comprobar a cantidade e maila dirección antes de enviar moedas.</translation>
+    </message>
+    <message>
+        <source>These are your Bitcoin addresses for receiving payments. Use the 'Create new receiving address' button in the receive tab to create new addresses.
+Signing is only possible with addresses of the type 'legacy'.</source>
+        <translation type="unfinished">Estes son os teus enderezos de Bitcoin para recibir pagamentos. Emprega o botón 'Crear novo enderezo para recibir pagamentos' na solapa de recibir para crear novos enderezos.
+Firmar é posible unicamente con enderezos de tipo 'legacy'.</translation>
     </message>
     <message>
         <source>&amp;Copy Address</source>
@@ -86,9 +80,22 @@
         <translation type="unfinished">Exporta a Lista de Enderezos</translation>
     </message>
     <message>
+        <source>Comma separated file</source>
+        <extracomment>Expanded name of the CSV file format. See: https://en.wikipedia.org/wiki/Comma-separated_values.</extracomment>
+        <translation type="unfinished">Ficheiro separado por comas</translation>
+    </message>
+    <message>
         <source>There was an error trying to save the address list to %1. Please try again.</source>
         <extracomment>An error message. %1 is a stand-in argument for the name of the file we attempted to save to.</extracomment>
         <translation type="unfinished">Houbo un erro tentando gardar a lista de enderezos en %1. Por favor proba de novo.</translation>
+    </message>
+    <message>
+        <source>Sending addresses - %1</source>
+        <translation type="unfinished">Enviando enderezos - %1</translation>
+    </message>
+    <message>
+        <source>Receiving addresses - %1</source>
+        <translation type="unfinished">Recibindo enderezos - %1</translation>
     </message>
     <message>
         <source>Exporting Failed</source>
@@ -123,10 +130,6 @@
     <message>
         <source>New passphrase</source>
         <translation type="unfinished">Nova frase contrasinal</translation>
-    </message>
-    <message>
-        <source>Repeat new passphrase</source>
-        <translation type="unfinished">Repite a frase contrasinal</translation>
     </message>
     <message>
         <source>Show passphrase</source>
@@ -173,6 +176,10 @@
         <translation type="unfinished">Introduce a frase contrasinal anterior mais a nova frase contrasinal para a carteira.</translation>
     </message>
     <message>
+        <source>Continue</source>
+        <translation type="unfinished">Continuar</translation>
+    </message>
+    <message>
         <source>Remember that encrypting your wallet cannot fully protect your bitcoins from being stolen by malware infecting your computer.</source>
         <translation type="unfinished">Recorda que encriptar a tua carteira non protexe completamente que os teus bitcoins poidan ser roubados por malware que afecte ó teu computador.</translation>
     </message>
@@ -213,8 +220,20 @@
         <translation type="unfinished">A frase contrasinal introducida para o desencriptamento da carteira é incorrecto.</translation>
     </message>
     <message>
+        <source>The passphrase entered for the wallet decryption is incorrect. It contains a null character (ie - a zero byte). If the passphrase was set with a version of this software prior to 25.0, please try again with only the characters up to — but not including — the first null character. If this is successful, please set a new passphrase to avoid this issue in the future.</source>
+        <translation type="unfinished">A frase de acceso introducida para o descifrado da carteira é incorrecta. Contén un carácter nulo (é dicir, un byte cero). Se a frase de paso se estableceu cunha versión deste software anterior á 25.0, téntao de novo con só os caracteres ata, pero sen incluír, o primeiro carácter nulo. Se se realiza correctamente, establece unha nova frase de acceso para evitar este problema no futuro.</translation>
+    </message>
+    <message>
         <source>Wallet passphrase was successfully changed.</source>
         <translation type="unfinished">A frase contrasinal da carteira mudouse correctamente.</translation>
+    </message>
+    <message>
+        <source>Passphrase change failed</source>
+        <translation type="unfinished">Produciuse un erro no cambio de frase de contrasinal</translation>
+    </message>
+    <message>
+        <source>The old passphrase entered for the wallet decryption is incorrect. It contains a null character (ie - a zero byte). If the passphrase was set with a version of this software prior to 25.0, please try again with only the characters up to — but not including — the first null character.</source>
+        <translation type="unfinished">Produciuse un erro non cambio de frase de contrasinal</translation>
     </message>
     <message>
         <source>Warning: The Caps Lock key is on!</source>
@@ -233,7 +252,34 @@
     </message>
 </context>
 <context>
+    <name>BitcoinApplication</name>
+    <message>
+        <source>Settings file %1 might be corrupt or invalid.</source>
+        <translation type="unfinished">O ficheiro de configuración %1 pode estar danado ou non válido.</translation>
+    </message>
+    <message>
+        <source>Runaway exception</source>
+        <translation type="unfinished">Excepción de fuga</translation>
+    </message>
+    <message>
+        <source>A fatal error occurred. %1 can no longer continue safely and will quit.</source>
+        <translation type="unfinished">Produciuse un erro fatal. %1 xa non pode continuar con seguridade e sairá.</translation>
+    </message>
+    <message>
+        <source>Internal error</source>
+        <translation type="unfinished">Erro interno</translation>
+    </message>
+    <message>
+        <source>An internal error occurred. %1 will attempt to continue safely. This is an unexpected bug which can be reported as described below.</source>
+        <translation type="unfinished">Produciuse un erro interno. %1 tentará continuar con seguridade. Este é un erro inesperado que se pode informar como se describe a continuación.</translation>
+    </message>
+</context>
+<context>
     <name>QObject</name>
+    <message>
+        <source>%1 didn't yet exit safely…</source>
+        <translation type="unfinished">%1 aínda non saíu con seguridade...</translation>
+    </message>
     <message>
         <source>Amount</source>
         <translation type="unfinished">Cantidade</translation>
@@ -280,7 +326,11 @@
             <numerusform />
         </translation>
     </message>
-    </context>
+    <message>
+        <source>default wallet</source>
+        <translation type="unfinished">Carteira por defecto</translation>
+    </message>
+</context>
 <context>
     <name>BitcoinGUI</name>
     <message>
@@ -332,6 +382,10 @@
         <translation type="unfinished">Crear unha nova carteira</translation>
     </message>
     <message>
+        <source>&amp;Minimize</source>
+        <translation type="unfinished">&amp;Minimizar</translation>
+    </message>
+    <message>
         <source>Wallet:</source>
         <translation type="unfinished">Carteira:</translation>
     </message>
@@ -365,12 +419,32 @@
         <translation type="unfinished">&amp;Recibir</translation>
     </message>
     <message>
+        <source>&amp;Options…</source>
+        <translation type="unfinished">&amp;Opcións...</translation>
+    </message>
+    <message>
+        <source>&amp;Encrypt Wallet…</source>
+        <translation type="unfinished">&amp;Cifrar carteira...</translation>
+    </message>
+    <message>
         <source>Encrypt the private keys that belong to your wallet</source>
         <translation type="unfinished">Encripta as claves privadas que pertencen á túa carteira</translation>
     </message>
     <message>
+        <source>&amp;Backup Wallet…</source>
+        <translation type="unfinished">&amp;Copia de seguranza da carteira...</translation>
+    </message>
+    <message>
+        <source>&amp;Change Passphrase…</source>
+        <translation type="unfinished">&amp;Cambiar a frase de contrasinal...</translation>
+    </message>
+    <message>
         <source>Sign messages with your Bitcoin addresses to prove you own them</source>
         <translation type="unfinished">Asina mensaxes cos teus enderezos de Bitcoin para probar que che pertencen</translation>
+    </message>
+    <message>
+        <source>&amp;Verify message…</source>
+        <translation type="unfinished">&amp;Verifica a mensaxe...</translation>
     </message>
     <message>
         <source>Verify messages to ensure they were signed with specified Bitcoin addresses</source>
@@ -476,12 +550,13 @@
         <translation type="unfinished">Mostra a %1 mensaxe de axuda para obter unha lista cas posibles opcións de línea de comando de Bitcoin </translation>
     </message>
     <message>
-        <source>default wallet</source>
-        <translation type="unfinished">Carteira por defecto</translation>
-    </message>
-    <message>
         <source>No wallets available</source>
         <translation type="unfinished">Non hai carteiras dispoñibles</translation>
+    </message>
+    <message>
+        <source>Wallet Name</source>
+        <extracomment>Label of the input field where the name of the wallet is entered.</extracomment>
+        <translation type="unfinished">Nome da Carteira</translation>
     </message>
     <message>
         <source>&amp;Window</source>
@@ -571,7 +646,11 @@
         <source>Wallet is &lt;b&gt;encrypted&lt;/b&gt; and currently &lt;b&gt;locked&lt;/b&gt;</source>
         <translation type="unfinished">A carteira está &lt;b&gt;encriptada&lt;/b&gt; e actualmente &lt;b&gt;bloqueada&lt;/b&gt;</translation>
     </message>
-    </context>
+    <message>
+        <source>Original message:</source>
+        <translation type="unfinished">Mensaxe orixinal:</translation>
+    </message>
+</context>
 <context>
     <name>CoinControlDialog</name>
     <message>
@@ -589,10 +668,6 @@
     <message>
         <source>Fee:</source>
         <translation type="unfinished">taxa:</translation>
-    </message>
-    <message>
-        <source>Dust:</source>
-        <translation type="unfinished">po:</translation>
     </message>
     <message>
         <source>After Fee:</source>
@@ -643,6 +718,10 @@
         <translation type="unfinished">Copiar cantidade</translation>
     </message>
     <message>
+        <source>&amp;Copy address</source>
+        <translation type="unfinished">&amp;Copiar enderezo</translation>
+    </message>
+    <message>
         <source>Copy quantity</source>
         <translation type="unfinished">Copiar cantidade</translation>
     </message>
@@ -659,24 +738,12 @@
         <translation type="unfinished">Copiar bytes</translation>
     </message>
     <message>
-        <source>Copy dust</source>
-        <translation type="unfinished">Copiar po</translation>
-    </message>
-    <message>
         <source>Copy change</source>
         <translation type="unfinished">Copiar cambio</translation>
     </message>
     <message>
         <source>(%1 locked)</source>
         <translation type="unfinished">(%1 bloqueado)</translation>
-    </message>
-    <message>
-        <source>yes</source>
-        <translation type="unfinished">sí</translation>
-    </message>
-    <message>
-        <source>This label turns red if any recipient receives an amount smaller than the current dust threshold.</source>
-        <translation type="unfinished">Esta etiqueta tórnase vermella se algún receptor recibe unha cantidade máis pequena que o actual límite de po.</translation>
     </message>
     <message>
         <source>Can vary +/- %1 satoshi(s) per input.</source>
@@ -714,10 +781,6 @@
 <context>
     <name>OpenWalletActivity</name>
     <message>
-        <source>default wallet</source>
-        <translation type="unfinished">Carteira por defecto</translation>
-    </message>
-    <message>
         <source>Open Wallet</source>
         <extracomment>Title of window indicating the progress of opening of a wallet.</extracomment>
         <translation type="unfinished">Abrir carteira</translation>
@@ -747,6 +810,10 @@
     <message>
         <source>Encrypt Wallet</source>
         <translation type="unfinished">Encriptar Carteira</translation>
+    </message>
+    <message>
+        <source>Advanced Options</source>
+        <translation type="unfinished">Opcións avanzadas</translation>
     </message>
     <message>
         <source>Disable private keys for this wallet. Wallets with private keys disabled will have no private keys and cannot have an HD seed or imported private keys. This is ideal for watch-only wallets.</source>
@@ -823,6 +890,27 @@
 <context>
     <name>Intro</name>
     <message numerus="yes">
+        <source>%n GB of space available</source>
+        <translation type="unfinished">
+            <numerusform />
+            <numerusform />
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>(of %n GB needed)</source>
+        <translation type="unfinished">
+            <numerusform>(of %n GB needed)</numerusform>
+            <numerusform>(of %n GB needed)</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>(%n GB needed for full chain)</source>
+        <translation type="unfinished">
+            <numerusform>(%n GB needed for full chain)</numerusform>
+            <numerusform>(%n GB needed for full chain)</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>(sufficient to restore backups %n day(s) old)</source>
         <extracomment>Explanatory text on the capability of the current prune target.</extracomment>
         <translation type="unfinished">
@@ -832,14 +920,29 @@
     </message>
     </context>
 <context>
+    <name>ModalOverlay</name>
+    <message>
+        <source>Unknown…</source>
+        <translation type="unfinished">Descoñecido...</translation>
+    </message>
+    </context>
+<context>
     <name>OptionsDialog</name>
     <message>
         <source>&amp;Window</source>
         <translation type="unfinished">&amp;Xanela</translation>
     </message>
+    <message>
+        <source>Continue</source>
+        <translation type="unfinished">Continuar</translation>
+    </message>
     </context>
 <context>
     <name>PSBTOperationsDialog</name>
+    <message>
+        <source>Save…</source>
+        <translation type="unfinished">Gardar...</translation>
+    </message>
     <message>
         <source>Close</source>
         <translation type="unfinished">Pechar</translation>
@@ -854,14 +957,30 @@
     </message>
     </context>
 <context>
+    <name>QRImageWidget</name>
+    <message>
+        <source>&amp;Save Image…</source>
+        <translation type="unfinished">&amp;Gardar Imaxe...</translation>
+    </message>
+    </context>
+<context>
     <name>RPCConsole</name>
     <message>
         <source>Node window</source>
         <translation type="unfinished">Xanela de Nodo</translation>
     </message>
+    <message>
+        <source>&amp;Copy address</source>
+        <extracomment>Context menu action to copy the address of a peer.</extracomment>
+        <translation type="unfinished">&amp;Copiar enderezo</translation>
+    </message>
     </context>
 <context>
     <name>ReceiveCoinsDialog</name>
+    <message>
+        <source>&amp;Copy address</source>
+        <translation type="unfinished">&amp;Copiar enderezo</translation>
+    </message>
     <message>
         <source>Could not unlock wallet.</source>
         <translation type="unfinished">Non se puido desbloquear a carteira.</translation>
@@ -876,6 +995,10 @@
     <message>
         <source>Wallet:</source>
         <translation type="unfinished">Carteira:</translation>
+    </message>
+    <message>
+        <source>&amp;Save Image…</source>
+        <translation type="unfinished">&amp;Gardar Imaxe...</translation>
     </message>
     </context>
 <context>
@@ -916,10 +1039,6 @@
         <translation type="unfinished">Cambio:</translation>
     </message>
     <message>
-        <source>Dust:</source>
-        <translation type="unfinished">po:</translation>
-    </message>
-    <message>
         <source>Copy quantity</source>
         <translation type="unfinished">Copiar cantidade</translation>
     </message>
@@ -938,10 +1057,6 @@
     <message>
         <source>Copy bytes</source>
         <translation type="unfinished">Copiar bytes</translation>
-    </message>
-    <message>
-        <source>Copy dust</source>
-        <translation type="unfinished">Copiar po</translation>
     </message>
     <message>
         <source>Copy change</source>
@@ -995,6 +1110,15 @@
 <context>
     <name>TransactionView</name>
     <message>
+        <source>&amp;Copy address</source>
+        <translation type="unfinished">&amp;Copiar enderezo</translation>
+    </message>
+    <message>
+        <source>Comma separated file</source>
+        <extracomment>Expanded name of the CSV file format. See: https://en.wikipedia.org/wiki/Comma-separated_values.</extracomment>
+        <translation type="unfinished">Ficheiro separado por comas</translation>
+    </message>
+    <message>
         <source>Confirmed</source>
         <translation type="unfinished">Confirmada</translation>
     </message>
@@ -1022,13 +1146,6 @@
         <translation type="unfinished">Crear unha nova carteira</translation>
     </message>
     </context>
-<context>
-    <name>WalletModel</name>
-    <message>
-        <source>default wallet</source>
-        <translation type="unfinished">Carteira por defecto</translation>
-    </message>
-</context>
 <context>
     <name>WalletView</name>
     <message>

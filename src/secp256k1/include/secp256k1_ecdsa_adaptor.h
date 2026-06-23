@@ -71,7 +71,7 @@ SECP256K1_API const secp256k1_nonce_function_hardened_ecdsa_adaptor secp256k1_no
  *  this file and applied the suggested countermeasures.
  *
  *  Returns: 1 on success, 0 on failure
- *  Args:             ctx: a secp256k1 context object (not secp256k1_context_static)
+ *  Args:             ctx: pointer to a context object (not secp256k1_context_static)
  *  Out:   adaptor_sig162: pointer to 162 byte to store the returned signature
  *  In:          seckey32: pointer to 32 byte secret key that will be used for
  *                         signing
@@ -101,7 +101,7 @@ SECP256K1_API int secp256k1_ecdsa_adaptor_encrypt(
  *  and the completed ECDSA signature.
  *
  *  Returns: 1 on success, 0 on failure
- *  Args:            ctx: a secp256k1 context object
+ *  Args:            ctx: pointer to a context object
  *  In:   adaptor_sig162: pointer to 162-byte signature to verify
  *                pubkey: pointer to the public key corresponding to the secret key
  *                        used for signing
@@ -121,7 +121,7 @@ SECP256K1_API int secp256k1_ecdsa_adaptor_verify(
  *  Derives an ECDSA signature from an adaptor signature and an adaptor decryption key.
  *
  *  Returns: 1 on success, 0 on failure
- *  Args:              ctx: a secp256k1 context object
+ *  Args:              ctx: pointer to a context object
  *  Out:               sig: pointer to the ECDSA signature to create
  *  In:           deckey32: pointer to 32-byte decryption secret key for the adaptor
  *                          encryption public key
@@ -140,7 +140,7 @@ SECP256K1_API int secp256k1_ecdsa_adaptor_decrypt(
  *  signature.
  *
  *  Returns: 1 on success, 0 on failure
- *  Args:             ctx: a secp256k1 context object (not secp256k1_context_static)
+ *  Args:             ctx: pointer to a context object (not secp256k1_context_static)
  *  Out:         deckey32: pointer to 32-byte adaptor decryption key for the adaptor
  *                         encryption public key
  *  In:               sig: pointer to ECDSA signature to recover the adaptor decryption

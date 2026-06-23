@@ -16,10 +16,10 @@
 uint256 CTxInWitness::GetHash() const
 {
     std::vector<uint256> leaves;
-    leaves.push_back(SerializeHash(vchIssuanceAmountRangeproof, SER_GETHASH, 0));
-    leaves.push_back(SerializeHash(vchInflationKeysRangeproof, SER_GETHASH, 0));
-    leaves.push_back(SerializeHash(scriptWitness.stack, SER_GETHASH, 0));
-    leaves.push_back(SerializeHash(m_pegin_witness.stack, SER_GETHASH, 0));
+    leaves.push_back((HashWriter{} << vchIssuanceAmountRangeproof).GetHash());
+    leaves.push_back((HashWriter{} << vchInflationKeysRangeproof).GetHash());
+    leaves.push_back((HashWriter{} << scriptWitness.stack).GetHash());
+    leaves.push_back((HashWriter{} << m_pegin_witness.stack).GetHash());
     return ComputeFastMerkleRoot(leaves);
 }
 
@@ -37,14 +37,14 @@ uint256 CTxInWitness::GetHash() const
 uint256 CTxOutWitness::GetHash() const
 {
     std::vector<uint256> leaves;
-    leaves.push_back(SerializeHash(vchSurjectionproof, SER_GETHASH, 0));
-    leaves.push_back(SerializeHash(vchRangeproof, SER_GETHASH, 0));
+    leaves.push_back((HashWriter{} << vchSurjectionproof).GetHash());
+    leaves.push_back((HashWriter{} << vchRangeproof).GetHash());
     return ComputeFastMerkleRoot(leaves);
 }
 
 static inline
 void MerkleHash_Sha256Midstate(uint256& parent, const uint256& left, const uint256& right) {
-    CSHA256().Write(left.begin(), 32).Write(right.begin(), 32).Midstate(parent.begin(), NULL, NULL);
+    CSHA256().Write(left.begin(), 32).Write(right.begin(), 32).Midstate(parent.begin(), nullptr, nullptr);
 }
 
 uint256 ComputeFastMerkleRoot(const std::vector<uint256>& hashes) {

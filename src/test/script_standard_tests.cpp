@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021 The Bitcoin Core developers
+// Copyright (c) 2017-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -8,7 +8,7 @@
 #include <key_io.h>
 #include <script/script.h>
 #include <script/signingprovider.h>
-#include <script/standard.h>
+#include <script/solver.h>
 #include <test/util/setup_common.h>
 #include <util/strencodings.h>
 
@@ -16,6 +16,7 @@
 
 #include <univalue.h>
 
+using namespace util::hex_literals;
 
 BOOST_FIXTURE_TEST_SUITE(script_standard_tests, BasicTestingSetup)
 
@@ -128,6 +129,20 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_success)
     BOOST_CHECK(solutions[0] == std::vector<unsigned char>{16});
     BOOST_CHECK(solutions[1] == ToByteVector(uint256::ONE));
 
+    // TxoutType::ANCHOR
+    std::vector<unsigned char> anchor_bytes{0x4e, 0x73};
+    s.clear();
+    s << OP_1 << anchor_bytes;
+    BOOST_CHECK_EQUAL(Solver(s, solutions), TxoutType::ANCHOR);
+    BOOST_CHECK(solutions.empty());
+
+    // Sanity-check IsPayToAnchor
+    int version{-1};
+    std::vector<unsigned char> witness_program;
+    BOOST_CHECK(s.IsPayToAnchor());
+    BOOST_CHECK(s.IsWitnessProgram(version, witness_program));
+    BOOST_CHECK(CScript::IsPayToAnchor(version, witness_program));
+
     // TxoutType::NONSTANDARD
     s.clear();
     s << OP_9 << OP_ADD << OP_11 << OP_EQUAL;
@@ -136,10 +151,8 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_success)
 
 BOOST_AUTO_TEST_CASE(script_standard_Solver_failure)
 {
-    CKey key;
-    CPubKey pubkey;
-    key.MakeNewKey(true);
-    pubkey = key.GetPubKey();
+    CKey key = GenerateRandomKey();
+    CPubKey pubkey = key.GetPubKey();
 
     CScript s;
     std::vector<std::vector<unsigned char> > solutions;
@@ -188,14 +201,24 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_failure)
     s.clear();
     s << OP_0 << std::vector<unsigned char>(19, 0x01);
     BOOST_CHECK_EQUAL(Solver(s, solutions), TxoutType::NONSTANDARD);
+
+    // TxoutType::ANCHOR but wrong witness version
+    s.clear();
+    s << OP_2 << std::vector<unsigned char>{0x4e, 0x73};
+    BOOST_CHECK(!s.IsPayToAnchor());
+    BOOST_CHECK_EQUAL(Solver(s, solutions), TxoutType::WITNESS_UNKNOWN);
+
+    // TxoutType::ANCHOR but wrong 2-byte data push
+    s.clear();
+    s << OP_1 << std::vector<unsigned char>{0xff, 0xff};
+    BOOST_CHECK(!s.IsPayToAnchor());
+    BOOST_CHECK_EQUAL(Solver(s, solutions), TxoutType::WITNESS_UNKNOWN);
 }
 
 BOOST_AUTO_TEST_CASE(script_standard_ExtractDestination)
 {
-    CKey key;
-    CPubKey pubkey;
-    key.MakeNewKey(true);
-    pubkey = key.GetPubKey();
+    CKey key = GenerateRandomKey();
+    CPubKey pubkey = key.GetPubKey();
 
     CScript s;
     CTxDestination address;
@@ -203,8 +226,8 @@ BOOST_AUTO_TEST_CASE(script_standard_ExtractDestination)
     // TxoutType::PUBKEY
     s.clear();
     s << ToByteVector(pubkey) << OP_CHECKSIG;
-    BOOST_CHECK(ExtractDestination(s, address));
-    BOOST_CHECK(std::get<PKHash>(address) == PKHash(pubkey));
+    BOOST_CHECK(!ExtractDestination(s, address));
+    BOOST_CHECK(std::get<PubKeyDestination>(address) == PubKeyDestination(pubkey));
 
     // TxoutType::PUBKEYHASH
     s.clear();
@@ -249,10 +272,7 @@ BOOST_AUTO_TEST_CASE(script_standard_ExtractDestination)
     s.clear();
     s << OP_1 << ToByteVector(pubkey);
     BOOST_CHECK(ExtractDestination(s, address));
-    WitnessUnknown unk;
-    unk.length = 33;
-    unk.version = 1;
-    std::copy(pubkey.begin(), pubkey.end(), unk.program);
+    WitnessUnknown unk{1, ToByteVector(pubkey)};
     BOOST_CHECK(std::get<WitnessUnknown>(address) == unk);
 }
 
@@ -369,12 +389,12 @@ BOOST_AUTO_TEST_CASE(script_standard_taproot_builder)
     BOOST_CHECK_EQUAL(TaprootBuilder::ValidDepths({128,128,127,126,125,124,123,122,121,120,119,118,117,116,115,114,113,112,111,110,109,108,107,106,105,104,103,102,101,100,99,98,97,96,95,94,93,92,91,90,89,88,87,86,85,84,83,82,81,80,79,78,77,76,75,74,73,72,71,70,69,68,67,66,65,64,63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1}), true);
     BOOST_CHECK_EQUAL(TaprootBuilder::ValidDepths({129,129,128,127,126,125,124,123,122,121,120,119,118,117,116,115,114,113,112,111,110,109,108,107,106,105,104,103,102,101,100,99,98,97,96,95,94,93,92,91,90,89,88,87,86,85,84,83,82,81,80,79,78,77,76,75,74,73,72,71,70,69,68,67,66,65,64,63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1}), false);
 
-    XOnlyPubKey key_inner{ParseHex("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")};
-    XOnlyPubKey key_1{ParseHex("c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5")};
-    XOnlyPubKey key_2{ParseHex("f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9")};
+    XOnlyPubKey key_inner{"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"_hex_u8};
+    XOnlyPubKey key_1{"c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"_hex_u8};
+    XOnlyPubKey key_2{"f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"_hex_u8};
     CScript script_1 = CScript() << ToByteVector(key_1) << OP_CHECKSIG;
     CScript script_2 = CScript() << ToByteVector(key_2) << OP_CHECKSIG;
-    uint256 hash_3 = uint256S("31fe7061656bea2a36aa60a2f7ef940578049273746935d296426dc0afd86b68");
+    constexpr uint256 hash_3{"31fe7061656bea2a36aa60a2f7ef940578049273746935d296426dc0afd86b68"};
 
     TaprootBuilder builder;
     BOOST_CHECK(builder.IsValid() && builder.IsComplete());
@@ -391,23 +411,22 @@ BOOST_AUTO_TEST_CASE(script_standard_taproot_builder)
 
 BOOST_AUTO_TEST_CASE(bip341_spk_test_vectors)
 {
-    // using control_set = decltype(TaprootSpendData::scripts)::mapped_type;
+    using control_set = decltype(TaprootSpendData::scripts)::mapped_type;
 
     UniValue tests;
-    tests.read((const char*)json_tests::bip341_wallet_vectors, sizeof(json_tests::bip341_wallet_vectors));
+    tests.read(json_tests::bip341_wallet_vectors);
 
     const auto& vectors = tests["scriptPubKey"];
 
     for (const auto& vec : vectors.getValues()) {
         TaprootBuilder spktest;
-        std::map<std::pair<CScript, int>, int> scriptposes;
+        std::map<std::pair<std::vector<unsigned char>, int>, int> scriptposes;
         std::function<void (const UniValue&, int)> parse_tree = [&](const UniValue& node, int depth) {
             if (node.isNull()) return;
             if (node.isObject()) {
-                auto script_bytes = ParseHex(node["script"].get_str());
-                CScript script(script_bytes.begin(), script_bytes.end());
-                int idx = node["id"].get_int();
-                int leaf_version = node["leafVersion"].get_int();
+                auto script = ParseHex(node["script"].get_str());
+                int idx = node["id"].getInt<int>();
+                int leaf_version = node["leafVersion"].getInt<int>();
                 scriptposes[{script, leaf_version}] = idx;
                 spktest.Add(depth, script, leaf_version);
             } else {
@@ -417,18 +436,17 @@ BOOST_AUTO_TEST_CASE(bip341_spk_test_vectors)
         };
         parse_tree(vec["given"]["scriptTree"], 0);
         spktest.Finalize(XOnlyPubKey(ParseHex(vec["given"]["internalPubkey"].get_str())));
-        // ELEMENTS: FIXME
-        // BOOST_CHECK_EQUAL(HexStr(GetScriptForDestination(spktest.GetOutput())), vec["expected"]["scriptPubKey"].get_str());
-        // BOOST_CHECK_EQUAL(EncodeDestination(spktest.GetOutput()), vec["expected"]["bip350Address"].get_str());
+        BOOST_CHECK_EQUAL(HexStr(GetScriptForDestination(spktest.GetOutput())), vec["expected"]["scriptPubKey"].get_str());
+        BOOST_CHECK_EQUAL(EncodeDestination(spktest.GetOutput()), vec["expected"]["bip350Address"].get_str());
         auto spend_data = spktest.GetSpendData();
         BOOST_CHECK_EQUAL(vec["intermediary"]["merkleRoot"].isNull(), spend_data.merkle_root.IsNull());
         if (!spend_data.merkle_root.IsNull()) {
-            // BOOST_CHECK_EQUAL(vec["intermediary"]["merkleRoot"].get_str(), HexStr(spend_data.merkle_root));
+            BOOST_CHECK_EQUAL(vec["intermediary"]["merkleRoot"].get_str(), HexStr(spend_data.merkle_root));
         }
         BOOST_CHECK_EQUAL(spend_data.scripts.size(), scriptposes.size());
-        // for (const auto& scriptpos : scriptposes) {
-        //     BOOST_CHECK(spend_data.scripts[scriptpos.first] == control_set{ParseHex(vec["expected"]["scriptPathControlBlocks"][scriptpos.second].get_str())});
-        // }
+        for (const auto& scriptpos : scriptposes) {
+            BOOST_CHECK(spend_data.scripts[scriptpos.first] == control_set{ParseHex(vec["expected"]["scriptPathControlBlocks"][scriptpos.second].get_str())});
+        }
     }
 }
 

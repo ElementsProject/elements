@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -7,15 +7,27 @@
 
 #include <policy/policy.h>
 
-#include <consensus/validation.h>
 #include <coins.h>
+#include <consensus/amount.h>
+#include <consensus/consensus.h>
+#include <consensus/validation.h>
+#include <policy/feerate.h>
 #include <primitives/pak.h>
+#include <primitives/transaction.h>
+#include <script/interpreter.h>
 #include <script/pegins.h>
+#include <script/script.h>
+#include <script/solver.h>
+#include <serialize.h>
 #include <span.h>
 #include <chainparams.h> // Peg-out enforcement
 
 // ELEMENTS:
 CAsset policyAsset;
+
+#include <algorithm>
+#include <cstddef>
+#include <vector>
 
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
 {
@@ -67,12 +79,24 @@ bool IsDust(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
     return (txout.nValue.GetAmount() < GetDustThreshold(txout, dustRelayFeeIn));
 }
 
-bool IsStandard(const CScript& scriptPubKey, TxoutType& whichType)
+std::vector<uint32_t> GetDust(const CTransaction& tx, CFeeRate dust_relay_rate)
+{
+    std::vector<uint32_t> dust_outputs;
+    for (uint32_t i{0}; i < tx.vout.size(); ++i) {
+        // ELEMENTS: check explicity
+        const auto& output = tx.vout[i];
+        if (output.nAsset.IsExplicit() && output.nAsset.GetAsset() != ::policyAsset) continue;
+        if (IsDust(output, dust_relay_rate)) dust_outputs.push_back(i);
+    }
+    return dust_outputs;
+}
+
+bool IsStandard(const CScript& scriptPubKey, const std::optional<unsigned>& max_datacarrier_bytes, TxoutType& whichType)
 {
     std::vector<std::vector<unsigned char> > vSolutions;
     whichType = Solver(scriptPubKey, vSolutions);
 
-    CChainParams params = Params();
+    const CChainParams& params = Params();
     if (whichType == TxoutType::NONSTANDARD) {
         return false;
     } else if (whichType == TxoutType::MULTISIG) {
@@ -87,17 +111,18 @@ bool IsStandard(const CScript& scriptPubKey, TxoutType& whichType)
             scriptPubKey.IsPegoutScript(Params().ParentGenesisBlockHash()) ) {
         // If we're enforcing pak let through larger peg-out scripts
         return true;
-    } else if (whichType == TxoutType::NULL_DATA &&
-               (!fAcceptDatacarrier || scriptPubKey.size() > nMaxDatacarrierBytes)) {
-          return false;
+    } else if (whichType == TxoutType::NULL_DATA) {
+        if (!max_datacarrier_bytes || scriptPubKey.size() > *max_datacarrier_bytes) {
+            return false;
+        }
     }
 
     return true;
 }
 
-bool IsStandardTx(const CTransaction& tx, bool permit_bare_multisig, const CFeeRate& dust_relay_fee, std::string& reason)
+bool IsStandardTx(const CTransaction& tx, const std::optional<unsigned>& max_datacarrier_bytes, bool permit_bare_multisig, const CFeeRate& dust_relay_fee, std::string& reason)
 {
-    if (tx.nVersion > TX_MAX_STANDARD_VERSION || tx.nVersion < 1) {
+    if (tx.version > TX_MAX_STANDARD_VERSION || tx.version < 1) {
         reason = "version";
         return false;
     }
@@ -115,7 +140,7 @@ bool IsStandardTx(const CTransaction& tx, bool permit_bare_multisig, const CFeeR
     for (const CTxIn& txin : tx.vin)
     {
         // Biggest 'standard' txin involving only keys is a 15-of-15 P2SH
-        // multisig with compressed keys (remember the 520 byte limit on
+        // multisig with compressed keys (remember the MAX_SCRIPT_ELEMENT_SIZE byte limit on
         // redeemScript size). That works out to a (15*(33+1))+3=513 byte
         // redeemScript, 513+1+15*(73+1)+3=1627 bytes of scriptSig, which
         // we round off to 1650(MAX_STANDARD_SCRIPTSIG_SIZE) bytes for
@@ -132,11 +157,11 @@ bool IsStandardTx(const CTransaction& tx, bool permit_bare_multisig, const CFeeR
         }
     }
 
-    CChainParams params = Params();
+    const CChainParams& params = Params();
     unsigned int nDataOut = 0;
     TxoutType whichType;
     for (const CTxOut& txout : tx.vout) {
-        if (!::IsStandard(txout.scriptPubKey, whichType)) {
+        if (!::IsStandard(txout.scriptPubKey, max_datacarrier_bytes, whichType)) {
             reason = "scriptpubkey";
             return false;
         }
@@ -146,10 +171,13 @@ bool IsStandardTx(const CTransaction& tx, bool permit_bare_multisig, const CFeeR
         } else if ((whichType == TxoutType::MULTISIG) && (!permit_bare_multisig)) {
             reason = "bare-multisig";
             return false;
-        } else if ((txout.nAsset.IsExplicit() && txout.nAsset.GetAsset() == policyAsset) && IsDust(txout, dust_relay_fee)) {
-            reason = "dust";
-            return false;
         }
+    }
+
+    // Only MAX_DUST_OUTPUTS_PER_TX dust is permitted(on otherwise valid ephemeral dust)
+    if (GetDust(tx, dust_relay_fee).size() > MAX_DUST_OUTPUTS_PER_TX) {
+        reason = "dust";
+        return false;
     }
 
     // only one OP_RETURN txout is permitted
@@ -235,6 +263,11 @@ bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 
         // get the scriptPubKey corresponding to this input:
         CScript prevScript = prev.scriptPubKey;
+
+        // witness stuffing detected
+        if (prevScript.IsPayToAnchor()) {
+            return false;
+        }
 
         bool p2sh = false;
         if (prevScript.IsPayToScriptHash()) {

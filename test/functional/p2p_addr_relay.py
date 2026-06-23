@@ -21,8 +21,19 @@ from test_framework.p2p import (
     P2P_SERVICES,
 )
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_greater_than
+from test_framework.util import (
+    assert_equal,
+    assert_greater_than,
+    assert_greater_than_or_equal
+)
 
+ONE_MINUTE  = 60
+TEN_MINUTES = 10 * ONE_MINUTE
+ONE_HOUR    = 60 * ONE_MINUTE
+TWO_HOURS   =  2 * ONE_HOUR
+ONE_DAY     = 24 * ONE_HOUR
+
+ADDR_DESTINATIONS_THRESHOLD = 4
 
 class AddrReceiver(P2PInterface):
     num_ipv4_received = 0
@@ -38,7 +49,7 @@ class AddrReceiver(P2PInterface):
     def on_addr(self, message):
         for addr in message.addrs:
             self.num_ipv4_received += 1
-            if(self.test_addr_contents):
+            if self.test_addr_contents:
                 # relay_tests checks the content of the addr messages match
                 # expectations based on the message creation in setup_addr_msg
                 assert_equal(addr.nServices, 9)
@@ -64,6 +75,7 @@ class AddrReceiver(P2PInterface):
         return self.num_ipv4_received != 0
 
     def on_version(self, message):
+        self.send_version()
         self.send_message(msg_verack())
         if (self.send_getaddr):
             self.send_message(msg_getaddr())
@@ -84,6 +96,9 @@ class AddrTest(BitcoinTestFramework):
         self.oversized_addr_test()
         self.relay_tests()
         self.inbound_blackhole_tests()
+
+        self.destination_rotates_once_in_24_hours_test()
+        self.destination_rotates_more_than_once_over_several_days_test()
 
         # This test populates the addrman, which can impact the node's behavior
         # in subsequent tests
@@ -119,7 +134,7 @@ class AddrTest(BitcoinTestFramework):
         self.mocktime += 10 * 60
         self.nodes[0].setmocktime(self.mocktime)
         for peer in receivers:
-            peer.sync_send_with_ping()
+            peer.sync_with_ping()
 
     def oversized_addr_test(self):
         self.log.info('Send an addr message that is too large')
@@ -127,7 +142,8 @@ class AddrTest(BitcoinTestFramework):
 
         msg = self.setup_addr_msg(1010)
         with self.nodes[0].assert_debug_log(['addr message size = 1010']):
-            addr_source.send_and_ping(msg)
+            addr_source.send_message(msg)
+            addr_source.wait_for_disconnect()
 
         self.nodes[0].disconnect_p2ps()
 
@@ -256,15 +272,16 @@ class AddrTest(BitcoinTestFramework):
         full_outbound_peer.sync_with_ping()
         assert full_outbound_peer.getaddr_received()
 
-        self.log.info('Check that we do not send a getaddr message upon connecting to a block-relay-only peer')
+        self.log.info('Check that we do not send a getaddr message to a block-relay-only or inbound peer')
         block_relay_peer = self.nodes[0].add_outbound_p2p_connection(AddrReceiver(), p2p_idx=1, connection_type="block-relay-only")
         block_relay_peer.sync_with_ping()
         assert_equal(block_relay_peer.getaddr_received(), False)
 
-        self.log.info('Check that we answer getaddr messages only from inbound peers')
         inbound_peer = self.nodes[0].add_p2p_connection(AddrReceiver(send_getaddr=False))
         inbound_peer.sync_with_ping()
+        assert_equal(inbound_peer.getaddr_received(), False)
 
+        self.log.info('Check that we answer getaddr messages only from inbound peers')
         # Add some addresses to addrman
         for i in range(1000):
             first_octet = i >> 8
@@ -284,6 +301,16 @@ class AddrTest(BitcoinTestFramework):
         assert_equal(full_outbound_peer.num_ipv4_received, 0)
         assert_equal(block_relay_peer.num_ipv4_received, 0)
         assert inbound_peer.num_ipv4_received > 100
+
+        self.log.info('Check that we answer getaddr messages only once per connection')
+        received_addrs_before = inbound_peer.num_ipv4_received
+        with self.nodes[0].assert_debug_log(['Ignoring repeated "getaddr".']):
+            inbound_peer.send_and_ping(msg_getaddr())
+        self.mocktime += 10 * 60
+        self.nodes[0].setmocktime(self.mocktime)
+        inbound_peer.sync_with_ping()
+        received_addrs_after = inbound_peer.num_ipv4_received
+        assert_equal(received_addrs_before, received_addrs_after)
 
         self.nodes[0].disconnect_p2ps()
 
@@ -362,6 +389,56 @@ class AddrTest(BitcoinTestFramework):
 
             self.nodes[0].disconnect_p2ps()
 
+    def get_nodes_that_received_addr(self, peer, receiver_peer, addr_receivers,
+                                     time_interval_1, time_interval_2):
+
+        # Clean addr response related to the initial getaddr. There is no way to avoid initial
+        # getaddr because the peer won't self-announce then.
+        for addr_receiver in addr_receivers:
+            addr_receiver.num_ipv4_received = 0
+
+        for _ in range(10):
+            self.mocktime += time_interval_1
+            self.msg.addrs[0].time = self.mocktime + TEN_MINUTES
+            self.nodes[0].setmocktime(self.mocktime)
+            with self.nodes[0].assert_debug_log(['received: addr (31 bytes) peer=0']):
+                peer.send_and_ping(self.msg)
+                self.mocktime += time_interval_2
+                self.nodes[0].setmocktime(self.mocktime)
+                receiver_peer.sync_with_ping()
+        return [node for node in addr_receivers if node.addr_received()]
+
+    def destination_rotates_once_in_24_hours_test(self):
+        self.restart_node(0, [])
+
+        self.log.info('Test within 24 hours an addr relay destination is rotated at most once')
+        self.mocktime = int(time.time())
+        self.msg = self.setup_addr_msg(1)
+        self.addr_receivers = []
+        peer = self.nodes[0].add_p2p_connection(P2PInterface())
+        receiver_peer = self.nodes[0].add_p2p_connection(AddrReceiver())
+        addr_receivers = [self.nodes[0].add_p2p_connection(AddrReceiver()) for _ in range(20)]
+        nodes_received_addr = self.get_nodes_that_received_addr(peer, receiver_peer, addr_receivers, 0, TWO_HOURS)  # 10 intervals of 2 hours
+        # Per RelayAddress, we would announce these addrs to 2 destinations per day.
+        # Since it's at most one rotation, at most 4 nodes can receive ADDR.
+        assert_greater_than_or_equal(ADDR_DESTINATIONS_THRESHOLD, len(nodes_received_addr))
+        self.nodes[0].disconnect_p2ps()
+
+    def destination_rotates_more_than_once_over_several_days_test(self):
+        self.restart_node(0, [])
+
+        self.log.info('Test after several days an addr relay destination is rotated more than once')
+        self.msg = self.setup_addr_msg(1)
+        peer = self.nodes[0].add_p2p_connection(P2PInterface())
+        receiver_peer = self.nodes[0].add_p2p_connection(AddrReceiver())
+        addr_receivers = [self.nodes[0].add_p2p_connection(AddrReceiver()) for _ in range(20)]
+        # 10 intervals of 1 day (+ 1 hour, which should be enough to cover 30-min Poisson in most cases)
+        nodes_received_addr = self.get_nodes_that_received_addr(peer, receiver_peer, addr_receivers, ONE_DAY, ONE_HOUR)
+        # Now that there should have been more than one rotation, more than
+        # ADDR_DESTINATIONS_THRESHOLD nodes should have received ADDR.
+        assert_greater_than(len(nodes_received_addr), ADDR_DESTINATIONS_THRESHOLD)
+        self.nodes[0].disconnect_p2ps()
+
 
 if __name__ == '__main__':
-    AddrTest().main()
+    AddrTest(__file__).main()

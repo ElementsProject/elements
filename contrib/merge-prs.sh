@@ -223,6 +223,7 @@ do
         git -C "$WORKTREE" merge "$HASH" --no-ff -m "Merge $HASH into merged_master ($CHAIN PR $PR_PREFIX$PR_ID)" || notify "fail merge" 1
     fi
 
+    # FIXME: ELEMENTS, move make building process into CMake one?
     if [[ "$DO_BUILD" == "1" ]]; then
         # Clean up
         echo "Cleaning up"

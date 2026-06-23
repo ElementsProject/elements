@@ -10,11 +10,7 @@ A transaction ("replacement transaction") may replace its directly conflicting t
 their in-mempool descendants (together, "original transactions") if, in addition to passing all
 other consensus and policy rules, each of the following conditions are met:
 
-1. The directly conflicting transactions all signal replaceability explicitly. A transaction is
-   signaling replaceability if any of its inputs have an nSequence number less than (0xffffffff - 1).
-
-   *Rationale*: See [BIP125
-   explanation](https://github.com/bitcoin/bips/blob/master/bip-0125.mediawiki#motivation).
+1. (Removed)
 
 2. The replacement transaction only include an unconfirmed input if that input was included in
    one of the directly conflicting transactions. An unconfirmed input spends an output from a
@@ -51,6 +47,13 @@ other consensus and policy rules, each of the following conditions are met:
    significant portions of the node's mempool using replacements with multiple directly conflicting
    transactions, each with large descendant sets.
 
+6. The replacement transaction's feerate is greater than the feerates of all directly conflicting
+   transactions.
+
+   *Rationale*: This rule was originally intended to ensure that the replacement transaction is
+   preferable for block-inclusion, compared to what would be removed from the mempool. This rule
+   predates ancestor feerate-based transaction selection.
+
 This set of rules is similar but distinct from BIP125.
 
 ## History
@@ -62,8 +65,15 @@ This set of rules is similar but distinct from BIP125.
   Bitcoin Core implementation.
 
 * The incremental relay feerate used to calculate the required additional fees is distinct from
-  `minRelayTxFee` and configurable using `-incrementalrelayfee`
+  `-minrelaytxfee` and configurable using `-incrementalrelayfee`
   ([PR #9380](https://github.com/bitcoin/bitcoin/pull/9380)).
 
 * RBF enabled by default in the wallet GUI as of **v0.18.1** ([PR
   #11605](https://github.com/bitcoin/bitcoin/pull/11605)).
+
+* Full replace-by-fee enabled as a configurable mempool policy as of **v24.0** ([PR
+  #25353](https://github.com/bitcoin/bitcoin/pull/25353)).
+
+* Full replace-by-fee is the default policy as of **v28.0** ([PR #30493](https://github.com/bitcoin/bitcoin/pull/30493)).
+
+* Signaling for replace-by-fee is no longer required as of [PR 30592](https://github.com/bitcoin/bitcoin/pull/30592).

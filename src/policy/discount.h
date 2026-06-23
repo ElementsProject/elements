@@ -9,14 +9,13 @@
 #include <consensus/consensus.h>
 #include <cstdint>
 #include <primitives/transaction.h>
-#include <version.h>
 
 /**
  * Calculate a smaller weight for discounted Confidential Transactions.
  */
 static inline int64_t GetDiscountTransactionWeight(const CTransaction& tx, int64_t nSigOpCost = 0, unsigned int bytes_per_sig_op = 0)
 {
-    int64_t size_bytes = ::GetSerializeSize(tx, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR - 1) + ::GetSerializeSize(tx, PROTOCOL_VERSION);
+    int64_t size_bytes = ::GetSerializeSize(TX_NO_WITNESS(tx)) * (WITNESS_SCALE_FACTOR - 1) + ::GetSerializeSize(TX_WITH_WITNESS(tx));
     int64_t sigop_bytes = nSigOpCost * bytes_per_sig_op;
 
     int64_t weight = std::max(size_bytes, sigop_bytes);
@@ -25,7 +24,7 @@ static inline int64_t GetDiscountTransactionWeight(const CTransaction& tx, int64
         const CTxOut& output = tx.vout[i];
         if (i < tx.witness.vtxoutwit.size()) {
             // subtract the weight of the output witness, except the 2 bytes used to serialize the empty proofs
-            size_t witness_size = ::GetSerializeSize(tx.witness.vtxoutwit[i], PROTOCOL_VERSION);
+            size_t witness_size = ::GetSerializeSize(tx.witness.vtxoutwit[i]);
             assert(witness_size >= 2);
             weight -= (witness_size - 2);
         }

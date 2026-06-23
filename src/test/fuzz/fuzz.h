@@ -5,41 +5,41 @@
 #ifndef BITCOIN_TEST_FUZZ_FUZZ_H
 #define BITCOIN_TEST_FUZZ_FUZZ_H
 
-#include <span.h>
-
 #include <cstdint>
 #include <functional>
+#include <span>
 #include <string_view>
 
 /**
  * Can be used to limit a theoretically unbounded loop. This caps the runtime
  * to avoid timeouts or OOMs.
+ *
+ * This can be used in combination with a check in the condition to confirm
+ * whether the fuzz engine provided "good" data. If the fuzz input contains
+ * invalid data, the loop aborts early. This will teach the fuzz engine to look
+ * for useful data and avoids bloating the fuzz input folder with useless data.
  */
 #define LIMITED_WHILE(condition, limit) \
     for (unsigned _count{limit}; (condition) && _count; --_count)
 
-using FuzzBufferType = Span<const uint8_t>;
+using FuzzBufferType = std::span<const uint8_t>;
 
 using TypeTestOneInput = std::function<void(FuzzBufferType)>;
-using TypeInitialize = std::function<void()>;
-using TypeHidden = bool;
+struct FuzzTargetOptions {
+    std::function<void()> init{[] {}};
+    bool hidden{false};
+};
 
-void FuzzFrameworkRegisterTarget(std::string_view name, TypeTestOneInput target, TypeInitialize init, TypeHidden hidden);
+void FuzzFrameworkRegisterTarget(std::string_view name, TypeTestOneInput target, FuzzTargetOptions opts);
 
-inline void FuzzFrameworkEmptyInitFun() {}
+#define FUZZ_TARGET(...) DETAIL_FUZZ(__VA_ARGS__)
 
-#define FUZZ_TARGET(name) \
-    FUZZ_TARGET_INIT(name, FuzzFrameworkEmptyInitFun)
-
-#define FUZZ_TARGET_INIT(name, init_fun) \
-    FUZZ_TARGET_INIT_HIDDEN(name, init_fun, false)
-
-#define FUZZ_TARGET_INIT_HIDDEN(name, init_fun, hidden)                               \
+#define DETAIL_FUZZ(name, ...)                                                        \
     void name##_fuzz_target(FuzzBufferType);                                          \
     struct name##_Before_Main {                                                       \
         name##_Before_Main()                                                          \
         {                                                                             \
-            FuzzFrameworkRegisterTarget(#name, name##_fuzz_target, init_fun, hidden); \
+            FuzzFrameworkRegisterTarget(#name, name##_fuzz_target, {__VA_ARGS__});    \
         }                                                                             \
     } const static g_##name##_before_main;                                            \
     void name##_fuzz_target(FuzzBufferType buffer)

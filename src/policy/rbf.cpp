@@ -1,19 +1,29 @@
-// Copyright (c) 2016-2021 The Bitcoin Core developers
+// Copyright (c) 2016-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <policy/rbf.h>
 
-#include <policy/settings.h>
+#include <consensus/amount.h>
+#include <kernel/mempool_entry.h>
+#include <policy/feerate.h>
+#include <primitives/transaction.h>
+#include <sync.h>
 #include <tinyformat.h>
+#include <txmempool.h>
+#include <uint256.h>
+#include <util/check.h>
 #include <util/moneystr.h>
 #include <util/rbf.h>
+
+#include <limits>
+#include <vector>
+
+#include <compare>
 
 RBFTransactionState IsRBFOptIn(const CTransaction& tx, const CTxMemPool& pool)
 {
     AssertLockHeld(pool.cs);
-
-    CTxMemPool::setEntries ancestors;
 
     // First check the transaction itself.
     if (SignalsOptInRBF(tx)) {
@@ -28,10 +38,9 @@ RBFTransactionState IsRBFOptIn(const CTransaction& tx, const CTxMemPool& pool)
 
     // If all the inputs have nSequence >= maxint-1, it still might be
     // signaled for RBF if any unconfirmed parents have signaled.
-    uint64_t noLimit = std::numeric_limits<uint64_t>::max();
-    std::string dummy;
-    CTxMemPoolEntry entry = *pool.mapTx.find(tx.GetHash());
-    pool.CalculateMemPoolAncestors(entry, ancestors, noLimit, noLimit, noLimit, noLimit, dummy, false);
+    const auto& entry{*Assert(pool.GetEntry(tx.GetHash()))};
+    auto ancestors{pool.AssumeCalculateMemPoolAncestors(__func__, entry, CTxMemPool::Limits::NoLimits(),
+                                                        /*fSearchForParents=*/false)};
 
     for (CTxMemPool::txiter it : ancestors) {
         if (SignalsOptInRBF(it->GetTx())) {
@@ -57,15 +66,15 @@ std::optional<std::string> GetEntriesForConflicts(const CTransaction& tx,
     uint64_t nConflictingCount = 0;
     for (const auto& mi : iters_conflicting) {
         nConflictingCount += mi->GetCountWithDescendants();
-        // BIP125 Rule #5: don't consider replacing more than MAX_BIP125_REPLACEMENT_CANDIDATES
+        // Rule #5: don't consider replacing more than MAX_REPLACEMENT_CANDIDATES
         // entries from the mempool. This potentially overestimates the number of actual
         // descendants (i.e. if multiple conflicts share a descendant, it will be counted multiple
         // times), but we just want to be conservative to avoid doing too much work.
-        if (nConflictingCount > MAX_BIP125_REPLACEMENT_CANDIDATES) {
-            return strprintf("rejecting replacement %s; too many potential replacements (%d > %d)\n",
+        if (nConflictingCount > MAX_REPLACEMENT_CANDIDATES) {
+            return strprintf("rejecting replacement %s; too many potential replacements (%d > %d)",
                              txid.ToString(),
                              nConflictingCount,
-                             MAX_BIP125_REPLACEMENT_CANDIDATES);
+                             MAX_REPLACEMENT_CANDIDATES);
         }
     }
     // Calculate the set of all transactions that would have to be evicted.
@@ -88,7 +97,7 @@ std::optional<std::string> HasNoNewUnconfirmed(const CTransaction& tx,
     }
 
     for (unsigned int j = 0; j < tx.vin.size(); j++) {
-        // BIP125 Rule #2: We don't want to accept replacements that require low feerate junk to be
+        // Rule #2: We don't want to accept replacements that require low feerate junk to be
         // mined first.  Ideally we'd keep track of the ancestor feerates and make the decision
         // based on that, but for now requiring all new inputs to be confirmed works.
         //
@@ -108,11 +117,11 @@ std::optional<std::string> HasNoNewUnconfirmed(const CTransaction& tx,
 }
 
 std::optional<std::string> EntriesAndTxidsDisjoint(const CTxMemPool::setEntries& ancestors,
-                                                   const std::set<uint256>& direct_conflicts,
+                                                   const std::set<Txid>& direct_conflicts,
                                                    const uint256& txid)
 {
     for (CTxMemPool::txiter ancestorIt : ancestors) {
-        const uint256& hashAncestor = ancestorIt->GetTx().GetHash();
+        const Txid& hashAncestor = ancestorIt->GetTx().GetHash();
         if (direct_conflicts.count(hashAncestor)) {
             return strprintf("%s spends conflicting transaction %s",
                              txid.ToString(),
@@ -154,7 +163,7 @@ std::optional<std::string> PaysForRBF(CAmount original_fees,
                                       CFeeRate relay_fee,
                                       const uint256& txid)
 {
-    // BIP125 Rule #3: The replacement fees must be greater than or equal to fees of the
+    // Rule #3: The replacement fees must be greater than or equal to fees of the
     // transactions it replaces, otherwise the bandwidth used by those conflicting transactions
     // would not be paid for.
     if (replacement_fees < original_fees) {
@@ -162,7 +171,7 @@ std::optional<std::string> PaysForRBF(CAmount original_fees,
                          txid.ToString(), FormatMoney(replacement_fees), FormatMoney(original_fees));
     }
 
-    // BIP125 Rule #4: The new transaction must pay for its own bandwidth. Otherwise, we have a DoS
+    // Rule #4: The new transaction must pay for its own bandwidth. Otherwise, we have a DoS
     // vector where attackers can cause a transaction to be replaced (and relayed) repeatedly by
     // increasing the fee by tiny amounts.
     CAmount additional_fees = replacement_fees - original_fees;
@@ -171,6 +180,21 @@ std::optional<std::string> PaysForRBF(CAmount original_fees,
                          txid.ToString(),
                          FormatMoney(additional_fees),
                          FormatMoney(relay_fee.GetFee(replacement_vsize)));
+    }
+    return std::nullopt;
+}
+
+std::optional<std::pair<DiagramCheckError, std::string>> ImprovesFeerateDiagram(CTxMemPool::ChangeSet& changeset)
+{
+    // Require that the replacement strictly improves the mempool's feerate diagram.
+    const auto chunk_results{changeset.CalculateChunksForRBF()};
+
+    if (!chunk_results.has_value()) {
+        return std::make_pair(DiagramCheckError::UNCALCULABLE, util::ErrorString(chunk_results).original);
+    }
+
+    if (!std::is_gt(CompareChunks(chunk_results.value().second, chunk_results.value().first))) {
+        return std::make_pair(DiagramCheckError::FAILURE, "insufficient feerate: does not improve feerate diagram");
     }
     return std::nullopt;
 }

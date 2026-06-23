@@ -1,11 +1,22 @@
-// Copyright (c) 2011-2021 The Bitcoin Core developers
+// Copyright (c) 2011-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
+#include <consensus/amount.h>
+#include <kernel/cs_main.h>
 #include <policy/policy.h>
+#include <primitives/transaction.h>
+#include <script/script.h>
+#include <sync.h>
 #include <test/util/setup_common.h>
+#include <test/util/txmempool.h>
 #include <txmempool.h>
+#include <util/check.h>
+
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 #include <primitives/transaction.h>
 
@@ -13,12 +24,13 @@ static void AddTx(const CTransactionRef& tx, const CAmount& nFee, CTxMemPool& po
 {
     int64_t nTime = 0;
     unsigned int nHeight = 1;
+    uint64_t sequence = 0;
     bool spendsCoinbase = false;
     unsigned int sigOpCost = 4;
     LockPoints lp;
     std::set<std::pair<uint256, COutPoint>> setPeginsSpent;
-    pool.addUnchecked(CTxMemPoolEntry(
-        tx, nFee, nTime, nHeight,
+    AddToMempool(pool, CTxMemPoolEntry(
+        tx, nFee, nTime, nHeight, sequence,
         spendsCoinbase, sigOpCost, lp, setPeginsSpent));
 }
 
@@ -121,7 +133,7 @@ static void MempoolEviction(benchmark::Bench& bench)
     tx7.vout[1].scriptPubKey = CScript() << OP_7 << OP_EQUAL;
     tx7.vout[1].nValue = 10 * COIN;
 
-    CTxMemPool pool;
+    CTxMemPool& pool = *Assert(testing_setup->m_node.mempool);
     LOCK2(cs_main, pool.cs);
     // Create transaction references outside the "hot loop"
     const CTransactionRef tx1_r{MakeTransactionRef(tx1)};
@@ -145,4 +157,4 @@ static void MempoolEviction(benchmark::Bench& bench)
     });
 }
 
-BENCHMARK(MempoolEviction);
+BENCHMARK(MempoolEviction, benchmark::PriorityLevel::HIGH);

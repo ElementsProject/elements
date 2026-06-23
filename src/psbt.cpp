@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -8,6 +8,9 @@
 #include <chainparams.h>
 #include <pegins.h>
 #include <primitives/transaction.h>
+#include <node/types.h>
+#include <policy/policy.h>
+#include <script/signingprovider.h>
 #include <util/check.h>
 #include <util/strencodings.h>
 
@@ -112,13 +115,13 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx(bool force_unblind
     }
 
     CMutableTransaction mtx;
-    mtx.nVersion = *tx_version;
+    mtx.version = *tx_version;
     bool locktime_success = ComputeTimeLock(mtx.nLockTime);
     assert(locktime_success);
     uint32_t max_sequence = CTxIn::SEQUENCE_FINAL;
     for (const PSBTInput& input : inputs) {
         CTxIn txin;
-        txin.prevout.hash = input.prev_txid;
+        txin.prevout.hash = Txid::FromUint256(input.prev_txid);
         txin.prevout.n = *input.prev_out;
         txin.nSequence = input.sequence.value_or(max_sequence);
         txin.assetIssuance.assetBlindingNonce = input.m_issuance_blinding_nonce;
@@ -219,7 +222,7 @@ bool PartiallySignedTransaction::AddInput(PSBTInput& psbtin)
 
     if (tx != std::nullopt) {
         // This is a v0 psbt, so do the v0 AddInput
-        CTxIn txin(COutPoint(psbtin.prev_txid, *psbtin.prev_out));
+        CTxIn txin(COutPoint(Txid::FromUint256(psbtin.prev_txid), *psbtin.prev_out));
         if (std::find(tx->vin.begin(), tx->vin.end(), txin) != tx->vin.end()) {
             return false;
         }
@@ -334,7 +337,7 @@ bool PSBTInput::GetUTXO(CTxOut& utxo) const
 
 COutPoint PSBTInput::GetOutPoint() const
 {
-    return COutPoint(prev_txid, *prev_out);
+    return COutPoint(Txid::FromUint256(prev_txid), *prev_out);
 }
 
 bool PartiallySignedTransaction::IsBlinded() const
@@ -386,6 +389,37 @@ void PSBTInput::FillSignatureData(SignatureData& sigdata) const
     for (const auto& key_pair : hd_keypaths) {
         sigdata.misc_pubkeys.emplace(key_pair.first.GetID(), key_pair);
     }
+    if (!m_tap_key_sig.empty()) {
+        sigdata.taproot_key_path_sig = m_tap_key_sig;
+    }
+    for (const auto& [pubkey_leaf, sig] : m_tap_script_sigs) {
+        sigdata.taproot_script_sigs.emplace(pubkey_leaf, sig);
+    }
+    if (!m_tap_internal_key.IsNull()) {
+        sigdata.tr_spenddata.internal_key = m_tap_internal_key;
+    }
+    if (!m_tap_merkle_root.IsNull()) {
+        sigdata.tr_spenddata.merkle_root = m_tap_merkle_root;
+    }
+    for (const auto& [leaf_script, control_block] : m_tap_scripts) {
+        sigdata.tr_spenddata.scripts.emplace(leaf_script, control_block);
+    }
+    for (const auto& [pubkey, leaf_origin] : m_tap_bip32_paths) {
+        sigdata.taproot_misc_pubkeys.emplace(pubkey, leaf_origin);
+        sigdata.tap_pubkeys.emplace(Hash160(pubkey), pubkey);
+    }
+    for (const auto& [hash, preimage] : ripemd160_preimages) {
+        sigdata.ripemd160_preimages.emplace(std::vector<unsigned char>(hash.begin(), hash.end()), preimage);
+    }
+    for (const auto& [hash, preimage] : sha256_preimages) {
+        sigdata.sha256_preimages.emplace(std::vector<unsigned char>(hash.begin(), hash.end()), preimage);
+    }
+    for (const auto& [hash, preimage] : hash160_preimages) {
+        sigdata.hash160_preimages.emplace(std::vector<unsigned char>(hash.begin(), hash.end()), preimage);
+    }
+    for (const auto& [hash, preimage] : hash256_preimages) {
+        sigdata.hash256_preimages.emplace(std::vector<unsigned char>(hash.begin(), hash.end()), preimage);
+    }
 }
 
 void PSBTInput::FromSignatureData(const SignatureData& sigdata)
@@ -415,6 +449,24 @@ void PSBTInput::FromSignatureData(const SignatureData& sigdata)
     for (const auto& entry : sigdata.misc_pubkeys) {
         hd_keypaths.emplace(entry.second);
     }
+    if (!sigdata.taproot_key_path_sig.empty()) {
+        m_tap_key_sig = sigdata.taproot_key_path_sig;
+    }
+    for (const auto& [pubkey_leaf, sig] : sigdata.taproot_script_sigs) {
+        m_tap_script_sigs.emplace(pubkey_leaf, sig);
+    }
+    if (!sigdata.tr_spenddata.internal_key.IsNull()) {
+        m_tap_internal_key = sigdata.tr_spenddata.internal_key;
+    }
+    if (!sigdata.tr_spenddata.merkle_root.IsNull()) {
+        m_tap_merkle_root = sigdata.tr_spenddata.merkle_root;
+    }
+    for (const auto& [leaf_script, control_block] : sigdata.tr_spenddata.scripts) {
+        m_tap_scripts.emplace(leaf_script, control_block);
+    }
+    for (const auto& [pubkey, leaf_origin] : sigdata.taproot_misc_pubkeys) {
+        m_tap_bip32_paths.emplace(pubkey, leaf_origin);
+    }
 }
 
 bool PSBTInput::Merge(const PSBTInput& input)
@@ -424,7 +476,6 @@ bool PSBTInput::Merge(const PSBTInput& input)
 
     if (!non_witness_utxo && input.non_witness_utxo) non_witness_utxo = input.non_witness_utxo;
     if (witness_utxo.IsNull() && !input.witness_utxo.IsNull()) {
-        // TODO: For segwit v1, we will want to clear out the non-witness utxo when setting a witness one. For v0 and non-segwit, this is not safe
         witness_utxo = input.witness_utxo;
     }
 
@@ -435,6 +486,9 @@ bool PSBTInput::Merge(const PSBTInput& input)
     hash256_preimages.insert(input.hash256_preimages.begin(), input.hash256_preimages.end());
     hd_keypaths.insert(input.hd_keypaths.begin(), input.hd_keypaths.end());
     unknown.insert(input.unknown.begin(), input.unknown.end());
+    m_tap_script_sigs.insert(input.m_tap_script_sigs.begin(), input.m_tap_script_sigs.end());
+    m_tap_scripts.insert(input.m_tap_scripts.begin(), input.m_tap_scripts.end());
+    m_tap_bip32_paths.insert(input.m_tap_bip32_paths.begin(), input.m_tap_bip32_paths.end());
 
     if (redeem_script.empty() && !input.redeem_script.empty()) redeem_script = input.redeem_script;
     if (witness_script.empty() && !input.witness_script.empty()) witness_script = input.witness_script;
@@ -470,6 +524,10 @@ bool PSBTInput::Merge(const PSBTInput& input)
 
     if (m_utxo_rangeproof.empty() && !input.m_utxo_rangeproof.empty()) m_utxo_rangeproof = input.m_utxo_rangeproof;
 
+    if (m_tap_key_sig.empty() && !input.m_tap_key_sig.empty()) m_tap_key_sig = input.m_tap_key_sig;
+    if (m_tap_internal_key.IsNull() && !input.m_tap_internal_key.IsNull()) m_tap_internal_key = input.m_tap_internal_key;
+    if (m_tap_merkle_root.IsNull() && !input.m_tap_merkle_root.IsNull()) m_tap_merkle_root = input.m_tap_merkle_root;
+
     return true;
 }
 
@@ -484,6 +542,22 @@ void PSBTOutput::FillSignatureData(SignatureData& sigdata) const
     for (const auto& key_pair : hd_keypaths) {
         sigdata.misc_pubkeys.emplace(key_pair.first.GetID(), key_pair);
     }
+    if (!m_tap_tree.empty() && m_tap_internal_key.IsFullyValid()) {
+        TaprootBuilder builder;
+        for (const auto& [depth, leaf_ver, script] : m_tap_tree) {
+            builder.Add((int)depth, script, (int)leaf_ver, /*track=*/true);
+        }
+        assert(builder.IsComplete());
+        builder.Finalize(m_tap_internal_key);
+        TaprootSpendData spenddata = builder.GetSpendData();
+
+        sigdata.tr_spenddata.internal_key = m_tap_internal_key;
+        sigdata.tr_spenddata.Merge(spenddata);
+    }
+    for (const auto& [pubkey, leaf_origin] : m_tap_bip32_paths) {
+        sigdata.taproot_misc_pubkeys.emplace(pubkey, leaf_origin);
+        sigdata.tap_pubkeys.emplace(Hash160(pubkey), pubkey);
+    }
 }
 
 void PSBTOutput::FromSignatureData(const SignatureData& sigdata)
@@ -496,6 +570,15 @@ void PSBTOutput::FromSignatureData(const SignatureData& sigdata)
     }
     for (const auto& entry : sigdata.misc_pubkeys) {
         hd_keypaths.emplace(entry.second);
+    }
+    if (!sigdata.tr_spenddata.internal_key.IsNull()) {
+        m_tap_internal_key = sigdata.tr_spenddata.internal_key;
+    }
+    if (sigdata.tr_builder.has_value() && sigdata.tr_builder->HasScripts()) {
+        m_tap_tree = sigdata.tr_builder->GetTreeTuples();
+    }
+    for (const auto& [pubkey, leaf_origin] : sigdata.taproot_misc_pubkeys) {
+        m_tap_bip32_paths.emplace(pubkey, leaf_origin);
     }
 }
 
@@ -512,6 +595,7 @@ bool PSBTOutput::Merge(const PSBTOutput& output)
 
     hd_keypaths.insert(output.hd_keypaths.begin(), output.hd_keypaths.end());
     unknown.insert(output.unknown.begin(), output.unknown.end());
+    m_tap_bip32_paths.insert(output.m_tap_bip32_paths.begin(), output.m_tap_bip32_paths.end());
 
     if (redeem_script.empty() && !output.redeem_script.empty()) redeem_script = output.redeem_script;
     if (witness_script.empty() && !output.witness_script.empty()) witness_script = output.witness_script;
@@ -531,7 +615,7 @@ bool PSBTOutput::Merge(const PSBTOutput& output)
         if (!m_asset_surjection_proof.empty() && !output.m_asset_surjection_proof.empty() && (m_asset_surjection_proof != output.m_asset_surjection_proof)) return false;
     }
 
-    // If output IsFullyBlinded and this is not, copy the blinding data and remove the explicits
+    // If output IsFullyBlinded and this is not, copy the blinding data
     if (IsBlinded() && !IsFullyBlinded() && output.IsFullyBlinded()) {
         m_value_commitment = output.m_value_commitment;
         m_asset_commitment = output.m_asset_commitment;
@@ -541,6 +625,9 @@ bool PSBTOutput::Merge(const PSBTOutput& output)
         m_blind_value_proof = output.m_blind_value_proof;
         m_blind_asset_proof = output.m_blind_asset_proof;
     }
+
+    if (m_tap_internal_key.IsNull() && !output.m_tap_internal_key.IsNull()) m_tap_internal_key = output.m_tap_internal_key;
+    if (m_tap_tree.empty() && !output.m_tap_tree.empty()) m_tap_tree = output.m_tap_tree;
 
     return true;
 }
@@ -583,6 +670,36 @@ bool PSBTInputSigned(const PSBTInput& input)
     return !input.final_script_sig.empty() || !input.final_script_witness.IsNull();
 }
 
+bool PSBTInputSignedAndVerified(const PartiallySignedTransaction psbt, unsigned int input_index, const PrecomputedTransactionData* txdata)
+{
+    CTxOut utxo;
+    assert(psbt.inputs.size() >= input_index);
+    const PSBTInput& input = psbt.inputs[input_index];
+
+    if (input.non_witness_utxo) {
+        // If we're taking our information from a non-witness UTXO, verify that it matches the prevout.
+        COutPoint prevout = psbt.inputs[input_index].GetOutPoint();
+        if (prevout.n >= input.non_witness_utxo->vout.size()) {
+            return false;
+        }
+        if (input.non_witness_utxo->GetHash() != prevout.hash) {
+            return false;
+        }
+        utxo = input.non_witness_utxo->vout[prevout.n];
+    } else if (!input.witness_utxo.IsNull()) {
+        utxo = input.witness_utxo;
+    } else {
+        return false;
+    }
+
+    CMutableTransaction tx = psbt.GetUnsignedTx();
+    if (txdata) {
+        return VerifyScript(input.final_script_sig, utxo.scriptPubKey, &input.final_script_witness, STANDARD_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker{&tx, input_index, utxo.nValue, *txdata, MissingDataBehavior::FAIL});
+    } else {
+        return VerifyScript(input.final_script_sig, utxo.scriptPubKey, &input.final_script_witness, STANDARD_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker{&tx, input_index, utxo.nValue, MissingDataBehavior::FAIL});
+    }
+}
+
 size_t CountPSBTUnsignedInputs(const PartiallySignedTransaction& psbt) {
     size_t count = 0;
     for (const auto& input : psbt.inputs) {
@@ -607,7 +724,7 @@ void UpdatePSBTOutput(const SigningProvider& provider, PartiallySignedTransactio
     // Construct a would-be spend of this output, to update sigdata with.
     // Note that ProduceSignature is used to fill in metadata (not actual signatures),
     // so provider does not need to provide any private keys (it can be a HidingSigningProvider).
-    MutableTransactionSignatureCreator creator(&tx, /*input_idx=*/0, out.nValue, SIGHASH_ALL);
+    MutableTransactionSignatureCreator creator(tx, /*input_idx=*/0, out.nValue, SIGHASH_ALL);
     ProduceSignature(provider, creator, out.scriptPubKey, sigdata);
 
     // Put redeem_script, witness_script, key paths, into PSBTOutput.
@@ -650,7 +767,7 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
 
     const CMutableTransaction& tx = psbt.GetUnsignedTx();
 
-    if (PSBTInputSigned(input)) {
+    if (PSBTInputSignedAndVerified(psbt, index, txdata)) {
         return true;
     }
 
@@ -690,7 +807,7 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
     if (txdata == nullptr) {
         sig_complete = ProduceSignature(provider, DUMMY_SIGNATURE_CREATOR, utxo.scriptPubKey, sigdata);
     } else {
-        MutableTransactionSignatureCreator creator(&tx, index, utxo.nValue, txdata, sighash);
+        MutableTransactionSignatureCreator creator(tx, index, utxo.nValue, txdata, sighash);
         sig_complete = ProduceSignature(provider, creator, utxo.scriptPubKey, sigdata);
     }
     // Verify that a witness signature was produced in case one was required.
@@ -702,10 +819,11 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
     input.FromSignatureData(sigdata);
 
     // If we have a witness signature, put a witness UTXO.
-    // TODO: For segwit v1, we should remove the non_witness_utxo
     if (sigdata.witness) {
         input.witness_utxo = utxo;
-        // input.non_witness_utxo = nullptr;
+        // We can remove the non_witness_utxo if and only if there are no non-segwit or segwit v0
+        // inputs in this transaction. Since this requires inspecting the entire transaction, this
+        // is something for the caller to deal with (i.e. FillPSBT).
     }
 
     // Fill in the missing info
@@ -717,6 +835,38 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
     }
 
     return sig_complete;
+}
+
+void RemoveUnnecessaryTransactions(PartiallySignedTransaction& psbtx, const int& sighash_type)
+{
+    // Only drop non_witness_utxos if sighash_type != SIGHASH_ANYONECANPAY
+    if ((sighash_type & 0x80) != SIGHASH_ANYONECANPAY) {
+        // Figure out if any non_witness_utxos should be dropped
+        std::vector<unsigned int> to_drop;
+        for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
+            const auto& input = psbtx.inputs.at(i);
+            int wit_ver;
+            std::vector<unsigned char> wit_prog;
+            if (input.witness_utxo.IsNull() || !input.witness_utxo.scriptPubKey.IsWitnessProgram(wit_ver, wit_prog)) {
+                // There's a non-segwit input or Segwit v0, so we cannot drop any witness_utxos
+                to_drop.clear();
+                break;
+            }
+            if (wit_ver == 0) {
+                // Segwit v0, so we cannot drop any non_witness_utxos
+                to_drop.clear();
+                break;
+            }
+            if (input.non_witness_utxo) {
+                to_drop.push_back(i);
+            }
+        }
+
+        // Drop the non_witness_utxos that we can drop
+        for (unsigned int i : to_drop) {
+            psbtx.inputs.at(i).non_witness_utxo = nullptr;
+        }
+    }
 }
 
 bool FinalizePSBT(PartiallySignedTransaction& psbtx)
@@ -764,17 +914,17 @@ bool FinalizeAndExtractPSBT(PartiallySignedTransaction& psbtx, CMutableTransacti
     return true;
 }
 
-TransactionError CombinePSBTs(PartiallySignedTransaction& out, const std::vector<PartiallySignedTransaction>& psbtxs)
+bool CombinePSBTs(PartiallySignedTransaction& out, const std::vector<PartiallySignedTransaction>& psbtxs)
 {
     out = psbtxs[0]; // Copy the first one
 
     // Merge
     for (auto it = std::next(psbtxs.begin()); it != psbtxs.end(); ++it) {
         if (!out.Merge(*it)) {
-            return TransactionError::PSBT_MISMATCH;
+            return false;
         }
     }
-    return TransactionError::OK;
+    return true;
 }
 
 std::string PSBTRoleName(PSBTRole role) {
@@ -792,27 +942,26 @@ std::string PSBTRoleName(PSBTRole role) {
 
 std::string EncodePSBT(const PartiallySignedTransaction& psbt)
 {
-    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
-    ssTx << psbt;
+    DataStream ssTx{};
+    ssTx << TX_WITH_WITNESS(psbt);
     return EncodeBase64(ssTx);
 }
 
 bool DecodeBase64PSBT(PartiallySignedTransaction& psbt, const std::string& base64_tx, std::string& error)
 {
-    bool invalid;
-    std::string tx_data = DecodeBase64(base64_tx, &invalid);
-    if (invalid) {
+    auto tx_data = DecodeBase64(base64_tx);
+    if (!tx_data) {
         error = "invalid base64";
         return false;
     }
-    return DecodeRawPSBT(psbt, tx_data, error);
+    return DecodeRawPSBT(psbt, MakeByteSpan(*tx_data), error);
 }
 
-bool DecodeRawPSBT(PartiallySignedTransaction& psbt, const std::string& tx_data, std::string& error)
+bool DecodeRawPSBT(PartiallySignedTransaction& psbt, Span<const std::byte> tx_data, std::string& error)
 {
-    CDataStream ss_data(MakeByteSpan(tx_data), SER_NETWORK, PROTOCOL_VERSION);
+    DataStream ss_data{tx_data};
     try {
-        ss_data >> psbt;
+        ss_data >> TX_WITH_WITNESS(psbt);
         if (!ss_data.empty()) {
             error = "extra data after PSBT";
             return false;
@@ -834,7 +983,7 @@ uint32_t PartiallySignedTransaction::GetVersion() const
 
 void PartiallySignedTransaction::SetupFromTx(const CMutableTransaction& tx)
 {
-    tx_version = tx.nVersion;
+    tx_version = tx.version;
     fallback_locktime = tx.nLockTime;
 
     uint32_t i;

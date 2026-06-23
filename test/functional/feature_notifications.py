@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-# Copyright (c) 2014-2021 The Bitcoin Core developers
+# Copyright (c) 2014-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the -alertnotify, -blocknotify and -walletnotify options."""
 import os
+import platform
 
 from test_framework.address import ADDRESS_BCRT1_UNSPENDABLE
 from test_framework.descriptors import descsum_create
@@ -14,36 +15,40 @@ from test_framework.util import (
 
 # Linux allow all characters other than \x00
 # Windows disallow control characters (0-31) and /\?%:|"<>
-FILE_CHAR_START = 32 if os.name == 'nt' else 1
+FILE_CHAR_START = 32 if platform.system() == 'Windows' else 1
 FILE_CHAR_END = 128
-FILE_CHARS_DISALLOWED = '/\\?%*:|"<>' if os.name == 'nt' else '/'
+FILE_CHARS_DISALLOWED = '/\\?%*:|"<>' if platform.system() == 'Windows' else '/'
 UNCONFIRMED_HASH_STRING = 'unconfirmed'
 
 def notify_outputname(walletname, txid):
-    return txid if os.name == 'nt' else f'{walletname}_{txid}'
+    return txid if platform.system() == 'Windows' else f'{walletname}_{txid}'
 
 
 class NotificationsTest(BitcoinTestFramework):
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
-        # The experimental syscall sandbox feature (-sandbox) is not compatible with -alertnotify,
-        # -blocknotify or -walletnotify (which all invoke execve).
-        self.disable_syscall_sandbox = True
 
     def setup_network(self):
         self.wallet = ''.join(chr(i) for i in range(FILE_CHAR_START, FILE_CHAR_END) if chr(i) not in FILE_CHARS_DISALLOWED)
         self.alertnotify_dir = os.path.join(self.options.tmpdir, "alertnotify")
         self.blocknotify_dir = os.path.join(self.options.tmpdir, "blocknotify")
         self.walletnotify_dir = os.path.join(self.options.tmpdir, "walletnotify")
+        self.shutdownnotify_dir = os.path.join(self.options.tmpdir, "shutdownnotify")
+        self.shutdownnotify_file = os.path.join(self.shutdownnotify_dir, "shutdownnotify.txt")
         os.mkdir(self.alertnotify_dir)
         os.mkdir(self.blocknotify_dir)
         os.mkdir(self.walletnotify_dir)
+        os.mkdir(self.shutdownnotify_dir)
 
         # -alertnotify and -blocknotify on node0, walletnotify on node1
         self.extra_args = [[
             f"-alertnotify=echo > {os.path.join(self.alertnotify_dir, '%s')}",
             f"-blocknotify=echo > {os.path.join(self.blocknotify_dir, '%s')}",
+            f"-shutdownnotify=echo > {self.shutdownnotify_file}",
         ], [
             f"-walletnotify=echo %h_%b > {os.path.join(self.walletnotify_dir, notify_outputname('%w', '%s'))}",
         ]]
@@ -159,6 +164,10 @@ class NotificationsTest(BitcoinTestFramework):
 
         # TODO: add test for `-alertnotify` large fork notifications
 
+        self.log.info("test -shutdownnotify")
+        self.stop_nodes()
+        self.wait_until(lambda: os.path.isfile(self.shutdownnotify_file), timeout=10)
+
     def expect_wallet_notify(self, tx_details):
         self.wait_until(lambda: len(os.listdir(self.walletnotify_dir)) >= len(tx_details), timeout=10)
         # Should have no more and no less files than expected
@@ -173,7 +182,7 @@ class NotificationsTest(BitcoinTestFramework):
                 # Universal newline ensures '\n' on 'nt'
                 assert_equal(text[-1], '\n')
                 text = text[:-1]
-                if os.name == 'nt':
+                if platform.system() == 'Windows':
                     # On Windows, echo as above will append a whitespace
                     assert_equal(text[-1], ' ')
                     text = text[:-1]
@@ -185,4 +194,4 @@ class NotificationsTest(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    NotificationsTest().main()
+    NotificationsTest(__file__).main()

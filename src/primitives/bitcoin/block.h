@@ -84,8 +84,7 @@ public:
 
     SERIALIZE_METHODS(CBlock, obj)
     {
-        READWRITEAS(CBlockHeader, obj);
-        READWRITE(obj.vtx);
+        READWRITE(AsBase<CBlockHeader>(obj), obj.vtx);
     }
 
     void SetNull()
@@ -118,15 +117,14 @@ struct CBlockLocator
 {
     std::vector<uint256> vHave;
 
-    CBlockLocator() {}
+    CBlockLocator() = default;
 
     explicit CBlockLocator(const std::vector<uint256>& vHaveIn) : vHave(vHaveIn) {}
 
     SERIALIZE_METHODS(CBlockLocator, obj)
     {
         int nVersion = s.GetVersion();
-        if (!(s.GetType() & SER_GETHASH))
-            READWRITE(nVersion);
+        READWRITE(nVersion);
         READWRITE(obj.vHave);
     }
 

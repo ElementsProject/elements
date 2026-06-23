@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2014-2021 The Bitcoin Core developers
+# Copyright (c) 2014-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the importprunedfunds and removeprunedfunds RPCs."""
@@ -8,15 +8,23 @@ from decimal import Decimal
 from test_framework.blocktools import COINBASE_MATURITY
 from test_framework import liquid_addr
 from test_framework.key import ECKey
+from test_framework.messages import (
+    CMerkleBlock,
+    from_hex,
+)
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.script import hash160
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
 )
-from test_framework.wallet_util import bytes_to_wif
+from test_framework.wallet_util import generate_keypair
+
 
 class ImportPrunedFundsTest(BitcoinTestFramework):
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
@@ -35,14 +43,11 @@ class ImportPrunedFundsTest(BitcoinTestFramework):
         address2 = self.nodes[0].getnewaddress()
         address2_blindingkey = self.nodes[0].dumpblindingkey(address2)
         # privkey
-        eckey = ECKey()
-        eckey.generate()
+        address3_privkey, address3_pubkey = generate_keypair(wif=True)
         blinding_eckey = ECKey()
         blinding_eckey.generate()
-
-        address3_privkey = bytes_to_wif(eckey.get_bytes())
         address3_blindingkey = blinding_eckey.get_bytes().hex()
-        conf_addrdata = blinding_eckey.get_pubkey().get_bytes() + hash160(eckey.get_pubkey().get_bytes())
+        conf_addrdata = blinding_eckey.get_pubkey().get_bytes() + hash160(address3_pubkey)
         address3 = liquid_addr.encode("el", 0, conf_addrdata)
         self.nodes[0].importprivkey(address3_privkey)
 
@@ -125,7 +130,7 @@ class ImportPrunedFundsTest(BitcoinTestFramework):
         assert_equal(address_info['ismine'], True)
 
         # Remove transactions
-        assert_raises_rpc_error(-8, "Transaction does not exist in wallet.", w1.removeprunedfunds, txnid1)
+        assert_raises_rpc_error(-4, f'Transaction {txnid1} does not belong to this wallet', w1.removeprunedfunds, txnid1)
         assert not [tx for tx in w1.listtransactions(include_watchonly=True) if tx['txid'] == txnid1]
 
         wwatch.removeprunedfunds(txnid2)
@@ -134,5 +139,18 @@ class ImportPrunedFundsTest(BitcoinTestFramework):
         w1.removeprunedfunds(txnid3)
         assert not [tx for tx in w1.listtransactions(include_watchonly=True) if tx['txid'] == txnid3]
 
+        # Check various RPC parameter validation errors
+        assert_raises_rpc_error(-22, "TX decode failed", w1.importprunedfunds, b'invalid tx'.hex(), proof1)
+        assert_raises_rpc_error(-5, "Transaction given doesn't exist in proof", w1.importprunedfunds, rawtxn2, proof1)
+
+        mb = from_hex(CMerkleBlock(), proof1)
+        mb.header.hashMerkleRoot = 0xdeadbeef  # cause mismatch between merkle root and merkle block
+        assert_raises_rpc_error(-5, "Something wrong with merkleblock", w1.importprunedfunds, rawtxn1, mb.serialize().hex())
+
+        mb = from_hex(CMerkleBlock(), proof1)
+        mb.header.nTime += 1  # modify arbitrary block header field to change block hash
+        assert_raises_rpc_error(-5, "Block not found in chain", w1.importprunedfunds, rawtxn1, mb.serialize().hex())
+
+
 if __name__ == '__main__':
-    ImportPrunedFundsTest().main()
+    ImportPrunedFundsTest(__file__).main()

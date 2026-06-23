@@ -22,11 +22,11 @@
 /** Clear a scalar to prevent the leak of sensitive data. */
 static void secp256k1_scalar_clear(secp256k1_scalar *r);
 
-/** Access bits from a scalar. All requested bits must belong to the same 32-bit limb. */
-static unsigned int secp256k1_scalar_get_bits(const secp256k1_scalar *a, unsigned int offset, unsigned int count);
+/** Access bits (1 < count <= 32) from a scalar. All requested bits must belong to the same 32-bit limb. */
+static uint32_t secp256k1_scalar_get_bits_limb32(const secp256k1_scalar *a, unsigned int offset, unsigned int count);
 
-/** Access bits from a scalar. Not constant time. */
-static unsigned int secp256k1_scalar_get_bits_var(const secp256k1_scalar *a, unsigned int offset, unsigned int count);
+/** Access bits (1 < count <= 32) from a scalar. offset + count must be < 256. Not constant time in offset and count. */
+static uint32_t secp256k1_scalar_get_bits_var(const secp256k1_scalar *a, unsigned int offset, unsigned int count);
 
 /** Set a scalar from a big endian byte array. The scalar will be reduced modulo group order `n`.
  * In:      bin:        pointer to a 32-byte array.
@@ -51,15 +51,11 @@ static void secp256k1_scalar_get_b32(unsigned char *bin, const secp256k1_scalar*
 /** Add two scalars together (modulo the group order). Returns whether it overflowed. */
 static int secp256k1_scalar_add(secp256k1_scalar *r, const secp256k1_scalar *a, const secp256k1_scalar *b);
 
-/** Conditionally add a power of two to a scalar. The result is not allowed to overflow. */
+/** Conditionally add a power of two to a scalar. The result is not allowed to overflow. Flag must be 0 or 1. */
 static void secp256k1_scalar_cadd_bit(secp256k1_scalar *r, unsigned int bit, int flag);
 
 /** Multiply two scalars (modulo the group order). */
 static void secp256k1_scalar_mul(secp256k1_scalar *r, const secp256k1_scalar *a, const secp256k1_scalar *b);
-
-/** Shift a scalar right by some amount strictly between 0 and 16, returning
- *  the low bits that were shifted off */
-static int secp256k1_scalar_shr_int(secp256k1_scalar *r, int n);
 
 /** Compute the square of a scalar (modulo the group order). */
 static void secp256k1_scalar_sqr(secp256k1_scalar *r, const secp256k1_scalar *a);
@@ -73,6 +69,9 @@ static void secp256k1_scalar_inverse_var(secp256k1_scalar *r, const secp256k1_sc
 /** Compute the complement of a scalar (modulo the group order). */
 static void secp256k1_scalar_negate(secp256k1_scalar *r, const secp256k1_scalar *a);
 
+/** Multiply a scalar with the multiplicative inverse of 2. */
+static void secp256k1_scalar_half(secp256k1_scalar *r, const secp256k1_scalar *a);
+
 /** Check whether a scalar equals zero. */
 static int secp256k1_scalar_is_zero(const secp256k1_scalar *a);
 
@@ -85,7 +84,7 @@ static int secp256k1_scalar_is_even(const secp256k1_scalar *a);
 /** Check whether a scalar is higher than the group order divided by 2. */
 static int secp256k1_scalar_is_high(const secp256k1_scalar *a);
 
-/** Conditionally negate a number, in constant time.
+/** Conditionally negate a number, in constant time. Flag must be 0 or 1.
  * Returns -1 if the number was negated, 1 otherwise */
 static int secp256k1_scalar_cond_negate(secp256k1_scalar *a, int flag);
 
@@ -102,7 +101,11 @@ static void secp256k1_scalar_split_lambda(secp256k1_scalar * SECP256K1_RESTRICT 
 /** Multiply a and b (without taking the modulus!), divide by 2**shift, and round to the nearest integer. Shift must be at least 256. */
 static void secp256k1_scalar_mul_shift_var(secp256k1_scalar *r, const secp256k1_scalar *a, const secp256k1_scalar *b, unsigned int shift);
 
-/** If flag is true, set *r equal to *a; otherwise leave it. Constant-time.  Both *r and *a must be initialized.*/
+/** If flag is 1, set *r equal to *a; if flag is 0, leave it. Constant-time.  Both *r and *a must be initialized. Flag must be 0 or 1. */
 static void secp256k1_scalar_cmov(secp256k1_scalar *r, const secp256k1_scalar *a, int flag);
+
+/** Check invariants on a scalar (no-op unless VERIFY is enabled). */
+static void secp256k1_scalar_verify(const secp256k1_scalar *r);
+#define SECP256K1_SCALAR_VERIFY(r) secp256k1_scalar_verify(r)
 
 #endif /* SECP256K1_SCALAR_H */

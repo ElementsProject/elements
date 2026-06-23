@@ -8,14 +8,13 @@
 #include <script/pegins.h>
 #include <script/script.h>
 #include <streams.h>
-#include <version.h>
 
 CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness) {
     if (pegin_witness.stack.size() < 4) {
         return CTxOut();
     }
 
-    CDataStream stream(pegin_witness.stack[0], SER_NETWORK, PROTOCOL_VERSION);
+    DataStream stream{pegin_witness.stack[0]};
     CAmount value;
     stream >> value;
 

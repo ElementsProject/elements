@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2017-2021 The Bitcoin Core developers
+# Copyright (c) 2017-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test that the wallet can send and receive using all combinations of address types.
@@ -66,6 +66,9 @@ from test_framework.util import (
 )
 
 class AddressTypeTest(BitcoinTestFramework):
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def set_test_params(self):
         self.num_nodes = 6
         self.extra_args = [
@@ -76,9 +79,8 @@ class AddressTypeTest(BitcoinTestFramework):
             ["-changetype=p2sh-segwit"],
             [],
         ]
-        # whitelist all peers to speed up tx relay / mempool sync
-        for args in self.extra_args:
-            args.append("-whitelist=noban@127.0.0.1")
+        # whitelist peers to speed up tx relay / mempool sync
+        self.noban_tx_relay = True
         self.supports_cli = False
 
     def skip_test_if_missing_module(self):
@@ -173,7 +175,7 @@ class AddressTypeTest(BitcoinTestFramework):
         for deriv in decode['inputs'][0]['bip32_derivs']:
             assert_equal(len(deriv['master_fingerprint']), 8)
             assert_equal(deriv['path'][0], 'm')
-            key_descs[deriv['pubkey']] = '[' + deriv['master_fingerprint'] + deriv['path'][1:] + ']' + deriv['pubkey']
+            key_descs[deriv['pubkey']] = '[' + deriv['master_fingerprint'] + deriv['path'][1:].replace("'","h") + ']' + deriv['pubkey']
 
         # Verify the descriptor checksum against the Python implementation
         assert descsum_check(info['desc'])
@@ -350,31 +352,19 @@ class AddressTypeTest(BitcoinTestFramework):
         self.log.info("Nodes with addresstype=legacy never use a P2WPKH change output (unless changetype is set otherwise):")
         self.test_change_output_type(0, [to_address_bech32_1], 'legacy')
 
-        if self.options.descriptors:
-            self.log.info("Nodes with addresstype=p2sh-segwit match the change output")
-            self.test_change_output_type(1, [to_address_p2sh], 'p2sh-segwit')
-            self.test_change_output_type(1, [to_address_bech32_1], 'bech32')
-            self.test_change_output_type(1, [to_address_p2sh, to_address_bech32_1], 'bech32')
-            self.test_change_output_type(1, [to_address_bech32_1, to_address_bech32_2], 'bech32')
-        else:
-            self.log.info("Nodes with addresstype=p2sh-segwit match the change output")
-            self.test_change_output_type(1, [to_address_p2sh], 'p2sh-segwit')
-            self.test_change_output_type(1, [to_address_bech32_1], 'bech32')
-            self.test_change_output_type(1, [to_address_p2sh, to_address_bech32_1], 'bech32')
-            self.test_change_output_type(1, [to_address_bech32_1, to_address_bech32_2], 'bech32')
+        self.log.info("Nodes with addresstype=p2sh-segwit match the change output")
+        self.test_change_output_type(1, [to_address_p2sh], 'p2sh-segwit')
+        self.test_change_output_type(1, [to_address_bech32_1], 'bech32')
+        self.test_change_output_type(1, [to_address_p2sh, to_address_bech32_1], 'bech32')
+        self.test_change_output_type(1, [to_address_bech32_1, to_address_bech32_2], 'bech32')
 
         self.log.info("Nodes with change_type=bech32 always use a P2WPKH change output:")
         self.test_change_output_type(2, [to_address_bech32_1], 'bech32')
         self.test_change_output_type(2, [to_address_p2sh], 'bech32')
 
-        if self.options.descriptors:
-            self.log.info("Nodes with addresstype=bech32 match the change output (unless changetype is set otherwise):")
-            self.test_change_output_type(3, [to_address_bech32_1], 'bech32')
-            self.test_change_output_type(3, [to_address_p2sh], 'p2sh-segwit')
-        else:
-            self.log.info("Nodes with addresstype=bech32 match the change output (unless changetype is set otherwise):")
-            self.test_change_output_type(3, [to_address_bech32_1], 'bech32')
-            self.test_change_output_type(3, [to_address_p2sh], 'p2sh-segwit')
+        self.log.info("Nodes with addresstype=bech32 match the change output (unless changetype is set otherwise):")
+        self.test_change_output_type(3, [to_address_bech32_1], 'bech32')
+        self.test_change_output_type(3, [to_address_p2sh], 'p2sh-segwit')
 
         self.log.info('getrawchangeaddress defaults to addresstype if -changetype is not set and argument is absent')
         self.test_address(3, self.nodes[3].getrawchangeaddress(), multisig=False, typ='bech32')
@@ -384,6 +374,8 @@ class AddressTypeTest(BitcoinTestFramework):
         assert_raises_rpc_error(-5, "Unknown address type ''", self.nodes[3].getnewaddress, None, '')
         assert_raises_rpc_error(-5, "Unknown address type ''", self.nodes[3].getrawchangeaddress, '')
         assert_raises_rpc_error(-5, "Unknown address type 'bech23'", self.nodes[3].getrawchangeaddress, 'bech23')
+        if self.options.descriptors:
+            assert_raises_rpc_error(-5, "Unknown address type 'bech23'", self.nodes[3].createwalletdescriptor, "bech23")
 
         self.log.info("Nodes with changetype=p2sh-segwit never use a P2WPKH change output")
         self.test_change_output_type(4, [to_address_bech32_1], 'p2sh-segwit')
@@ -403,13 +395,13 @@ class AddressTypeTest(BitcoinTestFramework):
 
         # test blech32 addresses
         info_unblinded = self.nodes[0].getaddressinfo(self.nodes[0].getnewaddress("", "bech32"))
-        assert(len(info_unblinded["confidential_key"]) == 0)
+        assert len(info_unblinded["confidential_key"]) == 0
         # getnewaddress
         info1 = self.nodes[0].getaddressinfo(self.nodes[0].getnewaddress("", "blech32"))
-        assert(len(info1["confidential_key"]) > 0)
+        assert len(info1["confidential_key"]) > 0
         # getrawchangeaddress
         info2 = self.nodes[0].getaddressinfo(self.nodes[0].getrawchangeaddress("blech32"))
-        assert(len(info2["confidential_key"]) > 0)
+        assert len(info2["confidential_key"]) > 0
 
         # taproot (segwit v1) address parsing test
         # We will use a hardcoded placeholder for now, until we can have the test use the wallet to generate one.
@@ -417,7 +409,7 @@ class AddressTypeTest(BitcoinTestFramework):
         tap_addr = "el1pqwp9ze75659cn5ad0hw25nt2kv7j882gudn636hnh4qvjcmjh6jq5ca0d4cgl009m5rn5w0n3k2cqa3ths2qf7s8q6x2xplwgvlfhg0atxwjah9089tf"
         info3 = self.nodes[0].getaddressinfo(tap_addr)
         assert_equal(tap_addr, info3["address"])
-        assert(len(info3["confidential_key"]) > 0)
+        assert len(info3["confidential_key"]) > 0
 
 if __name__ == '__main__':
-    AddressTypeTest().main()
+    AddressTypeTest(__file__).main()

@@ -1,10 +1,11 @@
-// Copyright (c) 2021 The Bitcoin Core developers
+// Copyright (c) 2021-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <minisketch.h>
 #include <node/minisketchwrapper.h>
 #include <random.h>
+#include <test/util/random.h>
 #include <test/util/setup_common.h>
 
 #include <boost/test/unit_test.hpp>
@@ -13,16 +14,16 @@
 
 using node::MakeMinisketch32;
 
-BOOST_AUTO_TEST_SUITE(minisketch_tests)
+BOOST_FIXTURE_TEST_SUITE(minisketch_tests, BasicTestingSetup)
 
 BOOST_AUTO_TEST_CASE(minisketch_test)
 {
     for (int i = 0; i < 100; ++i) {
-        uint32_t errors = 0 + InsecureRandRange(11);
-        uint32_t start_a = 1 + InsecureRandRange(1000000000);
-        uint32_t a_not_b = InsecureRandRange(errors + 1);
+        uint32_t errors = 0 + m_rng.randrange(11);
+        uint32_t start_a = 1 + m_rng.randrange(1000000000);
+        uint32_t a_not_b = m_rng.randrange(errors + 1);
         uint32_t b_not_a = errors - a_not_b;
-        uint32_t both = InsecureRandRange(10000);
+        uint32_t both = m_rng.randrange(10000);
         uint32_t end_a = start_a + a_not_b + both;
         uint32_t start_b = start_a + a_not_b;
         uint32_t end_b = start_b + both + b_not_a;
@@ -40,7 +41,7 @@ BOOST_AUTO_TEST_CASE(minisketch_test)
         Minisketch sketch_c = std::move(sketch_ar);
         sketch_c.Merge(sketch_br);
         auto dec = sketch_c.Decode(errors);
-        BOOST_CHECK(dec.has_value());
+        BOOST_REQUIRE(dec.has_value());
         auto sols = std::move(*dec);
         std::sort(sols.begin(), sols.end());
         for (uint32_t i = 0; i < a_not_b; ++i) BOOST_CHECK_EQUAL(sols[i], start_a + i);

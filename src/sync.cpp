@@ -2,10 +2,6 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h>
-#endif
-
 #include <sync.h>
 
 #include <logging.h>
@@ -41,11 +37,11 @@ struct CLockLocation {
         const char* pszFile,
         int nLine,
         bool fTryIn,
-        const std::string& thread_name)
+        std::string&& thread_name)
         : fTry(fTryIn),
           mutexName(pszName),
           sourceFile(pszFile),
-          m_thread_name(thread_name),
+          m_thread_name(std::move(thread_name)),
           sourceLine(nLine) {}
 
     std::string ToString() const
@@ -64,7 +60,7 @@ private:
     bool fTry;
     std::string mutexName;
     std::string sourceFile;
-    const std::string& m_thread_name;
+    const std::string m_thread_name;
     int sourceLine;
 };
 
@@ -246,7 +242,7 @@ void LeaveCritical()
     pop_lock();
 }
 
-std::string LocksHeld()
+static std::string LocksHeld()
 {
     LockData& lockdata = GetLockData();
     std::lock_guard<std::mutex> lock(lockdata.dd_mutex);

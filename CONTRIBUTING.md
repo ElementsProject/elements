@@ -10,10 +10,9 @@ First, in terms of structure, there is no particular concept of "Bitcoin Core
 developers" in the sense of privileged people. Open source often naturally
 revolves around a meritocracy where contributors earn trust from the developer
 community over time. Nevertheless, some hierarchy is necessary for practical
-purposes. As such, there are repository "maintainers" who are responsible for
-merging pull requests, as well as a "lead maintainer" who is responsible for the
-[release cycle](/doc/release-process.md) as well as overall merging, moderation
-and appointment of maintainers.
+purposes. As such, there are repository maintainers who are responsible for
+merging pull requests, the [release cycle](/doc/release-process.md), and
+moderation.
 
 Getting Started
 ---------------
@@ -37,8 +36,7 @@ list or changes that are
 Some of them might no longer be applicable. So if you are interested, but
 unsure, you might want to leave a comment on the issue first.
 
-You may also participate in the weekly
-[Bitcoin Core PR Review Club](https://bitcoincore.reviews/) meeting.
+You may also participate in the [Bitcoin Core PR Review Club](https://bitcoincore.reviews/).
 
 ### Good First Issue Label
 
@@ -67,9 +65,10 @@ Discussion about codebase improvements happens in GitHub issues and pull
 requests.
 
 The developer
-[mailing list](https://lists.linuxfoundation.org/mailman/listinfo/bitcoin-dev)
+[mailing list](https://groups.google.com/g/bitcoindev)
 should be used to discuss complicated or controversial consensus or P2P protocol changes before working on
 a patch set.
+Archives can be found on [https://gnusha.org/pi/bitcoindev/](https://gnusha.org/pi/bitcoindev/).
 
 
 Contributor Workflow
@@ -149,11 +148,12 @@ the pull request affects. Valid areas as:
   - `net` or `p2p` for changes to the peer-to-peer network code
   - `refactor` for structural changes that do not change behavior
   - `rpc`, `rest` or `zmq` for changes to the RPC, REST or ZMQ APIs
-  - `script` for changes to the scripts and tools
+  - `contrib` or `cli` for changes to the scripts and tools
   - `test`, `qa` or `ci` for changes to the unit tests, QA tests or CI code
   - `util` or `lib` for changes to the utils or libraries
   - `wallet` for changes to the wallet code
-  - `build` for changes to the GNU Autotools or reproducible builds
+  - `build` for changes to CMake
+  - `guix` for changes to the GUIX reproducible builds
 
 Examples:
 
@@ -216,9 +216,9 @@ Please update the resulting commit message, if needed. It should read as a
 coherent message. In most cases, this means not just listing the interim
 commits.
 
-If you have problems with squashing or other git workflows, you can enable
-"Allow edits from maintainers" in the right-hand sidebar of the GitHub web
-interface and ask for help in the pull request.
+If your change contains a merge commit, the above workflow may not work and you
+will need to remove the merge commit first. See the next section for details on
+how to rebase.
 
 Please refrain from creating several pull requests for the same change.
 Use the pull request that is already open (or was created earlier) to amend
@@ -231,7 +231,9 @@ pull request to pull request.
 ### Rebasing Changes
 
 When a pull request conflicts with the target branch, you may be asked to rebase it on top of the current target branch.
-The `git rebase` command will take care of rebuilding your commits on top of the new base.
+
+    git fetch https://github.com/bitcoin/bitcoin  # Fetch the latest upstream commit
+    git rebase FETCH_HEAD  # Rebuild commits on top of the new base
 
 This project aims to have a clean git history, where code changes are only made in non-merge commits. This simplifies
 auditability because merge commits can be assumed to not contain arbitrary code changes. Merge commits should be signed,
@@ -292,7 +294,7 @@ projects such as libsecp256k1), and is not to be confused with overall Bitcoin
 Network Protocol consensus changes.
 
 Whether a pull request is merged into Bitcoin Core rests with the project merge
-maintainers and ultimately the project lead.
+maintainers.
 
 Maintainers will take into consideration if a patch is in line with the general
 principles of the project; meets the minimum standards for inclusion; and will
@@ -415,11 +417,8 @@ Backporting
 
 Security and bug fixes can be backported from `master` to release
 branches.
-If the backport is non-trivial, it may be appropriate to open an
-additional PR to backport the change, but only after the original PR
-has been merged.
-Otherwise, backports will be done in batches and
-the maintainers will use the proper `Needs backport (...)` labels
+Maintainers will do backports in batches and
+use the proper `Needs backport (...)` labels
 when needed (the original author does not need to worry about it).
 
 A backport should contain the following metadata in the commit body:

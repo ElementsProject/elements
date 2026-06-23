@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2014-2021 The Bitcoin Core developers
+# Copyright (c) 2014-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the importmulti RPC.
@@ -35,6 +35,9 @@ from test_framework.wallet_util import (
 
 
 class ImportMultiTest(BitcoinTestFramework):
+    def add_options(self, parser):
+        self.add_wallet_options(parser, descriptors=False)
+
     def set_test_params(self):
         self.num_nodes = 2
         self.extra_args = [["-addresstype=legacy"], ["-addresstype=legacy"]]
@@ -895,6 +898,62 @@ class ImportMultiTest(BitcoinTestFramework):
             addr = wrpc.getnewaddress('', 'bech32')
             assert_equal(addr, addresses[i])
 
+        # Create wallet with passphrase
+        self.log.info('Test watchonly imports on a wallet with a passphrase, without unlocking')
+        self.nodes[1].createwallet(wallet_name='w1', blank=True, passphrase='pass')
+        wrpc = self.nodes[1].get_wallet_rpc('w1')
+        assert_raises_rpc_error(-13, "Please enter the wallet passphrase with walletpassphrase first.",
+                                wrpc.importmulti, [{
+                                    'desc': descsum_create('wpkh(' + pub1 + ')'),
+                                    "timestamp": "now",
+                                }])
+
+        result = wrpc.importmulti(
+            [{
+                'desc': descsum_create('wpkh(' + pub1 + ')'),
+                "timestamp": "now",
+                "watchonly": True,
+            }]
+        )
+        assert result[0]['success']
+
+        self.log.info("Multipath descriptors")
+        self.nodes[1].createwallet(wallet_name="multipath", blank=True, disable_private_keys=True)
+        w_multipath = self.nodes[1].get_wallet_rpc("multipath")
+        self.nodes[1].createwallet(wallet_name="multipath_split", blank=True, disable_private_keys=True)
+        w_multisplit = self.nodes[1].get_wallet_rpc("multipath_split")
+
+        res = w_multipath.importmulti([{"desc": descsum_create(f"wpkh({xpub}/<10;20>/0/*)"),
+                              "keypool": True,
+                              "range": 10,
+                              "timestamp": "now",
+                              "internal": True}])
+        assert_equal(res[0]["success"], False)
+        assert_equal(res[0]["error"]["code"], -5)
+        assert_equal(res[0]["error"]["message"], "Cannot have multipath descriptor while also specifying 'internal'")
+
+        res = w_multipath.importmulti([{"desc": descsum_create(f"wpkh({xpub}/<10;20>/0/*)"),
+                              "keypool": True,
+                              "range": 10,
+                              "timestamp": "now"}])
+        assert_equal(res[0]["success"], True)
+
+        res = w_multisplit.importmulti([{"desc": descsum_create(f"wpkh({xpub}/10/0/*)"),
+                              "keypool": True,
+                              "range": 10,
+                              "timestamp": "now"}])
+        assert_equal(res[0]["success"], True)
+        res = w_multisplit.importmulti([{"desc": descsum_create(f"wpkh({xpub}/20/0/*)"),
+                              "keypool": True,
+                              "range": 10,
+                              "internal": True,
+                              "timestamp": timestamp}])
+        assert_equal(res[0]["success"], True)
+
+        for _ in range(0, 9):
+            assert_equal(w_multipath.getnewaddress(address_type="bech32"), w_multisplit.getnewaddress(address_type="bech32"))
+            assert_equal(w_multipath.getrawchangeaddress(address_type="bech32"), w_multisplit.getrawchangeaddress(address_type="bech32"))
+
 
 if __name__ == '__main__':
-    ImportMultiTest().main()
+    ImportMultiTest(__file__).main()

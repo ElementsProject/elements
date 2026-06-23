@@ -10,7 +10,7 @@ class AssetMetadata
 {
     std::string label;
 public:
-    AssetMetadata() : label("") {};
+    AssetMetadata() : label() {};
     AssetMetadata(std::string _label) : label(_label) {};
 
     const std::string& GetLabel() const

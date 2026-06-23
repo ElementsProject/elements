@@ -4,6 +4,7 @@
 
 #include <pegins.h>
 
+#include <addresstype.h>
 #include <arith_uint256.h>
 #include <block_proof.h>
 #include <chainparams.h>
@@ -17,9 +18,7 @@
 #include <primitives/bitcoin/merkleblock.h>
 #include <secp256k1.h>
 #include <script/interpreter.h>
-#include <script/standard.h>
 #include <streams.h>
-#include <util/system.h>
 #include <dynafed.h>
 
 //
@@ -35,15 +34,15 @@ class Secp256k1Ctx
 {
 public:
     Secp256k1Ctx() {
-        assert(secp256k1_ctx_validation == NULL);
+        assert(secp256k1_ctx_validation == nullptr);
         secp256k1_ctx_validation = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
-        assert(secp256k1_ctx_validation != NULL);
+        assert(secp256k1_ctx_validation != nullptr);
     }
 
     ~Secp256k1Ctx() {
-        assert(secp256k1_ctx_validation != NULL);
+        assert(secp256k1_ctx_validation != nullptr);
         secp256k1_context_destroy(secp256k1_ctx_validation);
-        secp256k1_ctx_validation = NULL;
+        secp256k1_ctx_validation = nullptr;
     }
 };
 static Secp256k1Ctx instance_of_secp256k1ctx;
@@ -146,8 +145,8 @@ template<typename T>
 static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, const COutPoint& prevout, const CAmount claim_amount, const CScript& claim_script, const std::vector<std::pair<CScript, CScript>>& fedpegscripts)
 {
     try {
-        CDataStream pegtx_stream(tx_data, SER_NETWORK, PROTOCOL_VERSION);
-        pegtx_stream >> pegtx;
+        DataStream pegtx_stream(tx_data);
+        pegtx_stream >> TX_WITH_WITNESS(pegtx);
         if (!pegtx_stream.empty()) {
             return false;
         }
@@ -186,7 +185,6 @@ static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, co
             return true;
         }
         CScript tweaked_fedpegscript = calculate_contract(scripts.second, claim_script);
-        // TODO: Remove script/standard.h dep for GetScriptFor*
         CScript expected_script(GetScriptForDestination(WitnessV0ScriptHash(tweaked_fedpegscript)));
         if (scripts.first.IsPayToScriptHash()) {
             expected_script = GetScriptForDestination(ScriptHash(expected_script));
@@ -204,8 +202,8 @@ static bool GetBlockAndTxFromMerkleBlock(uint256& block_hash, uint256& tx_hash, 
     try {
         std::vector<uint256> tx_hashes;
         std::vector<unsigned int> tx_indices;
-        CDataStream merkle_block_stream(merkle_block_raw, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-        merkle_block_stream >> merkle_block;
+        DataStream merkle_block_stream{merkle_block_raw};
+        merkle_block_stream >> TX_NO_WITNESS(merkle_block);
         block_hash = merkle_block.header.GetHash();
 
         if (!merkle_block_stream.empty()) {
@@ -272,7 +270,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const std::vector<
         return false;
     }
 
-    CDataStream stream(stack[0], SER_NETWORK, PROTOCOL_VERSION);
+    DataStream stream{stack[0]};
     CAmount value;
     try {
         stream >> value;
@@ -472,7 +470,7 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
     // to see if we're on a boundary. If so, put that epoch's fedpegscript in place
     if (nextblock_validation && epoch_age == epoch_length - 1) {
         DynaFedParamEntry next_param = ComputeNextBlockFullCurrentParameters(pblockindex, params);
-        fedpegscripts.push_back(std::make_pair(next_param.m_fedpeg_program, next_param.m_fedpegscript));
+        fedpegscripts.emplace_back(next_param.m_fedpeg_program, next_param.m_fedpegscript);
     }
 
     // Next we walk backwards up to M epoch starts
@@ -494,9 +492,9 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
             ForceUntrimHeader(p_epoch_start);
         }
         if (!p_epoch_start->dynafed_params().IsNull()) {
-            fedpegscripts.push_back(std::make_pair(p_epoch_start->dynafed_params().m_current.m_fedpeg_program, p_epoch_start->dynafed_params().m_current.m_fedpegscript));
+            fedpegscripts.emplace_back(p_epoch_start->dynafed_params().m_current.m_fedpeg_program, p_epoch_start->dynafed_params().m_current.m_fedpegscript);
         } else {
-            fedpegscripts.push_back(std::make_pair(GetScriptForDestination(ScriptHash(GetScriptForDestination(WitnessV0ScriptHash(params.fedpegScript)))), params.fedpegScript));
+            fedpegscripts.emplace_back(GetScriptForDestination(ScriptHash(GetScriptForDestination(WitnessV0ScriptHash(params.fedpegScript)))), params.fedpegScript);
         }
     }
     // Only return up to the latest total_valid_epochs fedpegscripts, which are enforced
@@ -508,7 +506,7 @@ template<typename T_tx_ref, typename T_merkle_block>
 CScriptWitness CreatePeginWitnessInner(const CAmount& value, const CAsset& asset, const uint256& genesis_hash, const CScript& claim_script, const T_tx_ref& tx_ref, const T_merkle_block& merkle_block)
 {
     std::vector<unsigned char> value_bytes;
-    CVectorWriter ss_val(0, 0, value_bytes, 0);
+    VectorWriter ss_val(value_bytes, 0);
     try {
         ss_val << value;
     } catch (...) {
@@ -516,14 +514,14 @@ CScriptWitness CreatePeginWitnessInner(const CAmount& value, const CAsset& asset
     }
 
     // Strip witness data for proof inclusion since only TXID-covered fields matters
-    CDataStream ss_tx(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-    ss_tx << tx_ref;
+    DataStream ss_tx{};
+    ss_tx << TX_NO_WITNESS(tx_ref);
     const auto* ss_tx_ptr = UCharCast(ss_tx.data());
     std::vector<unsigned char> tx_data_stripped(ss_tx_ptr, ss_tx_ptr + ss_tx.size());
 
     // Serialize merkle block
-    CDataStream ss_txout_proof(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-    ss_txout_proof << merkle_block;
+    DataStream ss_txout_proof{};
+    ss_txout_proof << TX_NO_WITNESS(merkle_block);
     const auto* ss_txout_ptr = UCharCast(ss_txout_proof.data());
     std::vector<unsigned char> txout_proof_bytes(ss_txout_ptr, ss_txout_ptr + ss_txout_proof.size());
 
@@ -531,9 +529,9 @@ CScriptWitness CreatePeginWitnessInner(const CAmount& value, const CAsset& asset
     CScriptWitness pegin_witness;
     std::vector<std::vector<unsigned char>>& stack = pegin_witness.stack;
     stack.push_back(value_bytes);
-    stack.push_back(std::vector<unsigned char>(asset.begin(), asset.end()));
-    stack.push_back(std::vector<unsigned char>(genesis_hash.begin(), genesis_hash.end()));
-    stack.push_back(std::vector<unsigned char>(claim_script.begin(), claim_script.end()));
+    stack.emplace_back(asset.begin(), asset.end());
+    stack.emplace_back(genesis_hash.begin(), genesis_hash.end());
+    stack.emplace_back(claim_script.begin(), claim_script.end());
     stack.push_back(tx_data_stripped);
     stack.push_back(txout_proof_bytes);
     return pegin_witness;
@@ -552,9 +550,9 @@ bool DecomposePeginWitness(const CScriptWitness& witness, CAmount& value, CAsset
 {
     const auto& stack = witness.stack;
 
-    if (stack.size() < 5) return false;
+    if (stack.size() != 6) return false;
 
-    CDataStream stream(stack[0], SER_NETWORK, PROTOCOL_VERSION);
+    DataStream stream{stack[0]};
     stream >> value;
 
     CAsset tmp_asset(stack[1]);
@@ -566,25 +564,25 @@ bool DecomposePeginWitness(const CScriptWitness& witness, CAmount& value, CAsset
     CScript s(stack[3].begin(), stack[3].end());
     claim_script = s;
 
-    CDataStream ss_tx(stack[4], SER_NETWORK, PROTOCOL_VERSION);
+    DataStream ss_tx(stack[4]);
     if (Params().GetConsensus().ParentChainHasPow()) {
         Sidechain::Bitcoin::CTransactionRef btc_tx;
-        ss_tx >> btc_tx;
+        ss_tx >> TX_WITH_WITNESS(btc_tx);
         tx = btc_tx;
     } else {
         CTransactionRef elem_tx;
-        ss_tx >> elem_tx;
+        ss_tx >> TX_WITH_WITNESS(elem_tx);
         tx = elem_tx;
     }
 
-    CDataStream ss_proof(stack[5], SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+    DataStream ss_proof(stack[5]);
     if (Params().GetConsensus().ParentChainHasPow()) {
         Sidechain::Bitcoin::CMerkleBlock tx_proof;
-        ss_proof >> tx_proof;
+        ss_proof >> TX_WITH_WITNESS(tx_proof);
         merkle_block = tx_proof;
     } else {
         CMerkleBlock tx_proof;
-        ss_proof >> tx_proof;
+        ss_proof >> TX_WITH_WITNESS(tx_proof);
         merkle_block = tx_proof;
     }
 

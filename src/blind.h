@@ -4,6 +4,7 @@
 #ifndef BITCOIN_BLIND_H
 #define BITCOIN_BLIND_H
 
+#include <addresstype.h>
 #include <key.h>
 #include <pubkey.h>
 #include <primitives/transaction.h>
@@ -76,5 +77,23 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
  * Extract pubkeys from nonce commitment placeholders, fill out vector of blank output blinding data
  */
 void RawFillBlinds(CMutableTransaction& tx, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CPubKey>& output_pubkeys);
+
+class SetBlindingPubKeyVisitor
+{
+public:
+    const CPubKey& blinding_pubkey;
+
+    explicit SetBlindingPubKeyVisitor(const CPubKey& blinding_pubkey_) : blinding_pubkey(blinding_pubkey_) {}
+
+    void operator()(CNoDestination &dest) const { }
+    void operator()(PKHash &dest) const { dest.blinding_pubkey = blinding_pubkey; }
+    void operator()(ScriptHash &dest) const { dest.blinding_pubkey = blinding_pubkey; }
+    void operator()(WitnessV0KeyHash &dest) const { dest.blinding_pubkey = blinding_pubkey; }
+    void operator()(WitnessV0ScriptHash &dest) const { dest.blinding_pubkey = blinding_pubkey; }
+    void operator()(WitnessV1Taproot &dest) const { dest.blinding_pubkey = blinding_pubkey; }
+    void operator()(WitnessUnknown &dest) const { dest.blinding_pubkey = blinding_pubkey; }
+    void operator()(NullData &dest) const { }
+    void operator()(PubKeyDestination &dest) const { }
+};
 
 #endif // BITCOIN_BLIND_H

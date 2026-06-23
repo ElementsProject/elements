@@ -1,9 +1,10 @@
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <core_io.h>
 
+#include <common/system.h>
 #include <consensus/amount.h>
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
@@ -13,33 +14,36 @@
 #include <script/descriptor.h>
 #include <script/script.h>
 #include <script/sign.h>
-#include <script/standard.h>
+#include <script/solver.h>
 #include <serialize.h>
 #include <streams.h>
 #include <undo.h>
 #include <univalue.h>
 #include <util/check.h>
 #include <util/strencodings.h>
-#include <util/system.h>
 
 #include <secp256k1_rangeproof.h>
 
-static secp256k1_context* secp256k1_blind_context = NULL;
+#include <map>
+#include <string>
+#include <vector>
+
+static secp256k1_context* secp256k1_blind_context = nullptr;
 
 class RPCRawTransaction_ECC_Init {
 public:
     RPCRawTransaction_ECC_Init() {
-        assert(secp256k1_blind_context == NULL);
+        assert(secp256k1_blind_context == nullptr);
 
         secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
-        assert(ctx != NULL);
+        assert(ctx != nullptr);
 
         secp256k1_blind_context = ctx;
     }
 
     ~RPCRawTransaction_ECC_Init() {
         secp256k1_context *ctx = secp256k1_blind_context;
-        secp256k1_blind_context = NULL;
+        secp256k1_blind_context = nullptr;
 
         if (ctx) {
             secp256k1_context_destroy(ctx);
@@ -84,14 +88,14 @@ std::string FormatScript(const CScript& script)
                 }
             }
             if (vch.size() > 0) {
-                ret += strprintf("0x%x 0x%x ", HexStr(std::vector<uint8_t>(it2, it - vch.size())),
-                                               HexStr(std::vector<uint8_t>(it - vch.size(), it)));
+                ret += strprintf("0x%x 0x%x ", HexStr(MakeByteSpan(std::vector<uint8_t>(it2, it - vch.size()))),
+                                               HexStr(MakeByteSpan(std::vector<uint8_t>(it - vch.size(), it))));
             } else {
-                ret += strprintf("0x%x ", HexStr(std::vector<uint8_t>(it2, it)));
+                ret += strprintf("0x%x ", HexStr(MakeByteSpan(std::vector<uint8_t>(it2, it))));
             }
             continue;
         }
-        ret += strprintf("0x%x ", HexStr(std::vector<uint8_t>(it2, script.end())));
+        ret += strprintf("0x%x ", HexStr(MakeByteSpan(std::vector<uint8_t>(it2, script.end()))));
         break;
     }
     return ret.substr(0, ret.empty() ? ret.npos : ret.size() - 1);
@@ -153,9 +157,9 @@ std::string ScriptToAsmStr(const CScript& script, const bool fAttemptSighashDeco
                             vch.pop_back(); // remove the sighash type byte. it will be replaced by the decode.
                         }
                     }
-                    str += HexStr(vch) + strSigHashDecode;
+                    str += HexStr(MakeByteSpan(vch)) + strSigHashDecode;
                 } else {
-                    str += HexStr(vch);
+                    str += HexStr(MakeByteSpan(vch));
                 }
             }
         } else {
@@ -165,10 +169,10 @@ std::string ScriptToAsmStr(const CScript& script, const bool fAttemptSighashDeco
     return str;
 }
 
-std::string EncodeHexTx(const CTransaction& tx, const int serializeFlags)
+std::string EncodeHexTx(const CTransaction& tx)
 {
-    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION | serializeFlags);
-    ssTx << tx;
+    DataStream ssTx;
+    ssTx << TX_WITH_WITNESS(tx);
     return HexStr(ssTx);
 }
 
@@ -176,32 +180,29 @@ UniValue EncodeHexScriptWitness(const CScriptWitness& witness)
 {
     UniValue witness_hex(UniValue::VARR);
     for (const auto &item : witness.stack) {
-        witness_hex.push_back(HexStr(item));
+        witness_hex.push_back(HexStr(MakeByteSpan(item)));
     }
     return witness_hex;
 }
 
-void ScriptToUniv(const CScript& script, UniValue& out)
-{
-    ScriptPubKeyToUniv(script, out, /* include_hex */ true, /* include_address */ false);
-}
-
 // ELEMENTS:
-static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool include_hex, bool include_addresses, bool is_parent_chain)
+static void SidechainScriptPubKeyToJSON(const CScript& script, UniValue& out, bool include_hex, bool include_addresses, bool is_parent_chain, const SigningProvider* provider)
 {
     const std::string prefix = is_parent_chain ? "pegout_" : "";
     CTxDestination address;
 
-    out.pushKV(prefix + "asm", ScriptToAsmStr(scriptPubKey));
+    out.pushKV(prefix + "asm", ScriptToAsmStr(script));
     if (include_addresses) {
-        out.pushKV(prefix + "desc", InferDescriptor(scriptPubKey, DUMMY_SIGNING_PROVIDER)->ToString());
+        out.pushKV(prefix + "desc", InferDescriptor(script, provider ? *provider : DUMMY_SIGNING_PROVIDER)->ToString());
     }
-    if (include_hex) out.pushKV(prefix + "hex", HexStr(scriptPubKey));
+    if (include_hex) {
+        out.pushKV(prefix + "hex", HexStr(script));
+    }
 
     std::vector<std::vector<unsigned char>> solns;
-    const TxoutType type{Solver(scriptPubKey, solns)};
+    const TxoutType type{Solver(script, solns)};
 
-    if (include_addresses && ExtractDestination(scriptPubKey, address) && type != TxoutType::PUBKEY) {
+    if (include_addresses && ExtractDestination(script, address) && type != TxoutType::PUBKEY) {
         if (is_parent_chain) {
             out.pushKV(prefix + "address", EncodeParentDestination(address));
         } else {
@@ -211,33 +212,30 @@ static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& o
     out.pushKV(prefix + "type", GetTxnOutputType(type));
 }
 
-// TODO: from v23 ("addresses" and "reqSigs" deprecated) this method should be refactored to remove the `include_addresses` option
-// this method can also be combined with `ScriptToUniv` as they will overlap
-void ScriptPubKeyToUniv(const CScript& scriptPubKey,
-                        UniValue& out, bool fIncludeHex, bool include_addresses)
+void ScriptToUniv(const CScript& script, UniValue& out, bool include_hex, bool include_addresses, const SigningProvider* provider)
 {
-    SidechainScriptPubKeyToJSON(scriptPubKey, out, fIncludeHex, include_addresses, false);
+    SidechainScriptPubKeyToJSON(script, out, include_hex, include_addresses, false, provider);
 
     uint256 pegout_chain;
     CScript pegout_scriptpubkey;
-    if (scriptPubKey.IsPegoutScript(pegout_chain, pegout_scriptpubkey)) {
+    if (script.IsPegoutScript(pegout_chain, pegout_scriptpubkey)) {
         out.pushKV("pegout_chain", pegout_chain.GetHex());
-        SidechainScriptPubKeyToJSON(pegout_scriptpubkey, out, fIncludeHex, include_addresses, true);
+        SidechainScriptPubKeyToJSON(pegout_scriptpubkey, out, include_hex, include_addresses, true, provider);
     }
 }
 
-void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags, const CTxUndo* txundo, TxVerbosity verbosity)
+void TxToUniv(const CTransaction& tx, const uint256& block_hash, UniValue& entry, bool include_hex, const CTxUndo* txundo, TxVerbosity verbosity)
 {
+    CHECK_NONFATAL(verbosity >= TxVerbosity::SHOW_DETAILS);
+
     entry.pushKV("txid", tx.GetHash().GetHex());
     entry.pushKV("hash", tx.GetWitnessHash().GetHex());
     if (g_con_elementsmode) {
         entry.pushKV("wtxid", tx.GetWitnessHash().GetHex());
         entry.pushKV("withash", tx.GetWitnessOnlyHash().GetHex());
     }
-    // Transaction version is actually unsigned in consensus checks, just signed in memory,
-    // so cast to unsigned before giving it to the user.
-    entry.pushKV("version", static_cast<int64_t>(static_cast<uint32_t>(tx.nVersion)));
-    entry.pushKV("size", (int)::GetSerializeSize(tx, PROTOCOL_VERSION));
+    entry.pushKV("version", tx.version);
+    entry.pushKV("size", tx.GetTotalSize());
     entry.pushKV("vsize", (GetTransactionWeight(tx) + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR);
     entry.pushKV("weight", GetTransactionWeight(tx));
     // ELEMENTS: add discountvsize
@@ -272,7 +270,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
 
             if (verbosity == TxVerbosity::SHOW_DETAILS_AND_PREVOUT) {
                 UniValue o_script_pub_key(UniValue::VOBJ);
-                ScriptPubKeyToUniv(prev_txout.scriptPubKey, o_script_pub_key, /*include_hex=*/ true);
+                ScriptToUniv(prev_txout.scriptPubKey, /*out=*/o_script_pub_key, /*include_hex=*/true, /*include_address=*/true);
 
                 UniValue p(UniValue::VOBJ);
                 p.pushKV("generated", bool(prev_coin.fCoinBase));
@@ -294,7 +292,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             if (!scriptWitness.IsNull()) {
                 UniValue txinwitness(UniValue::VARR);
                 for (const auto &item : scriptWitness.stack) {
-                    txinwitness.push_back(HexStr(item));
+                    txinwitness.push_back(HexStr(MakeByteSpan(item)));
                 }
                 in.pushKV("txinwitness", txinwitness);
             }
@@ -303,7 +301,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         if (tx.witness.vtxinwit.size() > i && !tx.witness.vtxinwit[i].m_pegin_witness.IsNull()) {
             UniValue pegin_witness(UniValue::VARR);
             for (const auto& item : tx.witness.vtxinwit[i].m_pegin_witness.stack) {
-                pegin_witness.push_back(HexStr(item));
+                pegin_witness.push_back(HexStr(MakeByteSpan(item)));
             }
             in.pushKV("pegin_witness", pegin_witness);
         }
@@ -332,12 +330,12 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             if (issuance.nAmount.IsExplicit()) {
                 issue.pushKV("assetamount", ValueFromAmount(issuance.nAmount.GetAmount()));
             } else if (issuance.nAmount.IsCommitment()) {
-                issue.pushKV("assetamountcommitment", HexStr(issuance.nAmount.vchCommitment));
+                issue.pushKV("assetamountcommitment", HexStr(MakeByteSpan(issuance.nAmount.vchCommitment)));
             }
             if (issuance.nInflationKeys.IsExplicit()) {
                 issue.pushKV("tokenamount", ValueFromAmount(issuance.nInflationKeys.GetAmount()));
             } else if (issuance.nInflationKeys.IsCommitment()) {
-                issue.pushKV("tokenamountcommitment", HexStr(issuance.nInflationKeys.vchCommitment));
+                issue.pushKV("tokenamountcommitment", HexStr(MakeByteSpan(issuance.nInflationKeys.vchCommitment)));
             }
             in.pushKV("issuance", issue);
         }
@@ -345,7 +343,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
 
         vin.push_back(in);
     }
-    entry.pushKV("vin", vin);
+    entry.pushKV("vin", std::move(vin));
 
     CAmountMap fee_map{};
     UniValue vout(UniValue::VARR);
@@ -361,7 +359,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             int mantissa;
             uint64_t minv;
             uint64_t maxv;
-            const CTxOutWitness* ptxoutwit = tx.witness.vtxoutwit.size() <= i? NULL: &tx.witness.vtxoutwit[i];
+            const CTxOutWitness* ptxoutwit = tx.witness.vtxoutwit.size() <= i ? nullptr : &tx.witness.vtxoutwit[i];
             if (ptxoutwit) {
                 if (ptxoutwit->vchRangeproof.size() && secp256k1_rangeproof_info(secp256k1_blind_context, &exp, &mantissa, &minv, &maxv, &ptxoutwit->vchRangeproof[0], ptxoutwit->vchRangeproof.size())) {
                     if (exp == -1) {
@@ -375,7 +373,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
                 }
 
                 if (ptxoutwit->vchSurjectionproof.size()) {
-                    out.pushKV("surjectionproof", HexStr(ptxoutwit->vchSurjectionproof));
+                    out.pushKV("surjectionproof", HexStr(MakeByteSpan(ptxoutwit->vchSurjectionproof)));
                 }
             }
             out.pushKV("valuecommitment", txout.nValue.GetHex());
@@ -398,11 +396,11 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         out.pushKV("n", (int64_t)i);
 
         UniValue o(UniValue::VOBJ);
-        ScriptPubKeyToUniv(txout.scriptPubKey, o, true);
+        ScriptToUniv(txout.scriptPubKey, /*out=*/o, /*include_hex=*/true, /*include_address=*/true);
         out.pushKV("scriptPubKey", o);
         vout.push_back(out);
     }
-    entry.pushKV("vout", vout);
+    entry.pushKV("vout", std::move(vout));
 
     // ELEMENTS: add fee map rather than single fee. Unlike other areas of the RPC,
     //  we do not look up labels here and will always use the asset hex (contrast
@@ -417,10 +415,11 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         entry.pushKV("fee", fee_obj);
     }
 
-    if (!hashBlock.IsNull())
-        entry.pushKV("blockhash", hashBlock.GetHex());
+    if (!block_hash.IsNull()) {
+        entry.pushKV("blockhash", block_hash.GetHex());
+    }
 
     if (include_hex) {
-        entry.pushKV("hex", EncodeHexTx(tx, serialize_flags)); // The hex-encoded transaction. Used the name "hex" to be consistent with the verbose output of "getrawtransaction".
+        entry.pushKV("hex", EncodeHexTx(tx)); // The hex-encoded transaction. Used the name "hex" to be consistent with the verbose output of "getrawtransaction".
     }
 }

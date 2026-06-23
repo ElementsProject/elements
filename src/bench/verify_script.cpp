@@ -1,25 +1,28 @@
-// Copyright (c) 2016-2021 The Bitcoin Core developers
+// Copyright (c) 2016-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
+#include <hash.h>
 #include <key.h>
-#if defined(HAVE_CONSENSUS_LIB)
-#include <script/bitcoinconsensus.h>
-#endif
+#include <primitives/transaction.h>
+#include <pubkey.h>
+#include <script/interpreter.h>
 #include <script/script.h>
-#include <script/standard.h>
-#include <streams.h>
+#include <span.h>
 #include <test/util/transaction_utils.h>
+#include <uint256.h>
 
 #include <array>
+#include <cassert>
+#include <cstdint>
+#include <vector>
 
 // Microbenchmark for verification of a basic P2WPKH script. Can be easily
 // modified to measure performance of other types of scripts.
 static void VerifyScriptBench(benchmark::Bench& bench)
 {
-    const ECCVerifyHandle verify_handle;
-    ECC_Start();
+    ECC_Context ecc_context{};
 
     const uint32_t flags{SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_P2SH};
     const int witnessversion = 0;
@@ -61,22 +64,7 @@ static void VerifyScriptBench(benchmark::Bench& bench)
             &err);
         assert(err == SCRIPT_ERR_OK);
         assert(success);
-
-#if defined(HAVE_CONSENSUS_LIB)
-        CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
-        stream << txSpend;
-        CDataStream streamVal(SER_NETWORK, PROTOCOL_VERSION);
-        streamVal << txCredit.vout[0].nValue;
-        int csuccess = bitcoinconsensus_verify_script_with_amount(
-            NULL,
-            txCredit.vout[0].scriptPubKey.data(),
-            txCredit.vout[0].scriptPubKey.size(),
-            (const unsigned char*)&streamVal[0], streamVal.size(),
-            (const unsigned char*)stream.data(), stream.size(), 0, flags, nullptr);
-        assert(csuccess == 1);
-#endif
     });
-    ECC_Stop();
 }
 
 static void VerifyNestedIfScript(benchmark::Bench& bench)
@@ -100,5 +88,5 @@ static void VerifyNestedIfScript(benchmark::Bench& bench)
     });
 }
 
-BENCHMARK(VerifyScriptBench);
-BENCHMARK(VerifyNestedIfScript);
+BENCHMARK(VerifyScriptBench, benchmark::PriorityLevel::HIGH);
+BENCHMARK(VerifyNestedIfScript, benchmark::PriorityLevel::HIGH);

@@ -1,21 +1,19 @@
-// Copyright (c) 2011-2021 The Bitcoin Core developers
+// Copyright (c) 2011-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h>
-#endif
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 #include <qt/splashscreen.h>
 
 #include <clientversion.h>
+#include <common/system.h>
 #include <interfaces/handler.h>
 #include <interfaces/node.h>
 #include <interfaces/wallet.h>
 #include <qt/guiutil.h>
 #include <qt/networkstyle.h>
 #include <qt/walletmodel.h>
-#include <util/system.h>
 #include <util/translation.h>
 
 #include <functional>
@@ -28,7 +26,7 @@
 
 
 SplashScreen::SplashScreen(const NetworkStyle* networkStyle)
-    : QWidget(), curAlignment(0)
+    : QWidget()
 {
     // set reference point, paddings
     int paddingRight            = 50;
@@ -41,10 +39,10 @@ SplashScreen::SplashScreen(const NetworkStyle* networkStyle)
     devicePixelRatio = static_cast<QGuiApplication*>(QCoreApplication::instance())->devicePixelRatio();
 
     // define text to place
-    QString titleText       = PACKAGE_NAME;
+    QString titleText       = CLIENT_NAME;
     QString versionText     = QString("Version %1").arg(QString::fromStdString(FormatFullVersion()));
     QString copyrightText   = QString::fromUtf8(CopyrightHolders(strprintf("\xc2\xA9 %u-%u ", 2009, COPYRIGHT_YEAR)).c_str());
-    QString titleAddText    = networkStyle->getTitleAddText();
+    const QString& titleAddText    = networkStyle->getTitleAddText();
 
     QString font            = QApplication::font().toString();
 
@@ -160,16 +158,6 @@ bool SplashScreen::eventFilter(QObject * obj, QEvent * ev) {
         }
     }
     return QObject::eventFilter(obj, ev);
-}
-
-void SplashScreen::finish()
-{
-    /* If the window is minimized, hide() will be ignored. */
-    /* Make sure we de-minimize the splashscreen window before hiding */
-    if (isMinimized())
-        showNormal();
-    hide();
-    deleteLater(); // No more need for this
 }
 
 static void InitMessage(SplashScreen *splash, const std::string &message)

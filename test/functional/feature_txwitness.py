@@ -29,6 +29,9 @@ class TxWitnessTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 2
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
@@ -215,4 +218,4 @@ class TxWitnessTest(BitcoinTestFramework):
         self.test_transaction_serialization()
 
 if __name__ == '__main__':
-    TxWitnessTest().main()
+    TxWitnessTest(__file__).main()

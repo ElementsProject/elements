@@ -39,6 +39,9 @@ class TapHashPeginTest(BitcoinTestFramework):
             "-maxtxfee=100.0",
         ]]
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
         self.skip_if_no_bdb()
@@ -83,7 +86,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         tx.rehash()
         self.generate(self.nodes[0], 1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
-        assert(tx.hash in last_blk['tx'])
+        assert tx.hash in last_blk['tx']
 
         return tx, prev_vout, spk, sec, pub, tweak
 
@@ -124,13 +127,13 @@ class TapHashPeginTest(BitcoinTestFramework):
         sig = sign_schnorr(tweak_sk, msg)
         raw_claim.wit.vtxinwit[1].scriptWitness.stack = [taproot_pad_sighash_ty(sig, sighash_ty)]
         pub_tweak = tweak_add_pubkey(pub, tweak)[0]
-        assert(verify_schnorr(pub_tweak, sig, msg))
+        assert verify_schnorr(pub_tweak, sig, msg)
         # Since we add in/outputs the min feerate is no longer maintained.
         self.nodes[0].sendrawtransaction(hexstring = raw_claim.serialize().hex())
         self.generate(self.nodes[0], 1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
         raw_claim.rehash()
-        assert(raw_claim.hash in last_blk['tx'])
+        assert raw_claim.hash in last_blk['tx']
 
     def issuance_test(self, sighash_ty):
         tx, prev_vout, spk, sec, pub, tweak = self.create_taproot_utxo()
@@ -164,13 +167,13 @@ class TapHashPeginTest(BitcoinTestFramework):
         sig = sign_schnorr(tweak_sk, msg)
         issued_tx.wit.vtxinwit[0].scriptWitness.stack = [taproot_pad_sighash_ty(sig, sighash_ty)]
         pub_tweak = tweak_add_pubkey(pub, tweak)[0]
-        assert(verify_schnorr(pub_tweak, sig, msg))
+        assert verify_schnorr(pub_tweak, sig, msg)
         # Since we add in/outputs the min feerate is no longer maintained.
         self.nodes[0].sendrawtransaction(hexstring = issued_tx.serialize().hex())
         self.generate(self.nodes[0], 1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
         issued_tx.rehash()
-        assert(issued_tx.hash in last_blk['tx'])
+        assert issued_tx.hash in last_blk['tx']
 
 
     def run_test(self):
@@ -191,4 +194,4 @@ class TapHashPeginTest(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    TapHashPeginTest().main()
+    TapHashPeginTest(__file__).main()

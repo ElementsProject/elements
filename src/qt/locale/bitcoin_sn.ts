@@ -22,14 +22,6 @@
         <translation type="unfinished">Dzima</translation>
     </message>
     <message>
-        <source>Sending addresses</source>
-        <translation type="unfinished">Makero ekutumira</translation>
-    </message>
-    <message>
-        <source>Receiving addresses</source>
-        <translation type="unfinished">Makero ekutambira</translation>
-    </message>
-    <message>
         <source>&amp;Copy Address</source>
         <translation type="unfinished">Kopera Kero</translation>
     </message>
@@ -212,6 +204,27 @@
 <context>
     <name>Intro</name>
     <message numerus="yes">
+        <source>%n GB of space available</source>
+        <translation type="unfinished">
+            <numerusform />
+            <numerusform />
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>(of %n GB needed)</source>
+        <translation type="unfinished">
+            <numerusform />
+            <numerusform />
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>(%n GB needed for full chain)</source>
+        <translation type="unfinished">
+            <numerusform />
+            <numerusform />
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>(sufficient to restore backups %n day(s) old)</source>
         <extracomment>Explanatory text on the capability of the current prune target.</extracomment>
         <translation type="unfinished">
@@ -232,6 +245,10 @@
     <name>RPCConsole</name>
     <message>
         <source>N/A</source>
+        <translation type="unfinished">Hapana</translation>
+    </message>
+    <message>
+        <source>None</source>
         <translation type="unfinished">Hapana</translation>
     </message>
     </context>

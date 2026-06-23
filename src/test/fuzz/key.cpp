@@ -1,9 +1,8 @@
-// Copyright (c) 2020-2021 The Bitcoin Core developers
+// Copyright (c) 2020-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
-#include <chainparamsbase.h>
 #include <key.h>
 #include <key_io.h>
 #include <outputtype.h>
@@ -14,26 +13,33 @@
 #include <script/script.h>
 #include <script/sign.h>
 #include <script/signingprovider.h>
-#include <script/standard.h>
+#include <script/solver.h>
 #include <streams.h>
+#include <test/fuzz/FuzzedDataProvider.h>
 #include <test/fuzz/fuzz.h>
+#include <test/fuzz/util.h>
+#include <test/util/random.h>
+#include <util/chaintype.h>
 #include <util/strencodings.h>
 
+#include <array>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <numeric>
+#include <optional>
 #include <string>
 #include <vector>
 
 void initialize_key()
 {
-    static const ECCVerifyHandle ecc_verify_handle;
-    ECC_Start();
-    SelectParams(CBaseChainParams::REGTEST);
+    static ECC_Context ecc_context{};
+    SelectParams(ChainType::REGTEST);
 }
 
-FUZZ_TARGET_INIT(key, initialize_key)
+FUZZ_TARGET(key, .init = initialize_key)
 {
+    SeedRandomStateForTest(SeedRand::ZEROS);
     const CKey key = [&] {
         CKey k;
         k.Set(buffer.begin(), buffer.end(), true);
@@ -74,16 +80,6 @@ FUZZ_TARGET_INIT(key, initialize_key)
         assert(copied_key == key);
     }
 
-    {
-        CKey negated_key = key;
-        negated_key.Negate();
-        assert(negated_key.IsValid());
-        assert(!(negated_key == key));
-
-        negated_key.Negate();
-        assert(negated_key == key);
-    }
-
     const uint256 random_uint256 = Hash(buffer);
 
     {
@@ -112,7 +108,7 @@ FUZZ_TARGET_INIT(key, initialize_key)
     }
 
     {
-        CDataStream data_stream{SER_NETWORK, INIT_PROTO_VERSION};
+        DataStream data_stream{};
         pubkey.Serialize(data_stream);
 
         CPubKey pubkey_deserialized;
@@ -138,8 +134,6 @@ FUZZ_TARGET_INIT(key, initialize_key)
         assert(tx_multisig_script.size() == 37);
 
         FillableSigningProvider fillable_signing_provider;
-        assert(IsSolvable(fillable_signing_provider, tx_pubkey_script));
-        assert(IsSolvable(fillable_signing_provider, tx_multisig_script));
         assert(!IsSegWitOutput(fillable_signing_provider, tx_pubkey_script));
         assert(!IsSegWitOutput(fillable_signing_provider, tx_multisig_script));
         assert(fillable_signing_provider.GetKeys().size() == 0);
@@ -157,12 +151,12 @@ FUZZ_TARGET_INIT(key, initialize_key)
         assert(fillable_signing_provider_pub.HaveKey(pubkey.GetID()));
 
         TxoutType which_type_tx_pubkey;
-        const bool is_standard_tx_pubkey = IsStandard(tx_pubkey_script, which_type_tx_pubkey);
+        const bool is_standard_tx_pubkey = IsStandard(tx_pubkey_script, std::nullopt, which_type_tx_pubkey);
         assert(is_standard_tx_pubkey);
         assert(which_type_tx_pubkey == TxoutType::PUBKEY);
 
         TxoutType which_type_tx_multisig;
-        const bool is_standard_tx_multisig = IsStandard(tx_multisig_script, which_type_tx_multisig);
+        const bool is_standard_tx_multisig = IsStandard(tx_multisig_script, std::nullopt, which_type_tx_multisig);
         assert(is_standard_tx_multisig);
         assert(which_type_tx_multisig == TxoutType::MULTISIG);
 
@@ -184,7 +178,7 @@ FUZZ_TARGET_INIT(key, initialize_key)
         const CTxDestination tx_destination = GetDestinationForKey(pubkey, output_type);
         assert(output_type == OutputType::LEGACY);
         assert(IsValidDestination(tx_destination));
-        assert(CTxDestination{PKHash{pubkey}} == tx_destination);
+        assert(PKHash{pubkey} == *std::get_if<PKHash>(&tx_destination));
 
         const CScript script_for_destination = GetScriptForDestination(tx_destination);
         assert(script_for_destination.size() == 25);
@@ -304,5 +298,75 @@ FUZZ_TARGET_INIT(key, initialize_key)
             assert(ok);
             assert(key == loaded_key);
         }
+    }
+}
+
+FUZZ_TARGET(ellswift_roundtrip, .init = initialize_key)
+{
+    FuzzedDataProvider fdp{buffer.data(), buffer.size()};
+
+    CKey key = ConsumePrivateKey(fdp, /*compressed=*/true);
+    if (!key.IsValid()) return;
+
+    auto ent32 = fdp.ConsumeBytes<std::byte>(32);
+    ent32.resize(32);
+
+    auto encoded_ellswift = key.EllSwiftCreate(ent32);
+    auto decoded_pubkey = encoded_ellswift.Decode();
+
+    uint256 hash{ConsumeUInt256(fdp)};
+    std::vector<unsigned char> sig;
+    key.Sign(hash, sig);
+    assert(decoded_pubkey.Verify(hash, sig));
+}
+
+FUZZ_TARGET(bip324_ecdh, .init = initialize_key)
+{
+    FuzzedDataProvider fdp{buffer.data(), buffer.size()};
+
+    // We generate private key, k1.
+    CKey k1 = ConsumePrivateKey(fdp, /*compressed=*/true);
+    if (!k1.IsValid()) return;
+
+    // They generate private key, k2.
+    CKey k2 = ConsumePrivateKey(fdp, /*compressed=*/true);
+    if (!k2.IsValid()) return;
+
+    // We construct an ellswift encoding for our key, k1_ellswift.
+    auto ent32_1 = fdp.ConsumeBytes<std::byte>(32);
+    ent32_1.resize(32);
+    auto k1_ellswift = k1.EllSwiftCreate(ent32_1);
+
+    // They construct an ellswift encoding for their key, k2_ellswift.
+    auto ent32_2 = fdp.ConsumeBytes<std::byte>(32);
+    ent32_2.resize(32);
+    auto k2_ellswift = k2.EllSwiftCreate(ent32_2);
+
+    // They construct another (possibly distinct) ellswift encoding for their key, k2_ellswift_bad.
+    auto ent32_2_bad = fdp.ConsumeBytes<std::byte>(32);
+    ent32_2_bad.resize(32);
+    auto k2_ellswift_bad = k2.EllSwiftCreate(ent32_2_bad);
+    assert((ent32_2_bad == ent32_2) == (k2_ellswift_bad == k2_ellswift));
+
+    // Determine who is who.
+    bool initiating = fdp.ConsumeBool();
+
+    // We compute our shared secret using our key and their public key.
+    auto ecdh_secret_1 = k1.ComputeBIP324ECDHSecret(k2_ellswift, k1_ellswift, initiating);
+    // They compute their shared secret using their key and our public key.
+    auto ecdh_secret_2 = k2.ComputeBIP324ECDHSecret(k1_ellswift, k2_ellswift, !initiating);
+    // Those must match, as everyone is behaving correctly.
+    assert(ecdh_secret_1 == ecdh_secret_2);
+
+    if (k1_ellswift != k2_ellswift) {
+        // Unless the two keys are exactly identical, acting as the wrong party breaks things.
+        auto ecdh_secret_bad = k1.ComputeBIP324ECDHSecret(k2_ellswift, k1_ellswift, !initiating);
+        assert(ecdh_secret_bad != ecdh_secret_1);
+    }
+
+    if (k2_ellswift_bad != k2_ellswift) {
+        // Unless both encodings created by them are identical, using the second one breaks things.
+        auto ecdh_secret_bad = k1.ComputeBIP324ECDHSecret(k2_ellswift_bad, k1_ellswift, initiating);
+        assert(ecdh_secret_bad != ecdh_secret_1);
     }
 }

@@ -8,9 +8,6 @@
 #include <tinyformat.h>
 #include <util/strencodings.h>
 
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
-
 void CAssetsDir::Set(const CAsset& asset, const AssetMetadata& metadata)
 {
     // No asset or label repetition
@@ -29,7 +26,7 @@ void CAssetsDir::SetHex(const std::string& assetHex, const std::string& label)
         throw std::runtime_error("The asset must be hex string of length 64");
 
     const std::vector<std::string> protectedLabels = {"", "*", "bitcoin", "Bitcoin", "btc"};
-    for (std::string proLabel : protectedLabels) {
+    for (const std::string& proLabel : protectedLabels) {
         if (label == proLabel) {
             throw std::runtime_error(strprintf("'%s' label is protected", proLabel));
         }
@@ -41,7 +38,11 @@ void CAssetsDir::InitFromStrings(const std::vector<std::string>& assetsToInit, c
 {
     for (std::string strToSplit : assetsToInit) {
         std::vector<std::string> vAssets;
-        boost::split(vAssets, strToSplit, boost::is_any_of(":"));
+        const auto pos = strToSplit.find(':');
+        if (pos != std::string::npos) {
+            vAssets.push_back(strToSplit.substr(0, pos));
+            vAssets.push_back(strToSplit.substr(pos + 1));
+        }
         if (vAssets.size() != 2) {
             throw std::runtime_error("-assetdir parameters malformed, expecting asset:label");
         }
@@ -74,7 +75,7 @@ std::string CAssetsDir::GetLabel(const CAsset& asset) const
 
 std::string CAssetsDir::GetIdentifier(const CAsset& asset) const
 {
-    const std::string label = GetMetadata(asset).GetLabel();
+    std::string label = GetMetadata(asset).GetLabel();
     if (!label.empty()) return label;
     return asset.GetHex();
 }
@@ -110,4 +111,3 @@ void ClearGlobalAssetDir()
 {
     _gAssetsDir = CAssetsDir();
 }
-

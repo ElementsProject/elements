@@ -1,24 +1,29 @@
 #!/usr/bin/env python3
-# Copyright (c) 2019-2021 The Bitcoin Core developers
+# Copyright (c) 2019-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Useful Script constants and utils."""
+import unittest
+
 from test_framework.script import (
     CScript,
-    CScriptOp,
     OP_0,
+    OP_1,
+    OP_15,
+    OP_16,
     OP_CHECKMULTISIG,
     OP_CHECKSIG,
     OP_DUP,
     OP_EQUAL,
     OP_EQUALVERIFY,
     OP_HASH160,
+    OP_RETURN,
     hash160,
     sha256,
 )
 
 # To prevent a "tx-size-small" policy rule error, a transaction has to have a
-# non-witness size of at least 82 bytes (MIN_STANDARD_TX_NONWITNESS_SIZE in
+# non-witness size of at least 65 bytes (MIN_STANDARD_TX_NONWITNESS_SIZE in
 # src/policy/policy.h). Considering a Tx with the smallest possible single
 # input (blank, empty scriptSig), and with an output omitting the scriptPubKey,
 # we get to a minimum size of 60 bytes:
@@ -28,15 +33,17 @@ from test_framework.script import (
 # Output:      8 [Amount] + 1 [scriptPubKeyLen] = 9 bytes
 #
 # Hence, the scriptPubKey of the single output has to have a size of at
-# least 22 bytes, which corresponds to the size of a P2WPKH scriptPubKey.
-# The following script constant consists of a single push of 21 bytes of 'a':
-#   <PUSH_21> <21-bytes of 'a'>
-# resulting in a 22-byte size. It should be used whenever (small) fake
-# scriptPubKeys are needed, to guarantee that the minimum transaction size is
-# met.
-DUMMY_P2WPKH_SCRIPT = CScript([b'a' * 21])
-DUMMY_2_P2WPKH_SCRIPT = CScript([b'b' * 21])
+# least 5 bytes.
+MIN_STANDARD_TX_NONWITNESS_SIZE = 65
+MIN_PADDING = MIN_STANDARD_TX_NONWITNESS_SIZE - 10 - 41 - 9
+assert MIN_PADDING == 5
 
+# This script cannot be spent, allowing dust output values under
+# standardness checks
+DUMMY_MIN_OP_RETURN_SCRIPT = CScript([OP_RETURN] + ([OP_0] * (MIN_PADDING - 1)))
+assert len(DUMMY_MIN_OP_RETURN_SCRIPT) == MIN_PADDING
+
+PAY_TO_ANCHOR = CScript([OP_1, bytes.fromhex("4e73")])
 
 def key_to_p2pk_script(key):
     key = check_key(key)
@@ -48,10 +55,8 @@ def keys_to_multisig_script(keys, *, k=None):
     if k is None:  # n-of-n multisig by default
         k = n
     assert k <= n
-    op_k = CScriptOp.encode_op_n(k)
-    op_n = CScriptOp.encode_op_n(n)
     checked_keys = [check_key(key) for key in keys]
-    return CScript([op_k] + checked_keys + [op_n, OP_CHECKMULTISIG])
+    return CScript([k] + checked_keys + [n, OP_CHECKMULTISIG])
 
 
 def keyhash_to_p2pkh_script(hash):
@@ -105,6 +110,11 @@ def script_to_p2sh_p2wsh_script(script):
     return script_to_p2sh_script(p2shscript)
 
 
+def output_key_to_p2tr_script(key):
+    assert len(key) == 32
+    return program_to_witness_script(1, key)
+
+
 def check_key(key):
     if isinstance(key, str):
         key = bytes.fromhex(key)  # Assuming this is hex string
@@ -119,3 +129,19 @@ def check_script(script):
     if isinstance(script, bytes) or isinstance(script, CScript):
         return script
     assert False
+
+
+class TestFrameworkScriptUtil(unittest.TestCase):
+    def test_multisig(self):
+        fake_pubkey = bytes([0]*33)
+        # check correct encoding of P2MS script with n,k <= 16
+        normal_ms_script = keys_to_multisig_script([fake_pubkey]*16, k=15)
+        self.assertEqual(len(normal_ms_script), 1 + 16*34 + 1 + 1)
+        self.assertTrue(normal_ms_script.startswith(bytes([OP_15])))
+        self.assertTrue(normal_ms_script.endswith(bytes([OP_16, OP_CHECKMULTISIG])))
+
+        # check correct encoding of P2MS script with n,k > 16
+        max_ms_script = keys_to_multisig_script([fake_pubkey]*20, k=19)
+        self.assertEqual(len(max_ms_script), 2 + 20*34 + 2 + 1)
+        self.assertTrue(max_ms_script.startswith(bytes([1, 19])))  # using OP_PUSH1
+        self.assertTrue(max_ms_script.endswith(bytes([1, 20, OP_CHECKMULTISIG])))

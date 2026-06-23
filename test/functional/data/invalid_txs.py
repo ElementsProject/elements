@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2015-2021 The Bitcoin Core developers
+# Copyright (c) 2015-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """
@@ -54,10 +54,11 @@ from test_framework.script import (
 #    OP_XOR,
 )
 from test_framework.script_util import (
+    # MIN_PADDING,
+    # MIN_STANDARD_TX_NONWITNESS_SIZE,
     script_to_p2sh_script,
 )
 basic_p2sh = script_to_p2sh_script(CScript([OP_0]))
-
 
 class BadTxTemplate:
     """Allows simple construction of a certain kind of invalid tx. Base class to be subclassed."""
@@ -117,17 +118,19 @@ class InputMissing(BadTxTemplate):
 # the value and asset size crosses the minimum value
 # The following check prevents exploit of lack of merkle
 # tree depth commitment (CVE-2017-12842)
-#class SizeTooSmall(BadTxTemplate):
-#    reject_reason = "tx-size-small"
-#    expect_disconnect = False
-#    valid_in_block = True
-#
-#    def get_tx(self):
-#        tx = CTransaction()
-#        tx.vin.append(self.valid_txin)
-#        tx.vout.append(CTxOut(0, CScript([OP_TRUE])))
-#        tx.calc_sha256()
-#        return tx
+# class SizeTooSmall(BadTxTemplate):
+#     reject_reason = "tx-size-small"
+#     expect_disconnect = False
+#     valid_in_block = True
+
+#     def get_tx(self):
+#         tx = CTransaction()
+#         tx.vin.append(self.valid_txin)
+#         tx.vout.append(CTxOut(0, CScript([OP_RETURN] + ([OP_0] * (MIN_PADDING - 2)))))
+#         assert len(tx.serialize_without_witness()) == 64
+#         assert MIN_STANDARD_TX_NONWITNESS_SIZE - 1 == 64
+#         tx.calc_sha256()
+#         return tx
 
 
 class BadInputOutpointIndex(BadTxTemplate):
@@ -188,12 +191,11 @@ class NonexistentInput(BadTxTemplate):
 
 class SpendTooMuch(BadTxTemplate):
     reject_reason = 'bad-txns-in-ne-out'
-    block_reject_reason = 'block-validation-failed'
     expect_disconnect = True
 
     def get_tx(self):
         return create_tx_with_script(
-            self.spend_tx, 0, script_pub_key=basic_p2sh, amount=(self.spend_avail + 1))
+            self.spend_tx, 0, output_script=basic_p2sh, amount=(self.spend_avail + 1))
 
 
 class CreateNegative(BadTxTemplate):
@@ -243,7 +245,7 @@ class TooManySigops(BadTxTemplate):
         lotsa_checksigs = CScript([OP_CHECKSIG] * (MAX_BLOCK_SIGOPS))
         return create_tx_with_script(
             self.spend_tx, 0,
-            script_pub_key=lotsa_checksigs,
+            output_script=lotsa_checksigs,
             amount=self.spend_avail)
 
 def getDisabledOpcodeTemplate(opcode):
@@ -264,6 +266,19 @@ def getDisabledOpcodeTemplate(opcode):
         'get_tx': get_tx,
         'valid_in_block' : True
         })
+
+class NonStandardAndInvalid(BadTxTemplate):
+    """A non-standard transaction which is also consensus-invalid should return the consensus error."""
+    reject_reason = "mandatory-script-verify-flag-failed (OP_RETURN was encountered)"
+    expect_disconnect = True
+    # ELEMENTS: In the block test context sign_tx() replaces the scriptSig with a valid
+    # P2PK signature, making this tx valid in a block. Skip the block test.
+    valid_in_block = True
+
+    def get_tx(self):
+        return create_tx_with_script(
+            self.spend_tx, 0, script_sig=b'\x00' * 3 + b'\xab\x6a',
+            amount=self.spend_avail)
 
 # Disabled opcode tx templates (CVE-2010-5137)
 # ELEMENTS: many of these are re-enabled

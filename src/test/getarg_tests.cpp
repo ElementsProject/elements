@@ -1,34 +1,38 @@
-// Copyright (c) 2012-2021 The Bitcoin Core developers
+// Copyright (c) 2012-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <common/args.h>
+#include <common/settings.h>
+#include <logging.h>
 #include <test/util/setup_common.h>
 #include <univalue.h>
-#include <util/settings.h>
 #include <util/strencodings.h>
-#include <util/system.h>
 
 #include <limits>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include <boost/algorithm/string.hpp>
 #include <boost/test/unit_test.hpp>
+
+using util::SplitString;
 
 BOOST_FIXTURE_TEST_SUITE(getarg_tests, BasicTestingSetup)
 
 void ResetArgs(ArgsManager& local_args, const std::string& strArg)
 {
     std::vector<std::string> vecArg;
-    if (strArg.size())
-        boost::split(vecArg, strArg, IsSpace, boost::token_compress_on);
+    if (strArg.size()) {
+        vecArg = SplitString(strArg, ' ');
+    }
 
     // Insert dummy executable name:
     vecArg.insert(vecArg.begin(), "testbitcoin");
 
     // Convert to char*:
     std::vector<const char*> vecChar;
+    vecChar.reserve(vecArg.size());
     for (const std::string& s : vecArg)
         vecChar.push_back(s.c_str());
 
@@ -55,8 +59,8 @@ BOOST_AUTO_TEST_CASE(setting_args)
     ArgsManager args;
     SetupArgs(args, {{"-foo", ArgsManager::ALLOW_ANY}});
 
-    auto set_foo = [&](const util::SettingsValue& value) {
-      args.LockSettings([&](util::Settings& settings) {
+    auto set_foo = [&](const common::SettingsValue& value) {
+      args.LockSettings([&](common::Settings& settings) {
         settings.rw_settings["foo"] = value;
       });
     };
@@ -98,21 +102,21 @@ BOOST_AUTO_TEST_CASE(setting_args)
 
     set_foo(99);
     BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "99");
-    BOOST_CHECK_THROW(args.GetArg("foo", "default"), std::runtime_error);
+    BOOST_CHECK_EQUAL(args.GetArg("foo", "default"), "99");
     BOOST_CHECK_EQUAL(args.GetIntArg("foo", 100), 99);
     BOOST_CHECK_THROW(args.GetBoolArg("foo", true), std::runtime_error);
     BOOST_CHECK_THROW(args.GetBoolArg("foo", false), std::runtime_error);
 
     set_foo(3.25);
     BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "3.25");
-    BOOST_CHECK_THROW(args.GetArg("foo", "default"), std::runtime_error);
+    BOOST_CHECK_EQUAL(args.GetArg("foo", "default"), "3.25");
     BOOST_CHECK_THROW(args.GetIntArg("foo", 100), std::runtime_error);
     BOOST_CHECK_THROW(args.GetBoolArg("foo", true), std::runtime_error);
     BOOST_CHECK_THROW(args.GetBoolArg("foo", false), std::runtime_error);
 
     set_foo(0);
     BOOST_CHECK_EQUAL(args.GetSetting("foo").write(), "0");
-    BOOST_CHECK_THROW(args.GetArg("foo", "default"), std::runtime_error);
+    BOOST_CHECK_EQUAL(args.GetArg("foo", "default"), "0");
     BOOST_CHECK_EQUAL(args.GetIntArg("foo", 100), 0);
     BOOST_CHECK_THROW(args.GetBoolArg("foo", true), std::runtime_error);
     BOOST_CHECK_THROW(args.GetBoolArg("foo", false), std::runtime_error);
@@ -357,6 +361,24 @@ BOOST_AUTO_TEST_CASE(patharg)
 
     ResetArgs(local_args, "-dir=user/.bitcoin/.//");
     BOOST_CHECK_EQUAL(local_args.GetPathArg("-dir"), relative_path);
+
+    // Check negated and default argument handling. Specifying an empty argument
+    // is the same as not specifying the argument. This is convenient for
+    // scripting so later command line arguments can override earlier command
+    // line arguments or bitcoin.conf values. Currently the -dir= case cannot be
+    // distinguished from -dir case with no assignment, but #16545 would add the
+    // ability to distinguish these in the future (and treat the no-assign case
+    // like an imperative command or an error).
+    ResetArgs(local_args, "");
+    BOOST_CHECK_EQUAL(local_args.GetPathArg("-dir", "default"), fs::path{"default"});
+    ResetArgs(local_args, "-dir=override");
+    BOOST_CHECK_EQUAL(local_args.GetPathArg("-dir", "default"), fs::path{"override"});
+    ResetArgs(local_args, "-dir=");
+    BOOST_CHECK_EQUAL(local_args.GetPathArg("-dir", "default"), fs::path{"default"});
+    ResetArgs(local_args, "-dir");
+    BOOST_CHECK_EQUAL(local_args.GetPathArg("-dir", "default"), fs::path{"default"});
+    ResetArgs(local_args, "-nodir");
+    BOOST_CHECK_EQUAL(local_args.GetPathArg("-dir", "default"), fs::path{""});
 }
 
 BOOST_AUTO_TEST_CASE(doubledash)
@@ -411,7 +433,7 @@ BOOST_AUTO_TEST_CASE(logargs)
     const auto okaylog = std::make_pair("-okaylog", ArgsManager::ALLOW_ANY);
     const auto dontlog = std::make_pair("-dontlog", ArgsManager::ALLOW_ANY | ArgsManager::SENSITIVE);
     SetupArgs(local_args, {okaylog_bool, okaylog_negbool, okaylog, dontlog});
-    ResetArgs(local_args, "-okaylog-bool -nookaylog-negbool -okaylog=public -dontlog=private");
+    ResetArgs(local_args, "-okaylog-bool -nookaylog-negbool -okaylog=public -dontlog=private42");
 
     // Everything logged to debug.log will also append to str
     std::string str;
@@ -429,7 +451,7 @@ BOOST_AUTO_TEST_CASE(logargs)
     BOOST_CHECK(str.find("Command-line arg: okaylog-negbool=false") != std::string::npos);
     BOOST_CHECK(str.find("Command-line arg: okaylog=\"public\"") != std::string::npos);
     BOOST_CHECK(str.find("dontlog=****") != std::string::npos);
-    BOOST_CHECK(str.find("private") == std::string::npos);
+    BOOST_CHECK(str.find("private42") == std::string::npos);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

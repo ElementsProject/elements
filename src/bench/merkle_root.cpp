@@ -1,12 +1,13 @@
-// Copyright (c) 2016-2020 The Bitcoin Core developers
+// Copyright (c) 2016-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
-
 #include <consensus/merkle.h>
 #include <random.h>
 #include <uint256.h>
+
+#include <vector>
 
 static void MerkleRoot(benchmark::Bench& bench)
 {
@@ -23,4 +24,4 @@ static void MerkleRoot(benchmark::Bench& bench)
     });
 }
 
-BENCHMARK(MerkleRoot);
+BENCHMARK(MerkleRoot, benchmark::PriorityLevel::HIGH);

@@ -5,7 +5,6 @@
 #include <qt/winshutdownmonitor.h>
 
 #if defined(Q_OS_WIN)
-#include <shutdown.h>
 
 #include <windows.h>
 
@@ -13,7 +12,11 @@
 
 // If we don't want a message to be processed by Qt, return true and set result to
 // the value that the window procedure should return. Otherwise return false.
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+bool WinShutdownMonitor::nativeEventFilter(const QByteArray &eventType, void *pMessage, qintptr *pnResult)
+#else
 bool WinShutdownMonitor::nativeEventFilter(const QByteArray &eventType, void *pMessage, long *pnResult)
+#endif
 {
        Q_UNUSED(eventType);
 
@@ -25,7 +28,7 @@ bool WinShutdownMonitor::nativeEventFilter(const QByteArray &eventType, void *pM
            {
                // Initiate a client shutdown after receiving a WM_QUERYENDSESSION and block
                // Windows session end until we have finished client shutdown.
-               StartShutdown();
+               m_shutdown_fn();
                *pnResult = FALSE;
                return true;
            }
@@ -43,7 +46,7 @@ bool WinShutdownMonitor::nativeEventFilter(const QByteArray &eventType, void *pM
 void WinShutdownMonitor::registerShutdownBlockReason(const QString& strReason, const HWND& mainWinId)
 {
     typedef BOOL (WINAPI *PSHUTDOWNBRCREATE)(HWND, LPCWSTR);
-    PSHUTDOWNBRCREATE shutdownBRCreate = (PSHUTDOWNBRCREATE)GetProcAddress(GetModuleHandleA("User32.dll"), "ShutdownBlockReasonCreate");
+    PSHUTDOWNBRCREATE shutdownBRCreate = (PSHUTDOWNBRCREATE)(void*)GetProcAddress(GetModuleHandleA("User32.dll"), "ShutdownBlockReasonCreate");
     if (shutdownBRCreate == nullptr) {
         qWarning() << "registerShutdownBlockReason: GetProcAddress for ShutdownBlockReasonCreate failed";
         return;

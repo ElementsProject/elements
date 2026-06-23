@@ -2,9 +2,7 @@
 
 It is possible to run Bitcoin Core as a Tor onion service, and connect to such services.
 
-The following directions assume you have a Tor proxy running on port 9050. Many distributions default to having a SOCKS proxy listening on port 9050, but others may not. In particular, the Tor Browser Bundle defaults to listening on port 9150. See [Tor Project FAQ:TBBSocksPort](https://www.torproject.org/docs/faq.html.en#TBBSocksPort) for how to properly
-configure Tor.
-
+The following directions assume you have a Tor proxy running on port 9050. Many distributions default to having a SOCKS proxy listening on port 9050, but others may not. In particular, the Tor Browser Bundle defaults to listening on port 9150.
 ## Compatibility
 
 - Starting with version 22.0, Bitcoin Core only supports Tor version 3 hidden
@@ -16,9 +14,9 @@ configure Tor.
 ## How to see information about your Tor configuration via Bitcoin Core
 
 There are several ways to see your local onion address in Bitcoin Core:
-- in the debug log (grep for "tor:" or "AddLocal")
-- in the output of RPC `getnetworkinfo` in the "localaddresses" section
-- in the output of the CLI `-netinfo` peer connections dashboard
+- in the "Local addresses" output of CLI `-netinfo`
+- in the "localaddresses" output of RPC `getnetworkinfo`
+- in the debug log (grep for "AddLocal"; the Tor address ends in `.onion`)
 
 You may set the `-debug=tor` config logging option to have additional
 information in the debug log about your Tor configuration.
@@ -26,6 +24,8 @@ information in the debug log about your Tor configuration.
 CLI `-addrinfo` returns the number of addresses known to your node per
 network. This can be useful to see how many onion peers your node knows,
 e.g. for `-onlynet=onion`.
+
+You can use the `getnodeaddresses` RPC to fetch a number of onion peers known to your node; run `bitcoin-cli help getnodeaddresses` for details.
 
 ## 1. Run Bitcoin Core behind a Tor proxy
 
@@ -55,10 +55,10 @@ outgoing connections, but more is possible.
     -seednode=X     SOCKS5. In Tor mode, such addresses can also be exchanged with
                     other P2P nodes.
 
-    -onlynet=onion  Make outgoing connections only to .onion addresses. Incoming
-                    connections are not affected by this option. This option can be
-                    specified multiple times to allow multiple network types, e.g.
-                    onlynet=onion, onlynet=i2p.
+    -onlynet=onion  Make automatic outbound connections only to .onion addresses.
+                    Inbound and manual connections are not affected by this option.
+                    It can be specified multiple times to allow multiple networks,
+                    e.g. onlynet=onion, onlynet=i2p, onlynet=cjdns.
 
 In a typical situation, this suffices to run behind a Tor proxy:
 
@@ -89,18 +89,12 @@ out by default (if not, add them):
 ControlPort 9051
 CookieAuthentication 1
 CookieAuthFileGroupReadable 1
+DataDirectoryGroupReadable 1
 ```
 
 Add or uncomment those, save, and restart Tor (usually `systemctl restart tor`
 or `sudo systemctl restart tor` on most systemd-based systems, including recent
 Debian and Ubuntu, or just restart the computer).
-
-On some systems (such as Arch Linux), you may also need to add the following
-line:
-
-```
-DataDirectoryGroupReadable 1
-```
 
 ### Authentication
 
@@ -199,14 +193,14 @@ In a typical situation, where you're only reachable via Tor, this should suffice
 listen on all devices and another node could establish a clearnet connection, when knowing
 your address. To mitigate this, additionally bind the address of your Tor proxy:
 
-    ./bitcoind ... -bind=127.0.0.1
+    ./bitcoind ... -bind=127.0.0.1:8334=onion
 
 If you don't care too much about hiding your node, and want to be reachable on IPv4
 as well, use `discover` instead:
 
     ./bitcoind ... -discover
 
-and open port 8333 on your firewall (or use port mapping, i.e., `-upnp` or `-natpmp`).
+and open port 8333 on your firewall (or use port mapping, i.e., `-natpmp`).
 
 If you only want to use Tor to reach .onion addresses, but not use it as a proxy
 for normal IPv4/IPv6 communication, use:

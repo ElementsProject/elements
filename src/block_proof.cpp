@@ -10,10 +10,17 @@
 #include <script/interpreter.h>
 #include <script/generic.hpp>
 
-bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
+bool CheckChallenge(const CBlockHeader& block, CBlockIndex& indexLast, const Consensus::Params& params)
 {
     if (g_signed_blocks) {
-        return block.proof.challenge == indexLast.get_proof().challenge;
+        if (indexLast.trimmed()) {
+            // Create a dummy block index to temporarily hold the untrimmed data
+            CBlockIndex tmp_index;
+            const CBlockIndex* pindexUntrimmed = indexLast.untrim_to(&tmp_index);
+            return block.proof.challenge == pindexUntrimmed->get_proof().challenge;
+        } else {
+            return block.proof.challenge == indexLast.get_proof().challenge;
+        }
     } else {
         return block.nBits == GetNextWorkRequired(&indexLast, &block, params);
     }
@@ -26,10 +33,8 @@ static bool CheckProofGeneric(const CBlockHeader& block, const uint32_t max_bloc
 
     // Check signature limits for blocks
     if (scriptSig.size() > max_block_signature_size) {
-        assert(!is_dyna);
         return false;
     } else if (witness.GetSerializedSize() > max_block_signature_size) {
-        assert(is_dyna);
         return false;
     }
 

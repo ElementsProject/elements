@@ -33,6 +33,9 @@ class BlockSubsidyTest(BitcoinTestFramework):
         # 10 satoshi block subsidy at start for one node, none for other
         self.extra_args = [["-con_blocksubsidy=10"], ["-con_blocksubsidy=0", "-txindex=1"]]
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
@@ -101,4 +104,4 @@ class BlockSubsidyTest(BitcoinTestFramework):
         #assert_template(self.nodes[1], block, None) # ELEMENTS: 0-value outputs not allowed
 
 if __name__ == '__main__':
-    BlockSubsidyTest().main()
+    BlockSubsidyTest(__file__).main()

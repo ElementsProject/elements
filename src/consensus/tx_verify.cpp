@@ -13,6 +13,7 @@
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <script/pegins.h>
+#include <util/check.h>
 #include <util/moneystr.h>
 
 bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
@@ -49,11 +50,7 @@ std::pair<int, int64_t> CalculateSequenceLocks(const CTransaction &tx, int flags
     int nMinHeight = -1;
     int64_t nMinTime = -1;
 
-    // tx.nVersion is signed integer so requires cast to unsigned otherwise
-    // we would be doing a signed comparison and half the range of nVersion
-    // wouldn't support BIP 68.
-    bool fEnforceBIP68 = static_cast<uint32_t>(tx.nVersion) >= 2
-                      && flags & LOCKTIME_VERIFY_SEQUENCE;
+    bool fEnforceBIP68 = tx.version >= 2 && flags & LOCKTIME_VERIFY_SEQUENCE;
 
     // Do not enforce sequence numbers as a relative lock time
     // unless we have been instructed to
@@ -81,7 +78,7 @@ std::pair<int, int64_t> CalculateSequenceLocks(const CTransaction &tx, int flags
         int nCoinHeight = prevHeights[txinIndex];
 
         if (txin.nSequence & CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG) {
-            int64_t nCoinTime = block.GetAncestor(std::max(nCoinHeight-1, 0))->GetMedianTimePast();
+            const int64_t nCoinTime{Assert(block.GetAncestor(std::max(nCoinHeight - 1, 0)))->GetMedianTimePast()};
             // NOTE: Subtract 1 to maintain nLockTime semantics
             // BIP 68 relative lock times have the semantics of calculating
             // the first block or time at which the transaction would be
@@ -186,7 +183,7 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
             scriptPubKey = coin.out.scriptPubKey;
         }
 
-        const CScriptWitness* pScriptWitness = tx.witness.vtxinwit.size() > i ? &tx.witness.vtxinwit[i].scriptWitness : NULL;
+        const CScriptWitness* pScriptWitness = tx.witness.vtxinwit.size() > i ? &tx.witness.vtxinwit[i].scriptWitness : nullptr;
         nSigOps += CountWitnessSigOps(tx.vin[i].scriptSig, scriptPubKey, pScriptWitness, flags);
     }
     return nSigOps;

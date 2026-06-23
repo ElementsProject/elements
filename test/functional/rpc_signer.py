@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2017-2021 The Bitcoin Core developers
+# Copyright (c) 2017-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test external signer.
@@ -9,6 +9,7 @@ See also wallet_signer.py for tests that require wallet context.
 """
 import os
 import platform
+import sys
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
@@ -20,16 +21,10 @@ from test_framework.util import (
 class RPCSignerTest(BitcoinTestFramework):
     def mock_signer_path(self):
         path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'mocks', 'signer.py')
-        if platform.system() == "Windows":
-            return "py " + path
-        else:
-            return path
+        return sys.executable + " " + path
 
     def set_test_params(self):
         self.num_nodes = 4
-        # The experimental syscall sandbox feature (-sandbox) is not compatible with -signer (which
-        # invokes execve).
-        self.disable_syscall_sandbox = True
 
         self.extra_args = [
             [],
@@ -77,10 +72,7 @@ class RPCSignerTest(BitcoinTestFramework):
         )
         self.clear_mock_result(self.nodes[1])
 
-        result = self.nodes[1].enumeratesigners()
-        assert_equal(len(result['signers']), 2)
-        assert_equal(result['signers'][0]["fingerprint"], "00000001")
-        assert_equal(result['signers'][0]["name"], "trezor_t")
+        assert_equal({'fingerprint': '00000001', 'name': 'trezor_t'} in self.nodes[1].enumeratesigners()['signers'], True)
 
 if __name__ == '__main__':
-    RPCSignerTest().main()
+    RPCSignerTest(__file__).main()

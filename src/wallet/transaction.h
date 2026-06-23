@@ -1,25 +1,36 @@
-// Copyright (c) 2021 The Bitcoin Core developers
+// Copyright (c) 2021-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_WALLET_TRANSACTION_H
 #define BITCOIN_WALLET_TRANSACTION_H
 
+#include <attributes.h>
 #include <consensus/amount.h>
 #include <primitives/transaction.h>
-#include <serialize.h>
-#include <wallet/ismine.h>
-#include <threadsafety.h>
+#include <pubkey.h> // ELEMENTS
 #include <tinyformat.h>
+#include <uint256.h>
 #include <util/overloaded.h>
 #include <util/strencodings.h>
 #include <util/string.h>
+#include <wallet/types.h>
 
-#include <list>
+#include <bitset>
+#include <cstdint>
+#include <map>
+#include <utility>
 #include <variant>
 #include <vector>
 
+namespace interfaces {
+class Chain;
+} // namespace interfaces
+
 namespace wallet {
+// ELEMENTS: forward declarations
+class CWallet;
+
 //! State of transaction confirmed in a block.
 struct TxStateConfirmed {
     uint256 confirmed_block_hash;
@@ -27,18 +38,21 @@ struct TxStateConfirmed {
     int position_in_block;
 
     explicit TxStateConfirmed(const uint256& block_hash, int height, int index) : confirmed_block_hash(block_hash), confirmed_block_height(height), position_in_block(index) {}
+    std::string toString() const { return strprintf("Confirmed (block=%s, height=%i, index=%i)", confirmed_block_hash.ToString(), confirmed_block_height, position_in_block); }
 };
 
 //! State of transaction added to mempool.
 struct TxStateInMempool {
+    std::string toString() const { return strprintf("InMempool"); }
 };
 
 //! State of rejected transaction that conflicts with a confirmed block.
-struct TxStateConflicted {
+struct TxStateBlockConflicted {
     uint256 conflicting_block_hash;
     int conflicting_block_height;
 
-    explicit TxStateConflicted(const uint256& block_hash, int height) : conflicting_block_hash(block_hash), conflicting_block_height(height) {}
+    explicit TxStateBlockConflicted(const uint256& block_hash, int height) : conflicting_block_hash(block_hash), conflicting_block_height(height) {}
+    std::string toString() const { return strprintf("BlockConflicted (block=%s, height=%i)", conflicting_block_hash.ToString(), conflicting_block_height); }
 };
 
 //! State of transaction not confirmed or conflicting with a known block and
@@ -49,6 +63,7 @@ struct TxStateInactive {
     bool abandoned;
 
     explicit TxStateInactive(bool abandoned = false) : abandoned(abandoned) {}
+    std::string toString() const { return strprintf("Inactive (abandoned=%i)", abandoned); }
 };
 
 //! State of transaction loaded in an unrecognized state with unexpected hash or
@@ -60,10 +75,11 @@ struct TxStateUnrecognized {
     int index;
 
     TxStateUnrecognized(const uint256& block_hash, int index) : block_hash(block_hash), index(index) {}
+    std::string toString() const { return strprintf("Unrecognized (block=%s, index=%i)", block_hash.ToString(), index); }
 };
 
 //! All possible CWalletTx states
-using TxState = std::variant<TxStateConfirmed, TxStateInMempool, TxStateConflicted, TxStateInactive, TxStateUnrecognized>;
+using TxState = std::variant<TxStateConfirmed, TxStateInMempool, TxStateBlockConflicted, TxStateInactive, TxStateUnrecognized>;
 
 //! Subset of states transaction sync logic is implemented to handle.
 using SyncTxState = std::variant<TxStateConfirmed, TxStateInMempool, TxStateInactive>;
@@ -78,7 +94,7 @@ static inline TxState TxStateInterpretSerialized(TxStateUnrecognized data)
     } else if (data.index >= 0) {
         return TxStateConfirmed{data.block_hash, /*height=*/-1, data.index};
     } else if (data.index == -1) {
-        return TxStateConflicted{data.block_hash, /*height=*/-1};
+        return TxStateBlockConflicted{data.block_hash, /*height=*/-1};
     }
     return data;
 }
@@ -90,7 +106,7 @@ static inline uint256 TxStateSerializedBlockHash(const TxState& state)
         [](const TxStateInactive& inactive) { return inactive.abandoned ? uint256::ONE : uint256::ZERO; },
         [](const TxStateInMempool& in_mempool) { return uint256::ZERO; },
         [](const TxStateConfirmed& confirmed) { return confirmed.confirmed_block_hash; },
-        [](const TxStateConflicted& conflicted) { return conflicted.conflicting_block_hash; },
+        [](const TxStateBlockConflicted& conflicted) { return conflicted.conflicting_block_hash; },
         [](const TxStateUnrecognized& unrecognized) { return unrecognized.block_hash; }
     }, state);
 }
@@ -102,13 +118,40 @@ static inline int TxStateSerializedIndex(const TxState& state)
         [](const TxStateInactive& inactive) { return inactive.abandoned ? -1 : 0; },
         [](const TxStateInMempool& in_mempool) { return 0; },
         [](const TxStateConfirmed& confirmed) { return confirmed.position_in_block; },
-        [](const TxStateConflicted& conflicted) { return -1; },
+        [](const TxStateBlockConflicted& conflicted) { return -1; },
         [](const TxStateUnrecognized& unrecognized) { return unrecognized.index; }
     }, state);
 }
 
+//! Return TxState or SyncTxState as a string for logging or debugging.
+template<typename T>
+std::string TxStateString(const T& state)
+{
+    return std::visit([](const auto& s) { return s.toString(); }, state);
+}
+
+/**
+ * Cachable amount subdivided into watchonly and spendable parts.
+ */
+struct CachableAmountMap
+{
+    // NO and ALL are never (supposed to be) cached
+    std::bitset<ISMINE_ENUM_ELEMENTS> m_cached;
+    CAmountMap m_value[ISMINE_ENUM_ELEMENTS];
+    inline void Reset()
+    {
+        m_cached.reset();
+    }
+    void Set(isminefilter filter, CAmountMap value)
+    {
+        m_cached.set(filter);
+        m_value[filter] = value;
+    }
+};
+
 
 typedef std::map<std::string, std::string> mapValue_t;
+
 
 /** Legacy class used for deserializing vtxPrev for backwards compatibility.
  * vtxPrev was removed in commit 93a18a3650292afbb441a47d1fa1b94aeb0164e3,
@@ -126,7 +169,7 @@ public:
         std::vector<uint256> vMerkleBranch;
         int nIndex;
 
-        s >> tx >> hashBlock >> vMerkleBranch >> nIndex;
+        s >> TX_WITH_WITNESS(tx) >> hashBlock >> vMerkleBranch >> nIndex;
     }
 };
 
@@ -219,6 +262,14 @@ public:
     CTransactionRef tx;
     TxState m_state;
 
+    // Set of mempool transactions that conflict
+    // directly with the transaction, or that conflict
+    // with an ancestor transaction. This set will be
+    // empty if state is InMempool or Confirmed, but
+    // can be nonempty if state is Inactive or
+    // BlockConflicted.
+    std::set<Txid> mempool_conflicts;
+
     template<typename Stream>
     void Serialize(Stream& s) const
     {
@@ -226,7 +277,7 @@ public:
 
         mapValueCopy["fromaccount"] = "";
         if (nOrderPos != -1) {
-            mapValueCopy["n"] = ToString(nOrderPos);
+            mapValueCopy["n"] = util::ToString(nOrderPos);
         }
         if (nTimeSmart) {
             mapValueCopy["timesmart"] = strprintf("%u", nTimeSmart);
@@ -237,7 +288,7 @@ public:
         bool dummy_bool = false; //!< Used to be fSpent
         uint256 serializedHash = TxStateSerializedBlockHash(m_state);
         int serializedIndex = TxStateSerializedIndex(m_state);
-        s << tx << serializedHash << dummy_vector1 << serializedIndex << dummy_vector2 << mapValueCopy << vOrderForm << fTimeReceivedIsTxTime << nTimeReceived << fFromMe << dummy_bool;
+        s << TX_WITH_WITNESS(tx) << serializedHash << dummy_vector1 << serializedIndex << dummy_vector2 << mapValueCopy << vOrderForm << fTimeReceivedIsTxTime << nTimeReceived << fFromMe << dummy_bool;
     }
 
     template<typename Stream>
@@ -250,7 +301,7 @@ public:
         bool dummy_bool; //! Used to be fSpent
         uint256 serialized_block_hash;
         int serializedIndex;
-        s >> tx >> serialized_block_hash >> dummy_vector1 >> serializedIndex >> dummy_vector2 >> mapValue >> vOrderForm >> fTimeReceivedIsTxTime >> nTimeReceived >> fFromMe >> dummy_bool;
+        s >> TX_WITH_WITNESS(tx) >> serialized_block_hash >> dummy_vector1 >> serializedIndex >> dummy_vector2 >> mapValue >> vOrderForm >> fTimeReceivedIsTxTime >> nTimeReceived >> fFromMe >> dummy_bool;
 
         m_state = TxStateInterpretSerialized({serialized_block_hash, serializedIndex});
 
@@ -292,12 +343,29 @@ public:
     template<typename T> const T* state() const { return std::get_if<T>(&m_state); }
     template<typename T> T* state() { return std::get_if<T>(&m_state); }
 
+    //! Update transaction state when attaching to a chain, filling in heights
+    //! of conflicted and confirmed blocks
+    void updateState(interfaces::Chain& chain);
+
     bool isAbandoned() const { return state<TxStateInactive>() && state<TxStateInactive>()->abandoned; }
-    bool isConflicted() const { return state<TxStateConflicted>(); }
-    bool isUnconfirmed() const { return !isAbandoned() && !isConflicted() && !isConfirmed(); }
+    bool isMempoolConflicted() const { return !mempool_conflicts.empty(); }
+    bool isBlockConflicted() const { return state<TxStateBlockConflicted>(); }
+    bool isInactive() const { return state<TxStateInactive>(); }
+    bool isUnconfirmed() const { return !isAbandoned() && !isBlockConflicted() && !isMempoolConflicted() && !isConfirmed(); }
     bool isConfirmed() const { return state<TxStateConfirmed>(); }
-    const uint256& GetHash() const { return tx->GetHash(); }
+    const Txid& GetHash() const LIFETIMEBOUND { return tx->GetHash(); }
+    const Wtxid& GetWitnessHash() const LIFETIMEBOUND { return tx->GetWitnessHash(); }
     bool IsCoinBase() const { return tx->IsCoinBase(); }
+
+private:
+    // Disable copying of CWalletTx objects to prevent bugs where instances get
+    // copied in and out of the mapWallet map, and fields are updated in the
+    // wrong copy.
+    CWalletTx(const CWalletTx&) = default;
+    CWalletTx& operator=(const CWalletTx&) = default;
+public:
+    // Instead have an explicit copy function
+    void CopyFrom(const CWalletTx&);
 
     // ELEMENTS
 private:
@@ -349,12 +417,13 @@ public:
     CAsset GetOutputAsset(const CWallet& wallet, unsigned int output_index) const;
 
     // END ELEMENTS
+};
 
-    // Disable copying of CWalletTx objects to prevent bugs where instances get
-    // copied in and out of the mapWallet map, and fields are updated in the
-    // wrong copy.
-    CWalletTx(CWalletTx const &) = delete;
-    void operator=(CWalletTx const &x) = delete;
+struct WalletTxOrderComparator {
+    bool operator()(const CWalletTx* a, const CWalletTx* b) const
+    {
+        return a->nOrderPos < b->nOrderPos;
+    }
 };
 } // namespace wallet
 

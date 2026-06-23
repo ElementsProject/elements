@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2020 The Bitcoin Core developers
+// Copyright (c) 2015-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -7,13 +7,15 @@
 
 #include <indirectmap.h>
 #include <prevector.h>
-
-#include <stdlib.h>
+#include <support/allocators/pool.h>
 
 #include <cassert>
+#include <cstdlib>
+#include <list>
 #include <map>
 #include <memory>
 #include <set>
+#include <string>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -83,10 +85,22 @@ struct stl_shared_counter
     size_t weak_count;
 };
 
-template<typename X>
-static inline size_t DynamicUsage(const std::vector<X>& v)
+template<typename T, typename Allocator>
+static inline size_t DynamicUsage(const std::vector<T, Allocator>& v)
 {
-    return MallocUsage(v.capacity() * sizeof(X));
+    return MallocUsage(v.capacity() * sizeof(T));
+}
+
+static inline size_t DynamicUsage(const std::string& s)
+{
+    const char* s_ptr = reinterpret_cast<const char*>(&s);
+    // Don't count the dynamic memory used for string, if it resides in the
+    // "small string" optimization area (which stores data inside the object itself, up to some
+    // size; 15 bytes in modern libstdc++).
+    if (!std::less{}(s.data(), s_ptr) && !std::greater{}(s.data() + s.size(), s_ptr + sizeof(s))) {
+        return 0;
+    }
+    return MallocUsage(s.capacity());
 }
 
 template<unsigned int N, typename X, typename S, typename D>
@@ -149,6 +163,21 @@ static inline size_t DynamicUsage(const std::shared_ptr<X>& p)
 }
 
 template<typename X>
+struct list_node
+{
+private:
+    void* ptr_next;
+    void* ptr_prev;
+    X x;
+};
+
+template<typename X>
+static inline size_t DynamicUsage(const std::list<X>& l)
+{
+    return MallocUsage(sizeof(list_node<X>)) * l.size();
+}
+
+template<typename X>
 struct unordered_node : private X
 {
 private:
@@ -167,6 +196,25 @@ static inline size_t DynamicUsage(const std::unordered_map<X, Y, Z>& m)
     return MallocUsage(sizeof(unordered_node<std::pair<const X, Y> >)) * m.size() + MallocUsage(sizeof(void*) * m.bucket_count());
 }
 
+template <class Key, class T, class Hash, class Pred, std::size_t MAX_BLOCK_SIZE_BYTES, std::size_t ALIGN_BYTES>
+static inline size_t DynamicUsage(const std::unordered_map<Key,
+                                                           T,
+                                                           Hash,
+                                                           Pred,
+                                                           PoolAllocator<std::pair<const Key, T>,
+                                                                         MAX_BLOCK_SIZE_BYTES,
+                                                                         ALIGN_BYTES>>& m)
+{
+    auto* pool_resource = m.get_allocator().resource();
+
+    // The allocated chunks are stored in a std::list. Size per node should
+    // therefore be 3 pointers: next, previous, and a pointer to the chunk.
+    size_t estimated_list_node_size = MallocUsage(sizeof(void*) * 3);
+    size_t usage_resource = estimated_list_node_size * pool_resource->NumAllocatedChunks();
+    size_t usage_chunks = MallocUsage(pool_resource->ChunkSizeBytes()) * pool_resource->NumAllocatedChunks();
+    return usage_resource + usage_chunks + MallocUsage(sizeof(void*) * m.bucket_count());
 }
+
+} // namespace memusage
 
 #endif // BITCOIN_MEMUSAGE_H

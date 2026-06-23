@@ -1,28 +1,32 @@
-// Copyright (c) 2020-2021 The Bitcoin Core developers
+// Copyright (c) 2020-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
-#include <compat.h>
+#include <common/args.h>
+#include <compat/compat.h>
 #include <compat/endian.h>
 #include <crypto/sha256.h>
-#include <fs.h>
 #include <i2p.h>
 #include <logging.h>
 #include <netaddress.h>
 #include <netbase.h>
 #include <random.h>
-#include <util/strencodings.h>
+#include <script/parsing.h>
+#include <sync.h>
 #include <tinyformat.h>
+#include <util/fs.h>
 #include <util/readwritefile.h>
 #include <util/sock.h>
-#include <util/spanparsing.h>
-#include <util/system.h>
+#include <util/strencodings.h>
+#include <util/threadinterrupt.h>
 
 #include <chrono>
 #include <memory>
 #include <stdexcept>
 #include <string>
+
+using util::Split;
 
 namespace i2p {
 
@@ -69,12 +73,11 @@ static std::string SwapBase64(const std::string& from)
 static Binary DecodeI2PBase64(const std::string& i2p_b64)
 {
     const std::string& std_b64 = SwapBase64(i2p_b64);
-    bool invalid;
-    Binary decoded = DecodeBase64(std_b64.c_str(), &invalid);
-    if (invalid) {
+    auto decoded = DecodeBase64(std_b64);
+    if (!decoded) {
         throw std::runtime_error(strprintf("Cannot decode Base64: \"%s\"", i2p_b64));
     }
-    return decoded;
+    return std::move(*decoded);
 }
 
 /**
@@ -114,10 +117,19 @@ static CNetAddr DestB64ToAddr(const std::string& dest)
 namespace sam {
 
 Session::Session(const fs::path& private_key_file,
-                 const CService& control_host,
+                 const Proxy& control_host,
                  CThreadInterrupt* interrupt)
-    : m_private_key_file(private_key_file), m_control_host(control_host), m_interrupt(interrupt),
-      m_control_sock(std::make_unique<Sock>(INVALID_SOCKET))
+    : m_private_key_file{private_key_file},
+      m_control_host{control_host},
+      m_interrupt{interrupt},
+      m_transient{false}
+{
+}
+
+Session::Session(const Proxy& control_host, CThreadInterrupt* interrupt)
+    : m_control_host{control_host},
+      m_interrupt{interrupt},
+      m_transient{true}
 {
 }
 
@@ -136,7 +148,7 @@ bool Session::Listen(Connection& conn)
         conn.sock = StreamAccept();
         return true;
     } catch (const std::runtime_error& e) {
-        Log("Error listening: %s", e.what());
+        LogPrintLevel(BCLog::I2P, BCLog::Level::Error, "Couldn't listen: %s\n", e.what());
         CheckControlSock();
     }
     return false;
@@ -144,27 +156,63 @@ bool Session::Listen(Connection& conn)
 
 bool Session::Accept(Connection& conn)
 {
-    try {
-        while (!*m_interrupt) {
-            Sock::Event occurred;
-            if (!conn.sock->Wait(MAX_WAIT_FOR_IO, Sock::RECV, &occurred)) {
-                throw std::runtime_error("wait on socket failed");
-            }
+    AssertLockNotHeld(m_mutex);
 
-            if ((occurred & Sock::RECV) == 0) {
-                // Timeout, no incoming connections within MAX_WAIT_FOR_IO.
-                continue;
-            }
+    std::string errmsg;
+    bool disconnect{false};
 
-            const std::string& peer_dest =
-                conn.sock->RecvUntilTerminator('\n', MAX_WAIT_FOR_IO, *m_interrupt, MAX_MSG_SIZE);
-
-            conn.peer = CService(DestB64ToAddr(peer_dest), I2P_SAM31_PORT);
-
-            return true;
+    while (!*m_interrupt) {
+        Sock::Event occurred;
+        if (!conn.sock->Wait(MAX_WAIT_FOR_IO, Sock::RECV, &occurred)) {
+            errmsg = "wait on socket failed";
+            break;
         }
-    } catch (const std::runtime_error& e) {
-        Log("Error accepting: %s", e.what());
+
+        if (occurred == 0) {
+            // Timeout, no incoming connections or errors within MAX_WAIT_FOR_IO.
+            continue;
+        }
+
+        std::string peer_dest;
+        try {
+            peer_dest = conn.sock->RecvUntilTerminator('\n', MAX_WAIT_FOR_IO, *m_interrupt, MAX_MSG_SIZE);
+        } catch (const std::runtime_error& e) {
+            errmsg = e.what();
+            break;
+        }
+
+        CNetAddr peer_addr;
+        try {
+            peer_addr = DestB64ToAddr(peer_dest);
+        } catch (const std::runtime_error& e) {
+            // The I2P router is expected to send the Base64 of the connecting peer,
+            // but it may happen that something like this is sent instead:
+            // STREAM STATUS RESULT=I2P_ERROR MESSAGE="Session was closed"
+            // In that case consider the session damaged and close it right away,
+            // even if the control socket is alive.
+            if (peer_dest.find("RESULT=I2P_ERROR") != std::string::npos) {
+                errmsg = strprintf("unexpected reply that hints the session is unusable: %s", peer_dest);
+                disconnect = true;
+            } else {
+                errmsg = e.what();
+            }
+            break;
+        }
+
+        conn.peer = CService(peer_addr, I2P_SAM31_PORT);
+
+        return true;
+    }
+
+    if (*m_interrupt) {
+        LogPrintLevel(BCLog::I2P, BCLog::Level::Debug, "Accept was interrupted\n");
+    } else {
+        LogPrintLevel(BCLog::I2P, BCLog::Level::Debug, "Error accepting%s: %s\n", disconnect ? " (will close the session)" : "", errmsg);
+    }
+    if (disconnect) {
+        LOCK(m_mutex);
+        Disconnect();
+    } else {
         CheckControlSock();
     }
     return false;
@@ -175,6 +223,7 @@ bool Session::Connect(const CService& to, Connection& conn, bool& proxy_error)
     // Refuse connecting to arbitrary ports. We don't specify any destination port to the SAM proxy
     // when connecting (SAM 3.1 does not use ports) and it forces/defaults it to I2P_SAM31_PORT.
     if (to.GetPort() != I2P_SAM31_PORT) {
+        LogPrintLevel(BCLog::I2P, BCLog::Level::Debug, "Error connecting to %s, connection refused due to arbitrary port %s\n", to.ToStringAddrPort(), to.GetPort());
         proxy_error = false;
         return false;
     }
@@ -195,7 +244,7 @@ bool Session::Connect(const CService& to, Connection& conn, bool& proxy_error)
         }
 
         const Reply& lookup_reply =
-            SendRequestAndGetReply(*sock, strprintf("NAMING LOOKUP NAME=%s", to.ToStringIP()));
+            SendRequestAndGetReply(*sock, strprintf("NAMING LOOKUP NAME=%s", to.ToStringAddr()));
 
         const std::string& dest = lookup_reply.Get("VALUE");
 
@@ -222,7 +271,7 @@ bool Session::Connect(const CService& to, Connection& conn, bool& proxy_error)
 
         throw std::runtime_error(strprintf("\"%s\"", connect_reply.full));
     } catch (const std::runtime_error& e) {
-        Log("Error connecting to %s: %s", to.ToString(), e.what());
+        LogPrintLevel(BCLog::I2P, BCLog::Level::Debug, "Error connecting to %s: %s\n", to.ToStringAddrPort(), e.what());
         CheckControlSock();
         return false;
     }
@@ -238,12 +287,6 @@ std::string Session::Reply::Get(const std::string& key) const
             strprintf("Missing %s= in the reply to \"%s\": \"%s\"", key, request, full));
     }
     return pos->second.value();
-}
-
-template <typename... Args>
-void Session::Log(const std::string& fmt, const Args&... args) const
-{
-    LogPrint(BCLog::I2P, "I2P: %s\n", tfm::format(fmt, args...));
 }
 
 Session::Reply Session::SendRequestAndGetReply(const Sock& sock,
@@ -265,7 +308,7 @@ Session::Reply Session::SendRequestAndGetReply(const Sock& sock,
 
     reply.full = sock.RecvUntilTerminator('\n', recv_timeout, *m_interrupt, MAX_MSG_SIZE);
 
-    for (const auto& kv : spanparsing::Split(reply.full, ' ')) {
+    for (const auto& kv : Split(reply.full, ' ')) {
         const auto& pos = std::find(kv.begin(), kv.end(), '=');
         if (pos != kv.end()) {
             reply.keys.emplace(std::string{kv.begin(), pos}, std::string{pos + 1, kv.end()});
@@ -284,13 +327,9 @@ Session::Reply Session::SendRequestAndGetReply(const Sock& sock,
 
 std::unique_ptr<Sock> Session::Hello() const
 {
-    auto sock = CreateSock(m_control_host);
+    auto sock = m_control_host.Connect();
 
     if (!sock) {
-        throw std::runtime_error("Cannot create socket");
-    }
-
-    if (!ConnectSocketDirectly(m_control_host, *sock, nConnectTimeout, true)) {
         throw std::runtime_error(strprintf("Cannot connect to %s", m_control_host.ToString()));
     }
 
@@ -304,8 +343,8 @@ void Session::CheckControlSock()
     LOCK(m_mutex);
 
     std::string errmsg;
-    if (!m_control_sock->IsConnected(errmsg)) {
-        Log("Control socket error: %s", errmsg);
+    if (m_control_sock && !m_control_sock->IsConnected(errmsg)) {
+        LogPrintLevel(BCLog::I2P, BCLog::Level::Debug, "Control socket error: %s\n", errmsg);
         Disconnect();
     }
 }
@@ -315,6 +354,7 @@ void Session::DestGenerate(const Sock& sock)
     // https://geti2p.net/spec/common-structures#key-certificates
     // "7" or "EdDSA_SHA512_Ed25519" - "Recent Router Identities and Destinations".
     // Use "7" because i2pd <2.24.0 does not recognize the textual form.
+    // If SIGNATURE_TYPE is not specified, then the default one is DSA_SHA1.
     const Reply& reply = SendRequestAndGetReply(sock, "DEST GENERATE SIGNATURE_TYPE=7", false);
 
     m_private_key = DecodeI2PBase64(reply.Get("PRIV"));
@@ -324,7 +364,7 @@ void Session::GenerateAndSavePrivateKey(const Sock& sock)
 {
     DestGenerate(sock);
 
-    // umask is set to 077 in init.cpp, which is ok (unless -sysperms is given)
+    // umask is set to 0077 in common/system.cpp, which is ok.
     if (!WriteBinaryFile(m_private_key_file,
                          std::string(m_private_key.begin(), m_private_key.end()))) {
         throw std::runtime_error(
@@ -341,10 +381,25 @@ Binary Session::MyDestination() const
     static constexpr size_t CERT_LEN_POS = 385;
 
     uint16_t cert_len;
+
+    if (m_private_key.size() < CERT_LEN_POS + sizeof(cert_len)) {
+        throw std::runtime_error(strprintf("The private key is too short (%d < %d)",
+                                           m_private_key.size(),
+                                           CERT_LEN_POS + sizeof(cert_len)));
+    }
+
     memcpy(&cert_len, &m_private_key.at(CERT_LEN_POS), sizeof(cert_len));
-    cert_len = be16toh(cert_len);
+    cert_len = be16toh_internal(cert_len);
 
     const size_t dest_len = DEST_LEN_BASE + cert_len;
+
+    if (dest_len > m_private_key.size()) {
+        throw std::runtime_error(strprintf("Certificate length (%d) designates that the private key should "
+                                           "be %d bytes, but it is only %d bytes",
+                                           cert_len,
+                                           dest_len,
+                                           m_private_key.size()));
+    }
 
     return Binary{m_private_key.begin(), m_private_key.begin() + dest_len};
 }
@@ -352,33 +407,54 @@ Binary Session::MyDestination() const
 void Session::CreateIfNotCreatedAlready()
 {
     std::string errmsg;
-    if (m_control_sock->IsConnected(errmsg)) {
+    if (m_control_sock && m_control_sock->IsConnected(errmsg)) {
         return;
     }
 
-    Log("Creating SAM session with %s", m_control_host.ToString());
+    const auto session_type = m_transient ? "transient" : "persistent";
+    const auto session_id = GetRandHash().GetHex().substr(0, 10); // full is overkill, too verbose in the logs
+
+    LogPrintLevel(BCLog::I2P, BCLog::Level::Debug, "Creating %s SAM session %s with %s\n", session_type, session_id, m_control_host.ToString());
 
     auto sock = Hello();
 
-    const auto& [read_ok, data] = ReadBinaryFile(m_private_key_file);
-    if (read_ok) {
-        m_private_key.assign(data.begin(), data.end());
+    if (m_transient) {
+        // The destination (private key) is generated upon session creation and returned
+        // in the reply in DESTINATION=.
+        const Reply& reply = SendRequestAndGetReply(
+            *sock,
+            strprintf("SESSION CREATE STYLE=STREAM ID=%s DESTINATION=TRANSIENT SIGNATURE_TYPE=7 "
+                      "i2cp.leaseSetEncType=4,0 inbound.quantity=1 outbound.quantity=1",
+                      session_id));
+
+        m_private_key = DecodeI2PBase64(reply.Get("DESTINATION"));
     } else {
-        GenerateAndSavePrivateKey(*sock);
+        // Read our persistent destination (private key) from disk or generate
+        // one and save it to disk. Then use it when creating the session.
+        const auto& [read_ok, data] = ReadBinaryFile(m_private_key_file);
+        if (read_ok) {
+            m_private_key.assign(data.begin(), data.end());
+        } else {
+            GenerateAndSavePrivateKey(*sock);
+        }
+
+        const std::string& private_key_b64 = SwapBase64(EncodeBase64(MakeByteSpan(m_private_key)));
+
+        SendRequestAndGetReply(*sock,
+                               strprintf("SESSION CREATE STYLE=STREAM ID=%s DESTINATION=%s "
+                                         "i2cp.leaseSetEncType=4,0 inbound.quantity=3 outbound.quantity=3",
+                                         session_id,
+                                         private_key_b64));
     }
-
-    const std::string& session_id = GetRandHash().GetHex().substr(0, 10); // full is an overkill, too verbose in the logs
-    const std::string& private_key_b64 = SwapBase64(EncodeBase64(m_private_key));
-
-    SendRequestAndGetReply(*sock, strprintf("SESSION CREATE STYLE=STREAM ID=%s DESTINATION=%s",
-                                            session_id, private_key_b64));
 
     m_my_addr = CService(DestBinToAddr(MyDestination()), I2P_SAM31_PORT);
     m_session_id = session_id;
     m_control_sock = std::move(sock);
 
-    LogPrintf("I2P: SAM session created: session id=%s, my address=%s\n", m_session_id,
-              m_my_addr.ToString());
+    LogPrintLevel(BCLog::I2P, BCLog::Level::Info, "%s SAM session %s created, my address=%s\n",
+        Capitalize(session_type),
+        m_session_id,
+        m_my_addr.ToStringAddrPort());
 }
 
 std::unique_ptr<Sock> Session::StreamAccept()
@@ -404,14 +480,14 @@ std::unique_ptr<Sock> Session::StreamAccept()
 
 void Session::Disconnect()
 {
-    if (m_control_sock->Get() != INVALID_SOCKET) {
+    if (m_control_sock) {
         if (m_session_id.empty()) {
-            Log("Destroying incomplete session");
+            LogPrintLevel(BCLog::I2P, BCLog::Level::Info, "Destroying incomplete SAM session\n");
         } else {
-            Log("Destroying session %s", m_session_id);
+            LogPrintLevel(BCLog::I2P, BCLog::Level::Info, "Destroying SAM session %s\n", m_session_id);
         }
+        m_control_sock.reset();
     }
-    m_control_sock->Reset();
     m_session_id.clear();
 }
 } // namespace sam

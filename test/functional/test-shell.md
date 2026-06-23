@@ -24,26 +24,29 @@ user inputs. Such environments include the Python3 command line interpreter or
 
 ## 2. Importing `TestShell` from the Bitcoin Core repository
 
-We can import the `TestShell` by adding the path of the Bitcoin Core
+We can import the `TestShell` by adding the path of the configured Bitcoin Core
 `test_framework` module to the beginning of the PATH variable, and then
-importing the `TestShell` class from the `test_shell` sub-package.
+importing the `TestShell` class from the `test_shell` sub-package. Since
+the build system creates a copy of the `test_framework` module into a new `build/`
+directory along with the required configuration file, the path to the build copy
+must be used.
 
 ```
 >>> import sys
->>> sys.path.insert(0, "/path/to/bitcoin/test/functional")
+>>> sys.path.insert(0, "/path/to/bitcoin/build/test/functional")
 >>> from test_framework.test_shell import TestShell
 ```
 
 The following `TestShell` methods manage the lifetime of the underlying bitcoind
 processes and logging utilities.
 
-* `TestShell.setup()`
-* `TestShell.shutdown()`
+* `TestShell().setup()`
+* `TestShell().shutdown()`
 
 The `TestShell` inherits all `BitcoinTestFramework` members and methods, such
 as:
-* `TestShell.nodes[index].rpc_method()`
-* `TestShell.log.info("Custom log message")`
+* `TestShell().nodes[index].rpc_method()`
+* `TestShell().log.info("Custom log message")`
 
 The following sections demonstrate how to initialize, run, and shut down a
 `TestShell` object.
@@ -93,8 +96,10 @@ We now let the first node generate 101 regtest blocks, and direct the coinbase
 rewards to a wallet address owned by the mining node.
 
 ```
+>>> test.nodes[0].createwallet('default')
+{'name': 'default', 'warning': 'Empty string given as passphrase, wallet will not be encrypted.'}
 >>> address = test.nodes[0].getnewaddress()
->>> test.self.generatetoaddress(nodes[0], 101, address)
+>>> test.generatetoaddress(test.nodes[0], 101, address)
 ['2b98dd0044aae6f1cca7f88a0acf366a4bfe053c7f7b00da3c0d115f03d67efb', ...
 ```
 Since the two nodes are both initialized by default to establish an outbound
@@ -121,11 +126,11 @@ We can also log custom events to the logger.
 ```
 
 **Note: Please also consider the functional test
-[readme](../test/functional/README.md), which provides an overview of the
+[readme](/test/functional/README.md), which provides an overview of the
 test-framework**. Modules such as
-[key.py](../test/functional/test_framework/key.py),
-[script.py](../test/functional/test_framework/script.py) and
-[messages.py](../test/functional/test_framework/messages.py) are particularly
+[key.py](/test/functional/test_framework/key.py),
+[script.py](/test/functional/test_framework/script.py) and
+[messages.py](/test/functional/test_framework/messages.py) are particularly
 useful in constructing objects which can be passed to the bitcoind nodes managed
 by a running `TestShell` object.
 
@@ -141,7 +146,7 @@ instances and remove all temporary data and logging directories.
 20XX-XX-XXTXX:XX:XX.XXXXXXX TestFramework (INFO): Tests successful
 ```
 To prevent the logs from being removed after a shutdown, simply set the
-`TestShell.options.nocleanup` member to `True`.
+`TestShell().options.nocleanup` member to `True`.
 ```
 >>> test.options.nocleanup = True
 >>> test.shutdown()
@@ -153,24 +158,24 @@ To prevent the logs from being removed after a shutdown, simply set the
 The following utility consolidates logs from the bitcoind nodes and the
 underlying `BitcoinTestFramework`:
 
-* `/path/to/bitcoin/test/functional/combine_logs.py
+* `/path/to/bitcoin/build/test/functional/combine_logs.py
   '/path/to/bitcoin_func_test_XXXXXXX'`
 
 ## 6. Custom `TestShell` parameters
 
 The `TestShell` object initializes with the default settings inherited from the
 `BitcoinTestFramework` class. The user can override these in
-`TestShell.setup(key=value)`.
+`TestShell().setup(key=value)`.
 
-**Note:** `TestShell.reset()` will reset test parameters to default values and
+**Note:** `TestShell().reset()` will reset test parameters to default values and
 can be called after the TestShell is shut down.
 
 | Test parameter key | Default Value | Description |
 |---|---|---|
-| `bind_to_localhost_only` | `True` | Binds bitcoind RPC services to `127.0.0.1` if set to `True`.|
-| `cachedir` | `"/path/to/bitcoin/test/cache"` | Sets the bitcoind datadir directory. |
+| `bind_to_localhost_only` | `True` | Binds bitcoind P2P services to `127.0.0.1` if set to `True`.|
+| `cachedir` | `"/path/to/bitcoin/build/test/cache"` | Sets the bitcoind datadir directory. |
 | `chain`  | `"regtest"` | Sets the chain-type for the underlying test bitcoind processes. |
-| `configfile` | `"/path/to/bitcoin/test/config.ini"` | Sets the location of the test framework config file. |
+| `configfile` | `"/path/to/bitcoin/build/test/config.ini"` | Sets the location of the test framework config file. |
 | `coveragedir` | `None` | Records bitcoind RPC test coverage into this directory if set. |
 | `loglevel` | `INFO` | Logs events at this level and higher. Can be set to `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL`. |
 | `nocleanup` | `False` | Cleans up temporary test directory if set to `True` during `shutdown`. |
@@ -179,7 +184,7 @@ can be called after the TestShell is shut down.
 | `perf` | False | Profiles running nodes with `perf` for the duration of the test if set to `True`. |
 | `rpc_timeout` | `60` | Sets the RPC server timeout for the underlying bitcoind processes. |
 | `setup_clean_chain` | `False` | A 200-block-long chain is initialized from cache by default. Instead, `setup_clean_chain` initializes an empty blockchain if set to `True`. |
-| `randomseed` | Random Integer | `TestShell.options.randomseed` is a member of `TestShell` which can be accessed during a test to seed a random generator. User can override default with a constant value for reproducible test runs. |
+| `randomseed` | Random Integer | `TestShell().options.randomseed` is a member of `TestShell` which can be accessed during a test to seed a random generator. User can override default with a constant value for reproducible test runs. |
 | `supports_cli` | `False` | Whether the bitcoin-cli utility is compiled and available for the test. |
 | `tmpdir` | `"/var/folders/.../"` | Sets directory for test logs. Will be deleted upon a successful test run unless `nocleanup` is set to `True` |
 | `trace_rpc` | `False` | Logs all RPC calls if set to `True`. |

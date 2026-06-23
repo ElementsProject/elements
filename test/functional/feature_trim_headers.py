@@ -41,6 +41,9 @@ class TrimHeadersTest(BitcoinTestFramework):
         self.skip_if_no_wallet()
         self.skip_if_no_bdb()
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     # Dynamically generate N keys to be used for block signing.
     def init_keys(self, num_keys):
         self.keys = []
@@ -197,6 +200,7 @@ class TrimHeadersTest(BitcoinTestFramework):
         self.stop_node(1)
         self.stop_node(2)
 
+
         self.log.info("Mining and signing non-empty blocks")
         expected_height += 10
         self.mine_blocks(10, True)
@@ -246,7 +250,7 @@ class TrimHeadersTest(BitcoinTestFramework):
         self.connect_nodes(0, 1)
         self.connect_nodes(0, 2)
 
-        self.sync_all()
+        self.sync_all(timeout1=360)
         self.check_height(expected_height, all=True)
 
         self.log.info("Prune the pruned node")
@@ -262,4 +266,4 @@ class TrimHeadersTest(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    TrimHeadersTest().main()
+    TrimHeadersTest(__file__).main()

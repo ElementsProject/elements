@@ -1,34 +1,34 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h>
-#endif
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 #include <randomenv.h>
 
 #include <clientversion.h>
+#include <compat/compat.h>
 #include <compat/cpuid.h>
 #include <crypto/sha512.h>
+#include <span.h>
 #include <support/cleanse.h>
-#include <util/time.h> // for GetTime()
-#ifdef WIN32
-#include <compat.h> // for Windows API
-#endif
+#include <util/time.h>
 
 #include <algorithm>
 #include <atomic>
+#include <cstdint>
+#include <cstring>
 #include <chrono>
 #include <climits>
 #include <thread>
 #include <vector>
 
-#include <stdint.h>
-#include <string.h>
-#ifndef WIN32
 #include <sys/types.h> // must go before a number of other headers
+
+#ifdef WIN32
+#include <windows.h>
+#else
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/resource.h>
@@ -41,15 +41,15 @@
 #if HAVE_DECL_GETIFADDRS && HAVE_DECL_FREEIFADDRS
 #include <ifaddrs.h>
 #endif
-#if HAVE_SYSCTL
+#ifdef HAVE_SYSCTL
 #include <sys/sysctl.h>
-#if HAVE_VM_VM_PARAM_H
+#ifdef HAVE_VM_VM_PARAM_H
 #include <vm/vm_param.h>
 #endif
-#if HAVE_SYS_RESOURCES_H
+#ifdef HAVE_SYS_RESOURCES_H
 #include <sys/resources.h>
 #endif
-#if HAVE_SYS_VMMETER_H
+#ifdef HAVE_SYS_VMMETER_H
 #include <sys/vmmeter.h>
 #endif
 #endif
@@ -57,49 +57,11 @@
 #include <sys/auxv.h>
 #endif
 
-//! Necessary on some platforms
-extern char** environ;
+#ifndef _MSC_VER
+extern char** environ; // NOLINT(readability-redundant-declaration): Necessary on some platforms
+#endif
 
 namespace {
-
-void RandAddSeedPerfmon(CSHA512& hasher)
-{
-#ifdef WIN32
-    // Seed with the entire set of perfmon data
-
-    // This can take up to 2 seconds, so only do it every 10 minutes.
-    // Initialize last_perfmon to 0 seconds, we don't skip the first call.
-    static std::atomic<std::chrono::seconds> last_perfmon{0s};
-    auto last_time = last_perfmon.load();
-    auto current_time = GetTime<std::chrono::seconds>();
-    if (current_time < last_time + std::chrono::minutes{10}) return;
-    last_perfmon = current_time;
-
-    std::vector<unsigned char> vData(250000, 0);
-    long ret = 0;
-    unsigned long nSize = 0;
-    const size_t nMaxSize = 10000000; // Bail out at more than 10MB of performance data
-    while (true) {
-        nSize = vData.size();
-        ret = RegQueryValueExA(HKEY_PERFORMANCE_DATA, "Global", nullptr, nullptr, vData.data(), &nSize);
-        if (ret != ERROR_MORE_DATA || vData.size() >= nMaxSize)
-            break;
-        vData.resize(std::min((vData.size() * 3) / 2, nMaxSize)); // Grow size of buffer exponentially
-    }
-    RegCloseKey(HKEY_PERFORMANCE_DATA);
-    if (ret == ERROR_SUCCESS) {
-        hasher.Write(vData.data(), nSize);
-        memory_cleanse(vData.data(), nSize);
-    } else {
-        // Performance data is only a best-effort attempt at improving the
-        // situation when the OS randomness (and other sources) aren't
-        // adequate. As a result, failure to read it is isn't considered critical,
-        // so we don't call RandFailure().
-        // TODO: Add logging when the logger is made functional before global
-        // constructors have been invoked.
-    }
-#endif
-}
 
 /** Helper to easily feed data into a CSHA512.
  *
@@ -162,7 +124,7 @@ void AddPath(CSHA512& hasher, const char *path)
 }
 #endif
 
-#if HAVE_SYSCTL
+#ifdef HAVE_SYSCTL
 template<int... S>
 void AddSysctl(CSHA512& hasher)
 {
@@ -225,8 +187,6 @@ void AddAllCPUID(CSHA512& hasher)
 
 void RandAddDynamicEnv(CSHA512& hasher)
 {
-    RandAddSeedPerfmon(hasher);
-
     // Various clocks
 #ifdef WIN32
     FILETIME ftime;
@@ -251,7 +211,7 @@ void RandAddDynamicEnv(CSHA512& hasher)
     gettimeofday(&tv, nullptr);
     hasher << tv;
 #endif
-    // Probably redundant, but also use all the clocks C++11 provides:
+    // Probably redundant, but also use all the standard library clocks:
     hasher << std::chrono::system_clock::now().time_since_epoch().count();
     hasher << std::chrono::steady_clock::now().time_since_epoch().count();
     hasher << std::chrono::high_resolution_clock::now().time_since_epoch().count();
@@ -274,7 +234,7 @@ void RandAddDynamicEnv(CSHA512& hasher)
     AddFile(hasher, "/proc/self/status");
 #endif
 
-#if HAVE_SYSCTL
+#ifdef HAVE_SYSCTL
 #  ifdef CTL_KERN
 #    if defined(KERN_PROC) && defined(KERN_PROC_ALL)
     AddSysctl<CTL_KERN, KERN_PROC, KERN_PROC_ALL>(hasher);
@@ -356,17 +316,26 @@ void RandAddStaticEnv(CSHA512& hasher)
     hasher << &hasher << &RandAddStaticEnv << &malloc << &errno << &environ;
 
     // Hostname
+#ifdef WIN32
+    constexpr DWORD max_size = MAX_COMPUTERNAME_LENGTH + 1;
+    char hname[max_size];
+    DWORD size = max_size;
+    if (GetComputerNameA(hname, &size) != 0) {
+        hasher.Write(UCharCast(hname), size);
+    }
+#else
     char hname[256];
     if (gethostname(hname, 256) == 0) {
         hasher.Write((const unsigned char*)hname, strnlen(hname, 256));
     }
+#endif
 
 #if HAVE_DECL_GETIFADDRS && HAVE_DECL_FREEIFADDRS
     // Network interfaces
-    struct ifaddrs *ifad = NULL;
+    struct ifaddrs *ifad = nullptr;
     getifaddrs(&ifad);
     struct ifaddrs *ifit = ifad;
-    while (ifit != NULL) {
+    while (ifit != nullptr) {
         hasher.Write((const unsigned char*)&ifit, sizeof(ifit));
         hasher.Write((const unsigned char*)ifit->ifa_name, strlen(ifit->ifa_name) + 1);
         hasher.Write((const unsigned char*)&ifit->ifa_flags, sizeof(ifit->ifa_flags));
@@ -410,7 +379,7 @@ void RandAddStaticEnv(CSHA512& hasher)
 
     // For MacOS/BSDs, gather data through sysctl instead of /proc. Not all of these
     // will exist on every system.
-#if HAVE_SYSCTL
+#ifdef HAVE_SYSCTL
 #  ifdef CTL_HW
 #    ifdef HW_MACHINE
     AddSysctl<CTL_HW, HW_MACHINE>(hasher);

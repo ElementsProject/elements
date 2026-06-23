@@ -15,16 +15,14 @@
 #include <QMouseEvent>
 #include <QPainter>
 
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h> /* for USE_QRCODE */
-#endif
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 #ifdef USE_QRCODE
 #include <qrencode.h>
 #endif
 
-QRImageWidget::QRImageWidget(QWidget *parent):
-    QLabel(parent), contextMenu(nullptr)
+QRImageWidget::QRImageWidget(QWidget* parent)
+    : QLabel(parent)
 {
     contextMenu = new QMenu(this);
     contextMenu->addAction(tr("&Save Image…"), this, &QRImageWidget::saveImage);

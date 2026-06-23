@@ -1,13 +1,22 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2020 The Bitcoin Core developers
+// Copyright (c) 2009-present The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <script/script.h>
 
-#include <util/strencodings.h>
+#include <crypto/common.h>
+#include <crypto/hex_base.h>
+#include <hash.h>
+#include <uint256.h>
+#include <util/hash_type.h>
 
 #include <string>
+
+// ELEMENTS
+bool g_con_elementsmode = false;
+
+CScriptID::CScriptID(const CScript& in) : BaseHash(Hash160(in)) {}
 
 std::string GetOpName(opcodetype opcode)
 {
@@ -309,6 +318,23 @@ bool CScript::IsPayToWitnessPubkeyHash() const
 // END ELEMENTS
 //
 
+bool CScript::IsPayToAnchor() const
+{
+    return (this->size() == 4 &&
+        (*this)[0] == OP_1 &&
+        (*this)[1] == 0x02 &&
+        (*this)[2] == 0x4e &&
+        (*this)[3] == 0x73);
+}
+
+bool CScript::IsPayToAnchor(int version, const std::vector<unsigned char>& program)
+{
+    return version == 1 &&
+        program.size() == 2 &&
+        program[0] == 0x4e &&
+        program[1] == 0x73;
+}
+
 bool CScript::IsPayToScriptHash() const
 {
     // Extra-fast test for pay-to-script-hash CScripts:
@@ -380,7 +406,7 @@ std::string CScriptWitness::ToString() const
 
 uint32_t CScriptWitness::GetSerializedSize() const
 {
-    return ::GetSerializeSize(stack, 0);
+    return ::GetSerializeSize(stack);
 }
 
 bool CScript::HasValidOps() const
@@ -457,4 +483,29 @@ bool IsOpSuccess(const opcodetype& opcode)
            // ELEMENTS: Exclude OP_DETERMINISTICRANDOM(192), OP_CHECKSIGFROMSTACK(VERIFY)(192-193), OP_SUBSTRLAZY(195)
            // ELEMENTS: Tapscript extension from OP_SHA256INITIALIZE(196) till OP_TWEAKVERIFY(228)
            (opcode >= 187 && opcode <= 191) || (opcode >= 229 && opcode <= 254);
+}
+
+bool CheckMinimalPush(const std::vector<unsigned char>& data, opcodetype opcode) {
+    // Excludes OP_1NEGATE, OP_1-16 since they are by definition minimal
+    assert(0 <= opcode && opcode <= OP_PUSHDATA4);
+    if (data.size() == 0) {
+        // Should have used OP_0.
+        return opcode == OP_0;
+    } else if (data.size() == 1 && data[0] >= 1 && data[0] <= 16) {
+        // Should have used OP_1 .. OP_16.
+        return false;
+    } else if (data.size() == 1 && data[0] == 0x81) {
+        // Should have used OP_1NEGATE.
+        return false;
+    } else if (data.size() <= 75) {
+        // Must have used a direct push (opcode indicating number of bytes pushed + those bytes).
+        return opcode == data.size();
+    } else if (data.size() <= 255) {
+        // Must have used OP_PUSHDATA.
+        return opcode == OP_PUSHDATA1;
+    } else if (data.size() <= 65535) {
+        // Must have used OP_PUSHDATA2.
+        return opcode == OP_PUSHDATA2;
+    }
+    return true;
 }

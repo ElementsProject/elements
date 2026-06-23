@@ -1,16 +1,17 @@
-// Copyright (c) 2020-2021 The Bitcoin Core developers
+// Copyright (c) 2020-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_I2P_H
 #define BITCOIN_I2P_H
 
-#include <compat.h>
-#include <fs.h>
+#include <compat/compat.h>
 #include <netaddress.h>
+#include <netbase.h>
 #include <sync.h>
-#include <threadinterrupt.h>
+#include <util/fs.h>
 #include <util/sock.h>
+#include <util/threadinterrupt.h>
 
 #include <memory>
 #include <optional>
@@ -67,8 +68,21 @@ public:
      * `Session` object.
      */
     Session(const fs::path& private_key_file,
-            const CService& control_host,
+            const Proxy& control_host,
             CThreadInterrupt* interrupt);
+
+    /**
+     * Construct a transient session which will generate its own I2P private key
+     * rather than read the one from disk (it will not be saved on disk either and
+     * will be lost once this object is destroyed). This will not initiate any IO,
+     * the session will be lazily created later when first used.
+     * @param[in] control_host Location of the SAM proxy.
+     * @param[in,out] interrupt If this is signaled then all operations are canceled as soon as
+     * possible and executing methods throw an exception. Notice: only a pointer to the
+     * `CThreadInterrupt` object is saved, so it must not be destroyed earlier than this
+     * `Session` object.
+     */
+    Session(const Proxy& control_host, CThreadInterrupt* interrupt);
 
     /**
      * Destroy the session, closing the internally used sockets. The sockets that have been
@@ -84,7 +98,7 @@ public:
      * to the listening socket and address.
      * @return true on success
      */
-    bool Listen(Connection& conn);
+    bool Listen(Connection& conn) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex);
 
     /**
      * Wait for and accept a new incoming connection.
@@ -92,7 +106,7 @@ public:
      * completion the `peer` member will be set to the address of the incoming peer.
      * @return true on success
      */
-    bool Accept(Connection& conn);
+    bool Accept(Connection& conn) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex);
 
     /**
      * Connect to an I2P peer.
@@ -103,7 +117,7 @@ public:
      * it is set to `false`. Only set if `false` is returned.
      * @return true on success
      */
-    bool Connect(const CService& to, Connection& conn, bool& proxy_error);
+    bool Connect(const CService& to, Connection& conn, bool& proxy_error) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex);
 
 private:
     /**
@@ -143,14 +157,6 @@ private:
     };
 
     /**
-     * Log a message in the `BCLog::I2P` category.
-     * @param[in] fmt printf(3)-like format string.
-     * @param[in] args printf(3)-like arguments that correspond to `fmt`.
-     */
-    template <typename... Args>
-    void Log(const std::string& fmt, const Args&... args) const;
-
-    /**
      * Send request and get a reply from the SAM proxy.
      * @param[in] sock A socket that is connected to the SAM proxy.
      * @param[in] request Raw request to send, a newline terminator is appended to it.
@@ -172,7 +178,7 @@ private:
     /**
      * Check the control socket for errors and possibly disconnect.
      */
-    void CheckControlSock();
+    void CheckControlSock() EXCLUSIVE_LOCKS_REQUIRED(!m_mutex);
 
     /**
      * Generate a new destination with the SAM proxy and set `m_private_key` to it.
@@ -222,9 +228,9 @@ private:
     const fs::path m_private_key_file;
 
     /**
-     * The host and port of the SAM control service.
+     * The SAM control service proxy.
      */
-    const CService m_control_host;
+    const Proxy m_control_host;
 
     /**
      * Cease network activity when this is signaled.
@@ -248,6 +254,7 @@ private:
      * ("SESSION CREATE"). With the established session id we later open
      * other connections to the SAM service to accept incoming I2P
      * connections and make outgoing ones.
+     * If not connected then this unique_ptr will be empty.
      * See https://geti2p.net/en/docs/api/samv3
      */
     std::unique_ptr<Sock> m_control_sock GUARDED_BY(m_mutex);
@@ -262,6 +269,12 @@ private:
      * SAM session id.
      */
     std::string m_session_id GUARDED_BY(m_mutex);
+
+    /**
+     * Whether this is a transient session (the I2P private key will not be
+     * read or written to disk).
+     */
+    const bool m_transient;
 };
 
 } // namespace sam

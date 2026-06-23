@@ -5,6 +5,7 @@
  **********************************************************************/
 
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "../include/secp256k1_bppp.h"
 #include "util.h"
@@ -28,11 +29,14 @@ static void bench_bppp(void* arg, int iters) {
 int main(void) {
     bench_bppp_data data;
     int iters = get_iters(32);
+    if (iters == 0) {
+        return EXIT_FAILURE;
+    }
 
     data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
 
     run_benchmark("bppp_verify_bit", bench_bppp, bench_bppp_setup, NULL, &data, 10, iters);
 
     secp256k1_context_destroy(data.ctx);
-    return 0;
+    return EXIT_SUCCESS;
 }

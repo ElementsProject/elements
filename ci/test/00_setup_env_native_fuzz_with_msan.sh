@@ -1,24 +1,33 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2020-2021 The Bitcoin Core developers
+# Copyright (c) 2020-present The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 export LC_ALL=C.UTF-8
 
-export DOCKER_NAME_TAG="ubuntu:20.04"
-LIBCXX_DIR="${BASE_SCRATCH_DIR}/msan/build/"
+export CI_IMAGE_NAME_TAG="mirror.gcr.io/ubuntu:24.04"
+LIBCXX_DIR="/msan/cxx_build/"
 export MSAN_FLAGS="-fsanitize=memory -fsanitize-memory-track-origins=2 -fno-omit-frame-pointer -g -O1 -fno-optimize-sibling-calls"
-LIBCXX_FLAGS="-nostdinc++ -stdlib=libc++ -L${LIBCXX_DIR}lib -lc++abi -I${LIBCXX_DIR}include -I${LIBCXX_DIR}include/c++/v1 -lpthread -Wl,-rpath,${LIBCXX_DIR}lib -Wno-unused-command-line-argument"
+LIBCXX_FLAGS="-nostdinc++ -nostdlib++ -isystem ${LIBCXX_DIR}include/c++/v1 -L${LIBCXX_DIR}lib -Wl,-rpath,${LIBCXX_DIR}lib -lc++ -lc++abi -lpthread -Wno-unused-command-line-argument"
 export MSAN_AND_LIBCXX_FLAGS="${MSAN_FLAGS} ${LIBCXX_FLAGS}"
 
-export CONTAINER_NAME="ci_native_msan"
-export PACKAGES="clang-9 llvm-9 cmake"
-export DEP_OPTS="NO_BDB=1 NO_QT=1 CC='clang' CXX='clang++' CFLAGS='${MSAN_FLAGS}' CXXFLAGS='${MSAN_AND_LIBCXX_FLAGS}' libevent_cflags='${MSAN_FLAGS}' sqlite_cflags='${MSAN_FLAGS}' zeromq_cxxflags='-std=c++17 ${MSAN_AND_LIBCXX_FLAGS}'"
-export GOAL="install"
-export BITCOIN_CONFIG="--enable-fuzz --with-sanitizers=fuzzer,memory --with-asm=no --prefix=${DEPENDS_DIR}/x86_64-pc-linux-gnu/ CC=clang CXX=clang++ CFLAGS='${MSAN_FLAGS}' CXXFLAGS='${MSAN_AND_LIBCXX_FLAGS}'"
+export CONTAINER_NAME="ci_native_fuzz_msan"
+export PACKAGES="ninja-build"
+# BDB generates false-positives and will be removed in future
+export DEP_OPTS="DEBUG=1 NO_BDB=1 NO_QT=1 CC=clang CXX=clang++ CFLAGS='${MSAN_FLAGS}' CXXFLAGS='${MSAN_AND_LIBCXX_FLAGS}'"
+export GOAL="all"
+# Setting CMAKE_{C,CXX}_FLAGS_DEBUG flags to an empty string ensures that the flags set in MSAN_FLAGS remain unaltered.
+# _FORTIFY_SOURCE is not compatible with MSAN.
+export BITCOIN_CONFIG="\
+ -DCMAKE_BUILD_TYPE=Debug \
+ -DCMAKE_C_FLAGS_DEBUG='' \
+ -DCMAKE_CXX_FLAGS_DEBUG='' \
+ -DBUILD_FOR_FUZZING=ON \
+ -DSANITIZERS=fuzzer,memory \
+ -DAPPEND_CPPFLAGS='-DBOOST_MULTI_INDEX_ENABLE_SAFE_MODE -U_FORTIFY_SOURCE' \
+"
 export USE_MEMORY_SANITIZER="true"
 export RUN_UNIT_TESTS="false"
 export RUN_FUNCTIONAL_TESTS="false"
 export RUN_FUZZ_TESTS=true
-export CCACHE_SIZE=250M

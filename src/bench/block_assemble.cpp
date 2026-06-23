@@ -1,19 +1,26 @@
-// Copyright (c) 2011-2021 The Bitcoin Core developers
+// Copyright (c) 2011-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
-#include <consensus/validation.h>
-#include <crypto/sha256.h>
+#include <consensus/consensus.h>
+#include <node/miner.h>
+#include <primitives/transaction.h>
+#include <random.h>
+#include <script/script.h>
+#include <sync.h>
 #include <test/util/mining.h>
 #include <test/util/script.h>
 #include <test/util/setup_common.h>
-#include <test/util/wallet.h>
-#include <txmempool.h>
 #include <validation.h>
 
-
+#include <array>
+#include <cassert>
+#include <cstddef>
+#include <memory>
 #include <vector>
+
+using node::BlockAssembler;
 
 static void AssembleBlock(benchmark::Bench& bench)
 {
@@ -21,16 +28,18 @@ static void AssembleBlock(benchmark::Bench& bench)
 
     CScriptWitness witness;
     witness.stack.push_back(WITNESS_STACK_ELEM_OP_TRUE);
+    BlockAssembler::Options options;
+    options.coinbase_output_script = P2WSH_OP_TRUE;
 
     // Collect some loose transactions that spend the coinbases of our mined blocks
     constexpr size_t NUM_BLOCKS{200};
     std::array<CTransactionRef, NUM_BLOCKS - COINBASE_MATURITY + 1> txs;
     for (size_t b{0}; b < NUM_BLOCKS; ++b) {
         CMutableTransaction tx;
-        tx.vin.push_back(MineBlock(test_setup->m_node, P2WSH_OP_TRUE));
+        tx.vin.emplace_back(MineBlock(test_setup->m_node, options));
         tx.witness.vtxinwit.resize(1);
         tx.witness.vtxinwit.back().scriptWitness = witness;
-        tx.vout.emplace_back(CTxOut(CAsset(), 1337, P2WSH_OP_TRUE));
+        tx.vout.emplace_back(CAsset(), 1337, P2WSH_OP_TRUE);
         if (NUM_BLOCKS - b >= COINBASE_MATURITY)
             txs.at(b) = MakeTransactionRef(tx);
     }
@@ -44,8 +53,22 @@ static void AssembleBlock(benchmark::Bench& bench)
     }
 
     bench.run([&] {
-        PrepareBlock(test_setup->m_node, P2WSH_OP_TRUE);
+        PrepareBlock(test_setup->m_node, options);
+    });
+}
+static void BlockAssemblerAddPackageTxns(benchmark::Bench& bench)
+{
+    FastRandomContext det_rand{true};
+    auto testing_setup{MakeNoLogFileContext<TestChain100Setup>()};
+    testing_setup->PopulateMempool(det_rand, /*num_transactions=*/1000, /*submit=*/true);
+    BlockAssembler::Options assembler_options;
+    assembler_options.test_block_validity = false;
+    assembler_options.coinbase_output_script = P2WSH_OP_TRUE;
+
+    bench.run([&] {
+        PrepareBlock(testing_setup->m_node, assembler_options);
     });
 }
 
-BENCHMARK(AssembleBlock);
+BENCHMARK(AssembleBlock, benchmark::PriorityLevel::HIGH);
+BENCHMARK(BlockAssemblerAddPackageTxns, benchmark::PriorityLevel::LOW);

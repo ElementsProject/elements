@@ -12,17 +12,22 @@ static secp256k1_context *secp256k1_ctx_verify_amounts;
 class CSecp256k1Init {
 public:
     CSecp256k1Init() {
-        assert(secp256k1_ctx_verify_amounts == NULL);
+        assert(secp256k1_ctx_verify_amounts == nullptr);
         secp256k1_ctx_verify_amounts = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
-        assert(secp256k1_ctx_verify_amounts != NULL);
+        assert(secp256k1_ctx_verify_amounts != nullptr);
     }
     ~CSecp256k1Init() {
-        assert(secp256k1_ctx_verify_amounts != NULL);
+        assert(secp256k1_ctx_verify_amounts != nullptr);
         secp256k1_context_destroy(secp256k1_ctx_verify_amounts);
-        secp256k1_ctx_verify_amounts = NULL;
+        secp256k1_ctx_verify_amounts = nullptr;
     }
 };
 static CSecp256k1Init instance_of_csecp256k1;
+}
+
+template<typename T>
+inline bool is_ok(const std::optional<T>& result) {
+    return !result.has_value();
 }
 
 bool HasValidFee(const CTransaction& tx) {
@@ -53,37 +58,45 @@ CAmountMap GetFeeMap(const CTransaction& tx) {
     return fee;
 }
 
-bool CRangeCheck::operator()() {
+std::optional<std::pair<ScriptError, std::string>> CRangeCheck::operator()() {
     assert(val->IsCommitment());
 
     if (!CachingRangeProofChecker(store).VerifyRangeProof(rangeproof, val->vchCommitment, assetCommitment, scriptPubKey, secp256k1_ctx_verify_amounts)) {
         error = SCRIPT_ERR_RANGEPROOF;
-        return false;
+        std::string debug_str = "Range proof verification failed";
+        return std::make_pair(error, std::move(debug_str));
     }
 
-    return true;
+    return std::nullopt;
 };
 
-bool CBalanceCheck::operator()() {
+std::optional<std::pair<ScriptError, std::string>> CBalanceCheck::operator()() {
     if (!secp256k1_pedersen_verify_tally(secp256k1_ctx_verify_amounts, vpCommitsIn.data(), vpCommitsIn.size(), vpCommitsOut.data(), vpCommitsOut.size())) {
         error = SCRIPT_ERR_PEDERSEN_TALLY;
-        return false;
+        std::string debug_str = "Balance check failed";
+        return std::make_pair(error, std::move(debug_str));
     }
 
-    return true;
+    return std::nullopt;
 }
 
-bool CSurjectionCheck::operator()() {
-    return CachingSurjectionProofChecker(store).VerifySurjectionProof(proof, vTags, gen, secp256k1_ctx_verify_amounts, wtxid);
+std::optional<std::pair<ScriptError, std::string>> CSurjectionCheck::operator()() {
+    if (!CachingSurjectionProofChecker(store).VerifySurjectionProof(proof, vTags, gen, secp256k1_ctx_verify_amounts, wtxid)) {
+        std::string debug_str = "Surjection check failed";
+        error = SCRIPT_ERR_SURJECTION;
+        return std::make_pair(error, std::move(debug_str));
+    }
+    
+    return std::nullopt;
 }
 
 // Destroys the check in the case of no queue, or passes its ownership to the queue.
 ScriptError QueueCheck(std::vector<CCheck*>* queue, CCheck* check) {
-    if (queue != NULL) {
+    if (queue != nullptr) {
         queue->push_back(check);
         return SCRIPT_ERR_OK;
     }
-    bool success = (*check)();
+    bool success = is_ok((*check)());
     ScriptError err = check->GetScriptError();
     delete check;
     return success ? SCRIPT_ERR_OK : err;
@@ -357,7 +370,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
         const CConfidentialValue& val = tx.vout[i].nValue;
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
         std::vector<unsigned char> vchAssetCommitment = asset.vchCommitment;
-        const CTxOutWitness* ptxoutwit = tx.witness.vtxoutwit.size() <= i? NULL: &tx.witness.vtxoutwit[i];
+        const CTxOutWitness* ptxoutwit = tx.witness.vtxoutwit.size() <= i ? nullptr : &tx.witness.vtxoutwit[i];
         if (val.IsExplicit())
         {
             if (ptxoutwit && !ptxoutwit->vchRangeproof.empty())
@@ -381,7 +394,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
     for (size_t i = 0; i < tx.vout.size(); i++)
     {
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
-        const CTxOutWitness* ptxoutwit = tx.witness.vtxoutwit.size() <= i? NULL: &tx.witness.vtxoutwit[i];
+        const CTxOutWitness* ptxoutwit = tx.witness.vtxoutwit.size() <= i ? nullptr : &tx.witness.vtxoutwit[i];
         // No need for surjection proof
         if (asset.IsExplicit()) {
             if (ptxoutwit && !ptxoutwit->vchSurjectionproof.empty()) {

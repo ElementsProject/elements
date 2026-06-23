@@ -1,13 +1,11 @@
-// Copyright (c) 2011-2021 The Bitcoin Core developers
+// Copyright (c) 2011-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_QT_BITCOIN_H
 #define BITCOIN_QT_BITCOIN_H
 
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h>
-#endif
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 #include <interfaces/node.h>
 #include <qt/initexecutor.h>
@@ -47,7 +45,7 @@ public:
     /// parameter interaction/setup based on rules
     void parameterSetup();
     /// Create options model
-    void createOptionsModel(bool resetSettings);
+    [[nodiscard]] bool createOptionsModel(bool resetSettings);
     /// Initialize prune setting
     void InitPruneSetting(int64_t prune_MiB);
     /// Create main window
@@ -61,9 +59,6 @@ public:
 
     /// Request core initialization
     void requestInitialize();
-
-    /// Get process return value
-    int getReturnValue() const { return returnValue; }
 
     /// Get window identifier of QMainWindow (BitcoinGUI)
     WId getMainWinId() const;
@@ -89,7 +84,6 @@ public Q_SLOTS:
 Q_SIGNALS:
     void requestedInitialize();
     void requestedShutdown();
-    void splashFinished();
     void windowShown(BitcoinGUI* window);
 
 protected:
@@ -97,16 +91,15 @@ protected:
 
 private:
     std::optional<InitExecutor> m_executor;
-    OptionsModel *optionsModel;
-    ClientModel *clientModel;
-    BitcoinGUI *window;
-    QTimer *pollShutdownTimer;
+    OptionsModel* optionsModel{nullptr};
+    ClientModel* clientModel{nullptr};
+    BitcoinGUI* window{nullptr};
+    QTimer* pollShutdownTimer{nullptr};
 #ifdef ENABLE_WALLET
     PaymentServer* paymentServer{nullptr};
     WalletController* m_wallet_controller{nullptr};
 #endif
-    int returnValue;
-    const PlatformStyle *platformStyle;
+    const PlatformStyle* platformStyle{nullptr};
     std::unique_ptr<QWidget> shutdownWindow;
     SplashScreen* m_splash = nullptr;
     std::unique_ptr<interfaces::Node> m_node;

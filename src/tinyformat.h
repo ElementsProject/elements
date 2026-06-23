@@ -142,9 +142,11 @@ namespace tfm = tinyformat;
 //------------------------------------------------------------------------------
 // Implementation details.
 #include <algorithm>
+#include <attributes.h> // Added for Bitcoin Core
 #include <iostream>
 #include <sstream>
 #include <stdexcept> // Added for Bitcoin Core
+#include <util/string.h> // Added for Bitcoin Core
 
 #ifndef TINYFORMAT_ASSERT
 #   include <cassert>
@@ -177,6 +179,24 @@ namespace tfm = tinyformat;
 #endif
 
 namespace tinyformat {
+
+// Added for Bitcoin Core. Similar to std::runtime_format from C++26.
+struct RuntimeFormat {
+    const std::string& fmt; // Not a string view, because tinyformat requires a c_str
+    explicit RuntimeFormat(LIFETIMEBOUND const std::string& str) : fmt{str} {}
+};
+
+// Added for Bitcoin Core. Wrapper for checking format strings at compile time.
+// Unlike ConstevalFormatString this supports RunTimeFormat-wrapped std::string
+// for runtime string formatting without compile time checks.
+template <unsigned num_params>
+struct FormatStringCheck {
+    consteval FormatStringCheck(const char* str) : fmt{util::ConstevalFormatString<num_params>{str}.fmt} {}
+    FormatStringCheck(LIFETIMEBOUND const RuntimeFormat& run) : fmt{run.fmt.c_str()} {}
+    FormatStringCheck(util::ConstevalFormatString<num_params> str) : fmt{str.fmt} {}
+    operator const char*() { return fmt; }
+    const char* fmt;
+};
 
 // Added for Bitcoin Core
 class format_error: public std::runtime_error
@@ -507,11 +527,7 @@ namespace detail {
 class FormatArg
 {
     public:
-        FormatArg()
-            : m_value(NULL),
-            m_formatImpl(NULL),
-            m_toIntImpl(NULL)
-        { }
+        FormatArg() = default;
 
         template<typename T>
         explicit FormatArg(const T& value)
@@ -549,10 +565,10 @@ class FormatArg
             return convertToInt<T>::invoke(*static_cast<const T*>(value));
         }
 
-        const void* m_value;
+        const void* m_value{nullptr};
         void (*m_formatImpl)(std::ostream& out, const char* fmtBegin,
-                             const char* fmtEnd, int ntrunc, const void* value);
-        int (*m_toIntImpl)(const void* value);
+                             const char* fmtEnd, int ntrunc, const void* value){nullptr};
+        int (*m_toIntImpl)(const void* value){nullptr};
 };
 
 
@@ -1005,7 +1021,8 @@ class FormatListN : public FormatList
 // Special 0-arg version - MSVC says zero-sized C array in struct is nonstandard
 template<> class FormatListN<0> : public FormatList
 {
-    public: FormatListN() : FormatList(0, 0) {}
+public:
+    FormatListN() : FormatList(nullptr, 0) {}
 };
 
 } // namespace detail
@@ -1059,7 +1076,7 @@ inline void vformat(std::ostream& out, const char* fmt, FormatListRef list)
 
 /// Format list of arguments to the stream according to given format string.
 template<typename... Args>
-void format(std::ostream& out, const char* fmt, const Args&... args)
+void format(std::ostream& out, FormatStringCheck<sizeof...(Args)> fmt, const Args&... args)
 {
     vformat(out, fmt, makeFormatList(args...));
 }
@@ -1067,7 +1084,7 @@ void format(std::ostream& out, const char* fmt, const Args&... args)
 /// Format list of arguments according to the given format string and return
 /// the result as a string.
 template<typename... Args>
-std::string format(const char* fmt, const Args&... args)
+std::string format(FormatStringCheck<sizeof...(Args)> fmt, const Args&... args)
 {
     std::ostringstream oss;
     format(oss, fmt, args...);
@@ -1076,13 +1093,13 @@ std::string format(const char* fmt, const Args&... args)
 
 /// Format list of arguments to std::cout, according to the given format string
 template<typename... Args>
-void printf(const char* fmt, const Args&... args)
+void printf(FormatStringCheck<sizeof...(Args)> fmt, const Args&... args)
 {
     format(std::cout, fmt, args...);
 }
 
 template<typename... Args>
-void printfln(const char* fmt, const Args&... args)
+void printfln(FormatStringCheck<sizeof...(Args)> fmt, const Args&... args)
 {
     format(std::cout, fmt, args...);
     std::cout << '\n';
@@ -1147,15 +1164,6 @@ TINYFORMAT_FOREACH_ARGNUM(TINYFORMAT_MAKE_FORMAT_FUNCS)
 #undef TINYFORMAT_MAKE_FORMAT_FUNCS
 
 #endif
-
-// Added for Bitcoin Core
-template<typename... Args>
-std::string format(const std::string &fmt, const Args&... args)
-{
-    std::ostringstream oss;
-    format(oss, fmt.c_str(), args...);
-    return oss.str();
-}
 
 } // namespace tinyformat
 

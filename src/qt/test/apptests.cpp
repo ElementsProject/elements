@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2021 The Bitcoin Core developers
+// Copyright (c) 2018-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -7,17 +7,13 @@
 #include <assetsdir.h>
 #include <chainparams.h>
 #include <key.h>
+#include <logging.h>
 #include <qt/bitcoin.h>
 #include <qt/bitcoingui.h>
 #include <qt/networkstyle.h>
 #include <qt/rpcconsole.h>
-#include <shutdown.h>
 #include <test/util/setup_common.h>
 #include <validation.h>
-
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h>
-#endif
 
 #include <QAction>
 #include <QLineEdit>
@@ -59,26 +55,21 @@ void TestRpcCommand(RPCConsole* console)
 //! Entry point for BitcoinApplication tests.
 void AppTests::appTests()
 {
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     if (QApplication::platformName() == "minimal") {
         // Disable for mac on "minimal" platform to avoid crashes inside the Qt
         // framework when it tries to look up unimplemented cocoa functions,
         // and fails to handle returned nulls
         // (https://bugreports.qt.io/browse/QTBUG-49686).
-        QWARN("Skipping AppTests on mac build with 'minimal' platform set due to Qt bugs. To run AppTests, invoke "
-              "with 'QT_QPA_PLATFORM=cocoa test_bitcoin-qt' on mac, or else use a linux or windows build.");
+        qWarning() << "Skipping AppTests on mac build with 'minimal' platform set due to Qt bugs. To run AppTests, invoke "
+                      "with 'QT_QPA_PLATFORM=cocoa test_bitcoin-qt' on mac, or else use a linux or windows build.";
         return;
     }
 #endif
-    fs::create_directories([] {
-        BasicTestingSetup test{CBaseChainParams::REGTEST}; // Create a temp data directory to backup the gui settings to
-        return gArgs.GetDataDirNet() / "blocks";
-    }());
-
     qRegisterMetaType<interfaces::BlockAndHeaderTipInfo>("interfaces::BlockAndHeaderTipInfo");
     m_app.parameterSetup();
-    m_app.createOptionsModel(true /* reset settings */);
-    QScopedPointer<const NetworkStyle> style(NetworkStyle::instantiate(Params().NetworkIDString()));
+    QVERIFY(m_app.createOptionsModel(/*resetSettings=*/true));
+    QScopedPointer<const NetworkStyle> style(NetworkStyle::instantiate(Params().GetChainTypeMeta().chain_type));
     m_app.setupPlatformStyle();
     m_app.createWindow(style.data());
     connect(&m_app, &BitcoinApplication::windowShown, this, &AppTests::guiTests);
@@ -92,7 +83,6 @@ void AppTests::appTests()
     // Reset global state to avoid interfering with later tests.
     ClearGlobalAssetDir();
     LogInstance().DisconnectTestLogger();
-    AbortShutdown();
 }
 
 //! Entry point for BitcoinGUI tests.
@@ -120,6 +110,6 @@ AppTests::HandleCallback::~HandleCallback()
     assert(it != callbacks.end());
     callbacks.erase(it);
     if (callbacks.empty()) {
-        m_app_tests.m_app.quit();
+        m_app_tests.m_app.exit(0);
     }
 }

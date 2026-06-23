@@ -28,7 +28,7 @@ static void secp256k1_pedersen_scalar_set_u64(secp256k1_scalar *sec, uint64_t va
         value <<= 8;
     }
     secp256k1_scalar_set_b32(sec, data, NULL);
-    memset(data, 0, 32);
+    secp256k1_memclear_explicit(data, 32);
 }
 
 static void secp256k1_pedersen_ecmult_small(secp256k1_gej *r, uint64_t gn, const secp256k1_ge* genp) {

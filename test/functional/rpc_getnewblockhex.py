@@ -131,4 +131,4 @@ class GetNewBlockHexTest(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    GetNewBlockHexTest().main()
+    GetNewBlockHexTest(__file__).main()

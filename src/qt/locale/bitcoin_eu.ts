@@ -3,7 +3,7 @@
     <name>AddressBookPage</name>
     <message>
         <source>Right-click to edit address or label</source>
-        <translation type="unfinished">Klikatu eskuinarekin helbidea edo etiketa aldatzeko</translation>
+        <translation type="unfinished">Eskuin-klika helbidea edo etiketa aldatzeko</translation>
     </message>
     <message>
         <source>Create a new address</source>
@@ -58,16 +58,14 @@
         <translation type="unfinished">&amp;Aukeratu</translation>
     </message>
     <message>
-        <source>Sending addresses</source>
-        <translation type="unfinished">Helbideak bidaltzen</translation>
-    </message>
-    <message>
-        <source>Receiving addresses</source>
-        <translation type="unfinished">Helbideak jasotzen</translation>
-    </message>
-    <message>
         <source>These are your Bitcoin addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
         <translation type="unfinished">Hauek dira zuk dirua jaso dezaketen Bitcoin helbideak. Egiaztatu beti diru-kopurua eta dirua jasoko duen helbidea zuzen egon daitezen, txanponak bidali baino lehen.</translation>
+    </message>
+    <message>
+        <source>These are your Bitcoin addresses for receiving payments. Use the 'Create new receiving address' button in the receive tab to create new addresses.
+Signing is only possible with addresses of the type 'legacy'.</source>
+        <translation type="unfinished">Hauek dira ordainketak jasotzeko zure Bitcoin helbideak. Jaso taulako 'Jasotzeko helbide berri bat sortu' botoia erabili helbide berri bat sortzeko.
+Sinatzea 'legacy' motako helbideekin soilik da posible</translation>
     </message>
     <message>
         <source>&amp;Copy Address</source>
@@ -86,9 +84,22 @@
         <translation type="unfinished">Helbide lista esportatu</translation>
     </message>
     <message>
+        <source>Comma separated file</source>
+        <extracomment>Expanded name of the CSV file format. See: https://en.wikipedia.org/wiki/Comma-separated_values.</extracomment>
+        <translation type="unfinished">Komaz bereizitako fitxategia</translation>
+    </message>
+    <message>
         <source>There was an error trying to save the address list to %1. Please try again.</source>
         <extracomment>An error message. %1 is a stand-in argument for the name of the file we attempted to save to.</extracomment>
         <translation type="unfinished">Akats bat egon da helbide lista %1-ean gordetzen sahiatzean. Mesedez, saiatu berriro.</translation>
+    </message>
+    <message>
+        <source>Sending addresses - %1</source>
+        <translation type="unfinished">Bidaltzeko helbideak - %1</translation>
+    </message>
+    <message>
+        <source>Receiving addresses - %1</source>
+        <translation type="unfinished">Jasotze helbideak - %1</translation>
     </message>
     <message>
         <source>Exporting Failed</source>
@@ -99,7 +110,7 @@
     <name>AddressTableModel</name>
     <message>
         <source>Label</source>
-        <translation type="unfinished">Izendapen</translation>
+        <translation type="unfinished">Etiketa</translation>
     </message>
     <message>
         <source>Address</source>
@@ -107,7 +118,7 @@
     </message>
     <message>
         <source>(no label)</source>
-        <translation type="unfinished">(izendapenik ez)</translation>
+        <translation type="unfinished">(etiketarik ez)</translation>
     </message>
 </context>
 <context>
@@ -173,6 +184,14 @@
         <translation type="unfinished">Diruzorroaren pasahitz zahar zein berria sartu.</translation>
     </message>
     <message>
+        <source>Continue</source>
+        <translation type="unfinished">Jarraitu</translation>
+    </message>
+    <message>
+        <source>Back</source>
+        <translation type="unfinished">Atzera</translation>
+    </message>
+    <message>
         <source>Remember that encrypting your wallet cannot fully protect your bitcoins from being stolen by malware infecting your computer.</source>
         <translation type="unfinished">Gogoan izan diruzorroaren enkripzioak ezin dituela zure bitcoinak zure ordenagailuan izan dezakezun malware batengandik lapurtuak izatetik guztiz babestu .</translation>
     </message>
@@ -213,8 +232,16 @@
         <translation type="unfinished">Zorroa desenkriptatzeko sartutako pasahitza okerra da.</translation>
     </message>
     <message>
+        <source>The passphrase entered for the wallet decryption is incorrect. It contains a null character (ie - a zero byte). If the passphrase was set with a version of this software prior to 25.0, please try again with only the characters up to — but not including — the first null character. If this is successful, please set a new passphrase to avoid this issue in the future.</source>
+        <translation type="unfinished">Kartera deszifratzeko sartu den pasahitza ez da zuzena. Karaktere nulua du (adib - zero byte). Passphrasak software honen bertsio bat bazuen 25.0 bertsioaren aurretik, mesedez, saia zaitez berriro karaktere hutsekin, lehen karaktere nulua barne hartu gabe. Arrakasta izanez gero, jar ezazu passphrase berri bat etorkizunean hori saihesteko.</translation>
+    </message>
+    <message>
         <source>Wallet passphrase was successfully changed.</source>
         <translation type="unfinished">Diruzorroaren pasahitza arrakastaz aldatu da.</translation>
+    </message>
+    <message>
+        <source>Passphrase change failed</source>
+        <translation type="unfinished">Passphrase aldaketak porrot egin du.</translation>
     </message>
     <message>
         <source>Warning: The Caps Lock key is on!</source>
@@ -233,10 +260,33 @@
     </message>
 </context>
 <context>
+    <name>BitcoinApplication</name>
+    <message>
+        <source>Settings file %1 might be corrupt or invalid.</source>
+        <translation type="unfinished">%1 Konfigurazio fitxategian akatsa edo baliogabea izan daiteke</translation>
+    </message>
+    <message>
+        <source>Runaway exception</source>
+        <translation type="unfinished">Ranaway exception</translation>
+    </message>
+    <message>
+        <source>A fatal error occurred. %1 can no longer continue safely and will quit.</source>
+        <translation type="unfinished">Akats larri bat gertatu zen. %1-ek ezin du segurtasunez jarraitu eta itxi egingo da.</translation>
+    </message>
+    <message>
+        <source>Internal error</source>
+        <translation type="unfinished">Barne errorea</translation>
+    </message>
+    </context>
+<context>
     <name>QObject</name>
     <message>
         <source>Error: %1</source>
         <translation type="unfinished">Akatsa: %1</translation>
+    </message>
+    <message>
+        <source>%1 didn't yet exit safely…</source>
+        <translation type="unfinished">%1 ez da oraindik segurtasunez itxi…</translation>
     </message>
     <message>
         <source>unknown</source>
@@ -245,6 +295,14 @@
     <message>
         <source>Amount</source>
         <translation type="unfinished">Kopurua</translation>
+    </message>
+    <message>
+        <source>%1 d</source>
+        <translation type="unfinished">%1 e</translation>
+    </message>
+    <message>
+        <source>%1 h</source>
+        <translation type="unfinished">%1 o</translation>
     </message>
     <message numerus="yes">
         <source>%n second(s)</source>
@@ -288,14 +346,11 @@
             <numerusform />
         </translation>
     </message>
-    </context>
-<context>
-    <name>bitcoin-core</name>
     <message>
-        <source>Done loading</source>
-        <translation type="unfinished">Zamaketa amaitua</translation>
+        <source>default wallet</source>
+        <translation type="unfinished">Diruzorro lehenetsia</translation>
     </message>
-    </context>
+</context>
 <context>
     <name>BitcoinGUI</name>
     <message>
@@ -347,6 +402,10 @@
         <translation type="unfinished">Diruzorro berri bat sortu</translation>
     </message>
     <message>
+        <source>&amp;Minimize</source>
+        <translation type="unfinished">&amp;Minimizatu</translation>
+    </message>
+    <message>
         <source>Wallet:</source>
         <translation type="unfinished">Diruzorroa:</translation>
     </message>
@@ -380,16 +439,60 @@
         <translation type="unfinished">&amp;Jaso</translation>
     </message>
     <message>
+        <source>&amp;Options…</source>
+        <translation type="unfinished">&amp;Aukerak...</translation>
+    </message>
+    <message>
+        <source>&amp;Encrypt Wallet…</source>
+        <translation type="unfinished">&amp;Diruzorroa enkriptatu...</translation>
+    </message>
+    <message>
         <source>Encrypt the private keys that belong to your wallet</source>
         <translation type="unfinished">Zure diru-zorroari dagozkion giltza pribatuak enkriptatu.</translation>
+    </message>
+    <message>
+        <source>&amp;Backup Wallet…</source>
+        <translation type="unfinished">Diruzorroaren &amp;segurtasun kopia egin...</translation>
+    </message>
+    <message>
+        <source>&amp;Change Passphrase…</source>
+        <translation type="unfinished">&amp;aldatu pasahitza</translation>
+    </message>
+    <message>
+        <source>Sign &amp;message…</source>
+        <translation type="unfinished">sinatu &amp;mezua</translation>
     </message>
     <message>
         <source>Sign messages with your Bitcoin addresses to prove you own them</source>
         <translation type="unfinished">Sinatu mezuak Bitcoinen helbideekin, jabetza frogatzeko.</translation>
     </message>
     <message>
+        <source>&amp;Verify message…</source>
+        <translation type="unfinished">Mezua &amp;balioztatu</translation>
+    </message>
+    <message>
         <source>Verify messages to ensure they were signed with specified Bitcoin addresses</source>
         <translation type="unfinished">Egiaztatu mesua Bitcoin helbide espezifikoarekin erregistratu direla ziurtatzeko</translation>
+    </message>
+    <message>
+        <source>&amp;Load PSBT from file…</source>
+        <translation type="unfinished">&amp;kargatu PSBT fitxategitik...</translation>
+    </message>
+    <message>
+        <source>Open &amp;URI…</source>
+        <translation type="unfinished">Ireki&amp;URI...</translation>
+    </message>
+    <message>
+        <source>Close Wallet…</source>
+        <translation type="unfinished">Diruzorroa itxi...</translation>
+    </message>
+    <message>
+        <source>Create Wallet…</source>
+        <translation type="unfinished">Diruzorroa sortu...</translation>
+    </message>
+    <message>
+        <source>Close All Wallets…</source>
+        <translation type="unfinished">Diru-zorro guztiak itxi...</translation>
     </message>
     <message>
         <source>&amp;File</source>
@@ -406,6 +509,26 @@
     <message>
         <source>Tabs toolbar</source>
         <translation type="unfinished">Fitxen tresna-barra</translation>
+    </message>
+    <message>
+        <source>Syncing Headers (%1%)…</source>
+        <translation type="unfinished">Burukoak sinkronizatzen (%1%)...</translation>
+    </message>
+    <message>
+        <source>Synchronizing with network…</source>
+        <translation type="unfinished">Sarearekin sinkronizatzen...</translation>
+    </message>
+    <message>
+        <source>Indexing blocks on disk…</source>
+        <translation type="unfinished">Diskoko blokeak indexatzen...</translation>
+    </message>
+    <message>
+        <source>Processing blocks on disk…</source>
+        <translation type="unfinished">Diskoko blokeak prozesatzen...</translation>
+    </message>
+    <message>
+        <source>Connecting to peers…</source>
+        <translation type="unfinished">Pareekin konektatzen...</translation>
     </message>
     <message>
         <source>Show the list of used sending addresses and labels</source>
@@ -429,6 +552,10 @@
     <message>
         <source>%1 behind</source>
         <translation type="unfinished">%1 atzetik</translation>
+    </message>
+    <message>
+        <source>Catching up…</source>
+        <translation type="unfinished">Harrapatzen...</translation>
     </message>
     <message>
         <source>Last received block was generated %1 ago.</source>
@@ -457,6 +584,10 @@
     <message>
         <source>Load Partially Signed Bitcoin Transaction</source>
         <translation type="unfinished">Partzialki sinatutako Bitcoin transakzioa kargatu</translation>
+    </message>
+    <message>
+        <source>Load PSBT from &amp;clipboard…</source>
+        <translation type="unfinished">kargatu PSBT arbeletik...</translation>
     </message>
     <message>
         <source>Load Partially Signed Bitcoin Transaction from clipboard</source>
@@ -491,16 +622,27 @@
         <translation type="unfinished">Diruzorroa itxi</translation>
     </message>
     <message>
+        <source>Restore Wallet…</source>
+        <extracomment>Name of the menu item that restores wallet from a backup file.</extracomment>
+        <translation type="unfinished">Diru-zorroa berrezarri...</translation>
+    </message>
+    <message>
+        <source>Restore a wallet from a backup file</source>
+        <extracomment>Status tip for Restore Wallet menu item</extracomment>
+        <translation type="unfinished">Berrezarri diru-zorro bat babeskopia artxibo batetik.</translation>
+    </message>
+    <message>
         <source>Close all wallets</source>
         <translation type="unfinished">Diruzorro guztiak itxi</translation>
     </message>
     <message>
-        <source>default wallet</source>
-        <translation type="unfinished">Diruzorro lehenetsia</translation>
-    </message>
-    <message>
         <source>No wallets available</source>
         <translation type="unfinished">Ez dago diru-zorrorik eskura</translation>
+    </message>
+    <message>
+        <source>Wallet Name</source>
+        <extracomment>Label of the input field where the name of the wallet is entered.</extracomment>
+        <translation type="unfinished">Diruzorroaren izena</translation>
     </message>
     <message>
         <source>&amp;Window</source>
@@ -518,6 +660,14 @@
         <source>%1 client</source>
         <translation type="unfinished">%1 bezeroa</translation>
     </message>
+    <message>
+        <source>&amp;Hide</source>
+        <translation type="unfinished">&amp;Ezkutatu</translation>
+    </message>
+    <message>
+        <source>S&amp;how</source>
+        <translation type="unfinished">E&amp;rakutsi</translation>
+    </message>
     <message numerus="yes">
         <source>%n active connection(s) to Bitcoin network.</source>
         <extracomment>A substring of the tooltip.</extracomment>
@@ -525,6 +675,16 @@
             <numerusform />
             <numerusform />
         </translation>
+    </message>
+    <message>
+        <source>Click for more actions.</source>
+        <extracomment>A substring of the tooltip. "More actions" are available via the context menu.</extracomment>
+        <translation type="unfinished">Klikatu ekintza gehiago egiteko</translation>
+    </message>
+    <message>
+        <source>Show Peers tab</source>
+        <extracomment>A context menu item. The "Peers tab" is an element of the "Node window".</extracomment>
+        <translation type="unfinished">Erakutxi kideen fitxa</translation>
     </message>
     <message>
         <source>Error: %1</source>
@@ -626,10 +786,6 @@
         <translation type="unfinished">Ordainketa:</translation>
     </message>
     <message>
-        <source>Dust:</source>
-        <translation type="unfinished">Hautsa:</translation>
-    </message>
-    <message>
         <source>After Fee:</source>
         <translation type="unfinished">Ordaindu ondoren:</translation>
     </message>
@@ -674,16 +830,24 @@
         <translation type="unfinished">zenbatekoaren kopia</translation>
     </message>
     <message>
+        <source>Copy &amp;label</source>
+        <translation type="unfinished">Kopiatu &amp;Etiketa</translation>
+    </message>
+    <message>
         <source>Copy quantity</source>
         <translation type="unfinished">Kopia kopurua</translation>
     </message>
     <message>
-        <source>Copy bytes</source>
-        <translation type="unfinished">Kopiatu byte-ak</translation>
+        <source>Copy fee</source>
+        <translation type="unfinished">Kopiatu kuota</translation>
     </message>
     <message>
-        <source>Copy dust</source>
-        <translation type="unfinished">Kopiatu hautsa</translation>
+        <source>Copy after fee</source>
+        <translation type="unfinished">Kopia kuotaren ondoren</translation>
+    </message>
+    <message>
+        <source>Copy bytes</source>
+        <translation type="unfinished">Kopiatu byte-ak</translation>
     </message>
     <message>
         <source>Copy change</source>
@@ -692,14 +856,6 @@
     <message>
         <source>(%1 locked)</source>
         <translation type="unfinished">(%1 blokeatuta)</translation>
-    </message>
-    <message>
-        <source>yes</source>
-        <translation type="unfinished">bai</translation>
-    </message>
-    <message>
-        <source>no</source>
-        <translation type="unfinished">ez</translation>
     </message>
     <message>
         <source>(no label)</source>
@@ -718,6 +874,11 @@
         <translation type="unfinished">Diruzorroa sortu</translation>
     </message>
     <message>
+        <source>Creating Wallet &lt;b&gt;%1&lt;/b&gt;…</source>
+        <extracomment>Descriptive text of the create wallet progress window which indicates to the user which wallet is currently being created.</extracomment>
+        <translation type="unfinished">Diru-zorroa sortzen&lt;b&gt;%1&lt;/b&gt;...</translation>
+    </message>
+    <message>
         <source>Create wallet failed</source>
         <translation type="unfinished">Diruzorroa sortzen hutsegitea</translation>
     </message>
@@ -725,7 +886,24 @@
         <source>Create wallet warning</source>
         <translation type="unfinished">Diru-zorroa sortzearen buruzko oharra</translation>
     </message>
+    <message>
+        <source>Can't list signers</source>
+        <translation type="unfinished">Ezin dira sinatzaileak zerrendatu</translation>
+    </message>
     </context>
+<context>
+    <name>LoadWalletsActivity</name>
+    <message>
+        <source>Load Wallets</source>
+        <extracomment>Title of progress window which is displayed when wallets are being loaded.</extracomment>
+        <translation type="unfinished">Kargatu diruzorroak</translation>
+    </message>
+    <message>
+        <source>Loading wallets…</source>
+        <extracomment>Descriptive text of the load wallets progress window which indicates to the user that wallets are currently being loaded.</extracomment>
+        <translation type="unfinished">Diruzorroak kargatzen...</translation>
+    </message>
+</context>
 <context>
     <name>OpenWalletActivity</name>
     <message>
@@ -737,15 +915,16 @@
         <translation type="unfinished">Diruzorroa irekitzen abisua</translation>
     </message>
     <message>
-        <source>default wallet</source>
-        <translation type="unfinished">Diruzorro lehenetsia</translation>
-    </message>
-    <message>
         <source>Open Wallet</source>
         <extracomment>Title of window indicating the progress of opening of a wallet.</extracomment>
         <translation type="unfinished">Diruzorroa zabaldu</translation>
     </message>
-    </context>
+    <message>
+        <source>Opening Wallet &lt;b&gt;%1&lt;/b&gt;…</source>
+        <extracomment>Descriptive text of the open wallet progress window which indicates to the user which wallet is currently being opened.</extracomment>
+        <translation type="unfinished">&lt;b&gt;%1&lt;/b&gt; diruzorroa irekitzen ...</translation>
+    </message>
+</context>
 <context>
     <name>WalletController</name>
     <message>
@@ -756,7 +935,11 @@
         <source>Close all wallets</source>
         <translation type="unfinished">Diruzorro guztiak itxi</translation>
     </message>
-    </context>
+    <message>
+        <source>Are you sure you wish to close all wallets?</source>
+        <translation type="unfinished">Ziur diruzorro guztiak itxi nahi dituzula?</translation>
+    </message>
+</context>
 <context>
     <name>CreateWalletDialog</name>
     <message>
@@ -784,8 +967,12 @@
         <translation type="unfinished">Desgaitu gako pribatuak</translation>
     </message>
     <message>
-        <source>Descriptor Wallet</source>
-        <translation type="unfinished">Deskriptorearen zorroa</translation>
+        <source>Make Blank Wallet</source>
+        <translation type="unfinished">Egin diruzorro hutsa...</translation>
+    </message>
+    <message>
+        <source>External signer</source>
+        <translation type="unfinished">Kanpo sinatzailea</translation>
     </message>
     <message>
         <source>Create</source>
@@ -830,12 +1017,45 @@
 <context>
     <name>FreespaceChecker</name>
     <message>
+        <source>A new data directory will be created.</source>
+        <translation type="unfinished">Datu direktorio berria sortuko da.</translation>
+    </message>
+    <message>
         <source>name</source>
         <translation type="unfinished">izena</translation>
     </message>
-    </context>
+    <message>
+        <source>Path already exists, and is not a directory.</source>
+        <translation type="unfinished">Bidea existitzen da, eta ez da direktorioa.</translation>
+    </message>
+    <message>
+        <source>Cannot create data directory here.</source>
+        <translation type="unfinished">Ezin da datu direktoria hemen sortu.</translation>
+    </message>
+</context>
 <context>
     <name>Intro</name>
+    <message numerus="yes">
+        <source>%n GB of space available</source>
+        <translation type="unfinished">
+            <numerusform />
+            <numerusform />
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>(of %n GB needed)</source>
+        <translation type="unfinished">
+            <numerusform />
+            <numerusform />
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>(%n GB needed for full chain)</source>
+        <translation type="unfinished">
+            <numerusform />
+            <numerusform />
+        </translation>
+    </message>
     <message numerus="yes">
         <source>(sufficient to restore backups %n day(s) old)</source>
         <extracomment>Explanatory text on the capability of the current prune target.</extracomment>
@@ -856,7 +1076,19 @@
         <source>Welcome to %1.</source>
         <translation type="unfinished">Ongietorri %1-ra</translation>
     </message>
-    </context>
+    <message>
+        <source> GB</source>
+        <translation type="unfinished">GB</translation>
+    </message>
+    <message>
+        <source>Use the default data directory</source>
+        <translation type="unfinished">Erabili datu direktorio lehenetsia</translation>
+    </message>
+    <message>
+        <source>Use a custom data directory:</source>
+        <translation type="unfinished">Erabili datu direktorio pertsonalizatu bat:</translation>
+    </message>
+</context>
 <context>
     <name>HelpMessageDialog</name>
     <message>
@@ -873,6 +1105,13 @@
     </message>
 </context>
 <context>
+    <name>ShutdownWindow</name>
+    <message>
+        <source>%1 is shutting down…</source>
+        <translation type="unfinished">%1Itzaltzen ari da...</translation>
+    </message>
+    </context>
+<context>
     <name>ModalOverlay</name>
     <message>
         <source>Form</source>
@@ -883,12 +1122,24 @@
         <translation type="unfinished">Gainerako blokeen kopurua.</translation>
     </message>
     <message>
+        <source>Unknown…</source>
+        <translation type="unfinished">Ezezaguna...</translation>
+    </message>
+    <message>
+        <source>calculating…</source>
+        <translation type="unfinished">kalkulatzen...</translation>
+    </message>
+    <message>
         <source>Last block time</source>
         <translation type="unfinished">Azken blokearen unea</translation>
     </message>
     <message>
         <source>Progress</source>
         <translation type="unfinished">Aurrerapena</translation>
+    </message>
+    <message>
+        <source>Progress increase per hour</source>
+        <translation type="unfinished">Aurrerapenaren igoera orduko</translation>
     </message>
     <message>
         <source>Hide</source>
@@ -954,10 +1205,6 @@
         <translation type="unfinished">Diruaren &amp;kontrolaren ezaugarriak gaitu</translation>
     </message>
     <message>
-        <source>Map port using &amp;UPnP</source>
-        <translation type="unfinished">Portua mapeatu &amp;UPnP erabiliz</translation>
-    </message>
-    <message>
         <source>Accept connections from outside.</source>
         <translation type="unfinished">Kanpoko konexioak onartu</translation>
     </message>
@@ -1011,16 +1258,22 @@
     </message>
     <message>
         <source>Confirm options reset</source>
+        <extracomment>Window title text of pop-up window shown when the user has chosen to reset options.</extracomment>
         <translation type="unfinished">Berretsi aukeren berrezarpena</translation>
     </message>
     <message>
         <source>Client restart required to activate changes.</source>
+        <extracomment>Text explaining that the settings changed will not come into effect until the client is restarted.</extracomment>
         <translation type="unfinished">Bezeroa berrabiarazi behar da aldaketak aktibatzeko.</translation>
     </message>
     <message>
         <source>Configuration options</source>
         <extracomment>Window title text of pop-up box that allows opening up of configuration file.</extracomment>
         <translation type="unfinished">Konfiguraketa aukerak</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation type="unfinished">Jarraitu</translation>
     </message>
     <message>
         <source>Error</source>
@@ -1054,21 +1307,69 @@
         <translation type="unfinished">Ez dago eskuragarri:</translation>
     </message>
     <message>
+        <source>Balances</source>
+        <translation type="unfinished">Saldoa</translation>
+    </message>
+    <message>
         <source>Total:</source>
         <translation type="unfinished">Guztira:</translation>
+    </message>
+    <message>
+        <source>Your current total balance</source>
+        <translation type="unfinished">Zure oraingo erabateko saldoa</translation>
+    </message>
+    <message>
+        <source>Spendable:</source>
+        <translation type="unfinished">Gastagarria:</translation>
+    </message>
+    <message>
+        <source>Recent transactions</source>
+        <translation type="unfinished">Transakzio berriak</translation>
     </message>
     </context>
 <context>
     <name>PSBTOperationsDialog</name>
     <message>
+        <source>Sign Tx</source>
+        <translation type="unfinished">Sinatu Tx</translation>
+    </message>
+    <message>
         <source>Copy to Clipboard</source>
         <translation type="unfinished">Kopiatu arbelera</translation>
+    </message>
+    <message>
+        <source>Save…</source>
+        <translation type="unfinished">Gorde...</translation>
     </message>
     <message>
         <source>Close</source>
         <translation type="unfinished">Itxi</translation>
     </message>
-    </context>
+    <message>
+        <source>Save Transaction Data</source>
+        <translation type="unfinished">Gorde transakzioko data</translation>
+    </message>
+    <message>
+        <source>PSBT saved to disk.</source>
+        <translation type="unfinished">PSBT diskoan gorde da.</translation>
+    </message>
+    <message>
+        <source>own address</source>
+        <translation type="unfinished">zure helbidea</translation>
+    </message>
+    <message>
+        <source>Total Amount</source>
+        <translation type="unfinished">Kopuru osoa</translation>
+    </message>
+    <message>
+        <source>or</source>
+        <translation type="unfinished">edo</translation>
+    </message>
+    <message>
+        <source>Transaction status is unknown.</source>
+        <translation type="unfinished">Transakzioaren egoera ezezaguna da.</translation>
+    </message>
+</context>
 <context>
     <name>PaymentServer</name>
     <message>
@@ -1084,6 +1385,21 @@
         <translation type="unfinished">Erabiltzaile agentea</translation>
     </message>
     <message>
+        <source>Peer</source>
+        <extracomment>Title of Peers Table column which contains a unique number used to identify a connection.</extracomment>
+        <translation type="unfinished">Kidea</translation>
+    </message>
+    <message>
+        <source>Sent</source>
+        <extracomment>Title of Peers Table column which indicates the total amount of network information we have sent to the peer.</extracomment>
+        <translation type="unfinished">Bidalia</translation>
+    </message>
+    <message>
+        <source>Received</source>
+        <extracomment>Title of Peers Table column which indicates the total amount of network information we have received from the peer.</extracomment>
+        <translation type="unfinished">Jasoa</translation>
+    </message>
+    <message>
         <source>Address</source>
         <extracomment>Title of Peers Table column which contains the IP/Onion/I2P address of the connected peer.</extracomment>
         <translation type="unfinished">Helbidea</translation>
@@ -1093,9 +1409,102 @@
         <extracomment>Title of Peers Table column which describes the type of peer connection. The "type" describes why the connection exists.</extracomment>
         <translation type="unfinished">Mota</translation>
     </message>
+    <message>
+        <source>Network</source>
+        <extracomment>Title of Peers Table column which states the network the peer connected through.</extracomment>
+        <translation type="unfinished">Sarea</translation>
+    </message>
     </context>
 <context>
+    <name>QRImageWidget</name>
+    <message>
+        <source>&amp;Save Image…</source>
+        <translation type="unfinished">&amp;Gorde irudia...</translation>
+    </message>
+    <message>
+        <source>&amp;Copy Image</source>
+        <translation type="unfinished">&amp;kopiatu irudia</translation>
+    </message>
+    <message>
+        <source>Save QR Code</source>
+        <translation type="unfinished">Gorde QR kodea</translation>
+    </message>
+    <message>
+        <source>PNG Image</source>
+        <extracomment>Expanded name of the PNG file format. See: https://en.wikipedia.org/wiki/Portable_Network_Graphics.</extracomment>
+        <translation type="unfinished">PNG irudia</translation>
+    </message>
+</context>
+<context>
     <name>RPCConsole</name>
+    <message>
+        <source>Client version</source>
+        <translation type="unfinished">Bezeroaren bertsioa</translation>
+    </message>
+    <message>
+        <source>&amp;Information</source>
+        <translation type="unfinished">&amp;Informazioa</translation>
+    </message>
+    <message>
+        <source>General</source>
+        <translation type="unfinished">Orokorra</translation>
+    </message>
+    <message>
+        <source>Datadir</source>
+        <translation type="unfinished">Datu direktorioa</translation>
+    </message>
+    <message>
+        <source>Blocksdir</source>
+        <translation type="unfinished">Blokeen direktorioa</translation>
+    </message>
+    <message>
+        <source>Startup time</source>
+        <translation type="unfinished">Abiatzeko ordua</translation>
+    </message>
+    <message>
+        <source>Network</source>
+        <translation type="unfinished">Sarea</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation type="unfinished">Izena</translation>
+    </message>
+    <message>
+        <source>Number of connections</source>
+        <translation type="unfinished">Konexio kopurua</translation>
+    </message>
+    <message>
+        <source>Wallet: </source>
+        <translation type="unfinished">Diruzorroa:</translation>
+    </message>
+    <message>
+        <source>(none)</source>
+        <translation type="unfinished">(bat ere ez)</translation>
+    </message>
+    <message>
+        <source>&amp;Reset</source>
+        <translation type="unfinished">&amp;Berrezarri</translation>
+    </message>
+    <message>
+        <source>Received</source>
+        <translation type="unfinished">Jasoa</translation>
+    </message>
+    <message>
+        <source>Sent</source>
+        <translation type="unfinished">Bidalia</translation>
+    </message>
+    <message>
+        <source>&amp;Peers</source>
+        <translation type="unfinished">&amp;Kideak</translation>
+    </message>
+    <message>
+        <source>Banned peers</source>
+        <translation type="unfinished">Debekatutako kideak</translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation type="unfinished">Bertsioa</translation>
+    </message>
     <message>
         <source>User Agent</source>
         <translation type="unfinished">Erabiltzaile agentea</translation>
@@ -1105,8 +1514,37 @@
         <translation type="unfinished">Adabegiaren leihoa</translation>
     </message>
     <message>
+        <source>Permissions</source>
+        <translation type="unfinished">Baimenak</translation>
+    </message>
+    <message>
+        <source>Services</source>
+        <translation type="unfinished">Zerbitzuak</translation>
+    </message>
+    <message>
         <source>Last block time</source>
         <translation type="unfinished">Azken blokearen unea</translation>
+    </message>
+    <message>
+        <source>Clear console</source>
+        <translation type="unfinished">Garbitu kontsola</translation>
+    </message>
+    <message>
+        <source>&amp;Disconnect</source>
+        <translation type="unfinished">&amp;Deskonektatu</translation>
+    </message>
+    <message>
+        <source>Executing…</source>
+        <extracomment>A console message indicating an entered command is currently being executed.</extracomment>
+        <translation type="unfinished">Exekutatzen...</translation>
+    </message>
+    <message>
+        <source>Yes</source>
+        <translation type="unfinished">Bai</translation>
+    </message>
+    <message>
+        <source>No</source>
+        <translation type="unfinished">Ez</translation>
     </message>
     <message>
         <source>To</source>
@@ -1116,7 +1554,15 @@
         <source>From</source>
         <translation type="unfinished">Tik</translation>
     </message>
-    </context>
+    <message>
+        <source>Never</source>
+        <translation type="unfinished">Inoiz ez</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation type="unfinished">Ezezaguna</translation>
+    </message>
+</context>
 <context>
     <name>ReceiveCoinsDialog</name>
     <message>
@@ -1132,6 +1578,30 @@
         <translation type="unfinished">&amp;Mezua:</translation>
     </message>
     <message>
+        <source>Clear all fields of the form.</source>
+        <translation type="unfinished">Garbitu formularioko eremu guztiak.</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation type="unfinished">Garbitu</translation>
+    </message>
+    <message>
+        <source>Show</source>
+        <translation type="unfinished">Erakutsi</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation type="unfinished">Ezabatu</translation>
+    </message>
+    <message>
+        <source>Copy &amp;URI</source>
+        <translation type="unfinished">Kopiatu &amp;URI</translation>
+    </message>
+    <message>
+        <source>Copy &amp;label</source>
+        <translation type="unfinished">Kopiatu &amp;Etiketa</translation>
+    </message>
+    <message>
         <source>Could not unlock wallet.</source>
         <translation type="unfinished">Ezin da diruzorroa desblokeatu.</translation>
     </message>
@@ -1139,8 +1609,16 @@
 <context>
     <name>ReceiveRequestDialog</name>
     <message>
+        <source>Address:</source>
+        <translation type="unfinished">Helbidea:</translation>
+    </message>
+    <message>
         <source>Amount:</source>
         <translation type="unfinished">Kopurua:</translation>
+    </message>
+    <message>
+        <source>Label:</source>
+        <translation type="unfinished">Etiketa:</translation>
     </message>
     <message>
         <source>Message:</source>
@@ -1151,8 +1629,24 @@
         <translation type="unfinished">Diruzorroa:</translation>
     </message>
     <message>
+        <source>Copy &amp;URI</source>
+        <translation type="unfinished">Kopiatu &amp;URI</translation>
+    </message>
+    <message>
         <source>Copy &amp;Address</source>
         <translation type="unfinished">&amp;Helbidea kopiatu</translation>
+    </message>
+    <message>
+        <source>&amp;Verify</source>
+        <translation type="unfinished">&amp;Egiaztatu</translation>
+    </message>
+    <message>
+        <source>&amp;Save Image…</source>
+        <translation type="unfinished">&amp;Gorde irudia...</translation>
+    </message>
+    <message>
+        <source>Payment information</source>
+        <translation type="unfinished">Ordainketaren informazioa</translation>
     </message>
     </context>
 <context>
@@ -1173,12 +1667,24 @@
         <source>(no label)</source>
         <translation type="unfinished">(izendapenik ez)</translation>
     </message>
-    </context>
+    <message>
+        <source>(no message)</source>
+        <translation type="unfinished">(mezurik ez)</translation>
+    </message>
+    <message>
+        <source>Requested</source>
+        <translation type="unfinished">Eskatua</translation>
+    </message>
+</context>
 <context>
     <name>SendCoinsDialog</name>
     <message>
         <source>Send Coins</source>
         <translation type="unfinished">Txanponak bidali</translation>
+    </message>
+    <message>
+        <source>automatically selected</source>
+        <translation type="unfinished">automatikoki aukeratua</translation>
     </message>
     <message>
         <source>Quantity:</source>
@@ -1205,16 +1711,36 @@
         <translation type="unfinished">Bueltak:</translation>
     </message>
     <message>
+        <source>Transaction Fee:</source>
+        <translation type="unfinished">Transakzio kuota:</translation>
+    </message>
+    <message>
+        <source>per kilobyte</source>
+        <translation type="unfinished">Kilobyteko</translation>
+    </message>
+    <message>
         <source>Hide</source>
         <translation type="unfinished">Izkutatu</translation>
+    </message>
+    <message>
+        <source>Recommended:</source>
+        <translation type="unfinished">Gomendatutakoa:</translation>
+    </message>
+    <message>
+        <source>Custom:</source>
+        <translation type="unfinished">Neurrira:</translation>
     </message>
     <message>
         <source>Send to multiple recipients at once</source>
         <translation type="unfinished">Hainbat jasotzaileri batera bidali</translation>
     </message>
     <message>
-        <source>Dust:</source>
-        <translation type="unfinished">Hautsa:</translation>
+        <source>Clear all fields of the form.</source>
+        <translation type="unfinished">Garbitu formularioko eremu guztiak.</translation>
+    </message>
+    <message>
+        <source>Choose…</source>
+        <translation type="unfinished">Aukeratu...</translation>
     </message>
     <message>
         <source>Balance:</source>
@@ -1225,6 +1751,10 @@
         <translation type="unfinished">Bidalketa berretsi</translation>
     </message>
     <message>
+        <source>S&amp;end</source>
+        <translation type="unfinished">Bidali</translation>
+    </message>
+    <message>
         <source>Copy quantity</source>
         <translation type="unfinished">Kopia kopurua</translation>
     </message>
@@ -1233,16 +1763,64 @@
         <translation type="unfinished">zenbatekoaren kopia</translation>
     </message>
     <message>
+        <source>Copy fee</source>
+        <translation type="unfinished">Kopiatu kuota</translation>
+    </message>
+    <message>
+        <source>Copy after fee</source>
+        <translation type="unfinished">Kopia kuotaren ondoren</translation>
+    </message>
+    <message>
         <source>Copy bytes</source>
         <translation type="unfinished">Kopiatu byte-ak</translation>
     </message>
     <message>
-        <source>Copy dust</source>
-        <translation type="unfinished">Kopiatu hautsa</translation>
-    </message>
-    <message>
         <source>Copy change</source>
         <translation type="unfinished">Kopiatu aldaketa</translation>
+    </message>
+    <message>
+        <source>Sign on device</source>
+        <extracomment>"device" usually means a hardware wallet.</extracomment>
+        <translation type="unfinished">Sinatu gailuan</translation>
+    </message>
+    <message>
+        <source>Connect your hardware wallet first.</source>
+        <translation type="unfinished">Konektatu zure hardware diruzorroa lehenago.</translation>
+    </message>
+    <message>
+        <source>Sign failed</source>
+        <translation type="unfinished">Sinadurak hutsegitea</translation>
+    </message>
+    <message>
+        <source>External signer not found</source>
+        <extracomment>"External signer" means using devices such as hardware wallets.</extracomment>
+        <translation type="unfinished">Kanpo sinatzailea ez da aurkitu</translation>
+    </message>
+    <message>
+        <source>External signer failure</source>
+        <extracomment>"External signer" means using devices such as hardware wallets.</extracomment>
+        <translation type="unfinished">Kanpo sinatzailearen hutsegitea</translation>
+    </message>
+    <message>
+        <source>Save Transaction Data</source>
+        <translation type="unfinished">Gorde transakzioko data</translation>
+    </message>
+    <message>
+        <source>PSBT saved</source>
+        <extracomment>Popup message when a PSBT has been saved to a file</extracomment>
+        <translation type="unfinished">PSBT gordeta</translation>
+    </message>
+    <message>
+        <source>External balance:</source>
+        <translation type="unfinished">Kanpo saldoa:</translation>
+    </message>
+    <message>
+        <source>or</source>
+        <translation type="unfinished">edo</translation>
+    </message>
+    <message>
+        <source>Total Amount</source>
+        <translation type="unfinished">Kopuru osoa</translation>
     </message>
     <message>
         <source>Confirm send coins</source>
@@ -1279,6 +1857,10 @@
         <translation type="unfinished">&amp;Etiketa:</translation>
     </message>
     <message>
+        <source>Choose previously used address</source>
+        <translation type="unfinished">Aukeratu lehenago aukeraturiko helbidea</translation>
+    </message>
+    <message>
         <source>Paste address from clipboard</source>
         <translation type="unfinished">Arbeletik helbidea itsatsi</translation>
     </message>
@@ -1286,16 +1868,36 @@
         <source>Message:</source>
         <translation type="unfinished">Mezua:</translation>
     </message>
-    <message>
-        <source>Pay To:</source>
-        <translation type="unfinished">Honi ordaindu:</translation>
-    </message>
     </context>
 <context>
     <name>SignVerifyMessageDialog</name>
     <message>
+        <source>Choose previously used address</source>
+        <translation type="unfinished">Aukeratu lehenago aukeraturiko helbidea</translation>
+    </message>
+    <message>
         <source>Paste address from clipboard</source>
         <translation type="unfinished">Arbeletik helbidea itsatsi</translation>
+    </message>
+    <message>
+        <source>Enter the message you want to sign here</source>
+        <translation type="unfinished">Sartu sinatu nahi duzun mezua hemen</translation>
+    </message>
+    <message>
+        <source>Signature</source>
+        <translation type="unfinished">Sinadura</translation>
+    </message>
+    <message>
+        <source>Copy the current signature to the system clipboard</source>
+        <translation type="unfinished">Kopiatu oraingo sinadura sistemaren arbelera</translation>
+    </message>
+    <message>
+        <source>Sign &amp;Message</source>
+        <translation type="unfinished">Sinatu &amp;Mezua</translation>
+    </message>
+    <message>
+        <source>&amp;Verify Message</source>
+        <translation type="unfinished">&amp;Egiaztatu mezua</translation>
     </message>
     <message>
         <source>No error</source>
@@ -1313,19 +1915,30 @@
         <source>Please check the signature and try again.</source>
         <translation type="unfinished">Mesedez, begiratu sinadura eta saiatu berriro.</translation>
     </message>
-    </context>
+    <message>
+        <source>Message verification failed.</source>
+        <translation type="unfinished">Mezuen egiaztatzeak huts egin du</translation>
+    </message>
+    <message>
+        <source>Message verified.</source>
+        <translation type="unfinished">Mezua egiaztatua.</translation>
+    </message>
+</context>
 <context>
     <name>TransactionDesc</name>
     <message>
         <source>abandoned</source>
+        <extracomment>Text explaining the current status of a transaction, shown in the status field of the details window for this transaction. This status represents an abandoned transaction.</extracomment>
         <translation type="unfinished">abandonatuta</translation>
     </message>
     <message>
         <source>%1/unconfirmed</source>
+        <extracomment>Text explaining the current status of a transaction, shown in the status field of the details window for this transaction. This status represents a transaction confirmed in at least one block, but less than 6 blocks.</extracomment>
         <translation type="unfinished">%1/konfirmatu gabe</translation>
     </message>
     <message>
         <source>%1 confirmations</source>
+        <extracomment>Text explaining the current status of a transaction, shown in the status field of the details window for this transaction. This status represents a transaction confirmed in 6 or more blocks.</extracomment>
         <translation type="unfinished">%1 konfirmazio</translation>
     </message>
     <message>
@@ -1407,7 +2020,15 @@
         <source>Amount</source>
         <translation type="unfinished">Kopurua</translation>
     </message>
-    </context>
+    <message>
+        <source>true</source>
+        <translation type="unfinished">egia</translation>
+    </message>
+    <message>
+        <source>false</source>
+        <translation type="unfinished">faltsua</translation>
+    </message>
+</context>
 <context>
     <name>TransactionDescDialog</name>
     <message>
@@ -1430,6 +2051,10 @@
         <translation type="unfinished">Izendapen</translation>
     </message>
     <message>
+        <source>Unconfirmed</source>
+        <translation type="unfinished">Baieztatu gabea</translation>
+    </message>
+    <message>
         <source>Confirmed (%1 confirmations)</source>
         <translation type="unfinished">Konfirmatuta (%1 konfirmazio)</translation>
     </message>
@@ -1444,10 +2069,6 @@
     <message>
         <source>Sent to</source>
         <translation type="unfinished">Hona bidalia</translation>
-    </message>
-    <message>
-        <source>Payment to yourself</source>
-        <translation type="unfinished">Zure buruarentzat ordainketa</translation>
     </message>
     <message>
         <source>Mined</source>
@@ -1513,10 +2134,6 @@
         <translation type="unfinished">Hona bidalia</translation>
     </message>
     <message>
-        <source>To yourself</source>
-        <translation type="unfinished">Zeure buruari</translation>
-    </message>
-    <message>
         <source>Mined</source>
         <translation type="unfinished">Meatua</translation>
     </message>
@@ -1527,6 +2144,15 @@
     <message>
         <source>Min amount</source>
         <translation type="unfinished">Kopuru minimoa</translation>
+    </message>
+    <message>
+        <source>Copy &amp;label</source>
+        <translation type="unfinished">Kopiatu &amp;Etiketa</translation>
+    </message>
+    <message>
+        <source>Comma separated file</source>
+        <extracomment>Expanded name of the CSV file format. See: https://en.wikipedia.org/wiki/Comma-separated_values.</extracomment>
+        <translation type="unfinished">Komaz bereizitako fitxategia</translation>
     </message>
     <message>
         <source>Confirmed</source>
@@ -1571,10 +2197,18 @@
         <translation type="unfinished">Txanponak bidali</translation>
     </message>
     <message>
-        <source>default wallet</source>
-        <translation type="unfinished">Diruzorro lehenetsia</translation>
+        <source>Current fee:</source>
+        <translation type="unfinished">Oraingo kuota:</translation>
     </message>
-</context>
+    <message>
+        <source>New fee:</source>
+        <translation type="unfinished">Kuota berria:</translation>
+    </message>
+    <message>
+        <source>PSBT copied</source>
+        <translation type="unfinished">PSBT kopiatua</translation>
+    </message>
+    </context>
 <context>
     <name>WalletView</name>
     <message>
@@ -1584,6 +2218,77 @@
     <message>
         <source>Export the data in the current tab to a file</source>
         <translation type="unfinished">Uneko fitxategian datuak esportatu</translation>
+    </message>
+    </context>
+<context>
+    <name>bitcoin-core</name>
+    <message>
+        <source>Done loading</source>
+        <translation type="unfinished">Zamaketa amaitua</translation>
+    </message>
+    <message>
+        <source>Importing…</source>
+        <translation type="unfinished">Inportatzen...</translation>
+    </message>
+    <message>
+        <source>Loading wallet…</source>
+        <translation type="unfinished">Diruzorroa kargatzen...</translation>
+    </message>
+    <message>
+        <source>Missing amount</source>
+        <translation type="unfinished">Zenbatekoa falta da</translation>
+    </message>
+    <message>
+        <source>No addresses available</source>
+        <translation type="unfinished">Ez dago helbiderik eskuragarri</translation>
+    </message>
+    <message>
+        <source>Replaying blocks…</source>
+        <translation type="unfinished">Blokeak errepikatzen...</translation>
+    </message>
+    <message>
+        <source>Rescanning…</source>
+        <translation type="unfinished">Bereskaneatzen...</translation>
+    </message>
+    <message>
+        <source>Starting network threads…</source>
+        <translation type="unfinished">Sareko hariak abiarazten...</translation>
+    </message>
+    <message>
+        <source>The source code is available from %s.</source>
+        <translation type="unfinished">Iturri kodea %s-tik dago eskuragarri.</translation>
+    </message>
+    <message>
+        <source>The transaction amount is too small to pay the fee</source>
+        <translation type="unfinished">Transakzio kantitatea txikiegia da kuota ordaintzeko.</translation>
+    </message>
+    <message>
+        <source>This is experimental software.</source>
+        <translation type="unfinished">Hau software esperimentala da</translation>
+    </message>
+    <message>
+        <source>Transaction amount too small</source>
+        <translation type="unfinished">transakzio kopurua txikiegia</translation>
+    </message>
+    <message>
+        <source>Transaction too large</source>
+        <translation type="unfinished">Transakzio luzeegia</translation>
+    </message>
+    <message>
+        <source>Unable to generate initial keys</source>
+        <translation type="unfinished">hasierako giltzak sortzeko ezgai</translation>
+    </message>
+    <message>
+        <source>Unable to generate keys</source>
+        <translation type="unfinished">Giltzak sortzeko ezgai</translation>
+    </message>
+    <message>
+        <source>Verifying blocks…</source>
+        <translation type="unfinished">Blokeak egiaztatzen...</translation>
+    </message>
+    <message>
+        <source>Verifying wallet(s)…</source>
+        <translation type="unfinished">Diruzorroak egiaztatzen...</translation>
     </message>
     </context>
 </TS>

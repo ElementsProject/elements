@@ -9,6 +9,7 @@ extern "C" {
 #include <simplicity/elements/env.h>
 #include <simplicity/elements/exec.h>
 }
+#include <script/interpreter.h>
 #include <test/fuzz/FuzzedDataProvider.h>
 #include <test/fuzz/fuzz.h>
 #include <test/fuzz/util.h>
@@ -68,12 +69,12 @@ uint32_t read_u32(const unsigned char **buf) {
     uint32_t ret;
     memcpy(&ret, *buf, 4);
     *buf += 4;
-    return le32toh(ret);
+    return le32toh_internal(ret);
 }
 
 #define MAX_LEN (1024 * 1024)
 
-FUZZ_TARGET_INIT(simplicity, initialize_simplicity)
+FUZZ_TARGET(simplicity, .init = initialize_simplicity)
 {
     const unsigned char *buf = buffer.data();
 
@@ -112,9 +113,9 @@ FUZZ_TARGET_INIT(simplicity, initialize_simplicity)
 
     // 2. Parse the transaction (the program and witness are just raw bytes)
     CMutableTransaction mtx;
-    CDataStream txds{Span{tx_data, tx_data_len}, SER_NETWORK, INIT_PROTO_VERSION};
+    DataStream txds{Span{tx_data, tx_data_len}};
     try {
-        txds >> mtx;
+        txds >> TX_WITH_WITNESS(mtx);
         mtx.witness.vtxinwit.resize(mtx.vin.size());
         mtx.witness.vtxoutwit.resize(mtx.vout.size());
 
@@ -163,7 +164,7 @@ FUZZ_TARGET_INIT(simplicity, initialize_simplicity)
     //
     // We do skip the first byte since that has pegin/issuance flag in it and
     // therefore already has semantic information.
-    size_t nIn = mtx.vin[0].prevout.hash.data()[1] % mtx.vin.size();
+    size_t nIn = mtx.vin[0].prevout.hash.ToUint256().data()[1] % mtx.vin.size();
     std::vector<CTxOut> spent_outs{};
     for (unsigned int i = 0; i < mtx.vin.size(); i++) {
         // Null asset or value would assert in the interpreter, and are impossible
@@ -183,7 +184,7 @@ FUZZ_TARGET_INIT(simplicity, initialize_simplicity)
             scriptPubKey = TAPROOT_SCRIPT_PUB_KEY;
         }
 
-        spent_outs.push_back(CTxOut{asset, value, scriptPubKey});
+        spent_outs.emplace_back(asset, value, scriptPubKey);
     }
     assert(spent_outs.size() == mtx.vin.size());
 
@@ -191,7 +192,7 @@ FUZZ_TARGET_INIT(simplicity, initialize_simplicity)
     mtx.witness.vtxinwit[nIn].scriptWitness.stack.clear();
     mtx.witness.vtxinwit[nIn].scriptWitness.stack.push_back(prog_bytes);
     mtx.witness.vtxinwit[nIn].scriptWitness.stack.push_back(TAPROOT_CONTROL);
-    if (mtx.vin[0].prevout.hash.data()[2] & 1) {
+    if (mtx.vin[0].prevout.hash.ToUint256().data()[2] & 1) {
        mtx.witness.vtxinwit[nIn].scriptWitness.stack.push_back(TAPROOT_ANNEX);
     }
 
@@ -208,7 +209,7 @@ FUZZ_TARGET_INIT(simplicity, initialize_simplicity)
 
     // 4. Main test
     unsigned char imr_out[32];
-    unsigned char *imr = mtx.vin[0].prevout.hash.data()[2] & 2 ? imr_out : NULL;
+    unsigned char *imr = mtx.vin[0].prevout.hash.ToUint256().data()[2] & 2 ? imr_out : nullptr;
 
     const elementsTransaction* tx = txdata.m_simplicity_tx_data.get();
     elementsTapEnv* taproot = simplicity_elements_mallocTapEnv(&simplicityRawTap);

@@ -1,24 +1,36 @@
-// Copyright (c) 2011-2021 The Bitcoin Core developers
+// Copyright (c) 2011-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
+#include <consensus/amount.h>
 #include <policy/policy.h>
+#include <primitives/transaction.h>
+#include <random.h>
+#include <script/script.h>
+#include <sync.h>
 #include <test/util/setup_common.h>
+#include <test/util/txmempool.h>
 #include <txmempool.h>
 #include <validation.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <vector>
+
+class CCoinsViewCache;
 
 static void AddTx(const CTransactionRef& tx, CTxMemPool& pool) EXCLUSIVE_LOCKS_REQUIRED(cs_main, pool.cs)
 {
     int64_t nTime = 0;
     unsigned int nHeight = 1;
+    uint64_t sequence = 0;
     bool spendsCoinbase = false;
     unsigned int sigOpCost = 4;
     std::set<std::pair<uint256, COutPoint>> setPeginsSpent;
     LockPoints lp;
-    pool.addUnchecked(CTxMemPoolEntry(tx, 1000, nTime, nHeight, spendsCoinbase, sigOpCost, lp, setPeginsSpent));
+    AddToMempool(pool, CTxMemPoolEntry(tx, 1000, nTime, nHeight, sequence, spendsCoinbase, sigOpCost, lp, setPeginsSpent));
 }
 
 struct Available {
@@ -54,7 +66,7 @@ static std::vector<CTransactionRef> CreateOrderedCoins(FastRandomContext& det_ra
         for (size_t ancestor = 0; ancestor < n_ancestors && !available_coins.empty(); ++ancestor){
             size_t idx = det_rand.randrange(available_coins.size());
             Available coin = available_coins[idx];
-            uint256 hash = coin.ref->GetHash();
+            Txid hash = coin.ref->GetHash();
             // biased towards taking min_ancestors parents, but maybe more
             size_t n_to_take = det_rand.randrange(2) == 0 ?
                                min_ancestors :
@@ -89,9 +101,9 @@ static void ComplexMemPool(benchmark::Bench& bench)
     if (bench.complexityN() > 1) {
         childTxs = static_cast<int>(bench.complexityN());
     }
-    std::vector<CTransactionRef> ordered_coins = CreateOrderedCoins(det_rand, childTxs, /* min_ancestors */ 1);
-    const auto testing_setup = MakeNoLogFileContext<const TestingSetup>(CBaseChainParams::MAIN);
-    CTxMemPool pool;
+    std::vector<CTransactionRef> ordered_coins = CreateOrderedCoins(det_rand, childTxs, /*min_ancestors=*/1);
+    const auto testing_setup = MakeNoLogFileContext<const TestingSetup>(ChainType::MAIN);
+    CTxMemPool& pool = *testing_setup.get()->m_node.mempool;
     LOCK2(cs_main, pool.cs);
     bench.run([&]() NO_THREAD_SAFETY_ANALYSIS {
         for (auto& tx : ordered_coins) {
@@ -105,19 +117,18 @@ static void ComplexMemPool(benchmark::Bench& bench)
 static void MempoolCheck(benchmark::Bench& bench)
 {
     FastRandomContext det_rand{true};
-    const int childTxs = bench.complexityN() > 1 ? static_cast<int>(bench.complexityN()) : 2000;
-    const std::vector<CTransactionRef> ordered_coins = CreateOrderedCoins(det_rand, childTxs, /* min_ancestors */ 5);
-    const auto testing_setup = MakeNoLogFileContext<const TestingSetup>(CBaseChainParams::MAIN, {"-checkmempool=1"});
-    CTxMemPool pool;
+    auto testing_setup = MakeNoLogFileContext<TestChain100Setup>(ChainType::REGTEST, {.extra_args = {"-checkmempool=1"}});
+    CTxMemPool& pool = *testing_setup.get()->m_node.mempool;
     LOCK2(cs_main, pool.cs);
     const CBlockIndex* chain_tip = testing_setup.get()->m_node.chainman->ActiveChainstate().m_chain.Tip();
+    testing_setup->PopulateMempool(det_rand, 400, true);
     const CCoinsViewCache& coins_tip = testing_setup.get()->m_node.chainman->ActiveChainstate().CoinsTip();
-    for (auto& tx : ordered_coins) AddTx(tx, pool);
 
     bench.run([&]() NO_THREAD_SAFETY_ANALYSIS {
-        pool.check(chain_tip, coins_tip, /* spendheight */ 2);
+        // Bump up the spendheight so we don't hit premature coinbase spend errors.
+        pool.check(chain_tip, coins_tip, /*spendheight=*/200);
     });
 }
 
-BENCHMARK(ComplexMemPool);
-BENCHMARK(MempoolCheck);
+BENCHMARK(ComplexMemPool, benchmark::PriorityLevel::HIGH);
+BENCHMARK(MempoolCheck, benchmark::PriorityLevel::HIGH);

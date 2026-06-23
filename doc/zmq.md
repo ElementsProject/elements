@@ -46,11 +46,10 @@ operation.
 
 ## Enabling
 
-By default, the ZeroMQ feature is automatically compiled in if the
-necessary prerequisites are found.  To disable, use --disable-zmq
-during the *configure* step of building bitcoind:
+By default, the ZeroMQ feature is not automatically compiled.
+To enable, use `-DWITH_ZMQ=ON` when configuring the build system:
 
-    $ ./configure --disable-zmq (other options)
+    $ cmake -B build -DWITH_ZMQ=ON
 
 To actually enable operation, one must set the appropriate options on
 the command line or in the configuration file.
@@ -76,7 +75,7 @@ The option to set the PUB socket's outbound message high water mark
     -zmqpubhashblockhwm=n
     -zmqpubrawblockhwm=n
     -zmqpubrawtxhwm=n
-    -zmqpubsequencehwm=address
+    -zmqpubsequencehwm=n
 
 The high water mark value must be an integer greater than or equal to 0.
 
@@ -113,11 +112,11 @@ Where the 8-byte uints correspond to the mempool sequence number.
     | hashtx | <32-byte transaction hash in Little Endian> | <uint32 sequence number in Little Endian>
 
 
-`rawblock`: Notifies when the chain tip is updated. Messages are ZMQ multipart messages with three parts. The first part is the topic (`rawblock`), the second part is the serialized block, and the last part is a sequence number (representing the message count to detect lost messages).
+`rawblock`: Notifies when the chain tip is updated. When assumeutxo is in use, this notification will not be issued for historical blocks connected to the background validation chainstate. Messages are ZMQ multipart messages with three parts. The first part is the topic (`rawblock`), the second part is the serialized block, and the last part is a sequence number (representing the message count to detect lost messages).
 
     | rawblock | <serialized block> | <uint32 sequence number in Little Endian>
 
-`hashblock`: Notifies when the chain tip is updated. Messages are ZMQ multipart messages with three parts. The first part is the topic (`hashblock`), the second part is the 32-byte block hash, and the last part is a sequence number (representing the message count to detect lost messages).
+`hashblock`: Notifies when the chain tip is updated. When assumeutxo is in use, this notification will not be issued for historical blocks connected to the background validation chainstate. Messages are ZMQ multipart messages with three parts. The first part is the topic (`hashblock`), the second part is the 32-byte block hash, and the last part is a sequence number (representing the message count to detect lost messages).
 
     | hashblock | <32-byte block hash in Little Endian> | <uint32 sequence number in Little Endian>
 
@@ -163,7 +162,7 @@ Note that for `*block` topics, when the block chain tip changes,
 a reorganisation may occur and just the tip will be notified.
 It is up to the subscriber to retrieve the chain from the last known
 block to the new tip. Also note that no notification will occur if the tip
-was in the active chain--as would be the case after calling invalidateblock RPC.
+was in the active chain, as would be the case after calling the `invalidateblock` RPC.
 In contrast, the `sequence` topic publishes all block connections and
 disconnections.
 

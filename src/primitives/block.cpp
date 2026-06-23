@@ -18,9 +18,40 @@ std::string CProof::ToString() const
                      HexStr(challenge), HexStr(solution));
 }
 
+// ELEMENTS: GetHash manually implemented for CBlockHeader.
+// SER_GETHASH removed in #28508 so CProof now always serializes `solution`.
+// Only include `challenge` of CProof here, and no signblock witness
 uint256 CBlockHeader::GetHash() const
 {
-    return SerializeHash(*this);
+    HashWriter s{};
+    // Detect dynamic federation block serialization using "HF bit",
+    // or the signed bit which is invalid in Bitcoin
+    bool is_dyna = false;
+    int32_t nVersion = this->nVersion;
+    if (!m_dynafed_params.IsNull()) {
+        nVersion |= (int32_t)DYNAFED_HF_MASK;
+        is_dyna = true;
+    }
+    s << (nVersion);
+    s << hashPrevBlock;
+    s << hashMerkleRoot;
+    s << nTime;
+
+    if (is_dyna) {
+        s << block_height;
+        s << m_dynafed_params;
+    } else {
+        if (g_con_blockheightinheader) {
+            s << block_height;
+        }
+        if (g_signed_blocks) {
+            s << proof.challenge;
+        } else {
+            s << nBits;
+            s << nNonce;
+        }
+    }
+    return s.GetHash();
 }
 
 std::string CBlock::ToString() const
@@ -46,8 +77,8 @@ uint256 DynaFedParamEntry::CalculateRoot() const
     }
 
     std::vector<uint256> compact_leaves;
-    compact_leaves.push_back(SerializeHash(m_signblockscript, SER_GETHASH, 0));
-    compact_leaves.push_back(SerializeHash(m_signblock_witness_limit, SER_GETHASH, 0));
+    compact_leaves.push_back((HashWriter{} << m_signblockscript).GetHash());
+    compact_leaves.push_back((HashWriter{} << m_signblock_witness_limit).GetHash());
     uint256 compact_root(ComputeFastMerkleRoot(compact_leaves));
 
     uint256 extra_root;
@@ -68,9 +99,9 @@ uint256 DynaFedParamEntry::CalculateRoot() const
 uint256 DynaFedParamEntry::CalculateExtraRoot() const
 {
     std::vector<uint256> extra_leaves;
-    extra_leaves.push_back(SerializeHash(m_fedpeg_program, SER_GETHASH, 0));
-    extra_leaves.push_back(SerializeHash(m_fedpegscript, SER_GETHASH, 0));
-    extra_leaves.push_back(SerializeHash(m_extension_space, SER_GETHASH, 0));
+    extra_leaves.push_back((HashWriter{} << m_fedpeg_program).GetHash());
+    extra_leaves.push_back((HashWriter{} << m_fedpegscript).GetHash());
+    extra_leaves.push_back((HashWriter{} << m_extension_space).GetHash());
     return ComputeFastMerkleRoot(extra_leaves);
 }
 

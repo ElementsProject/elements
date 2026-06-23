@@ -6,15 +6,28 @@ import os
 import subprocess
 import sys
 import tempfile
+import argparse
 
 BINARIES = [
-'src/elementsd',
-'src/elements-cli',
-'src/elements-tx',
-'src/elements-wallet',
-'src/elements-util',
-'src/qt/elements-qt',
+'bin/elementsd',
+'bin/elements-cli',
+'bin/elements-tx',
+'bin/elements-wallet',
+'bin/elements-util',
+'bin/elements-qt',
 ]
+
+parser = argparse.ArgumentParser(
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+)
+parser.add_argument(
+    "-s",
+    "--skip-missing-binaries",
+    action="store_true",
+    default=False,
+    help="skip generation for binaries that are not found in the build path",
+)
+args = parser.parse_args()
 
 # Paths to external utilities.
 git = os.getenv('GIT', 'git')
@@ -23,11 +36,11 @@ help2man = os.getenv('HELP2MAN', 'help2man')
 # If not otherwise specified, get top directory from git.
 topdir = os.getenv('TOPDIR')
 if not topdir:
-    r = subprocess.run([git, 'rev-parse', '--show-toplevel'], stdout=subprocess.PIPE, check=True, universal_newlines=True)
+    r = subprocess.run([git, 'rev-parse', '--show-toplevel'], stdout=subprocess.PIPE, check=True, text=True)
     topdir = r.stdout.rstrip()
 
 # Get input and output directories.
-builddir = os.getenv('BUILDDIR', topdir)
+builddir = os.getenv('BUILDDIR', os.path.join(topdir, 'build'))
 mandir = os.getenv('MANDIR', os.path.join(topdir, 'doc/man'))
 
 # Verify that all the required binaries are usable, and extract copyright
@@ -36,10 +49,14 @@ versions = []
 for relpath in BINARIES:
     abspath = os.path.join(builddir, relpath)
     try:
-        r = subprocess.run([abspath, '--version'], stdout=subprocess.PIPE, universal_newlines=True)
+        r = subprocess.run([abspath, "--version"], stdout=subprocess.PIPE, check=True, text=True)
     except IOError:
-        print(f'{abspath} not found or not an executable', file=sys.stderr)
-        sys.exit(1)
+        if(args.skip_missing_binaries):
+            print(f'{abspath} not found or not an executable. Skipping...', file=sys.stderr)
+            continue
+        else:
+            print(f'{abspath} not found or not an executable', file=sys.stderr)
+            sys.exit(1)
     # take first line (which must contain version)
     verstr = r.stdout.splitlines()[0]
     # last word of line is the actual version e.g. v22.99.0-5c6b3d5b3508
@@ -50,6 +67,10 @@ for relpath in BINARIES:
     assert copyright[0].startswith('Copyright (C)')
 
     versions.append((abspath, verstr, copyright))
+
+if not versions:
+    print(f'No binaries found in {builddir}. Please ensure the binaries are present in {builddir}, or set another build path using the BUILDDIR env variable.')
+    sys.exit(1)
 
 if any(verstr.endswith('-dirty') for (_, verstr, _) in versions):
     print("WARNING: Binaries were built from a dirty tree.")
@@ -62,6 +83,10 @@ with tempfile.NamedTemporaryFile('w', suffix='.h2m') as footer:
     # Copyright is the same for all binaries, so just use the first.
     footer.write('[COPYRIGHT]\n')
     footer.write('\n'.join(versions[0][2]).strip())
+    # Create SEE ALSO section
+    footer.write('\n[SEE ALSO]\n')
+    footer.write(', '.join(s.rpartition('/')[2] + '(1)' for s in BINARIES))
+    footer.write('\n')
     footer.flush()
 
     # Call the binaries through help2man to produce a manual page for each of them.

@@ -9,10 +9,6 @@
 #include <assert.h>
 #include <string.h>
 
-#if defined HAVE_CONFIG_H
-#include "../../libsecp256k1-config.h"
-#endif
-
 #include "../../../include/secp256k1_rangeproof.h"
 #include "../../../include/secp256k1_surjectionproof.h"
 #include "../rangeproof/borromean.h"
@@ -29,7 +25,7 @@ static size_t secp256k1_count_bits_set(const unsigned char* data, size_t count) 
     size_t i;
     for (i = 0; i < count; i++) {
 #ifdef HAVE_BUILTIN_POPCOUNT
-	ret += __builtin_popcount(data[i]);
+        ret += __builtin_popcount(data[i]);
 #else
         ret += !!(data[i] & 0x1);
         ret += !!(data[i] & 0x2);
@@ -142,7 +138,7 @@ static void secp256k1_surjectionproof_csprng_init(secp256k1_surjectionproof_cspr
     csprng->state_i = 0;
 }
 
-static size_t secp256k1_surjectionproof_csprng_next(secp256k1_surjectionproof_csprng *csprng, size_t rand_max) {
+static size_t secp256k1_surjectionproof_csprng_next(const secp256k1_hash_ctx *hash_ctx, secp256k1_surjectionproof_csprng *csprng, size_t rand_max) {
     /* The number of random bytes to read for each random sample */
     const size_t increment = rand_max > 256 ? 2 : 1;
     /* The maximum value expressable by the number of random bytes we read */
@@ -155,8 +151,9 @@ static size_t secp256k1_surjectionproof_csprng_next(secp256k1_surjectionproof_cs
         if (csprng->state_i + increment >= 32) {
             secp256k1_sha256 sha;
             secp256k1_sha256_initialize(&sha);
-            secp256k1_sha256_write(&sha, csprng->state, 32);
-            secp256k1_sha256_finalize(&sha, csprng->state);
+            secp256k1_sha256_write(hash_ctx, &sha, csprng->state, 32);
+            secp256k1_sha256_finalize(hash_ctx, &sha, csprng->state);
+            secp256k1_sha256_clear(&sha);
             csprng->state_i = 0;
         }
         val = csprng->state[csprng->state_i];
@@ -185,7 +182,7 @@ int secp256k1_surjectionproof_allocate_initialized(const secp256k1_context* ctx,
     ARG_CHECK(proof_out_p != NULL);
     *proof_out_p = 0;
 
-    proof = (secp256k1_surjectionproof*)checked_malloc(&ctx->error_callback, sizeof(secp256k1_surjectionproof));
+    proof = checked_malloc(&ctx->error_callback, sizeof(secp256k1_surjectionproof));
     if (proof != NULL) {
         ret = secp256k1_surjectionproof_initialize(ctx, proof, input_index, fixed_input_tags, n_input_tags, n_input_tags_to_use, fixed_output_tag, n_max_iterations, random_seed32);
         if (ret) {
@@ -215,6 +212,7 @@ void secp256k1_surjectionproof_destroy(secp256k1_surjectionproof* proof) {
 }
 
 int secp256k1_surjectionproof_initialize(const secp256k1_context* ctx, secp256k1_surjectionproof* proof, size_t *input_index, const secp256k1_fixed_asset_tag* fixed_input_tags, const size_t n_input_tags, const size_t n_input_tags_to_use, const secp256k1_fixed_asset_tag* fixed_output_tag, const size_t n_max_iterations, const unsigned char *random_seed32) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     secp256k1_surjectionproof_csprng csprng;
     size_t n_iterations = 0;
 
@@ -242,7 +240,7 @@ int secp256k1_surjectionproof_initialize(const secp256k1_context* ctx, secp256k1
         for (i = 0; i < n_input_tags_to_use; i++) {
             while (1) {
                 size_t next_input_index;
-                next_input_index = secp256k1_surjectionproof_csprng_next(&csprng, n_input_tags);
+                next_input_index = secp256k1_surjectionproof_csprng_next(hash_ctx, &csprng, n_input_tags);
                 if (secp256k1_memcmp_var(&fixed_input_tags[next_input_index], fixed_output_tag, sizeof(*fixed_output_tag)) == 0) {
                     *input_index = next_input_index;
                     has_output_tag = 1;
@@ -273,6 +271,7 @@ int secp256k1_surjectionproof_initialize(const secp256k1_context* ctx, secp256k1
 }
 
 int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_surjectionproof* proof, const secp256k1_generator* ephemeral_input_tags, size_t n_ephemeral_input_tags, const secp256k1_generator* ephemeral_output_tag, size_t input_index, const unsigned char *input_blinding_key, const unsigned char *output_blinding_key) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     secp256k1_scalar blinding_key;
     secp256k1_scalar tmps;
     secp256k1_scalar nonce;
@@ -337,8 +336,8 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     /* Produce signature */
     rsizes[0] = (int) n_used_pubkeys;
     indices[0] = (int) ring_input_index;
-    secp256k1_surjection_genmessage(msg32, ephemeral_input_tags, n_total_pubkeys, ephemeral_output_tag);
-    if (secp256k1_surjection_genrand(borromean_s, n_used_pubkeys, &blinding_key) == 0) {
+    secp256k1_surjection_genmessage(hash_ctx, msg32, ephemeral_input_tags, n_total_pubkeys, ephemeral_output_tag);
+    if (secp256k1_surjection_genrand(hash_ctx, borromean_s, n_used_pubkeys, &blinding_key) == 0) {
         return 0;
     }
     /* Borromean sign will overwrite one of the s values we just generated, so use
@@ -346,7 +345,7 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
      * homage to the rangeproof code which does this very cleverly to encode messages. */
     nonce = borromean_s[ring_input_index];
     secp256k1_scalar_clear(&borromean_s[ring_input_index]);
-    if (secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, &proof->data[0], borromean_s, ring_pubkeys, &nonce, &blinding_key, rsizes, indices, 1, msg32, 32) == 0) {
+    if (secp256k1_borromean_sign(hash_ctx, &ctx->ecmult_gen_ctx, &proof->data[0], borromean_s, ring_pubkeys, &nonce, &blinding_key, rsizes, indices, 1, msg32, 32) == 0) {
         return 0;
     }
     for (i = 0; i < n_used_pubkeys; i++) {
@@ -359,6 +358,7 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
 static
 #endif
 int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256k1_surjectionproof* proof, const secp256k1_generator* ephemeral_input_tags, size_t n_ephemeral_input_tags, const secp256k1_generator* ephemeral_output_tag) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     size_t rsizes[1];    /* array needed for borromean sig API */
     size_t i;
     size_t n_total_pubkeys;
@@ -397,8 +397,8 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
             return 0;
         }
     }
-    secp256k1_surjection_genmessage(msg32, ephemeral_input_tags, n_total_pubkeys, ephemeral_output_tag);
-    return secp256k1_borromean_verify(NULL, &proof->data[0], borromean_s, ring_pubkeys, rsizes, 1, msg32, 32);
+    secp256k1_surjection_genmessage(hash_ctx, msg32, ephemeral_input_tags, n_total_pubkeys, ephemeral_output_tag);
+    return secp256k1_borromean_verify(hash_ctx, NULL, &proof->data[0], borromean_s, ring_pubkeys, rsizes, 1, msg32, 32);
 }
 
 #endif

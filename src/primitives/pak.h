@@ -16,7 +16,7 @@ private:
     std::vector<secp256k1_pubkey> m_online_keys;
 
 public:
-    CPAKList() {}
+    CPAKList() = default;
     /**
      * Creates a new CPAKList. Requires that the number of offline keys is the same as the number of online keys
      * and that this number is not larger than SECP256K1_WHITELIST_MAX_N_KEYS.

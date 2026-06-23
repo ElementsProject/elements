@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <span.h>
+#include <kernel/validation_cache_sizes.h>
 #include <primitives/transaction.h>
 #include <script/sigcache.h>
 #include <validation.h>
@@ -42,10 +43,9 @@ void initialize_simplicity_tx()
 {
     g_con_elementsmode = true;
     // Copied from init.cpp AppInitMain
-    InitSignatureCache();
-    InitScriptExecutionCache();
-    InitRangeproofCache();
-    InitSurjectionproofCache();
+    kernel::ValidationCacheSizes validation_cache_sizes{};
+    Assert(InitRangeproofCache(validation_cache_sizes.rangeproof_cache_bytes));
+    Assert(InitSurjectionproofCache(validation_cache_sizes.surjectionproof_execution_cache_bytes));
 
     GENESIS_HASH = uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206");
 
@@ -64,7 +64,7 @@ void initialize_simplicity_tx()
     INPUT_ASSET_CONF.vchCommitment[0] = 0x0a;
 }
 
-FUZZ_TARGET_INIT(simplicity_tx, initialize_simplicity_tx)
+FUZZ_TARGET(simplicity_tx, .init = initialize_simplicity_tx)
 {
     simplicity_err error;
 
@@ -73,9 +73,9 @@ FUZZ_TARGET_INIT(simplicity_tx, initialize_simplicity_tx)
     // 2. Construct transaction.
     CMutableTransaction mtx;
     {
-        CDataStream txds{buffer, SER_NETWORK, INIT_PROTO_VERSION};
+        DataStream txds{buffer};
         try {
-            txds >> mtx;
+            txds >> TX_WITH_WITNESS(mtx);
         } catch (const std::ios_base::failure&) {
             return;
         }
@@ -108,7 +108,7 @@ FUZZ_TARGET_INIT(simplicity_tx, initialize_simplicity_tx)
             return;
         }
     }
-    const auto& random_bytes = mtx.vin[0].prevout.hash;
+    const auto& random_bytes = mtx.vin[0].prevout.hash.ToUint256();
 
     // 3. Construct `nIn` and `spent_outs` arrays.
     bool expect_simplicity = false;
@@ -144,7 +144,11 @@ FUZZ_TARGET_INIT(simplicity_tx, initialize_simplicity_tx)
                 const auto& control = current[top - 1];
                 const auto& program = current[top - 3];
 
-                if (control.size() >= TAPROOT_CONTROL_BASE_SIZE && (control[0] & 0xfe) == 0xbe) {
+                // invariant for ComputeTaprootMerkleRoot
+                bool control_size_valid = control.size() >= TAPROOT_CONTROL_BASE_SIZE  &&
+                                          control.size() <= TAPROOT_CONTROL_MAX_SIZE &&
+                                          ((control.size() - TAPROOT_CONTROL_BASE_SIZE) % TAPROOT_CONTROL_NODE_SIZE == 0);
+                if (control_size_valid && (control[0] & TAPROOT_LEAF_MASK) == TAPROOT_LEAF_TAPSIMPLICITY) {
                     // The fuzzer won't be able to produce a valid CMR on its own, so we compute it
                     // and jam it into the witness stack. But we do require the fuzzer give us a
                     // place to put it, so we don't have to resize the stack (and so that actual
@@ -204,7 +208,7 @@ FUZZ_TARGET_INIT(simplicity_tx, initialize_simplicity_tx)
             }
         }
 
-        spent_outs.push_back(CTxOut{asset, value, scriptPubKey});
+        spent_outs.emplace_back(asset, value, scriptPubKey);
     }
     assert(spent_outs.size() == mtx.vin.size());
 
@@ -219,10 +223,10 @@ FUZZ_TARGET_INIT(simplicity_tx, initialize_simplicity_tx)
         // nonempty witness.
         assert(txdata.m_simplicity_tx_data);
     }
-
+    SignatureCache signature_cache{DEFAULT_SIGNATURE_CACHE_BYTES};
     const CTransaction tx{mtx};
     for (unsigned i = 0; i < tx.vin.size(); i++) {
-        CScriptCheck check{txdata.m_spent_outputs[i], tx, i, VERIFY_FLAGS, false /* cache */, &txdata};
+        CScriptCheck check{txdata.m_spent_outputs[i], tx, signature_cache, i, VERIFY_FLAGS, false /* cache */, &txdata};
         check();
     }
 }

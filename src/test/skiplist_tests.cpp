@@ -1,8 +1,9 @@
-// Copyright (c) 2014-2019 The Bitcoin Core developers
+// Copyright (c) 2014-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chain.h>
+#include <test/util/random.h>
 #include <test/util/setup_common.h>
 
 #include <vector>
@@ -33,8 +34,8 @@ BOOST_AUTO_TEST_CASE(skiplist_test)
     }
 
     for (int i=0; i < 1000; i++) {
-        int from = InsecureRandRange(SKIPLIST_LENGTH - 1);
-        int to = InsecureRandRange(from + 1);
+        int from = m_rng.randrange(SKIPLIST_LENGTH - 1);
+        int to = m_rng.randrange(from + 1);
 
         BOOST_CHECK(vIndex[SKIPLIST_LENGTH - 1].GetAncestor(from) == &vIndex[from]);
         BOOST_CHECK(vIndex[from].GetAncestor(to) == &vIndex[to]);
@@ -72,13 +73,13 @@ BOOST_AUTO_TEST_CASE(getlocator_test)
 
     // Build a CChain for the main branch.
     CChain chain;
-    chain.SetTip(&vBlocksMain.back());
+    chain.SetTip(vBlocksMain.back());
 
     // Test 100 random starting points for locators.
     for (int n=0; n<100; n++) {
-        int r = InsecureRandRange(150000);
+        int r = m_rng.randrange(150000);
         CBlockIndex* tip = (r < 100000) ? &vBlocksMain[r] : &vBlocksSide[r - 100000];
-        CBlockLocator locator = chain.GetLocator(tip);
+        CBlockLocator locator = GetLocator(tip);
 
         // The first result must be the block itself, the last one must be genesis.
         BOOST_CHECK(locator.vHave.front() == tip->GetBlockHash());
@@ -114,7 +115,7 @@ BOOST_AUTO_TEST_CASE(findearliestatleast_test)
         } else {
             // randomly choose something in the range [MTP, MTP*2]
             int64_t medianTimePast = vBlocksMain[i].GetMedianTimePast();
-            int r{int(InsecureRandRange(medianTimePast))};
+            int r{int(m_rng.randrange(medianTimePast))};
             vBlocksMain[i].nTime = uint32_t(r + medianTimePast);
             vBlocksMain[i].nTimeMax = std::max(vBlocksMain[i].nTime, vBlocksMain[i-1].nTimeMax);
         }
@@ -128,12 +129,12 @@ BOOST_AUTO_TEST_CASE(findearliestatleast_test)
 
     // Build a CChain for the main branch.
     CChain chain;
-    chain.SetTip(&vBlocksMain.back());
+    chain.SetTip(vBlocksMain.back());
 
     // Verify that FindEarliestAtLeast is correct.
     for (unsigned int i=0; i<10000; ++i) {
         // Pick a random element in vBlocksMain.
-        int r = InsecureRandRange(vBlocksMain.size());
+        int r = m_rng.randrange(vBlocksMain.size());
         int64_t test_time = vBlocksMain[r].nTime;
         CBlockIndex* ret = chain.FindEarliestAtLeast(test_time, 0);
         BOOST_CHECK(ret->nTimeMax >= test_time);
@@ -155,7 +156,7 @@ BOOST_AUTO_TEST_CASE(findearliestatleast_edge_test)
     }
 
     CChain chain;
-    chain.SetTip(&blocks.back());
+    chain.SetTip(blocks.back());
 
     BOOST_CHECK_EQUAL(chain.FindEarliestAtLeast(50, 0)->nHeight, 0);
     BOOST_CHECK_EQUAL(chain.FindEarliestAtLeast(100, 0)->nHeight, 0);

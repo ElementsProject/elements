@@ -59,6 +59,9 @@ class SighashRangeproofTest(BitcoinTestFramework):
         ]] * self.num_nodes
         self.extra_args[0].append("-anyonecanspendaremine=1") # first node gets the coins
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
@@ -200,7 +203,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
         if assert_valid:
             self.nodes[0].testproposedblock(block_hex)
         else:
-            assert_raises_rpc_error(-25, "block-validation-failed", self.nodes[0].testproposedblock, block_hex)
+            assert_raises_rpc_error(-25, "mandatory-script-verify-flag-failed", self.nodes[0].testproposedblock, block_hex) 
 
         # Then try submit the block and check if it was accepted or not.
         pre = self.nodes[0].getblockcount()
@@ -278,4 +281,4 @@ class SighashRangeproofTest(BitcoinTestFramework):
             self.assert_tx_valid(tx, False)
 
 if __name__ == '__main__':
-    SighashRangeproofTest().main()
+    SighashRangeproofTest(__file__).main()

@@ -6,6 +6,7 @@
 #
 # Test for taproot sighash algorithm with pegins and issuances
 
+from decimal import ROUND_DOWN
 from random import randint
 from test_framework.util import BITCOIN_ASSET_BYTES, assert_raises_rpc_error, satoshi_round
 from test_framework.key import ECKey, compute_xonly_pubkey, generate_privkey, sign_schnorr
@@ -43,6 +44,9 @@ class TapHashPeginTest(BitcoinTestFramework):
             "-maxtxfee=100.0",
         ]]
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
         self.skip_if_no_bdb()
@@ -58,8 +62,8 @@ class TapHashPeginTest(BitcoinTestFramework):
             if utxo["txid"] == ser_uint256(fund_tx.vin[idx].prevout.hash)[::-1].hex() and utxo["vout"] == fund_tx.vin[idx].prevout.n:
                 spent = utxo
 
-        assert(spent is not None)
-        assert(len(fund_tx.vin) == 2)
+        assert spent is not None
+        assert len(fund_tx.vin) == 2
         return spent
 
     def create_taproot_utxo(self, scripts = None, blind = False):
@@ -99,7 +103,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         tx.rehash()
         self.generate(self.nodes[0], 1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
-        assert(tx.hash in last_blk['tx'])
+        assert tx.hash in last_blk['tx']
 
         return tx, prev_vout, spk, sec, pub, tap
 
@@ -128,7 +132,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         else:
             tx = CTransaction()
 
-        tx.nVersion = ver
+        tx.version = ver
         tx.nLockTime = locktime
         # Spend the pegin and taproot tx together
         in_total = prev_tx.vout[prev_vout].nValue.getAmount()
@@ -198,7 +202,7 @@ class TapHashPeginTest(BitcoinTestFramework):
                 value = bytes.fromhex(utxo["valuecommitment"])
                 inputs = [value[0:1], value[1:33]]
             else:
-                value = b"\x01" + int(satoshi_round(utxo["value"])*COIN).to_bytes(8, 'little')
+                value = b"\x01" + int(satoshi_round(utxo["value"], rounding=ROUND_DOWN)*COIN).to_bytes(8, 'little')
                 inputs = [value[0:1], value[1:9]]
         if add_spk:
             ver = CScriptOp.decode_op_n(int.from_bytes(spk[0:1], 'little'))
@@ -253,7 +257,7 @@ class TapHashPeginTest(BitcoinTestFramework):
         self.generate(self.nodes[0], 1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
         tx.rehash()
-        assert(tx.hash in last_blk['tx'])
+        assert tx.hash in last_blk['tx']
 
 
     def run_test(self):
@@ -601,4 +605,4 @@ class TapHashPeginTest(BitcoinTestFramework):
         self.tapscript_satisfy_test(CScript([msg, long_pub, OP_CHECKSIGFROMSTACK]), inputs = [sig], fail="Public key version reserved for soft-fork upgrades")
 
 if __name__ == '__main__':
-    TapHashPeginTest().main()
+    TapHashPeginTest(__file__).main()

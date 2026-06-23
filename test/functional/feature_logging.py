@@ -16,7 +16,7 @@ class LoggingTest(BitcoinTestFramework):
         self.setup_clean_chain = True
 
     def relative_log_path(self, name):
-        return os.path.join(self.nodes[0].datadir, self.chain, name)
+        return os.path.join(self.nodes[0].chain_path, name)
 
     def run_test(self):
         # test default log file name
@@ -69,6 +69,51 @@ class LoggingTest(BitcoinTestFramework):
         # just sanity check no crash here
         self.restart_node(0, [f"-debuglogfile={os.devnull}"])
 
+        self.log.info("Test -debug and -debugexclude raise when invalid values are passed")
+        self.stop_node(0)
+        self.nodes[0].assert_start_raises_init_error(
+            extra_args=["-debug=abc"],
+            expected_msg="Error: Unsupported logging category -debug=abc.",
+            match=ErrorMatch.FULL_REGEX,
+        )
+        self.nodes[0].assert_start_raises_init_error(
+            extra_args=["-debugexclude=abc"],
+            expected_msg="Error: Unsupported logging category -debugexclude=abc.",
+            match=ErrorMatch.FULL_REGEX,
+        )
+
+        self.log.info("Test -loglevel raises when invalid values are passed")
+        self.nodes[0].assert_start_raises_init_error(
+            extra_args=["-loglevel=abc"],
+            expected_msg="Error: Unsupported global logging level -loglevel=abc. Valid values: info, debug, trace.",
+            match=ErrorMatch.FULL_REGEX,
+        )
+        self.nodes[0].assert_start_raises_init_error(
+            extra_args=["-loglevel=net:abc"],
+            expected_msg="Error: Unsupported category-specific logging level -loglevel=net:abc.",
+            match=ErrorMatch.PARTIAL_REGEX,
+        )
+        self.nodes[0].assert_start_raises_init_error(
+            extra_args=["-loglevel=net:info:abc"],
+            expected_msg="Error: Unsupported category-specific logging level -loglevel=net:info:abc.",
+            match=ErrorMatch.PARTIAL_REGEX,
+        )
+
+        self.log.info("Test that -nodebug,-debug=0,-debug=none clear previously specified debug options")
+        disable_debug_options = [
+            '-debug=0',
+            '-debug=none',
+            '-nodebug'
+        ]
+
+        for disable_debug_opt in disable_debug_options:
+            # Every category before disable_debug_opt will be ignored, including the invalid 'abc'
+            self.restart_node(0, ['-debug=http', '-debug=abc', disable_debug_opt, '-debug=rpc', '-debug=net'])
+            logging = self.nodes[0].logging()
+            assert not logging['http']
+            assert 'abc' not in logging
+            assert logging['rpc']
+            assert logging['net']
 
 if __name__ == '__main__':
-    LoggingTest().main()
+    LoggingTest(__file__).main()

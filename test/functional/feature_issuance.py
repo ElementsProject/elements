@@ -94,6 +94,9 @@ class IssuanceTest(BitcoinTestFramework):
         self.extra_args = [["-blindedaddresses=1"]] * self.num_nodes
         self.setup_clean_chain = True
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
@@ -527,4 +530,4 @@ class IssuanceTest(BitcoinTestFramework):
         self.nodes[0].sendrawtransaction(signed_tx["hex"])
 
 if __name__ == '__main__':
-    IssuanceTest ().main ()
+    IssuanceTest(__file__).main()

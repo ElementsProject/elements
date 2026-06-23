@@ -58,14 +58,6 @@
         <translation type="unfinished">Выбраць</translation>
     </message>
     <message>
-        <source>Sending addresses</source>
-        <translation type="unfinished">адрасы Адпраўкі</translation>
-    </message>
-    <message>
-        <source>Receiving addresses</source>
-        <translation type="unfinished">адрасы Прымання</translation>
-    </message>
-    <message>
         <source>These are your Bitcoin addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
         <translation type="unfinished">Тут знаходзяцца Біткойн-адрасы для высылання плацяжоў. Заўсёды спраўджвайце колькасць і адрас прызначэння перад здзяйсненнем транзакцыі.</translation>
     </message>
@@ -89,6 +81,14 @@
         <source>There was an error trying to save the address list to %1. Please try again.</source>
         <extracomment>An error message. %1 is a stand-in argument for the name of the file we attempted to save to.</extracomment>
         <translation type="unfinished">Адбылася памылка падчас спробы захаваць адрас у %1. Паспрабуйце зноў.</translation>
+    </message>
+    <message>
+        <source>Sending addresses - %1</source>
+        <translation type="unfinished">Адрасы адпраўкі - %1</translation>
+    </message>
+    <message>
+        <source>Receiving addresses - %1</source>
+        <translation type="unfinished">Адрасы прымання - %1</translation>
     </message>
     <message>
         <source>Exporting Failed</source>
@@ -163,6 +163,10 @@
     <message>
         <source>Wallet encrypted</source>
         <translation type="unfinished">Гаманец зашыфраваны</translation>
+    </message>
+    <message>
+        <source>Wallet to be encrypted</source>
+        <translation type="unfinished">Гаманец будзе зашыфраваны</translation>
     </message>
     <message>
         <source>IMPORTANT: Any previous backups you have made of your wallet file should be replaced with the newly generated, encrypted wallet file. For security reasons, previous backups of the unencrypted wallet file will become useless as soon as you start using the new, encrypted wallet.</source>
@@ -258,57 +262,6 @@
             <numerusform />
             <numerusform />
         </translation>
-    </message>
-    </context>
-<context>
-    <name>bitcoin-core</name>
-    <message>
-        <source>Do you want to rebuild the block database now?</source>
-        <translation type="unfinished">Ці жадаеце вы перабудаваць зараз базу звестак блокаў?</translation>
-    </message>
-    <message>
-        <source>Done loading</source>
-        <translation type="unfinished">Загрузка выканана</translation>
-    </message>
-    <message>
-        <source>Error initializing block database</source>
-        <translation type="unfinished">Памылка ініцыялізацыі базвы звестак блокаў</translation>
-    </message>
-    <message>
-        <source>Error initializing wallet database environment %s!</source>
-        <translation type="unfinished">Памалка ініцыялізацыі асяроддзя базы звестак гаманца %s!</translation>
-    </message>
-    <message>
-        <source>Error loading block database</source>
-        <translation type="unfinished">Памылка загрузкі базвы звестак блокаў</translation>
-    </message>
-    <message>
-        <source>Error opening block database</source>
-        <translation type="unfinished">Памылка адчынення базы звестак блокаў</translation>
-    </message>
-    <message>
-        <source>Insufficient funds</source>
-        <translation type="unfinished">Недастаткова сродкаў</translation>
-    </message>
-    <message>
-        <source>Not enough file descriptors available.</source>
-        <translation type="unfinished">Не хапае файлавых дэскрыптараў.</translation>
-    </message>
-    <message>
-        <source>Signing transaction failed</source>
-        <translation type="unfinished">Памылка подпісу транзакцыі</translation>
-    </message>
-    <message>
-        <source>This is experimental software.</source>
-        <translation type="unfinished">Гэта эксперыментальная праграма.</translation>
-    </message>
-    <message>
-        <source>Transaction amount too small</source>
-        <translation type="unfinished">Транзакцыя занадта малая</translation>
-    </message>
-    <message>
-        <source>Transaction too large</source>
-        <translation type="unfinished">Транзакцыя занадта вялікая</translation>
     </message>
     </context>
 <context>
@@ -516,10 +469,6 @@
         <translation type="unfinished">Камісія:</translation>
     </message>
     <message>
-        <source>Dust:</source>
-        <translation type="unfinished">Пыл:</translation>
-    </message>
-    <message>
         <source>After Fee:</source>
         <translation type="unfinished">Пасля камісіі:</translation>
     </message>
@@ -578,18 +527,6 @@
     <message>
         <source>Copy bytes</source>
         <translation type="unfinished">Капіяваць байты</translation>
-    </message>
-    <message>
-        <source>Copy dust</source>
-        <translation type="unfinished">Капіяваць пыл</translation>
-    </message>
-    <message>
-        <source>yes</source>
-        <translation type="unfinished">так</translation>
-    </message>
-    <message>
-        <source>no</source>
-        <translation type="unfinished">не</translation>
     </message>
     <message>
         <source>(no label)</source>
@@ -658,6 +595,30 @@
     <message>
         <source>Bitcoin</source>
         <translation type="unfinished">Біткойн</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n GB of space available</source>
+        <translation type="unfinished">
+            <numerusform />
+            <numerusform />
+            <numerusform />
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>(of %n GB needed)</source>
+        <translation type="unfinished">
+            <numerusform />
+            <numerusform />
+            <numerusform />
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>(%n GB needed for full chain)</source>
+        <translation type="unfinished">
+            <numerusform />
+            <numerusform />
+            <numerusform />
+        </translation>
     </message>
     <message numerus="yes">
         <source>(sufficient to restore backups %n day(s) old)</source>
@@ -825,10 +786,6 @@
         <translation type="unfinished">Даслаць адразу некалькім атрымальнікам</translation>
     </message>
     <message>
-        <source>Dust:</source>
-        <translation type="unfinished">Пыл:</translation>
-    </message>
-    <message>
         <source>Balance:</source>
         <translation type="unfinished">Баланс:</translation>
     </message>
@@ -855,10 +812,6 @@
     <message>
         <source>Copy bytes</source>
         <translation type="unfinished">Капіяваць байты</translation>
-    </message>
-    <message>
-        <source>Copy dust</source>
-        <translation type="unfinished">Капіяваць пыл</translation>
     </message>
     <message>
         <source>Confirm send coins</source>
@@ -903,15 +856,7 @@
         <source>Message:</source>
         <translation type="unfinished">Паведамленне:</translation>
     </message>
-    <message>
-        <source>Pay To:</source>
-        <translation type="unfinished">Заплаціць да:</translation>
-    </message>
-    <message>
-        <source>Memo:</source>
-        <translation type="unfinished">Памятка:</translation>
-    </message>
-</context>
+    </context>
 <context>
     <name>SignVerifyMessageDialog</name>
     <message>
@@ -923,10 +868,12 @@
     <name>TransactionDesc</name>
     <message>
         <source>%1/unconfirmed</source>
+        <extracomment>Text explaining the current status of a transaction, shown in the status field of the details window for this transaction. This status represents a transaction confirmed in at least one block, but less than 6 blocks.</extracomment>
         <translation type="unfinished">%1/непацверджана</translation>
     </message>
     <message>
         <source>%1 confirmations</source>
+        <extracomment>Text explaining the current status of a transaction, shown in the status field of the details window for this transaction. This status represents a transaction confirmed in 6 or more blocks.</extracomment>
         <translation type="unfinished">%1 пацверджанняў</translation>
     </message>
     <message>
@@ -1008,10 +955,6 @@
         <translation type="unfinished">Даслана да</translation>
     </message>
     <message>
-        <source>Payment to yourself</source>
-        <translation type="unfinished">Плацёж самому сабе</translation>
-    </message>
-    <message>
         <source>Mined</source>
         <translation type="unfinished">Здабыта</translation>
     </message>
@@ -1069,10 +1012,6 @@
     <message>
         <source>Sent to</source>
         <translation type="unfinished">Даслана да</translation>
-    </message>
-    <message>
-        <source>To yourself</source>
-        <translation type="unfinished">Да сябе</translation>
     </message>
     <message>
         <source>Mined</source>
@@ -1142,6 +1081,49 @@
     <message>
         <source>Export the data in the current tab to a file</source>
         <translation type="unfinished">Экспартаваць гэтыя звесткі у файл</translation>
+    </message>
+    </context>
+<context>
+    <name>bitcoin-core</name>
+    <message>
+        <source>Done loading</source>
+        <translation type="unfinished">Загрузка выканана</translation>
+    </message>
+    <message>
+        <source>Error initializing block database</source>
+        <translation type="unfinished">Памылка ініцыялізацыі базвы звестак блокаў</translation>
+    </message>
+    <message>
+        <source>Error initializing wallet database environment %s!</source>
+        <translation type="unfinished">Памалка ініцыялізацыі асяроддзя базы звестак гаманца %s!</translation>
+    </message>
+    <message>
+        <source>Error loading block database</source>
+        <translation type="unfinished">Памылка загрузкі базвы звестак блокаў</translation>
+    </message>
+    <message>
+        <source>Error opening block database</source>
+        <translation type="unfinished">Памылка адчынення базы звестак блокаў</translation>
+    </message>
+    <message>
+        <source>Insufficient funds</source>
+        <translation type="unfinished">Недастаткова сродкаў</translation>
+    </message>
+    <message>
+        <source>Signing transaction failed</source>
+        <translation type="unfinished">Памылка подпісу транзакцыі</translation>
+    </message>
+    <message>
+        <source>This is experimental software.</source>
+        <translation type="unfinished">Гэта эксперыментальная праграма.</translation>
+    </message>
+    <message>
+        <source>Transaction amount too small</source>
+        <translation type="unfinished">Транзакцыя занадта малая</translation>
+    </message>
+    <message>
+        <source>Transaction too large</source>
+        <translation type="unfinished">Транзакцыя занадта вялікая</translation>
     </message>
     </context>
 </TS>

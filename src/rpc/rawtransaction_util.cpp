@@ -1,5 +1,5 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -51,17 +51,17 @@ static void CreatePegInInputInner(CMutableTransaction& mtx, uint32_t input_idx, 
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Attempting to add a peg-in to an input that already has a scriptSig or witness");
     }
 
-    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION);
+    DataStream ssTx(txData);
     try {
-        ssTx >> txBTCRef;
+        ssTx >> TX_WITH_WITNESS(txBTCRef);
     }
     catch (...) {
         throw JSONRPCError(RPC_TYPE_ERROR, "The included bitcoinTx is malformed. Are you sure that is the whole string?");
     }
 
-    CDataStream ssTxOutProof(txOutProofData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+    DataStream ssTxOutProof(txOutProofData);
     try {
-        ssTxOutProof >> merkleBlock;
+        ssTxOutProof >> TX_NO_WITNESS(merkleBlock);
     }
     catch (...) {
         throw JSONRPCError(RPC_TYPE_ERROR, "The included txoutproof is malformed. Are you sure that is the whole string?");
@@ -113,7 +113,7 @@ static void CreatePegInInputInner(CMutableTransaction& mtx, uint32_t input_idx, 
     if (mtx.vin.size() <= input_idx) {
         mtx.vin.resize(input_idx + 1);
     }
-    mtx.vin[input_idx] = CTxIn(COutPoint(txHashes[0], nOut), CScript(), ~(uint32_t)0);
+    mtx.vin[input_idx] = CTxIn(COutPoint(Txid::FromUint256(txHashes[0]), nOut), CScript(), ~(uint32_t)0);
 
     // Construct pegin proof
     CScriptWitness pegin_witness = CreatePeginWitness(value, Params().GetConsensus().pegged_asset, Params().ParentGenesisBlockHash(), witness_script, txBTCRef, merkleBlock);
@@ -145,12 +145,8 @@ void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, Sidechain::B
     CreatePegInInputInner(mtx, input_idx, tx_btc, merkle_block, claim_scripts, txData, txOutProofData, active_chain_tip);
 }
 
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const CBlockIndex* active_chain_tip, std::map<CTxOut, PSBTOutput>* outputs_aux, bool allow_peg_in, bool allow_issuance)
+void AddInputs(CMutableTransaction& rawTx, const UniValue& inputs_in, std::optional<bool> rbf, const CBlockIndex* active_chain_tip, bool allow_peg_in, bool allow_issuance)
 {
-    if (outputs_in.isNull()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output argument must be non-null");
-    }
-
     UniValue inputs;
     if (inputs_in.isNull()) {
         inputs = UniValue::VARR;
@@ -158,32 +154,22 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         inputs = inputs_in.get_array();
     }
 
-    UniValue outputs = outputs_in.get_array();
-
-    CMutableTransaction rawTx;
-
-    if (!locktime.isNull()) {
-        int64_t nLockTime = locktime.get_int64();
-        if (nLockTime < 0 || nLockTime > LOCKTIME_MAX)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, locktime out of range");
-        rawTx.nLockTime = nLockTime;
-    }
-
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
         const UniValue& input = inputs[idx];
         const UniValue& o = input.get_obj();
 
-        uint256 txid = ParseHashO(o, "txid");
+        Txid txid = Txid::FromUint256(ParseHashO(o, "txid"));
 
-        const UniValue& vout_v = find_value(o, "vout");
+        const UniValue& vout_v = o.find_value("vout");
         if (!vout_v.isNum())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
-        int nOutput = vout_v.get_int();
+        int nOutput = vout_v.getInt<int>();
         if (nOutput < 0)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout cannot be negative");
 
         uint32_t nSequence;
-        if (rbf) {
+
+        if (rbf.value_or(true)) {
             nSequence = MAX_BIP125_RBF_SEQUENCE; /* CTxIn::SEQUENCE_FINAL - 2 */
         } else if (rawTx.nLockTime) {
             nSequence = CTxIn::MAX_SEQUENCE_NONFINAL; /* CTxIn::SEQUENCE_FINAL - 1 */
@@ -192,9 +178,9 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         }
 
         // set the sequence number if passed in the parameters object
-        const UniValue& sequenceObj = find_value(o, "sequence");
+        const UniValue& sequenceObj = o.find_value("sequence");
         if (sequenceObj.isNum()) {
-            int64_t seqNr64 = sequenceObj.get_int64();
+            int64_t seqNr64 = sequenceObj.getInt<int64_t>();
             if (seqNr64 < 0 || seqNr64 > CTxIn::SEQUENCE_FINAL) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, sequence number is out of range");
             } else {
@@ -205,11 +191,11 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         CTxIn in(COutPoint(txid, nOutput), CScript(), nSequence);
 
         // Get issuance stuff if it's there
-        const UniValue& blinding_nonce_v = find_value(o, "asset_blinding_nonce");
-        const UniValue& entropy_v = find_value(o, "asset_entropy");
-        const UniValue& amount_v = find_value(o, "issuance_amount");
-        const UniValue& issuance_tokens_v = find_value(o, "issuance_tokens");
-        const UniValue& blind_reissuance_v = find_value(o, "blind_reissuance");
+        const UniValue& blinding_nonce_v = o.find_value("asset_blinding_nonce");
+        const UniValue& entropy_v = o.find_value("asset_entropy");
+        const UniValue& amount_v = o.find_value("issuance_amount");
+        const UniValue& issuance_tokens_v = o.find_value("issuance_tokens");
+        const UniValue& blind_reissuance_v = o.find_value("blind_reissuance");
         if (!amount_v.isNull() && allow_issuance) {
             if (!amount_v.isNum()) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "issuance_amount is not a number");
@@ -242,9 +228,9 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         rawTx.vin.push_back(in);
 
         // Get the pegin stuff if it's there
-        const UniValue& pegin_tx = find_value(o, "pegin_bitcoin_tx");
-        const UniValue& pegin_tx_proof = find_value(o, "pegin_txout_proof");
-        const UniValue& pegin_script = find_value(o, "pegin_claim_script");
+        const UniValue& pegin_tx = o.find_value("pegin_bitcoin_tx");
+        const UniValue& pegin_tx_proof = o.find_value("pegin_txout_proof");
+        const UniValue& pegin_script = o.find_value("pegin_claim_script");
         if (!pegin_tx.isNull() && !pegin_tx_proof.isNull() && !pegin_script.isNull() && allow_peg_in) {
             if (!IsHex(pegin_script.get_str())) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Given claim_script is not hex.");
@@ -278,15 +264,45 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         }
 
     }
+}
 
+UniValue NormalizeOutputs(const UniValue& outputs_in)
+{
+    if (outputs_in.isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output argument must be non-null");
+    }
+
+    const bool outputs_is_obj = outputs_in.isObject();
+    UniValue outputs = outputs_is_obj ? outputs_in.get_obj() : outputs_in.get_array();
+
+    // ELEMENTS: we normalize to an array to support sending to the same address with multiple assets
+    if (outputs_is_obj) {
+        UniValue outputs_array = UniValue(UniValue::VARR);
+        const auto& keys = outputs.getKeys();
+        for (size_t i = 0; i < keys.size(); ++i) {
+            const auto& key = keys[i];
+            const auto& val = outputs[key];
+            UniValue output = UniValue(UniValue::VOBJ);
+            output.pushKV(key, val);
+            outputs_array.push_back(output);
+        }
+        outputs = std::move(outputs_array);
+    }
+    return outputs;
+}
+
+std::vector<std::pair<CTxDestination, CTxOut>> ParseOutputs(const UniValue& outputs, std::map<CTxOut, PSBTOutput>* outputs_aux)
+{
+    // Duplicate checking
+    std::set<std::pair<CTxDestination, CAsset>> destinations;
+    std::vector<std::pair<CTxDestination, CTxOut>> parsed_outputs;
+    bool has_data{false};
     // Keep track of the fee output so we can add it in the very end of the transaction.
     CTxOut fee_out;
 
-    // Duplicate checking
-    std::set<std::pair<CTxDestination,CAsset>> destinations;
-    bool has_data{false};
-
     std::vector<PSBTOutput> psbt_outs;
+    CHECK_NONFATAL(outputs.isArray());
+    bool add_fee_output = false;
     for (unsigned int i = 0; i < outputs.size(); ++i) {
         const UniValue& output = outputs[i].get_obj();
         // New PSBTOutput with version 2
@@ -309,6 +325,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
                 out.nValue = 0;
                 out.scriptPubKey = CScript() << OP_RETURN << data;
+                destination = CNoDestination(out.scriptPubKey);
             } else if (name_ == "vdata") {
                 // ELEMENTS: support multi-push OP_RETURN
                 UniValue vdata = output[name_].get_array();
@@ -320,24 +337,27 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
                 out.nValue = 0;
                 out.scriptPubKey = datascript;
+                destination = CNoDestination(out.scriptPubKey);
             } else if (name_ == "fee") {
                 // ELEMENTS: explicit fee outputs
                 CAmount nAmount = AmountFromValue(output[name_]);
                 out.nValue = nAmount;
                 out.scriptPubKey = CScript();
                 is_fee = true;
+                add_fee_output = true;
                 break;
             } else if (name_ == "burn") {
                 CScript datascript = CScript() << OP_RETURN;
                 CAmount nAmount = AmountFromValue(output[name_]);
                 out.nValue = nAmount;
                 out.scriptPubKey = datascript;
+                destination = CNoDestination(out.scriptPubKey);
             } else if (name_ == "asset") {
                 // ELEMENTS: Assets are specified
                 out.nAsset = CAsset(ParseHashO(output, name_));
             } else if (name_ == "blinder_index") {
                 // For PSET
-                psbt_out.m_blinder_index = find_value(output, name_).get_int();
+                psbt_out.m_blinder_index = output.find_value(name_).getInt<int>();
             } else {
                 destination = DecodeDestination(name_);
                 if (!IsValidDestination(destination)) {
@@ -346,7 +366,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 dest = name_;
 
                 CScript scriptPubKey = GetScriptForDestination(destination);
-                CAmount nAmount = AmountFromValue(output[name_]);
+                CAmount nAmount = AmountFromValue(output[name_], out.nAsset.GetAsset() == ::policyAsset);
 
                 out.nValue = nAmount;
                 out.scriptPubKey = scriptPubKey;
@@ -369,25 +389,53 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         if (is_fee) {
             fee_out = out;
         } else {
-            rawTx.vout.push_back(out);
+            parsed_outputs.emplace_back(destination, out);
             psbt_outs.push_back(psbt_out);
         }
     }
 
     // Add fee output in the end.
-    if (!fee_out.nValue.IsNull() && fee_out.nValue.GetAmount() > 0) {
-        rawTx.vout.push_back(fee_out);
+    if (add_fee_output && !fee_out.nValue.IsNull() && fee_out.nValue.GetAmount() > 0) {
+        parsed_outputs.emplace_back(CNoDestination(), fee_out);
         // New PSBTOutput with version 2
         psbt_outs.emplace_back(2);
     }
 
     if (outputs_aux) {
-        for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
-            outputs_aux->insert(std::make_pair(rawTx.vout[i], psbt_outs[i]));
+        for (unsigned int i = 0; i < parsed_outputs.size(); ++i) {
+            const auto& [destination, out] = parsed_outputs[i];
+            outputs_aux->insert(std::make_pair(out, psbt_outs[i]));
         }
     }
+    return parsed_outputs;
+}
 
-    if (rbf && rawTx.vin.size() > 0 && !SignalsOptInRBF(CTransaction(rawTx))) {
+void AddOutputs(CMutableTransaction& rawTx, const UniValue& outputs_in, std::map<CTxOut, PSBTOutput>* outputs_aux)
+{
+    UniValue outputs(UniValue::VOBJ);
+    outputs = NormalizeOutputs(outputs_in);
+
+    std::vector<std::pair<CTxDestination, CTxOut>> parsed_outputs = ParseOutputs(outputs, outputs_aux);
+    for (const auto& [destination, out] : parsed_outputs) {
+        rawTx.vout.push_back(out);
+    }
+}
+
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, std::optional<bool> rbf, const CBlockIndex* active_chain_tip, std::map<CTxOut, PSBTOutput>* outputs_aux, bool allow_peg_in, bool allow_issuance)
+{
+    CMutableTransaction rawTx;
+
+    if (!locktime.isNull()) {
+        int64_t nLockTime = locktime.getInt<int64_t>();
+        if (nLockTime < 0 || nLockTime > LOCKTIME_MAX)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, locktime out of range");
+        rawTx.nLockTime = nLockTime;
+    }
+
+    AddInputs(rawTx, inputs_in, rbf, active_chain_tip, allow_peg_in, allow_issuance);
+    AddOutputs(rawTx, outputs_in, outputs_aux);
+
+    if (rbf.has_value() && rbf.value() && rawTx.vin.size() > 0 && !SignalsOptInRBF(CTransaction(rawTx))) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter combination: Sequence number(s) contradict replaceable option");
     }
 
@@ -405,24 +453,24 @@ static void TxInErrorToJSON(const CTxIn& txin, const CTxInWitness& txinwit, UniV
     for (unsigned int i = 0; i < txinwit.scriptWitness.stack.size(); i++) {
         witness.push_back(HexStr(txinwit.scriptWitness.stack[i]));
     }
-    entry.pushKV("witness", witness);
+    entry.pushKV("witness", std::move(witness));
     entry.pushKV("scriptSig", HexStr(txin.scriptSig));
     entry.pushKV("sequence", (uint64_t)txin.nSequence);
     entry.pushKV("error", strMessage);
-    vErrorsRet.push_back(entry);
+    vErrorsRet.push_back(std::move(entry));
 }
 
-void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keystore, std::map<COutPoint, Coin>& coins)
+void ParsePrevouts(const UniValue& prevTxsUnival, FlatSigningProvider* keystore, std::map<COutPoint, Coin>& coins)
 {
     if (!prevTxsUnival.isNull()) {
-        UniValue prevTxs = prevTxsUnival.get_array();
+        const UniValue& prevTxs = prevTxsUnival.get_array();
         for (unsigned int idx = 0; idx < prevTxs.size(); ++idx) {
             const UniValue& p = prevTxs[idx];
             if (!p.isObject()) {
                 throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "expected object with {\"txid'\",\"vout\",\"scriptPubKey\"}");
             }
 
-            UniValue prevOut = p.get_obj();
+            const UniValue& prevOut = p.get_obj();
 
             RPCTypeCheckObj(prevOut,
                 {
@@ -431,9 +479,9 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
                     {"scriptPubKey", UniValueType(UniValue::VSTR)},
                 });
 
-            uint256 txid = ParseHashO(prevOut, "txid");
+            Txid txid = Txid::FromUint256(ParseHashO(prevOut, "txid"));
 
-            int nOut = find_value(prevOut, "vout").get_int();
+            int nOut = prevOut.find_value("vout").getInt<int>();
             if (nOut < 0) {
                 throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "vout cannot be negative");
             }
@@ -454,7 +502,7 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
                 newcoin.out.scriptPubKey = scriptPubKey;
                 newcoin.out.nValue = CConfidentialValue(MAX_MONEY);
                 if (prevOut.exists("amount")) {
-                    newcoin.out.nValue = CConfidentialValue(AmountFromValue(find_value(prevOut, "amount")));
+                    newcoin.out.nValue = CConfidentialValue(AmountFromValue(prevOut.find_value("amount")));
                 } else if (prevOut.exists("amountcommitment")) {
                     // Segwit sigs require the amount commitment to be sighashed
                     newcoin.out.nValue.vchCommitment = ParseHexO(prevOut, "amountcommitment");
@@ -472,8 +520,8 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
                         {"redeemScript", UniValueType(UniValue::VSTR)},
                         {"witnessScript", UniValueType(UniValue::VSTR)},
                     }, true);
-                UniValue rs = find_value(prevOut, "redeemScript");
-                UniValue ws = find_value(prevOut, "witnessScript");
+                const UniValue& rs{prevOut.find_value("redeemScript")};
+                const UniValue& ws{prevOut.find_value("witnessScript")};
                 if (rs.isNull() && ws.isNull()) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing redeemScript/witnessScript");
                 }
@@ -481,11 +529,11 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
                 // work from witnessScript when possible
                 std::vector<unsigned char> scriptData(!ws.isNull() ? ParseHexV(ws, "witnessScript") : ParseHexV(rs, "redeemScript"));
                 CScript script(scriptData.begin(), scriptData.end());
-                keystore->AddCScript(script);
+                keystore->scripts.emplace(CScriptID(script), script);
                 // Automatically also add the P2WSH wrapped version of the script (to deal with P2SH-P2WSH).
                 // This is done for redeemScript only for compatibility, it is encouraged to use the explicit witnessScript field instead.
                 CScript witness_output_script{GetScriptForDestination(WitnessV0ScriptHash(script))};
-                keystore->AddCScript(witness_output_script);
+                keystore->scripts.emplace(CScriptID(witness_output_script), witness_output_script);
 
                 if (!ws.isNull() && !rs.isNull()) {
                     // if both witnessScript and redeemScript are provided,
@@ -590,7 +638,7 @@ void SignTransactionResultToJSON(CMutableTransaction& mtx, bool complete, const 
         if (result.exists("errors")) {
             vErrors.push_backV(result["errors"].getValues());
         }
-        result.pushKV("errors", vErrors);
+        result.pushKV("errors", std::move(vErrors));
     }
     if (immature_pegin) {
         result.pushKV("warning", "Possibly immature peg-in input(s) detected, signed anyways.");

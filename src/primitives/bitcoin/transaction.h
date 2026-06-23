@@ -11,6 +11,7 @@
 #include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <primitives/transaction.h>
 
 namespace Sidechain {
 namespace Bitcoin {
@@ -164,13 +165,13 @@ struct CMutableTransaction;
 
 /**
  * Basic transaction serialization format:
- * - int32_t nVersion
+ * - uint32_t version
  * - std::vector<CTxIn> vin
  * - std::vector<CTxOut> vout
  * - uint32_t nLockTime
  *
  * Extended transaction serialization format:
- * - int32_t nVersion
+ * - uint32_t version
  * - unsigned char dummy = 0x00
  * - unsigned char flags (!= 0)
  * - std::vector<CTxIn> vin
@@ -180,10 +181,10 @@ struct CMutableTransaction;
  * - uint32_t nLockTime
  */
 template<typename Stream, typename TxType>
-inline void UnserializeTransaction(TxType& tx, Stream& s) {
-    const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
+inline void UnserializeTransaction(TxType& tx, Stream& s, const TransactionSerParams& params) {
+    const bool fAllowWitness = params.allow_witness;
 
-    s >> tx.nVersion;
+    s >> tx.version;
     unsigned char flags = 0;
     tx.vin.clear();
     tx.vout.clear();
@@ -219,10 +220,10 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
 }
 
 template<typename Stream, typename TxType>
-inline void SerializeTransaction(const TxType& tx, Stream& s) {
-    const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
+inline void SerializeTransaction(const TxType& tx, Stream& s, const TransactionSerParams& params) {
+    const bool fAllowWitness = params.allow_witness;
 
-    s << tx.nVersion;
+    s << tx.version;
     unsigned char flags = 0;
     // Consistency check
     if (fAllowWitness) {
@@ -255,13 +256,13 @@ class CTransaction
 {
 public:
     // Default transaction version.
-    static const int32_t CURRENT_VERSION=2;
+    static const uint32_t CURRENT_VERSION{2};
 
     // Changing the default transaction version requires a two step process: first
     // adapting relay policy by bumping MAX_STANDARD_VERSION, and then later date
     // bumping the default CURRENT_VERSION at which point both CURRENT_VERSION and
     // MAX_STANDARD_VERSION will be equal.
-    static const int32_t MAX_STANDARD_VERSION=2;
+    static const uint32_t MAX_STANDARD_VERSION{2};
 
     // The local variables are made const to prevent unintended modification
     // without updating the cached hash value. However, CTransaction is not
@@ -270,7 +271,7 @@ public:
     // structure, including the hash.
     const std::vector<CTxIn> vin;
     const std::vector<CTxOut> vout;
-    const int32_t nVersion;
+    const uint32_t version;
     const uint32_t nLockTime;
 
 private:
@@ -291,11 +292,13 @@ public:
 
     template <typename Stream>
     inline void Serialize(Stream& s) const {
-        Sidechain::Bitcoin::SerializeTransaction(*this, s);
+        Sidechain::Bitcoin::SerializeTransaction(*this, s, s.template GetParams<TransactionSerParams>());
     }
 
     /** This deserializing constructor is provided instead of an Unserialize method.
      *  Unserialize is not possible, since it would require overwriting const fields. */
+    template <typename Stream>
+    CTransaction(deserialize_type, const TransactionSerParams& params, Stream& s) : CTransaction(CMutableTransaction(deserialize, params, s)) {}
     template <typename Stream>
     CTransaction(deserialize_type, Stream& s) : CTransaction(CMutableTransaction(deserialize, s)) {}
 
@@ -349,7 +352,7 @@ struct CMutableTransaction
 {
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
-    int32_t nVersion;
+    uint32_t version;
     uint32_t nLockTime;
 
     CMutableTransaction();
@@ -357,13 +360,13 @@ struct CMutableTransaction
 
     template <typename Stream>
     inline void Serialize(Stream& s) const {
-        Sidechain::Bitcoin::SerializeTransaction(*this, s);
+        Sidechain::Bitcoin::SerializeTransaction(*this, s, s.template GetParams<TransactionSerParams>());
     }
 
 
     template <typename Stream>
     inline void Unserialize(Stream& s) {
-        Sidechain::Bitcoin::UnserializeTransaction(*this, s);
+        Sidechain::Bitcoin::UnserializeTransaction(*this, s, s.template GetParams<TransactionSerParams>());
     }
 
     template <typename Stream>

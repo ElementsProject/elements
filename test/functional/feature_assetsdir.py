@@ -22,6 +22,9 @@ class AssetdirTests(BitcoinTestFramework):
         self.num_nodes = 1
         [["-initialfreecoins=2100000000000000", "-anyonecanspendaremine=1", "-con_connect_genesis_outputs=1", "-con_blocksubsidy=0"]]
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
@@ -67,4 +70,4 @@ class AssetdirTests(BitcoinTestFramework):
         assert_equal(issuances[0]["assetlabel"], "asset2")
 
 if __name__ == '__main__':
-    AssetdirTests().main()
+    AssetdirTests(__file__).main()

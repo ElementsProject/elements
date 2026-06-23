@@ -32,20 +32,24 @@ SOURCES_PATH ?= $(BASEDIR)/sources
 WORK_PATH = $(BASEDIR)/work
 BASE_CACHE ?= $(BASEDIR)/built
 SDK_PATH ?= $(BASEDIR)/SDKs
+NO_BOOST ?=
+NO_LIBEVENT ?=
 NO_QT ?=
 NO_QR ?=
 NO_BDB ?=
 NO_SQLITE ?=
 NO_WALLET ?=
 NO_ZMQ ?=
-NO_UPNP ?=
 NO_USDT ?=
-NO_NATPMP ?=
 MULTIPROCESS ?=
+LTO ?=
+NO_HARDEN ?=
 FALLBACK_DOWNLOAD_PATH ?= https://bitcoincore.org/depends-sources
 
+C_STANDARD ?= c11
+CXX_STANDARD ?= c++20
+
 BUILD = $(shell ./config.guess)
-HOST ?= $(BUILD)
 PATCHES_PATH = $(BASEDIR)/patches
 BASEDIR = $(CURDIR)
 HASH_LENGTH:=11
@@ -53,11 +57,6 @@ DOWNLOAD_CONNECT_TIMEOUT:=30
 DOWNLOAD_RETRIES:=3
 HOST_ID_SALT ?= salt
 BUILD_ID_SALT ?= salt
-
-host:=$(BUILD)
-ifneq ($(HOST),)
-host:=$(HOST)
-endif
 
 ifneq ($(DEBUG),)
 release_type=debug
@@ -68,8 +67,14 @@ endif
 base_build_dir=$(WORK_PATH)/build
 base_staging_dir=$(WORK_PATH)/staging
 base_download_dir=$(WORK_PATH)/download
-canonical_host:=$(shell ./config.sub $(HOST))
 build:=$(shell ./config.sub $(BUILD))
+
+host:=$(build)
+ifneq ($(HOST),)
+host:=$(HOST)
+endif
+HOST ?= $(BUILD)
+canonical_host:=$(shell ./config.sub $(HOST))
 
 build_arch =$(firstword $(subst -, ,$(build)))
 build_vendor=$(word 2,$(subst -, ,$(build)))
@@ -93,10 +98,6 @@ host_os+=$(findstring freebsd,$(full_host_os))
 host_os+=$(findstring netbsd,$(full_host_os))
 host_os+=$(findstring openbsd,$(full_host_os))
 host_os+=$(findstring mingw32,$(full_host_os))
-
-ifeq (android,$(findstring android,$(full_host_os)))
-host_os:=android
-endif
 
 host_os:=$(strip $(host_os))
 ifeq ($(host_os),)
@@ -140,8 +141,20 @@ include packages/packages.mk
 #     2. Before including packages/*.mk (excluding packages/packages.mk), since
 #        they rely on the build_id variables
 #
-build_id:=$(shell env CC='$(build_CC)' CXX='$(build_CXX)' AR='$(build_AR)' RANLIB='$(build_RANLIB)' STRIP='$(build_STRIP)' SHA256SUM='$(build_SHA256SUM)' DEBUG='$(DEBUG)' ./gen_id '$(BUILD_ID_SALT)' 'GUIX_ENVIRONMENT=$(realpath $(GUIX_ENVIRONMENT))')
-$(host_arch)_$(host_os)_id:=$(shell env CC='$(host_CC)' CXX='$(host_CXX)' AR='$(host_AR)' RANLIB='$(host_RANLIB)' STRIP='$(host_STRIP)' SHA256SUM='$(build_SHA256SUM)' DEBUG='$(DEBUG)' ./gen_id '$(HOST_ID_SALT)' 'GUIX_ENVIRONMENT=$(realpath $(GUIX_ENVIRONMENT))')
+build_id:=$(shell env CC='$(build_CC)' C_STANDARD='$(C_STANDARD)' CXX='$(build_CXX)' CXX_STANDARD='$(CXX_STANDARD)' \
+                      AR='$(build_AR)' NM='$(build_NM)' RANLIB='$(build_RANLIB)' STRIP='$(build_STRIP)' SHA256SUM='$(build_SHA256SUM)' \
+                      DEBUG='$(DEBUG)' NO_HARDEN='$(NO_HARDEN)' \
+                      ./gen_id '$(BUILD_ID_SALT)' 'GUIX_ENVIRONMENT=$(realpath $(GUIX_ENVIRONMENT))')
+
+$(host_arch)_$(host_os)_id:=$(shell env CC='$(host_CC)' C_STANDARD='$(C_STANDARD)' CXX='$(host_CXX)' CXX_STANDARD='$(CXX_STANDARD)' \
+                                        CPPFLAGS='$(CPPFLAGS)' CFLAGS='$(CFLAGS)' CXXFLAGS='$(CXXFLAGS)' LDFLAGS='$(LDFLAGS)' \
+                                        AR='$(host_AR)' NM='$(host_NM)' RANLIB='$(host_RANLIB)' STRIP='$(host_STRIP)' SHA256SUM='$(build_SHA256SUM)' \
+                                        DEBUG='$(DEBUG)' LTO='$(LTO)' NO_HARDEN='$(NO_HARDEN)' \
+                                        ./gen_id '$(HOST_ID_SALT)' 'GUIX_ENVIRONMENT=$(realpath $(GUIX_ENVIRONMENT))')
+
+boost_packages_$(NO_BOOST) = $(boost_packages)
+
+libevent_packages_$(NO_LIBEVENT) = $(libevent_packages)
 
 qrencode_packages_$(NO_QR) = $(qrencode_$(host_os)_packages)
 
@@ -151,14 +164,11 @@ bdb_packages_$(NO_BDB) = $(bdb_packages)
 sqlite_packages_$(NO_SQLITE) = $(sqlite_packages)
 wallet_packages_$(NO_WALLET) = $(bdb_packages_) $(sqlite_packages_)
 
-upnp_packages_$(NO_UPNP) = $(upnp_packages)
-natpmp_packages_$(NO_NATPMP) = $(natpmp_packages)
-
 zmq_packages_$(NO_ZMQ) = $(zmq_packages)
 multiprocess_packages_$(MULTIPROCESS) = $(multiprocess_packages)
 usdt_packages_$(NO_USDT) = $(usdt_$(host_os)_packages)
 
-packages += $($(host_arch)_$(host_os)_packages) $($(host_os)_packages) $(qt_packages_) $(wallet_packages_) $(upnp_packages_) $(natpmp_packages_) $(usdt_packages_)
+packages += $($(host_arch)_$(host_os)_packages) $($(host_os)_packages) $(boost_packages_) $(libevent_packages_) $(qt_packages_) $(wallet_packages_) $(usdt_packages_)
 native_packages += $($(host_arch)_$(host_os)_native_packages) $($(host_os)_native_packages)
 
 ifneq ($(zmq_packages_),)
@@ -172,14 +182,11 @@ endif
 
 all_packages = $(packages) $(native_packages)
 
-meta_depends = Makefile funcs.mk builders/default.mk hosts/default.mk hosts/$(host_os).mk builders/$(build_os).mk
-
-$(host_arch)_$(host_os)_native_binutils?=$($(host_os)_native_binutils)
-$(host_arch)_$(host_os)_native_toolchain?=$($(host_os)_native_toolchain)
+meta_depends = Makefile config.guess config.sub funcs.mk builders/default.mk hosts/default.mk hosts/$(host_os).mk builders/$(build_os).mk
 
 include funcs.mk
 
-final_build_id_long+=$(shell $(build_SHA256SUM) config.site.in)
+final_build_id_long+=$(shell $(build_SHA256SUM) toolchain.cmake.in)
 final_build_id+=$(shell echo -n "$(final_build_id_long)" | $(build_SHA256SUM) | cut -c-$(HASH_LENGTH))
 $(host_prefix)/.stamp_$(final_build_id): $(native_packages) $(packages)
 	rm -rf $(@D)
@@ -187,62 +194,52 @@ $(host_prefix)/.stamp_$(final_build_id): $(native_packages) $(packages)
 	echo copying packages: $^
 	echo to: $(@D)
 	cd $(@D); $(foreach package,$^, $(build_TAR) xf $($(package)_cached); )
+	echo To build Bitcoin Core with these packages, pass \'--toolchain $(@D)/toolchain.cmake\' to the first CMake invocation.
 	touch $@
 
-# $PATH is not preserved between ./configure and make by convention. Its
-# modification and overriding at ./configure time is (as I understand it)
-# supposed to be captured by the AC_{PROG_{,OBJ}CXX,PATH_{PROG,TOOL}} macros,
-# which will expand the program names to their full absolute paths. The notable
-# exception is command line overriding: ./configure CC=clang, which skips the
-# program name expansion step, and works because the user implicitly indicates
-# with CC=clang that clang will be available in $PATH at all times, and is most
-# likely part of the user's system.
-#
-# Therefore, when we "seed the autoconf cache"/"override well-known program
-# vars" by setting AR=<blah> in our config.site, either one of two things needs
-# to be true for the build system to work correctly:
-#
-#   1. If we refer to the program by name (e.g. AR=riscv64-gnu-linux-ar), the
-#      tool needs to be available in $PATH at all times.
-#
-#   2. If the tool is _**not**_ expected to be available in $PATH at all times
-#      (such as is the case for our native_cctools binutils tools), it needs to
-#      be referred to by its absolute path, such as would be output by the
-#      AC_PATH_{PROG,TOOL} macros.
-#
-# Minor note: it is also okay to refer to tools by their absolute path even if
-# we expect them to be available in $PATH at all times, more specificity does
-# not hurt.
-$(host_prefix)/share/config.site : config.site.in $(host_prefix)/.stamp_$(final_build_id)
+ifeq ($(host),$(build))
+  crosscompiling=FALSE
+else
+  crosscompiling=TRUE
+endif
+
+$(host_prefix)/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_$(final_build_id)
 	@mkdir -p $(@D)
-	sed -e 's|@HOST@|$(host)|' \
+	sed -e 's|@depends_crosscompiling@|$(crosscompiling)|' \
+            -e 's|@host_system_name@|$($(host_os)_cmake_system_name)|' \
+            -e 's|@host_system_version@|$($(host_os)_cmake_system_version)|' \
+            -e 's|@host_arch@|$(host_arch)|' \
             -e 's|@CC@|$(host_CC)|' \
             -e 's|@CXX@|$(host_CXX)|' \
+            -e 's|@OSX_SDK@|$(OSX_SDK)|' \
             -e 's|@AR@|$(host_AR)|' \
             -e 's|@RANLIB@|$(host_RANLIB)|' \
-            -e 's|@NM@|$(host_NM)|' \
             -e 's|@STRIP@|$(host_STRIP)|' \
-            -e 's|@build_os@|$(build_os)|' \
-            -e 's|@host_os@|$(host_os)|' \
-            -e 's|@CFLAGS@|$(strip $(host_CFLAGS) $(host_$(release_type)_CFLAGS))|' \
-            -e 's|@CXXFLAGS@|$(strip $(host_CXXFLAGS) $(host_$(release_type)_CXXFLAGS))|' \
-            -e 's|@CPPFLAGS@|$(strip $(host_CPPFLAGS) $(host_$(release_type)_CPPFLAGS))|' \
-            -e 's|@LDFLAGS@|$(strip $(host_LDFLAGS) $(host_$(release_type)_LDFLAGS))|' \
-            -e 's|@allow_host_packages@|$(ALLOW_HOST_PACKAGES)|' \
-            -e 's|@no_qt@|$(NO_QT)|' \
-            -e 's|@no_qr@|$(NO_QR)|' \
-            -e 's|@no_zmq@|$(NO_ZMQ)|' \
-            -e 's|@no_wallet@|$(NO_WALLET)|' \
-            -e 's|@no_bdb@|$(NO_BDB)|' \
-            -e 's|@no_sqlite@|$(NO_SQLITE)|' \
-            -e 's|@no_upnp@|$(NO_UPNP)|' \
-            -e 's|@no_usdt@|$(NO_USDT)|' \
-            -e 's|@no_natpmp@|$(NO_NATPMP)|' \
+            -e 's|@OBJCOPY@|$(host_OBJCOPY)|' \
+            -e 's|@OBJDUMP@|$(host_OBJDUMP)|' \
+            -e 's|@CFLAGS@|$(strip $(host_CFLAGS))|' \
+            -e 's|@CFLAGS_RELEASE@|$(strip $(host_release_CFLAGS))|' \
+            -e 's|@CFLAGS_DEBUG@|$(strip $(host_debug_CFLAGS))|' \
+            -e 's|@CXXFLAGS@|$(strip $(host_CXXFLAGS))|' \
+            -e 's|@CXXFLAGS_RELEASE@|$(strip $(host_release_CXXFLAGS))|' \
+            -e 's|@CXXFLAGS_DEBUG@|$(strip $(host_debug_CXXFLAGS))|' \
+            -e 's|@CPPFLAGS@|$(strip $(host_CPPFLAGS))|' \
+            -e 's|@CPPFLAGS_RELEASE@|$(strip $(host_release_CPPFLAGS))|' \
+            -e 's|@CPPFLAGS_DEBUG@|$(strip $(host_debug_CPPFLAGS))|' \
+            -e 's|@LDFLAGS@|$(strip $(host_LDFLAGS))|' \
+            -e 's|@LDFLAGS_RELEASE@|$(strip $(host_release_LDFLAGS))|' \
+            -e 's|@LDFLAGS_DEBUG@|$(strip $(host_debug_LDFLAGS))|' \
+            -e 's|@qt_packages@|$(qt_packages_)|' \
+            -e 's|@qrencode_packages@|$(qrencode_packages_)|' \
+            -e 's|@zmq_packages@|$(zmq_packages_)|' \
+            -e 's|@wallet_packages@|$(wallet_packages_)|' \
+            -e 's|@bdb_packages@|$(bdb_packages_)|' \
+            -e 's|@sqlite_packages@|$(sqlite_packages_)|' \
+            -e 's|@usdt_packages@|$(usdt_packages_)|' \
+            -e 's|@no_harden@|$(NO_HARDEN)|' \
             -e 's|@multiprocess@|$(MULTIPROCESS)|' \
-            -e 's|@debug@|$(DEBUG)|' \
             $< > $@
 	touch $@
-
 
 define check_or_remove_cached
   mkdir -p $(BASE_CACHE)/$(host)/$(package) && cd $(BASE_CACHE)/$(host)/$(package); \
@@ -263,7 +260,7 @@ check-packages:
 check-sources:
 	@$(foreach package,$(all_packages),$(call check_or_remove_sources,$(package));)
 
-$(host_prefix)/share/config.site: check-packages
+$(host_prefix)/toolchain.cmake: check-packages
 
 check-packages: check-sources
 
@@ -271,9 +268,9 @@ clean-all: clean
 	@rm -rf $(SOURCES_PATH) x86_64* i686* mips* arm* aarch64* powerpc* riscv32* riscv64* s390x*
 
 clean:
-	@rm -rf $(WORK_PATH) $(BASE_CACHE) $(BUILD)
+	@rm -rf $(WORK_PATH) $(BASE_CACHE) $(BUILD) *.log
 
-install: check-packages $(host_prefix)/share/config.site
+install: check-packages $(host_prefix)/toolchain.cmake
 
 
 download-one: check-sources $(all_sources)

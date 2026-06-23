@@ -50,7 +50,7 @@ public:
 
     SERIALIZE_METHODS(CTxOutWitness, obj) { READWRITE(obj.vchSurjectionproof, obj.vchRangeproof); }
 
-    CTxOutWitness() { }
+    CTxOutWitness() = default;
 
     bool IsNull() const
     {
@@ -78,7 +78,7 @@ public:
     std::vector<CTxInWitness> vtxinwit;
     std::vector<CTxOutWitness> vtxoutwit;
 
-    CTxWitness() {}
+    CTxWitness() = default;
 
     template <typename Stream>
     inline void Serialize(Stream& s) const {

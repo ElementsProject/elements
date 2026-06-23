@@ -64,9 +64,10 @@ private Q_SLOTS:
 
 private:
     Ui::Intro *ui;
-    QThread *thread;
+    bool m_prune_checkbox_is_default{true};
+    QThread* thread{nullptr};
     QMutex mutex;
-    bool signalled;
+    bool signalled{false};
     QString pathToCheck;
     const int64_t m_blockchain_size_gb;
     const int64_t m_chain_state_size_gb;

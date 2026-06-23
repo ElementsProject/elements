@@ -34,7 +34,7 @@ struct CAsset {
     const unsigned char* end() const { return id.end(); }
 
     std::string GetHex() const { return id.GetHex(); }
-    void SetHex(const std::string& str) { id.SetHex(str); }
+    void SetHex(const std::string& str) { id.SetHexDeprecated(str); }
 
     friend bool operator==(const CAsset& a, const CAsset& b)
     {

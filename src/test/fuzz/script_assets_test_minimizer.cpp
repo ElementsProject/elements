@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021 The Bitcoin Core developers
+// Copyright (c) 2020-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -11,11 +11,13 @@
 #include <streams.h>
 #include <univalue.h>
 #include <util/strencodings.h>
+#include <util/string.h>
 
-#include <boost/algorithm/string.hpp>
 #include <cstdint>
 #include <string>
 #include <vector>
+
+using util::SplitString;
 
 // This fuzz "test" can be used to minimize test cases for script_assets_test in
 // src/test/script_tests.cpp. While it written as a fuzz test, and can be used as such,
@@ -54,7 +56,7 @@ CMutableTransaction TxFromHex(const std::string& str)
 {
     CMutableTransaction tx;
     try {
-        SpanReader{SER_DISK, SERIALIZE_TRANSACTION_NO_WITNESS, CheckedParseHex(str)} >> tx;
+        SpanReader{CheckedParseHex(str)} >> TX_NO_WITNESS(tx);
     } catch (const std::ios_base::failure&) {
         throw std::runtime_error("Tx deserialization failure");
     }
@@ -68,7 +70,7 @@ std::vector<CTxOut> TxOutsFromJSON(const UniValue& univalue)
     for (size_t i = 0; i < univalue.size(); ++i) {
         CTxOut txout;
         try {
-            SpanReader{SER_DISK, 0, CheckedParseHex(univalue[i].get_str())} >> txout;
+            SpanReader{CheckedParseHex(univalue[i].get_str())} >> txout;
         } catch (const std::ios_base::failure&) {
             throw std::runtime_error("Prevout invalid format");
         }
@@ -130,8 +132,7 @@ unsigned int ParseScriptFlags(const std::string& str)
     if (str.empty()) return 0;
 
     unsigned int flags = 0;
-    std::vector<std::string> words;
-    boost::algorithm::split(words, str, boost::algorithm::is_any_of(","));
+    std::vector<std::string> words = SplitString(str, ',');
 
     for (const std::string& word : words) {
         auto it = FLAG_NAMES.find(word);
@@ -150,7 +151,7 @@ void Test(const std::string& str)
     CMutableTransaction tx = TxFromHex(test["tx"].get_str());
     const std::vector<CTxOut> prevouts = TxOutsFromJSON(test["prevouts"]);
     if (prevouts.size() != tx.vin.size()) throw std::runtime_error("Incorrect number of prevouts");
-    size_t idx = test["index"].get_int64();
+    size_t idx = test["index"].getInt<int64_t>();
     if (idx >= tx.vin.size()) throw std::runtime_error("Invalid index");
     unsigned int test_flags = ParseScriptFlags(test["flags"].get_str());
     bool final = test.exists("final") && test["final"].get_bool();
@@ -187,12 +188,9 @@ void Test(const std::string& str)
     }
 }
 
-void test_init()
-{
-    static ECCVerifyHandle handle;
-}
+void test_init() {}
 
-FUZZ_TARGET_INIT_HIDDEN(script_assets_test_minimizer, test_init, /*hidden=*/true)
+FUZZ_TARGET(script_assets_test_minimizer, .init = test_init, .hidden = true)
 {
     if (buffer.size() < 2 || buffer.back() != '\n' || buffer[buffer.size() - 2] != ',') return;
     const std::string str((const char*)buffer.data(), buffer.size() - 2);

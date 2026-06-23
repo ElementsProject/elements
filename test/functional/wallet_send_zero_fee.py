@@ -10,6 +10,9 @@ from test_framework.util import (
 )
 
 class WalletTest(BitcoinTestFramework):
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def set_test_params(self):
         self.num_nodes = 3
         self.extra_args = [[
@@ -57,4 +60,4 @@ class WalletTest(BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance(), {'bitcoin': Decimal('1270')})
 
 if __name__ == '__main__':
-    WalletTest().main()
+    WalletTest(__file__).main()

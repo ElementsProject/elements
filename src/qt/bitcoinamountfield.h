@@ -7,6 +7,7 @@
 
 #include <asset.h>
 #include <consensus/amount.h>
+#include <qt/bitcoinunits.h>
 
 #include <set>
 #include <QWidget>
@@ -28,10 +29,10 @@ class BitcoinAmountField: public QWidget
     Q_PROPERTY(qint64 value READ value WRITE setValue NOTIFY valueChanged USER true)
 
 public:
-    explicit BitcoinAmountField(std::set<CAsset> allowed_assets, QWidget *parent = 0);
+    explicit BitcoinAmountField(std::set<CAsset> allowed_assets, QWidget *parent = nullptr);
     explicit BitcoinAmountField(QWidget *parent = nullptr);
 
-    std::pair<CAsset, CAmount> fullValue(bool *valid=0) const;
+    std::pair<CAsset, CAmount> fullValue(bool *valid = nullptr) const;
     void setFullValue(const CAsset& asset, const CAmount& value);
 
     CAmount value(bool *value=nullptr) const;
@@ -61,7 +62,7 @@ public:
 
     /** Change unit used to display amount. */
     void setDisplayUnit(const CAsset&);
-    void setDisplayUnit(int unit);
+    void setDisplayUnit(BitcoinUnit new_unit);
 
     /** Make field empty and ready for new input. */
     void clear();
@@ -84,7 +85,7 @@ protected:
 private:
     std::set<CAsset> m_allowed_assets;
     CAsset asset;
-    AmountSpinBox *amount;
+    AmountSpinBox* amount{nullptr};
     QComboBox *unit;
 
     bool hasAssetChoice(const CAsset&) const;

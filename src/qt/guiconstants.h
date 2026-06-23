@@ -1,6 +1,10 @@
-// Copyright (c) 2011-2020 The Bitcoin Core developers
+// Copyright (c) 2011-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#if defined(HAVE_CONFIG_H)
+#include <config/bitcoin-config.h>
+#endif
 
 #ifndef BITCOIN_QT_GUICONSTANTS_H
 #define BITCOIN_QT_GUICONSTANTS_H
@@ -25,7 +29,7 @@ static const int STATUSBAR_ICONSIZE = 16;
 static const bool DEFAULT_SPLASHSCREEN = true;
 
 /* Invalid field background style */
-#define STYLE_INVALID "background:#FF8080"
+#define STYLE_INVALID "border: 3px solid #FF8080"
 
 /* Transaction list -- unconfirmed transaction */
 #define COLOR_UNCONFIRMED QColor(128, 128, 128)
@@ -46,11 +50,12 @@ static const int TOOLTIP_WRAP_THRESHOLD = 80;
 /* Number of frames in spinner animation */
 #define SPINNER_FRAMES 36
 
-#define QAPP_ORG_NAME "Bitcoin"
-#define QAPP_ORG_DOMAIN "bitcoin.org"
+#define QAPP_ORG_NAME "Elements"
+#define QAPP_ORG_DOMAIN "elementsproject.org"
 
 #define QAPP_APP_NAME_DEFAULT "Elements-Qt"
 #define QAPP_APP_NAME_TESTNET "Elements-Qt-testnet"
+#define QAPP_APP_NAME_TESTNET4 "Elements-Qt-testnet4"
 #define QAPP_APP_NAME_SIGNET "Elements-Qt-signet"
 #define QAPP_APP_NAME_REGTEST "Elements-Qt-regtest"
 #define QAPP_APP_NAME_LIQUID "Elements-Qt (Liquid)"

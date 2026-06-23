@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2014-2021 The Bitcoin Core developers
+# Copyright (c) 2014-present The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the listtransactions API."""
@@ -21,11 +21,14 @@ from test_framework.util import (
 
 
 class ListTransactionsTest(BitcoinTestFramework):
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def set_test_params(self):
         self.num_nodes = 3
-        # This test isn't testing txn relay/timing, so set whitelist on the
-        # peers for instant txn relay. This speeds up the test run time 2-3x.
-        self.extra_args = [["-whitelist=noban@127.0.0.1"]] * self.num_nodes
+        # whitelist peers to speed up tx relay / mempool sync
+        self.noban_tx_relay = True
+        self.extra_args = [["-walletrbf=0"]] * self.num_nodes
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
@@ -100,7 +103,6 @@ class ListTransactionsTest(BitcoinTestFramework):
             txid = self.nodes[1].sendtoaddress(multisig["address"], 0.1)
             self.generate(self.nodes[1], 1)
             assert_equal(len(self.nodes[0].listtransactions(label="watchonly", include_watchonly=True)), 1)
-            assert_equal(len(self.nodes[0].listtransactions(dummy="watchonly", include_watchonly=True)), 1)
             assert len(self.nodes[0].listtransactions(label="watchonly", count=100, include_watchonly=False)) == 0
             assert_array_result(self.nodes[0].listtransactions(label="watchonly", count=100, include_watchonly=True),
                                 {"category": "receive", "amount": Decimal("0.1")},
@@ -108,7 +110,9 @@ class ListTransactionsTest(BitcoinTestFramework):
 
         self.run_rbf_opt_in_test()
         self.run_externally_generated_address_test()
+        self.run_coinjoin_test()
         self.run_invalid_parameters_test()
+        self.test_op_return()
 
     def run_rbf_opt_in_test(self):
         """Test the opt-in-rbf flag for sent and received transactions."""
@@ -146,7 +150,7 @@ class ListTransactionsTest(BitcoinTestFramework):
         # Create tx2 using createrawtransaction
         inputs = [{"txid": utxo_to_use["txid"], "vout": utxo_to_use["vout"]}]
         outputs = [{self.nodes[0].getnewaddress(): 0.999}, {"fee": utxo_to_use["amount"] - Decimal('0.999')}]
-        tx2 = self.nodes[1].createrawtransaction(inputs, outputs)
+        tx2 = self.nodes[1].createrawtransaction(inputs=inputs, outputs=outputs, replaceable=False)
         tx2_signed = self.nodes[1].signrawtransactionwithwallet(tx2)["hex"]
         txid_2 = self.nodes[1].sendrawtransaction(tx2_signed)
 
@@ -178,7 +182,7 @@ class ListTransactionsTest(BitcoinTestFramework):
         utxo_to_use = get_unconfirmed_utxo_entry(self.nodes[1], txid_3)
         inputs = [{"txid": txid_3, "vout": utxo_to_use["vout"]}]
         outputs = [{self.nodes[0].getnewaddress(): 0.997}, {"fee": utxo_to_use["amount"] - Decimal('0.997')}]
-        tx4 = self.nodes[1].createrawtransaction(inputs, outputs)
+        tx4 = self.nodes[1].createrawtransaction(inputs=inputs, outputs=outputs, replaceable=False)
         tx4_signed = self.nodes[1].signrawtransactionwithwallet(tx4)["hex"]
         txid_4 = self.nodes[1].sendrawtransaction(tx4_signed)
 
@@ -231,8 +235,8 @@ class ListTransactionsTest(BitcoinTestFramework):
         # refill keypool otherwise the second node wouldn't recognize addresses generated on the first nodes
         self.nodes[0].keypoolrefill(1000)
         self.stop_nodes()
-        wallet0 = os.path.join(self.nodes[0].datadir, self.chain, self.default_wallet_name, "wallet.dat")
-        wallet2 = os.path.join(self.nodes[2].datadir, self.chain, self.default_wallet_name, "wallet.dat")
+        wallet0 = os.path.join(self.nodes[0].chain_path, self.default_wallet_name, "wallet.dat")
+        wallet2 = os.path.join(self.nodes[2].chain_path, self.default_wallet_name, "wallet.dat")
         shutil.copyfile(wallet0, wallet2)
         self.start_nodes()
         # reconnect nodes
@@ -278,6 +282,35 @@ class ListTransactionsTest(BitcoinTestFramework):
         assert_equal(['pizza2'], self.nodes[0].getaddressinfo(addr2)['labels'])
         assert_equal(['pizza3'], self.nodes[0].getaddressinfo(addr3)['labels'])
 
+    def run_coinjoin_test(self):
+        self.log.info('Check "coin-join" transaction')
+        input_0 = next(i for i in self.nodes[0].listunspent(query_options={"minimumAmount": 0.2}, include_unsafe=False))
+        input_1 = next(i for i in self.nodes[1].listunspent(query_options={"minimumAmount": 0.2}, include_unsafe=False))
+        raw_hex = self.nodes[0].createrawtransaction(
+            inputs=[
+                {
+                    "txid": input_0["txid"],
+                    "vout": input_0["vout"],
+                },
+                {
+                    "txid": input_1["txid"],
+                    "vout": input_1["vout"],
+                },
+            ],
+            outputs=[
+                {self.nodes[0].getnewaddress(): 0.123},
+                {self.nodes[1].getnewaddress(): 0.123},
+                {"fee": input_0["amount"] + input_1["amount"] - Decimal("0.246")},
+            ],
+        )
+        raw_hex = self.nodes[0].signrawtransactionwithwallet(raw_hex)["hex"]
+        raw_hex = self.nodes[1].signrawtransactionwithwallet(raw_hex)["hex"]
+        txid_join = self.nodes[0].sendrawtransaction(hexstring=raw_hex, maxfeerate=0)
+        fee_join = self.nodes[0].getmempoolentry(txid_join)["fees"]["base"]
+        # Fee should be correct: assert_equal(fee_join, self.nodes[0].gettransaction(txid_join)['fee'])
+        # But it is not, see for example https://github.com/bitcoin/bitcoin/issues/14136:
+        assert fee_join != self.nodes[0].gettransaction(txid_join)["fee"]
+
     def run_invalid_parameters_test(self):
         self.log.info("Test listtransactions RPC parameter validity")
         assert_raises_rpc_error(-8, 'Label argument must be a valid label name or "*".', self.nodes[0].listtransactions, label="")
@@ -285,6 +318,17 @@ class ListTransactionsTest(BitcoinTestFramework):
         assert_raises_rpc_error(-8, "Negative count", self.nodes[0].listtransactions, count=-1)
         assert_raises_rpc_error(-8, "Negative from", self.nodes[0].listtransactions, skip=-1)
 
+    def test_op_return(self):
+        """Test if OP_RETURN outputs will be displayed correctly."""
+        raw_tx = self.nodes[0].createrawtransaction([], [{'data': 'aa'}])
+        funded_tx = self.nodes[0].fundrawtransaction(raw_tx)
+        signed_tx = self.nodes[0].signrawtransactionwithwallet(funded_tx['hex'])
+        tx_id = self.nodes[0].sendrawtransaction(signed_tx['hex'])
+
+        op_ret_tx = [tx for tx in self.nodes[0].listtransactions() if tx['txid'] == tx_id][0]
+
+        assert 'address' not in op_ret_tx
+
 
 if __name__ == '__main__':
-    ListTransactionsTest().main()
+    ListTransactionsTest(__file__).main()

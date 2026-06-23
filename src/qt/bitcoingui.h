@@ -1,14 +1,14 @@
-// Copyright (c) 2011-2021 The Bitcoin Core developers
+// Copyright (c) 2011-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_QT_BITCOINGUI_H
 #define BITCOIN_QT_BITCOINGUI_H
 
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h>
-#endif
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
+#include <qt/bitcoinunits.h>
+#include <qt/clientmodel.h>
 #include <qt/guiutil.h>
 #include <qt/optionsdialog.h>
 
@@ -21,13 +21,12 @@
 #include <QPoint>
 #include <QSystemTrayIcon>
 
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
 #include <qt/macos_appnap.h>
 #endif
 
 #include <memory>
 
-class ClientModel;
 class NetworkStyle;
 class Notificator;
 class OptionsModel;
@@ -80,7 +79,7 @@ public:
     */
     void setClientModel(ClientModel *clientModel = nullptr, interfaces::BlockAndHeaderTipInfo* tip_info = nullptr);
 #ifdef ENABLE_WALLET
-    void setWalletController(WalletController* wallet_controller);
+    void setWalletController(WalletController* wallet_controller, bool show_loading_minimized);
     WalletController* getWalletController();
 #endif
 
@@ -155,11 +154,14 @@ private:
     QAction* m_create_wallet_action{nullptr};
     QAction* m_open_wallet_action{nullptr};
     QMenu* m_open_wallet_menu{nullptr};
+    QAction* m_restore_wallet_action{nullptr};
     QAction* m_close_wallet_action{nullptr};
     QAction* m_close_all_wallets_action{nullptr};
     QAction* m_wallet_selector_label_action = nullptr;
     QAction* m_wallet_selector_action = nullptr;
     QAction* m_mask_values_action{nullptr};
+    QAction* m_migrate_wallet_action{nullptr};
+    QMenu* m_migrate_wallet_menu{nullptr};
 
     QLabel *m_wallet_selector_label = nullptr;
     QComboBox* m_wallet_selector = nullptr;
@@ -173,7 +175,7 @@ private:
 
     QMenu* m_network_context_menu = new QMenu(this);
 
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     CAppNapInhibitor* m_app_nap_inhibitor = nullptr;
 #endif
 
@@ -205,6 +207,7 @@ private:
     void updateNetworkState();
 
     void updateHeadersSyncProgressLabel();
+    void updateHeadersPresyncProgressLabel(int64_t height, const QDateTime& blockDate);
 
     /** Open the OptionsDialog on the specified tab index */
     void openOptionsDialogWithTab(OptionsDialog::Tab tab);
@@ -223,7 +226,9 @@ public Q_SLOTS:
     /** Set network state shown in the UI */
     void setNetworkActive(bool network_active);
     /** Set number of blocks and last block date shown in the UI */
-    void setNumBlocks(int count, const QDateTime& blockDate, double nVerificationProgress, bool headers, SynchronizationState sync_state);
+    void setNumBlocks(int count, const QDateTime& blockDate, double nVerificationProgress, SyncType synctype, SynchronizationState sync_state);
+    /** Launch the wallet creation modal (no-op if wallet is not compiled) **/
+    void createWallet();
 
     /** Notify the user of an event from the core network or transaction handling code.
        @param[in] title             the message box / notification title
@@ -284,6 +289,8 @@ public Q_SLOTS:
     void gotoVerifyMessageTab(QString addr = "");
     /** Load Partially Signed Bitcoin Transaction from file or clipboard */
     void gotoLoadPSBT(bool from_clipboard = false);
+    /** Enable history action when privacy is changed */
+    void enableHistoryAction(bool privacy);
 
 #endif // ENABLE_WALLET
     /** Show configuration dialog */
@@ -300,10 +307,10 @@ public Q_SLOTS:
     /** Show window if hidden, unminimize when minimized, rise when obscured or show if hidden and fToggleHidden is true */
     void showNormalIfMinimized() { showNormalIfMinimized(false); }
     void showNormalIfMinimized(bool fToggleHidden);
-    /** Simply calls showNormalIfMinimized(true) for use in SLOT() macro */
+    /** Simply calls showNormalIfMinimized(true) */
     void toggleHidden();
 
-    /** called by a timer to check if ShutdownRequested() has been set **/
+    /** called by a timer to check if shutdown has been requested */
     void detectShutdown();
 
     /** Show progress dialog e.g. for verifychain */
@@ -327,8 +334,8 @@ protected:
     void changeEvent(QEvent* e) override;
 
 private:
-    OptionsModel *optionsModel;
-    QMenu* menu;
+    OptionsModel* optionsModel{nullptr};
+    QMenu* menu{nullptr};
     const PlatformStyle* m_platform_style;
 
     /** Shows context menu with Display Unit options by the mouse coordinates */
@@ -338,7 +345,7 @@ private:
 
 private Q_SLOTS:
     /** When Display Units are changed on OptionsModel it will refresh the display text of the control on the status bar */
-    void updateDisplayUnit(int newUnits);
+    void updateDisplayUnit(BitcoinUnit newUnits);
     /** Tells underlying optionsModel to update its current display unit. */
     void onMenuSelection(QAction* action);
 };

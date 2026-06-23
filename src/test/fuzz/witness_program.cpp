@@ -21,19 +21,14 @@ public:
     DummySigChecker(const CMutableTransaction* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn, const PrecomputedTransactionData& txdataIn, MissingDataBehavior mdb) : MutableTransactionSignatureChecker{txToIn, nInIn, amountIn, txdataIn, mdb} {}
 };
 
-void initialize_witness_program()
+FUZZ_TARGET(witness_program)
 {
-    static const ECCVerifyHandle verify_handle;
-}
-
-FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
-{
-    CDataStream ds(buffer, SER_NETWORK, INIT_PROTO_VERSION);
+    DataStream ds(buffer);
     try {
         CMutableTransaction tx;
         unsigned int nIn;
         CConfidentialValue amountIn;
-        ds >> tx;
+        ds >> TX_NO_WITNESS(tx);
         ds >> nIn;
         ds >> amountIn;
 
@@ -79,18 +74,18 @@ FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
                     return;
                 }
                 if (i == nIn) {
-                    spent_outs.push_back(CTxOut{asset, value, scriptPubKey});
+                    spent_outs.emplace_back(asset, value, scriptPubKey);
                 } else {
                     CScript script;
                     ds >> script;
-                    spent_outs.push_back(CTxOut{asset, value, script});
+                    spent_outs.emplace_back(asset, value, script);
                 }
                 tx.witness.vtxinwit[i].scriptWitness.stack.push_back(program);
             }
             txdata.Init(tx, std::move(spent_outs));
             DummySigChecker checker{&tx, nIn, amountIn, txdata, MissingDataBehavior::ASSERT_FAIL};
 
-            VerifyScript(/* scriptSig */ CScript{}, scriptPubKey, &witness, flags, checker, /* serror */ NULL);
+            VerifyScript(/* scriptSig */ CScript{}, scriptPubKey, &witness, flags, checker, /* serror */ nullptr);
         /* segwit v1 (taproot) */
         } else {
             /* Generate keys */
@@ -98,7 +93,7 @@ FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
             ds >> xonlypk;
             XOnlyPubKey intkey(xonlypk);
 
-            uint256 tapleaf_hash = (CHashWriter(HASHER_TAPLEAF_ELEMENTS) << uint8_t(TAPROOT_LEAF_TAPSCRIPT) << program).GetSHA256();
+            uint256 tapleaf_hash = (HashWriter(HASHER_TAPLEAF_ELEMENTS) << uint8_t(TAPROOT_LEAF_TAPSCRIPT) << program).GetSHA256();
             auto extkey_parity = intkey.CreateTapTweak(&tapleaf_hash);
             if (!extkey_parity) {
                 return;
@@ -109,7 +104,7 @@ FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
             witness.stack.push_back(program);
 
             std::vector<unsigned char> control;
-            control.push_back(TAPROOT_LEAF_TAPSCRIPT | extkey_parity->second);
+            control.push_back(TAPROOT_LEAF_TAPSCRIPT | static_cast<uint8_t>(extkey_parity->second));
             control.insert(control.end(), intkey.begin(), intkey.end());
             witness.stack.push_back(control);
 
@@ -124,11 +119,11 @@ FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
                     return;
                 }
                 if (i == nIn) {
-                    spent_outs.push_back(CTxOut{asset, value, scriptPubKey});
+                    spent_outs.emplace_back(asset, value, scriptPubKey);
                 } else {
                     CScript script;
                     ds >> script;
-                    spent_outs.push_back(CTxOut{asset, value, script});
+                    spent_outs.emplace_back(asset, value, script);
                 }
                 tx.witness.vtxinwit[i].scriptWitness.stack.push_back(program);
                 tx.witness.vtxinwit[i].scriptWitness.stack.push_back(control);
@@ -136,7 +131,7 @@ FUZZ_TARGET_INIT(witness_program, initialize_witness_program)
             txdata.Init(tx, std::move(spent_outs));
             GenericTransactionSignatureChecker checker{&tx, nIn, amountIn, txdata, MissingDataBehavior::ASSERT_FAIL};
 
-            VerifyScript(/* scriptSig */ CScript{}, scriptPubKey, &witness, flags, checker, /* serror */ NULL);
+            VerifyScript(/* scriptSig */ CScript{}, scriptPubKey, &witness, flags, checker, /* serror */ nullptr);
         }
     } catch (const std::ios_base::failure&) {
         return;

@@ -36,6 +36,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
         self.disable_syscall_sandbox = True
 
     def add_options(self, parser):
+        self.add_wallet_options(parser)
         parser.add_argument(
             "--parent_binpath",
             dest="parent_binpath",
@@ -171,7 +172,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
             else:
                 # Need to specify where to find parent cookie file
                 datadir = get_datadir_path(self.options.tmpdir, n)
-                extra_args.append("-mainchainrpccookiefile=" + datadir + "/" + parent_chain + "/.cookie")
+                extra_args.append("-mainchainrpccookiefile=" + str(datadir) + "/" + parent_chain + "/.cookie")
 
             self.add_nodes(1, [extra_args], chain=["elementsregtest"])
             self.start_node(1 + n)
@@ -434,6 +435,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
             "pegin-subsidy-too-low",
             sidechain.sendrawtransaction,
             signed["hex"],
+            maxburnamount="1.0",
         )
 
         self.log.info("blinded peg-in above threshold, with validatepegin")
@@ -472,7 +474,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
         txid, vout, txoutproof, bitcoin_txhex, claim_script = parent_pegin(parent, sidechain)
         pegintx = sidechain.createrawpegin(bitcoin_txhex, txoutproof, claim_script)
         signed = sidechain.signrawtransactionwithwallet(pegintx["hex"])
-        pegin_txid = sidechain.sendrawtransaction(signed["hex"])
+        pegin_txid = sidechain.sendrawtransaction(signed["hex"], maxburnamount="1.0")
         pegin_tx = sidechain.gettransaction(pegin_txid, True, True)
         assert_equal(len(pegin_tx["decoded"]["vout"]), 3)
         # WSH input 41 bytes * 4 = 164 weight
@@ -504,7 +506,8 @@ class PeginSubsidyTest(BitcoinTestFramework):
 
         pegintx = sidechain2.createrawpegin(bitcoin_txhex, txoutproof, claim_script, feerate)
         signed = sidechain2.signrawtransactionwithwallet(pegintx["hex"])
-        pegin_txid = sidechain2.sendrawtransaction(signed["hex"])
+        pegin_txid = sidechain.sendrawtransaction(signed["hex"], maxburnamount="1.0")
+        self.generate(sidechain, 1, sync_fun=sync_sidechain)
         pegin_tx = sidechain2.gettransaction(pegin_txid, True, True)
         assert_equal(len(pegin_tx["decoded"]["vout"]), 3)
         assert_equal(pegin_tx["decoded"]["vout"][1]["value"], Decimal("0.00000792"))
@@ -705,7 +708,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
         assert_equal(signed["complete"], True)
         accept = sidechain.testmempoolaccept([signed["hex"]])
         assert_equal(accept[0]["allowed"], True)
-        sidechain.sendrawtransaction(signed["hex"])
+        sidechain.sendrawtransaction(signed["hex"], maxburnamount="1.0")
         self.generate(sidechain, 1, sync_fun=sync_sidechain)
         # =================================
 
@@ -760,7 +763,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
         assert_equal(signed["complete"], True)
         accept = sidechain.testmempoolaccept([signed["hex"]])
         assert_equal(accept[0]["allowed"], True)
-        sidechain.sendrawtransaction(signed["hex"])
+        sidechain.sendrawtransaction(signed["hex"], maxburnamount="1.0")
         self.generate(sidechain2, 1, sync_fun=sync_sidechain)
 
         self.log.info("construct a multi-pegin tx, above threshold")
@@ -847,6 +850,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
             "pegin-value-too-low",
             sidechain.sendrawtransaction,
             signed["hex"],
+            maxburnamount="1.0",
         )
         self.generate(sidechain, 1, sync_fun=sync_sidechain)
 
@@ -909,6 +913,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
             "dust",
             sidechain.sendrawtransaction,
             signed["hex"],
+            maxburnamount="1.0",
         )
 
         # Manually stop sidechains first, then the parent chain.
@@ -918,4 +923,4 @@ class PeginSubsidyTest(BitcoinTestFramework):
 
 
 if __name__ == "__main__":
-    PeginSubsidyTest().main()
+    PeginSubsidyTest(__file__).main()

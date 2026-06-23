@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021 The Bitcoin Core developers
+// Copyright (c) 2019-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -14,32 +14,27 @@
 #include <primitives/transaction.h>
 #include <streams.h>
 #include <test/fuzz/fuzz.h>
+#include <test/util/random.h>
 #include <univalue.h>
+#include <util/chaintype.h>
 #include <util/rbf.h>
 #include <validation.h>
-#include <version.h>
 
 #include <cassert>
 
 void initialize_transaction()
 {
-    SelectParams(CBaseChainParams::REGTEST);
+    SelectParams(ChainType::REGTEST);
 }
 
-FUZZ_TARGET_INIT(transaction, initialize_transaction)
+FUZZ_TARGET(transaction, .init = initialize_transaction)
 {
-    CDataStream ds(buffer, SER_NETWORK, INIT_PROTO_VERSION);
-    try {
-        int nVersion;
-        ds >> nVersion;
-        ds.SetVersion(nVersion);
-    } catch (const std::ios_base::failure&) {
-        return;
-    }
+    SeedRandomStateForTest(SeedRand::ZEROS);
+    DataStream ds{buffer};
     bool valid_tx = true;
     const CTransaction tx = [&] {
         try {
-            CMutableTransaction mtx{deserialize, ds};
+            CMutableTransaction mtx{deserialize, TX_WITH_WITNESS, ds};
             mtx.witness.vtxinwit.resize(mtx.vin.size());
             return CTransaction(mtx);
         } catch (const std::ios_base::failure&) {
@@ -48,13 +43,10 @@ FUZZ_TARGET_INIT(transaction, initialize_transaction)
         }
     }();
     bool valid_mutable_tx = true;
-    CDataStream ds_mtx(buffer, SER_NETWORK, INIT_PROTO_VERSION);
+    DataStream ds_mtx{buffer};
     CMutableTransaction mutable_tx;
     try {
-        int nVersion;
-        ds_mtx >> nVersion;
-        ds_mtx.SetVersion(nVersion);
-        ds_mtx >> mutable_tx;
+        ds_mtx >> TX_WITH_WITNESS(mutable_tx);
     } catch (const std::ios_base::failure&) {
         valid_mutable_tx = false;
     }
@@ -69,10 +61,10 @@ FUZZ_TARGET_INIT(transaction, initialize_transaction)
         Assert(res == state_with_dupe_check.IsValid());
     }
 
-    const CFeeRate dust_relay_fee{DUST_RELAY_TX_FEE};
+    const CFeeRate dust_relay_fee{DUST_RELAY_TX_FEE_BITCOIN};
     std::string reason;
-    const bool is_standard_with_permit_bare_multisig = IsStandardTx(tx, /* permit_bare_multisig= */ true, dust_relay_fee, reason);
-    const bool is_standard_without_permit_bare_multisig = IsStandardTx(tx, /* permit_bare_multisig= */ false, dust_relay_fee, reason);
+    const bool is_standard_with_permit_bare_multisig = IsStandardTx(tx, std::nullopt, /* permit_bare_multisig= */ true, dust_relay_fee, reason);
+    const bool is_standard_without_permit_bare_multisig = IsStandardTx(tx, std::nullopt, /* permit_bare_multisig= */ false, dust_relay_fee, reason);
     if (is_standard_without_permit_bare_multisig) {
         assert(is_standard_with_permit_bare_multisig);
     }
@@ -98,7 +90,6 @@ FUZZ_TARGET_INIT(transaction, initialize_transaction)
     (void)GetTransactionWeight(tx);
     (void)GetVirtualTransactionSize(tx);
     (void)IsFinalTx(tx, /* nBlockHeight= */ 1024, /* nBlockTime= */ 1024);
-    (void)IsStandardTx(tx, reason);
     (void)RecursiveDynamicUsage(tx);
     (void)SignalsOptInRBF(tx);
 
@@ -107,7 +98,14 @@ FUZZ_TARGET_INIT(transaction, initialize_transaction)
     (void)AreInputsStandard(tx, coins_view_cache);
     (void)IsWitnessStandard(tx, coins_view_cache);
 
-    UniValue u(UniValue::VOBJ);
-    TxToUniv(tx, /*hashBlock=*/uint256::ZERO, u);
-    TxToUniv(tx, /*hashBlock=*/uint256::ONE, u);
+    if (tx.GetTotalSize() < 250'000) { // Avoid high memory usage (with msan) due to json encoding
+        {
+            UniValue u{UniValue::VOBJ};
+            TxToUniv(tx, /*block_hash=*/uint256::ZERO, /*entry=*/u);
+        }
+        {
+            UniValue u{UniValue::VOBJ};
+            TxToUniv(tx, /*block_hash=*/uint256::ONE, /*entry=*/u);
+        }
+    }
 }

@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-# Copyright (c) 2020-2021 The Bitcoin Core developers
+# Copyright (c) 2020-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test UTXO set hash value calculation in gettxoutsetinfo."""
-
-import struct
 
 from test_framework.messages import (
     CBlock,
     COutPoint,
     from_hex,
 )
-from test_framework.muhash import MuHash3072
+from test_framework.crypto.muhash import MuHash3072
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal
 from test_framework.wallet import MiniWallet
@@ -58,7 +56,7 @@ class UTXOSetHashTest(BitcoinTestFramework):
                         continue
 
                     data = COutPoint(int(tx.rehash(), 16), n).serialize()
-                    data += struct.pack("<i", height * 2 + coinbase)
+                    data += (height * 2 + coinbase).to_bytes(4, "little")
                     data += tx_out.serialize()
 
                     # ELEMENTS: filter out fee outputs
@@ -71,12 +69,12 @@ class UTXOSetHashTest(BitcoinTestFramework):
         assert_equal(finalized[::-1].hex(), node_muhash)
 
         self.log.info("Test deterministic UTXO set hash results")
-        assert_equal(node.gettxoutsetinfo()['hash_serialized_2'], "4f08452f289a6cb0f277db2cef735d6332532f917321d8d8650b811d5119ec7c")
-        assert_equal(node.gettxoutsetinfo("muhash")['muhash'], "0352e9a14613eea9f00ed9f437444450bdd64ea998b88579fdd71811a2d0d7cf")
+        assert_equal(node.gettxoutsetinfo()['hash_serialized_3'], "0976e6381b0c16b5b39676912aa909ff1ab64df117f3f671b59f9d0bbe004578")
+        assert_equal(node.gettxoutsetinfo("muhash")['muhash'], "9bfdc6f243759d929b8af3c80620e3059023ee2f5348123c677bd61a858ca3df")
 
     def run_test(self):
         self.test_muhash_implementation()
 
 
 if __name__ == '__main__':
-    UTXOSetHashTest().main()
+    UTXOSetHashTest(__file__).main()

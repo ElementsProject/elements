@@ -39,8 +39,8 @@ class P2PIBDTxRelayTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 2
         self.extra_args = [
-            ["-minrelaytxfee={}".format(NORMAL_FEE_FILTER)],
-            ["-minrelaytxfee={}".format(NORMAL_FEE_FILTER)],
+            ["-minrelaytxfee={}".format(NORMAL_FEE_FILTER), "-multi_data_permitted=1"],
+            ["-minrelaytxfee={}".format(NORMAL_FEE_FILTER), "-multi_data_permitted=1"],
         ]
 
     def run_test(self):
@@ -49,13 +49,15 @@ class P2PIBDTxRelayTest(BitcoinTestFramework):
             assert node.getblockchaininfo()['initialblockdownload']
             self.wait_until(lambda: all(peer['minfeefilter'] == MAX_FEE_FILTER for peer in node.getpeerinfo()))
 
+        self.nodes[0].setmocktime(int(time.time()))
+
         self.log.info("Check that nodes don't send getdatas for transactions while still in IBD")
         peer_inver = self.nodes[0].add_p2p_connection(P2PDataStore())
         txid = 0xdeadbeef
         peer_inver.send_and_ping(msg_inv([CInv(t=MSG_WTX, h=txid)]))
         # The node should not send a getdata, but if it did, it would first delay 2 seconds
-        self.nodes[0].setmocktime(int(time.time() + NONPREF_PEER_TX_DELAY))
-        peer_inver.sync_send_with_ping()
+        self.nodes[0].bumpmocktime(NONPREF_PEER_TX_DELAY)
+        peer_inver.sync_with_ping()
         with p2p_lock:
             assert txid not in peer_inver.getdata_requests
         self.nodes[0].disconnect_p2ps()
@@ -64,11 +66,7 @@ class P2PIBDTxRelayTest(BitcoinTestFramework):
         # A transaction hex pulled from tx_valid.json. There are no valid transactions since no UTXOs
         # exist yet, but it should be a well-formed transaction.
         # ELEMENTS: this is an arbitrary transaction pulled from a dummy regtest network
-        rawhex = "0200000001010000000000000000000000000000000000000000000000000000000000000000ffffffff0502ca000101" + \
-            "ffffffff0201230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b201000000000000000000016" + \
-            "a01230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b201000000000000000000266a24aa21a9" + \
-            "ed94f15ed3a62165e4a0b99699cc28b48e19cb5bc1b1f47155db62d63f1e047d45000000000000012000000000000000000" + \
-            "000000000000000000000000000000000000000000000000000000000"
+        rawhex = "0200000000015f2d99582ea16cc9451e8f9e19bdfedf43379ad0ad1fafb8ff66d22359017f020000000000feffffff0301230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b201000775f01e6c643000160014dfd373030ebbb3088bfd0c3b467ad9792e5913ea01230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b201000000003b9aca00001600142790f2f05fa706d1cb777b1a7aa546c0dc90e0ed01230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b20100000000000011d0000065000000"
         assert self.nodes[1].decoderawtransaction(rawhex) # returns a dict, should not throw
         tx = from_hex(CTransaction(), rawhex)
         peer_txer = self.nodes[0].add_p2p_connection(P2PInterface())
@@ -86,9 +84,8 @@ class P2PIBDTxRelayTest(BitcoinTestFramework):
 
         self.log.info("Check that nodes process the same transaction, even when unsolicited, when no longer in IBD")
         peer_txer = self.nodes[0].add_p2p_connection(P2PInterface())
-        # ELEMENTS FIXME:
-        # with self.nodes[0].assert_debug_log(expected_msgs=["was not accepted"]):
-        #   peer_txer.send_and_ping(msg_tx(tx))
+        with self.nodes[0].assert_debug_log(expected_msgs=["was not accepted"]):
+           peer_txer.send_and_ping(msg_tx(tx))
 
 if __name__ == '__main__':
-    P2PIBDTxRelayTest().main()
+    P2PIBDTxRelayTest(__file__).main()

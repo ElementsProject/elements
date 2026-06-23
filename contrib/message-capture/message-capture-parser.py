@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2020 The Bitcoin Core developers
+# Copyright (c) 2020-2022 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Parse message capture binary files.  To be used in conjunction with -capturemessages."""
@@ -11,7 +11,7 @@ import sys
 from io import BytesIO
 import json
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../test/functional'))
 
@@ -79,7 +79,7 @@ def to_jsonable(obj: Any) -> Any:
             val = getattr(obj, slot, None)
             if slot in HASH_INTS and isinstance(val, int):
                 ret[slot] = ser_uint256(val).hex()
-            elif slot in HASH_INT_VECTORS and isinstance(val[0], int):
+            elif slot in HASH_INT_VECTORS and all(isinstance(a, int) for a in val):
                 ret[slot] = [ser_uint256(a).hex() for a in val]
             else:
                 ret[slot] = to_jsonable(val)
@@ -92,7 +92,7 @@ def to_jsonable(obj: Any) -> Any:
         return obj
 
 
-def process_file(path: str, messages: List[Any], recv: bool, progress_bar: Optional[ProgressBar]) -> None:
+def process_file(path: str, messages: list[Any], recv: bool, progress_bar: Optional[ProgressBar]) -> None:
     with open(path, 'rb') as f_in:
         if progress_bar:
             bytes_read = 0
@@ -188,7 +188,7 @@ def main():
     output = Path.cwd() / Path(args.output) if args.output else False
     use_progress_bar = (not args.no_progress_bar) and sys.stdout.isatty()
 
-    messages = []   # type: List[Any]
+    messages = []   # type: list[Any]
     if use_progress_bar:
         total_size = sum(capture.stat().st_size for capture in capturepaths)
         progress_bar = ProgressBar(total_size)

@@ -146,7 +146,7 @@ public:
     // Create from a CBlock, matching the txids in the set
     CMerkleBlock(const CBlock& block, const std::set<uint256>& txids) : CMerkleBlock(block, nullptr, &txids) { }
 
-    CMerkleBlock() {}
+    CMerkleBlock() = default;
 
     SERIALIZE_METHODS(CMerkleBlock, obj) { READWRITE(obj.header, obj.txn); }
 

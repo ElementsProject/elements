@@ -74,7 +74,7 @@ bool GenericVerifyScript(const CScript& scriptSig, const CScriptWitness& witness
 {
     bool sighash_byte = (flags & SCRIPT_NO_SIGHASH_BYTE) ? false : true;
     // Note: Our hash doesn't commit to the sighash byte
-    return VerifyScript(scriptSig, scriptPubKey, &witness, flags, SimpleSignatureChecker(SerializeHash(data), sighash_byte));
+    return VerifyScript(scriptSig, scriptPubKey, &witness, flags, SimpleSignatureChecker(data.GetHash(), sighash_byte));
 }
 
 template<typename T>
@@ -82,7 +82,7 @@ bool GenericSignScript(const FillableSigningProvider& keystore, const T& data, c
 {
     bool sighash_byte = (additional_flags & SCRIPT_NO_SIGHASH_BYTE) ? false : true;
     // Note: Our hash doesn't commit to the sighash byte
-    return ProduceSignature(keystore, SimpleSignatureCreator(SerializeHash(data), sighash_byte), fromPubKey, scriptSig, additional_flags);
+    return ProduceSignature(keystore, SimpleSignatureCreator(data.GetHash(), sighash_byte), fromPubKey, scriptSig, additional_flags);
 }
 
 #endif // H_BITCOIN_SCRIPT_GENERIC

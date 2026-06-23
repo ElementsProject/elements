@@ -6,7 +6,6 @@
 
 from decimal import Decimal
 
-from test_framework.blocktools import COINBASE_MATURITY
 from test_framework.messages import MSG_TX, MSG_WTX, msg_feefilter
 from test_framework.p2p import P2PInterface, p2p_lock
 from test_framework.test_framework import BitcoinTestFramework
@@ -47,16 +46,16 @@ class TestP2PConn(P2PInterface):
 class FeeFilterTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
+        # whitelist peers to speed up tx relay / mempool sync
+        self.noban_tx_relay = True
         # We lower the various required feerates for this test
         # to catch a corner-case where feefilter used to slightly undercut
         # mempool and wallet feerate calculation based on GetFee
         # rounding down 3 places, leading to stranded transactions.
         # See issue #16499
-        # grant noban permission to all peers to speed up tx relay / mempool sync
         self.extra_args = [[
             "-minrelaytxfee=0.00000100",
-            "-mintxfee=0.00000100",
-            "-whitelist=noban@127.0.0.1",
+            "-mintxfee=0.00000100"
         ]] * self.num_nodes
 
     def run_test(self):
@@ -80,9 +79,6 @@ class FeeFilterTest(BitcoinTestFramework):
         node1 = self.nodes[1]
         node0 = self.nodes[0]
         miniwallet = MiniWallet(node1)
-        # Add enough mature utxos to the wallet, so that all txs spend confirmed coins
-        self.generate(miniwallet, 5)
-        self.generate(node1, COINBASE_MATURITY)
 
         conn = self.nodes[0].add_p2p_connection(TestP2PConn())
 
@@ -136,4 +132,4 @@ class FeeFilterTest(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    FeeFilterTest().main()
+    FeeFilterTest(__file__).main()

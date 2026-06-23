@@ -3,30 +3,26 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#if defined(HAVE_CONFIG_H)
+#include <config/bitcoin-config.h>
+#endif
+
 #include <chainparamsbase.h>
 
+#include <common/args.h>
 #include <tinyformat.h>
-#include <util/system.h>
+#include <util/chaintype.h>
 
 #include <assert.h>
 
-const std::string CBaseChainParams::MAIN = "main";
-const std::string CBaseChainParams::TESTNET = "test";
-const std::string CBaseChainParams::SIGNET = "signet";
-const std::string CBaseChainParams::REGTEST = "regtest";
-const std::string CBaseChainParams::LIQUID1 = "liquidv1";
-const std::string CBaseChainParams::LIQUID1TEST = "liquidv1test";
-const std::string CBaseChainParams::LIQUIDTESTNET = "liquidtestnet";
-
-const std::string CBaseChainParams::DEFAULT = CBaseChainParams::LIQUID1;
-
 void SetupChainParamsBaseOptions(ArgsManager& argsman)
 {
-    argsman.AddArg("-chain=<chain>", "Use the chain <chain> (default: liquidv1). Reserved values: main, test, signet, regtest, liquidv1, liquidv1test, liquidtestnet", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-chain=<chain>", "Use the chain <chain> (default: liquidv1). Reserved values: " LIST_CHAIN_NAMES, ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
                  "This is intended for regression testing tools and app development. Equivalent to -chain=regtest.", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-testactivationheight=name@height.", "Set the activation height of 'name' (segwit, bip34, dersig, cltv, csv). (regtest-only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::DEBUG_TEST);
-    argsman.AddArg("-testnet", "Use the test chain. Equivalent to -chain=test.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-testnet", "Use the testnet3 chain. Equivalent to -chain=test. Support for testnet3 is deprecated and will be removed in an upcoming release. Consider moving to testnet4 now by using -testnet4.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-testnet4", "Use the testnet4 chain. Equivalent to -chain=testnet4.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-vbparams=deployment:start:end[:min_activation_height]", "Use given start/end times and min_activation_height for specified version bits deployment (regtest or custom only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-seednode=<ip>", "Use specified node as seed node. This option can be specified multiple times to connect to multiple nodes. (custom only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
 
@@ -75,33 +71,44 @@ const CBaseChainParams& BaseParams()
 }
 
 /**
- * Port numbers for incoming Tor connections (8334, 18334, 38334, 18445) have
+ * Port numbers for incoming Tor connections (8334, 18334, 38334, 48334, 18445) have
  * been chosen arbitrarily to keep ranges of used ports tight.
  */
-std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain)
+std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const ChainTypeMeta chain)
 {
-    if (chain == CBaseChainParams::MAIN) {
-        return std::make_unique<CBaseChainParams>("", 8332, 18332, 8334);
-    } else if (chain == CBaseChainParams::TESTNET) {
-        return std::make_unique<CBaseChainParams>("testnet3", 18332, 8332, 18334);
-    } else if (chain == CBaseChainParams::SIGNET) {
-        return std::make_unique<CBaseChainParams>("signet", 38332, 18332, 38334);
-    } else if (chain == CBaseChainParams::REGTEST) {
-        return std::make_unique<CBaseChainParams>("regtest", 18443, 18332, 18445);
-    } else if (chain == CBaseChainParams::LIQUID1) {
-        return std::make_unique<CBaseChainParams>("liquidv1", 7041, 8332, 37041);
-    } else if (chain == CBaseChainParams::LIQUID1TEST) {
-        return std::make_unique<CBaseChainParams>("liquidv1test", 7040, 18332, 37040);  // Use same ports as customparams
-    } else if (chain == CBaseChainParams::LIQUIDTESTNET) {
-        return std::make_unique<CBaseChainParams>(chain, 7039, 18331, 37039);
+    switch (chain.chain_type) {
+    case ChainType::MAIN:
+        return std::make_unique<CBaseChainParams>("", 8332, 18332);
+    case ChainType::TESTNET:
+        return std::make_unique<CBaseChainParams>("testnet3", 18332, 8332);
+    case ChainType::TESTNET4:
+        return std::make_unique<CBaseChainParams>("testnet4", 48332, 8332);
+    case ChainType::SIGNET:
+        return std::make_unique<CBaseChainParams>("signet", 38332, 18332);
+    case ChainType::REGTEST:
+        return std::make_unique<CBaseChainParams>("regtest", 18443, 18332);
+    case ChainType::LIQUID1:
+        return std::make_unique<CBaseChainParams>("liquidv1", 7041, 8332);
+    case ChainType::LIQUID1TEST:
+        return std::make_unique<CBaseChainParams>("liquidv1test", 7040, 18332);  // Use same ports as customparams
+    case ChainType::LIQUIDTESTNET:
+        return std::make_unique<CBaseChainParams>("liquidtestnet", 7039, 18331);
+    case ChainType::CUSTOM:
+        return std::make_unique<CBaseChainParams>(chain.chain_name, 7040, 18332);
     }
-
-    // ELEMENTS:
-    return std::make_unique<CBaseChainParams>(chain, 7040, 18332, 37040);
+    return std::make_unique<CBaseChainParams>(chain.chain_name, 7040, 18332);
 }
 
-void SelectBaseParams(const std::string& chain)
+void SelectBaseParams(const ChainTypeMeta chain)
 {
     globalChainBaseParams = CreateBaseChainParams(chain);
-    gArgs.SelectConfigNetwork(chain);
+    gArgs.SelectConfigNetwork(chain.chain_name);
+}
+
+// ELEMENTS
+std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const ChainType chain) {
+    return CreateBaseChainParams(ChainTypeMetaFrom(chain));
+}
+void SelectBaseParams(const ChainType chain) {
+    SelectBaseParams(ChainTypeMetaFrom(chain));
 }

@@ -10,7 +10,8 @@ that file and modify to fit your needs.
 
 #### Coverage
 
-Running `test/functional/test_runner.py` with the `--coverage` argument tracks which RPCs are
+Assuming the build directory is `build`,
+running `build/test/functional/test_runner.py` with the `--coverage` argument tracks which RPCs are
 called by the tests and prints a report of uncovered RPCs in the summary. This
 can be used (along with the `--extended` argument) to find out which RPCs we
 don't have test cases for.
@@ -24,17 +25,23 @@ don't have test cases for.
   Consider using [pyenv](https://github.com/pyenv/pyenv), which checks [.python-version](/.python-version),
   to prevent accidentally introducing modern syntax from an unsupported Python version.
   The CI linter job also checks this, but [possibly not in all cases](https://github.com/bitcoin/bitcoin/pull/14884#discussion_r239585126).
-- See [the python lint script](/test/lint/lint-python.sh) that checks for violations that
+- See [the python lint script](/test/lint/lint-python.py) that checks for violations that
   could lead to bugs and issues in the test code.
 - Use [type hints](https://docs.python.org/3/library/typing.html) in your code to improve code readability
   and to detect possible bugs earlier.
-- Avoid wildcard imports
+- Avoid wildcard imports.
+- If more than one name from a module is needed, use lexicographically sorted multi-line imports
+  in order to reduce the possibility of potential merge conflicts.
 - Use a module-level docstring to describe what the test is testing, and how it
   is testing it.
 - When subclassing the BitcoinTestFramework, place overrides for the
   `set_test_params()`, `add_options()` and `setup_xxxx()` methods at the top of
   the subclass, then locally-defined helper methods, then the `run_test()` method.
 - Use `f'{x}'` for string formatting in preference to `'{}'.format(x)` or `'%s' % x`.
+- Use `platform.system()` for detecting the running operating system and `os.name` to
+  check whether it's a POSIX system (see also the `skip_if_platform_not_{linux,posix}`
+  methods in the `BitcoinTestFramework` class, which can be used to skip a whole test
+  depending on the platform).
 
 #### Naming guidelines
 

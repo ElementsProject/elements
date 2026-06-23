@@ -8,22 +8,18 @@
 #ifndef BITCOIN_TORCONTROL_H
 #define BITCOIN_TORCONTROL_H
 
-#include <fs.h>
 #include <netaddress.h>
+#include <util/fs.h>
 
-#include <boost/signals2/signal.hpp>
+#include <event2/util.h>
 
-#include <event2/bufferevent.h>
-#include <event2/event.h>
-
-#include <cstdlib>
+#include <cstdint>
 #include <deque>
 #include <functional>
 #include <string>
 #include <vector>
 
-class CService;
-
+constexpr int DEFAULT_TOR_CONTROL_PORT = 9051;
 extern const std::string DEFAULT_TOR_CONTROL;
 static const bool DEFAULT_LISTEN_ONION = true;
 
@@ -31,7 +27,7 @@ void StartTorControl(CService onion_service_target);
 void InterruptTorControl();
 void StopTorControl();
 
-CService DefaultOnionServiceTarget();
+CService DefaultOnionServiceTarget(uint16_t port);
 
 /** Reply from Tor, can be single or multi-line */
 class TorControlReply
@@ -83,8 +79,6 @@ public:
      */
     bool Command(const std::string &cmd, const ReplyHandlerCB& reply_handler);
 
-    /** Response handlers for async replies */
-    boost::signals2::signal<void(TorControlConnection &,const TorControlReply &)> async_handler;
 private:
     /** Callback when ready for use */
     std::function<void(TorControlConnection&)> connected;
@@ -93,7 +87,7 @@ private:
     /** Libevent event base */
     struct event_base *base;
     /** Connection to control socket */
-    struct bufferevent *b_conn;
+    struct bufferevent* b_conn{nullptr};
     /** Message being received */
     TorControlReply message;
     /** Response handlers */
@@ -140,6 +134,8 @@ private:
     std::vector<uint8_t> clientNonce;
 
 public:
+    /** Callback for GETINFO net/listeners/socks result */
+    void get_socks_cb(TorControlConnection& conn, const TorControlReply& reply);
     /** Callback for ADD_ONION result */
     void add_onion_cb(TorControlConnection& conn, const TorControlReply& reply);
     /** Callback for AUTHENTICATE result */

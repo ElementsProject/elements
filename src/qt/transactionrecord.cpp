@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2021 The Bitcoin Core developers
+// Copyright (c) 2011-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -9,7 +9,7 @@
 #include <key_io.h>
 #include <policy/policy.h>
 #include <validation.h>
-#include <wallet/ismine.h>
+#include <wallet/types.h>
 
 #include <stdint.h>
 
@@ -48,9 +48,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     std::set<CAsset> assets_issued_to_me_only;
     if (wtx.is_coinbase) {
         fAllFromMe = ISMINE_NO;
-    }
-    else
-    {
+    } else {
         CAmountMap assets_received_by_me_only;
         for (unsigned int i = 0; i < wtx.tx->vout.size(); i++)
         {
@@ -104,6 +102,11 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     }
 
     if (fAllFromMe || !any_from_me) {
+        for (const isminetype mine : wtx.txout_is_mine)
+        {
+            if(mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
+        }
+
         for(unsigned int i = 0; i < wtx.tx->vout.size(); i++)
         {
             const CTxOut& txout = wtx.tx->vout[i];
@@ -116,7 +119,6 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
             if (fAllFromMe && assets_issued_to_me_only.count(asset) == 0) {
                 // Change is only really possible if we're the sender
                 // Otherwise, someone just sent bitcoins to a change address, which should be shown
-
                 if (wtx.txout_is_change[i]) {
                     continue;
                 }
@@ -124,6 +126,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 //
                 // Debit
                 //
+
                 TransactionRecord sub(hash, nTime);
                 sub.idx = i;
                 sub.involvesWatchAddress = involvesWatchAddress;
@@ -142,6 +145,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                     sub.type = TransactionRecord::SendToOther;
                     sub.address = mapValue["to"];
                 }
+
                 parts.append(sub);
             }
 
@@ -183,7 +187,6 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 parts.append(sub);
             }
         }
-
         if (fAllFromMe) {
             for (const auto& tx_fee : GetFeeMap(*wtx.tx)) {
                 if (!tx_fee.second) continue;
@@ -221,15 +224,10 @@ void TransactionRecord::updateStatus(const interfaces::WalletTxStatus& wtx, cons
     case IssuedAsset:
         typesort = 1;
         break;
-    case SendToAddress:
-    case SendToOther:
-    case SendToSelf:
-        typesort = 2;
-        break;
-    case RecvWithAddress:
-    case RecvFromOther:
-        typesort = 3;
-        break;
+    case SendToAddress: case SendToOther:
+        typesort = 2; break;
+    case RecvWithAddress: case RecvFromOther:
+        typesort = 3; break;
     default:
         typesort = 10;
     }

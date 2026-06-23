@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2021 The Bitcoin Core developers
+// Copyright (c) 2015-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -6,24 +6,37 @@
 
 #include <chain.h>
 #include <chainparams.h>
+#include <crypto/common.h>
+#include <kernel/cs_main.h>
+#include <logging.h>
+#include <netaddress.h>
 #include <netbase.h>
 #include <node/blockstorage.h>
+#include <primitives/block.h>
+#include <primitives/transaction.h>
 #include <rpc/server.h>
+#include <serialize.h>
 #include <streams.h>
-#include <util/system.h>
-#include <validation.h> // For cs_main
+#include <sync.h>
+#include <uint256.h>
 #include <zmq/zmqutil.h>
 
 #include <zmq.h>
 
+#include <cassert>
 #include <cstdarg>
 #include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <map>
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
-using node::ReadBlockFromDisk;
+namespace Consensus {
+struct Params;
+}
 
 static std::multimap<std::string, CZMQAbstractPublishNotifier*> mapPublishNotifiers;
 
@@ -80,12 +93,11 @@ static bool IsZMQAddressIPV6(const std::string &zmq_address)
 {
     const std::string tcp_prefix = "tcp://";
     const size_t tcp_index = zmq_address.rfind(tcp_prefix);
-    const size_t colon_index = zmq_address.rfind(":");
+    const size_t colon_index = zmq_address.rfind(':');
     if (tcp_index == 0 && colon_index != std::string::npos) {
         const std::string ip = zmq_address.substr(tcp_prefix.length(), colon_index - tcp_prefix.length());
-        CNetAddr addr;
-        LookupHost(ip, addr, false);
-        if (addr.IsIPv6()) return true;
+        const std::optional<CNetAddr> addr{LookupHost(ip, false)};
+        if (addr.has_value() && addr.value().IsIPv6()) return true;
     }
     return false;
 }
@@ -106,7 +118,7 @@ bool CZMQAbstractPublishNotifier::Initialize(void *pcontext)
             return false;
         }
 
-        LogPrint(BCLog::ZMQ, "zmq: Outbound message high water mark for %s at %s is %d\n", type, address, outbound_message_high_water_mark);
+        LogDebug(BCLog::ZMQ, "Outbound message high water mark for %s at %s is %d\n", type, address, outbound_message_high_water_mark);
 
         int rc = zmq_setsockopt(psocket, ZMQ_SNDHWM, &outbound_message_high_water_mark, sizeof(outbound_message_high_water_mark));
         if (rc != 0)
@@ -147,8 +159,8 @@ bool CZMQAbstractPublishNotifier::Initialize(void *pcontext)
     }
     else
     {
-        LogPrint(BCLog::ZMQ, "zmq: Reusing socket for address %s\n", address);
-        LogPrint(BCLog::ZMQ, "zmq: Outbound message high water mark for %s at %s is %d\n", type, address, outbound_message_high_water_mark);
+        LogDebug(BCLog::ZMQ, "Reusing socket for address %s\n", address);
+        LogDebug(BCLog::ZMQ, "Outbound message high water mark for %s at %s is %d\n", type, address, outbound_message_high_water_mark);
 
         psocket = i->second->psocket;
         mapPublishNotifiers.insert(std::make_pair(address, this));
@@ -179,7 +191,7 @@ void CZMQAbstractPublishNotifier::Shutdown()
 
     if (count == 1)
     {
-        LogPrint(BCLog::ZMQ, "zmq: Close socket at address %s\n", address);
+        LogDebug(BCLog::ZMQ, "Close socket at address %s\n", address);
         int linger = 0;
         zmq_setsockopt(psocket, ZMQ_LINGER, &linger, sizeof(linger));
         zmq_close(psocket);
@@ -208,7 +220,7 @@ bool CZMQAbstractPublishNotifier::SendZmqMessage(const char *command, const void
 bool CZMQPublishHashBlockNotifier::NotifyBlock(const CBlockIndex *pindex)
 {
     uint256 hash = pindex->GetBlockHash();
-    LogPrint(BCLog::ZMQ, "zmq: Publish hashblock %s to %s\n", hash.GetHex(), this->address);
+    LogDebug(BCLog::ZMQ, "Publish hashblock %s to %s\n", hash.GetHex(), this->address);
     uint8_t data[32];
     for (unsigned int i = 0; i < 32; i++) {
         data[31 - i] = hash.begin()[i];
@@ -219,7 +231,7 @@ bool CZMQPublishHashBlockNotifier::NotifyBlock(const CBlockIndex *pindex)
 bool CZMQPublishHashTransactionNotifier::NotifyTransaction(const CTransaction &transaction)
 {
     uint256 hash = transaction.GetHash();
-    LogPrint(BCLog::ZMQ, "zmq: Publish hashtx %s to %s\n", hash.GetHex(), this->address);
+    LogDebug(BCLog::ZMQ, "Publish hashtx %s to %s\n", hash.GetHex(), this->address);
     uint8_t data[32];
     for (unsigned int i = 0; i < 32; i++) {
         data[31 - i] = hash.begin()[i];
@@ -229,31 +241,23 @@ bool CZMQPublishHashTransactionNotifier::NotifyTransaction(const CTransaction &t
 
 bool CZMQPublishRawBlockNotifier::NotifyBlock(const CBlockIndex *pindex)
 {
-    LogPrint(BCLog::ZMQ, "zmq: Publish rawblock %s to %s\n", pindex->GetBlockHash().GetHex(), this->address);
+    LogDebug(BCLog::ZMQ, "Publish rawblock %s to %s\n", pindex->GetBlockHash().GetHex(), this->address);
 
-    const Consensus::Params& consensusParams = Params().GetConsensus();
-    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION | RPCSerializationFlags());
-    {
-        LOCK(cs_main);
-        CBlock block;
-        if(!ReadBlockFromDisk(block, pindex, consensusParams))
-        {
-            zmqError("Can't read block from disk");
-            return false;
-        }
-
-        ss << block;
+    std::vector<uint8_t> block{};
+    if (!m_get_block_by_index(block, *pindex)) {
+        zmqError("Can't read block from disk");
+        return false;
     }
 
-    return SendZmqMessage(MSG_RAWBLOCK, &(*ss.begin()), ss.size());
+    return SendZmqMessage(MSG_RAWBLOCK, block.data(), block.size());
 }
 
 bool CZMQPublishRawTransactionNotifier::NotifyTransaction(const CTransaction &transaction)
 {
     uint256 hash = transaction.GetHash();
-    LogPrint(BCLog::ZMQ, "zmq: Publish rawtx %s to %s\n", hash.GetHex(), this->address);
-    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION | RPCSerializationFlags());
-    ss << transaction;
+    LogDebug(BCLog::ZMQ, "Publish rawtx %s to %s\n", hash.GetHex(), this->address);
+    DataStream ss;
+    ss << TX_WITH_WITNESS(transaction);
     return SendZmqMessage(MSG_RAWTX, &(*ss.begin()), ss.size());
 }
 
@@ -273,27 +277,27 @@ static bool SendSequenceMsg(CZMQAbstractPublishNotifier& notifier, uint256 hash,
 bool CZMQPublishSequenceNotifier::NotifyBlockConnect(const CBlockIndex *pindex)
 {
     uint256 hash = pindex->GetBlockHash();
-    LogPrint(BCLog::ZMQ, "zmq: Publish sequence block connect %s to %s\n", hash.GetHex(), this->address);
+    LogDebug(BCLog::ZMQ, "Publish sequence block connect %s to %s\n", hash.GetHex(), this->address);
     return SendSequenceMsg(*this, hash, /* Block (C)onnect */ 'C');
 }
 
 bool CZMQPublishSequenceNotifier::NotifyBlockDisconnect(const CBlockIndex *pindex)
 {
     uint256 hash = pindex->GetBlockHash();
-    LogPrint(BCLog::ZMQ, "zmq: Publish sequence block disconnect %s to %s\n", hash.GetHex(), this->address);
+    LogDebug(BCLog::ZMQ, "Publish sequence block disconnect %s to %s\n", hash.GetHex(), this->address);
     return SendSequenceMsg(*this, hash, /* Block (D)isconnect */ 'D');
 }
 
 bool CZMQPublishSequenceNotifier::NotifyTransactionAcceptance(const CTransaction &transaction, uint64_t mempool_sequence)
 {
     uint256 hash = transaction.GetHash();
-    LogPrint(BCLog::ZMQ, "zmq: Publish hashtx mempool acceptance %s to %s\n", hash.GetHex(), this->address);
+    LogDebug(BCLog::ZMQ, "Publish hashtx mempool acceptance %s to %s\n", hash.GetHex(), this->address);
     return SendSequenceMsg(*this, hash, /* Mempool (A)cceptance */ 'A', mempool_sequence);
 }
 
 bool CZMQPublishSequenceNotifier::NotifyTransactionRemoval(const CTransaction &transaction, uint64_t mempool_sequence)
 {
     uint256 hash = transaction.GetHash();
-    LogPrint(BCLog::ZMQ, "zmq: Publish hashtx mempool removal %s to %s\n", hash.GetHex(), this->address);
+    LogDebug(BCLog::ZMQ, "Publish hashtx mempool removal %s to %s\n", hash.GetHex(), this->address);
     return SendSequenceMsg(*this, hash, /* Mempool (R)emoval */ 'R', mempool_sequence);
 }

@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2021 The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Bitcoin Core developers
 // Copyright (c) 2017 The Zcash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -142,14 +142,14 @@ public:
     {
         unsigned int len = size();
         ::WriteCompactSize(s, len);
-        s.write(AsBytes(Span{vch, len}));
+        s << Span{vch, len};
     }
     template <typename Stream>
     void Unserialize(Stream& s)
     {
         const unsigned int len(::ReadCompactSize(s));
         if (len <= SIZE) {
-            s.read(AsWritableBytes(Span{vch, len}));
+            s >> Span{vch, len};
             if (len != size()) {
                 Invalidate();
             }
@@ -191,6 +191,12 @@ public:
         return size() > 0;
     }
 
+    /** Check if a public key is a syntactically valid compressed or uncompressed key. */
+    bool IsValidNonHybrid() const noexcept
+    {
+        return size() > 0 && (vch[0] == 0x02 || vch[0] == 0x03 || vch[0] == 0x04);
+    }
+
     //! fully validate whether this is a valid public key (more expensive than IsValid())
     bool IsFullyValid() const;
 
@@ -218,7 +224,7 @@ public:
     bool Decompress();
 
     //! Derive BIP32 child pubkey.
-    bool Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc, std::vector<unsigned char>* tweak = nullptr /* ELEMENTS: vector of key tweak values that are filled out if non-null */) const;
+    [[nodiscard]] bool Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc, std::vector<unsigned char>* tweak = nullptr /* ELEMENTS: vector of key tweak values that are filled out if non-null */) const;
 
     //! Verify that when this public key is tweaked with tweak, the result is res
     bool TweakMulVerify(const CPubKey& res, const uint256& tweak) const;
@@ -230,6 +236,11 @@ private:
     uint256 m_keydata;
 
 public:
+    /** Nothing Up My Sleeve point H
+     *  Used as an internal key for provably disabling the key path spend
+     *  see BIP341 for more details */
+    static const XOnlyPubKey NUMS_H;
+
     /** Construct an empty x-only pubkey. */
     XOnlyPubKey() = default;
 
@@ -246,7 +257,7 @@ public:
     bool IsNull() const { return m_keydata.IsNull(); }
 
     /** Construct an x-only pubkey from exactly 32 bytes. */
-    explicit XOnlyPubKey(Span<const unsigned char> bytes);
+    constexpr explicit XOnlyPubKey(std::span<const unsigned char> bytes) : m_keydata{bytes} {}
 
     /** Construct an x-only pubkey from a normal pubkey. */
     explicit XOnlyPubKey(const CPubKey& pubkey) : XOnlyPubKey(Span{pubkey}.subspan(1, 32)) {}
@@ -282,17 +293,56 @@ public:
      */
     std::vector<CKeyID> GetKeyIDs() const;
 
+    CPubKey GetEvenCorrespondingCPubKey() const;
+
     const unsigned char& operator[](int pos) const { return *(m_keydata.begin() + pos); }
-    const unsigned char* data() const { return m_keydata.begin(); }
     static constexpr size_t size() { return decltype(m_keydata)::size(); }
+    const unsigned char* data() const { return m_keydata.begin(); }
     const unsigned char* begin() const { return m_keydata.begin(); }
     const unsigned char* end() const { return m_keydata.end(); }
+    unsigned char* data() { return m_keydata.begin(); }
     unsigned char* begin() { return m_keydata.begin(); }
     unsigned char* end() { return m_keydata.end(); }
-    unsigned char* data() { return m_keydata.begin(); }
     bool operator==(const XOnlyPubKey& other) const { return m_keydata == other.m_keydata; }
     bool operator!=(const XOnlyPubKey& other) const { return m_keydata != other.m_keydata; }
     bool operator<(const XOnlyPubKey& other) const { return m_keydata < other.m_keydata; }
+
+    //! Implement serialization without length prefixes since it is a fixed length
+    SERIALIZE_METHODS(XOnlyPubKey, obj) { READWRITE(obj.m_keydata); }
+};
+
+/** An ElligatorSwift-encoded public key. */
+struct EllSwiftPubKey
+{
+private:
+    static constexpr size_t SIZE = 64;
+    std::array<std::byte, SIZE> m_pubkey;
+
+public:
+    /** Default constructor creates all-zero pubkey (which is valid). */
+    EllSwiftPubKey() noexcept = default;
+
+    /** Construct a new ellswift public key from a given serialization. */
+    EllSwiftPubKey(Span<const std::byte> ellswift) noexcept;
+
+    /** Decode to normal compressed CPubKey (for debugging purposes). */
+    CPubKey Decode() const;
+
+    // Read-only access for serialization.
+    const std::byte* data() const { return m_pubkey.data(); }
+    static constexpr size_t size() { return SIZE; }
+    auto begin() const { return m_pubkey.cbegin(); }
+    auto end() const { return m_pubkey.cend(); }
+
+    bool friend operator==(const EllSwiftPubKey& a, const EllSwiftPubKey& b)
+    {
+        return a.m_pubkey == b.m_pubkey;
+    }
+
+    bool friend operator!=(const EllSwiftPubKey& a, const EllSwiftPubKey& b)
+    {
+        return a.m_pubkey != b.m_pubkey;
+    }
 };
 
 struct CExtPubKey {
@@ -331,24 +381,7 @@ struct CExtPubKey {
     void Decode(const unsigned char code[BIP32_EXTKEY_SIZE]);
     void EncodeWithVersion(unsigned char code[BIP32_EXTKEY_WITH_VERSION_SIZE]) const;
     void DecodeWithVersion(const unsigned char code[BIP32_EXTKEY_WITH_VERSION_SIZE]);
-    bool Derive(CExtPubKey& out, unsigned int nChild) const;
+    [[nodiscard]] bool Derive(CExtPubKey& out, unsigned int nChild) const;
 };
-
-/** Users of this module must hold an ECCVerifyHandle. The constructor and
- *  destructor of these are not allowed to run in parallel, though. */
-class ECCVerifyHandle
-{
-    static int refcount;
-
-public:
-    ECCVerifyHandle();
-    ~ECCVerifyHandle();
-};
-
-typedef struct secp256k1_context_struct secp256k1_context;
-
-/** Access to the internal secp256k1 context used for verification. Only intended to be used
- *  by key.cpp. */
-const secp256k1_context* GetVerifyContext();
 
 #endif // BITCOIN_PUBKEY_H

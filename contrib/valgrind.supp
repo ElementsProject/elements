@@ -2,30 +2,19 @@
 # dependencies that cannot be fixed in-tree.
 #
 # Example use:
-# $ valgrind --suppressions=contrib/valgrind.supp src/test/test_bitcoin
+# $ valgrind --suppressions=contrib/valgrind.supp build/bin/test_elements
 # $ valgrind --suppressions=contrib/valgrind.supp --leak-check=full \
-#       --show-leak-kinds=all src/test/test_bitcoin
+#       --show-leak-kinds=all build/bin/test_elements
 #
 # To create suppressions for found issues, use the --gen-suppressions=all option:
 # $ valgrind --suppressions=contrib/valgrind.supp --leak-check=full \
 #       --show-leak-kinds=all --gen-suppressions=all --show-reachable=yes \
-#       --error-limit=no src/test/test_bitcoin
+#       --error-limit=no build/bin/test_elements
 #
 # Note that suppressions may depend on OS and/or library versions.
 # Tested on:
-# * aarch64 (Ubuntu 22.04 system libs, clang, without gui)
-# * x86_64  (Ubuntu 22.04 system libs, clang, without gui)
-{
-   Suppress libstdc++ warning - https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65434
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   obj:*/libstdc++.*
-   fun:call_init.part.0
-   fun:call_init
-   fun:_dl_init
-   obj:*/ld-*.so
-}
+# * aarch64 (Ubuntu Noble system libs, clang, without gui)
+# * x86_64  (Ubuntu Noble system libs, clang, without gui)
 {
    Suppress libdb warning - https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=662917
    Memcheck:Cond
@@ -65,37 +54,10 @@
    obj:*/libdb_cxx-*.so
 }
 {
-   Suppress leaks on init
-   Memcheck:Leak
-   ...
-   fun:_Z11AppInitMainR11NodeContext
-}
-{
    Suppress leaks on shutdown
    Memcheck:Leak
    ...
    fun:_Z8ShutdownR11NodeContext
-}
-{
-   Ignore GUI warning
-   Memcheck:Leak
-   ...
-   obj:/usr/lib64/libgdk-3.so.0.2404.7
-}
-{
-   Suppress leveldb warning (leveldb::InitModule()) - https://github.com/google/leveldb/issues/113
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   fun:_ZN7leveldbL10InitModuleEv
-}
-{
-   Suppress leveldb warning (leveldb::Env::Default()) - https://github.com/google/leveldb/issues/113
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   ...
-   fun:_ZN7leveldbL14InitDefaultEnvEv
 }
 {
    Suppress leveldb leak
@@ -113,29 +75,11 @@
    fun:GetCoin
 }
 {
-   Suppress boost warning
-   Memcheck:Leak
-   fun:_Znwm
-   ...
-   fun:_ZN5boost9unit_test9framework5state17execute_test_treeEmjPKNS2_23random_generator_helperE
-   fun:_ZN5boost9unit_test9framework3runEmb
-   fun:_ZN5boost9unit_test14unit_test_mainEPFbvEiPPc
-   fun:main
-}
-{
    Suppress LogInstance still reachable memory warning
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:_Znwm
    fun:_Z11LogInstancev
-}
-{
-   Suppress secp256k1_context_create still reachable memory warning
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   ...
-   fun:secp256k1_context_create
 }
 {
    Suppress BCLog::Logger::StartLogging() still reachable memory warning
@@ -144,4 +88,10 @@
    fun:malloc
    ...
    fun:_ZN5BCLog6Logger12StartLoggingEv
+}
+{
+   Suppress https://bugs.kde.org/show_bug.cgi?id=472219 - fixed in Valgrind 3.22.
+   Memcheck:Param
+   ppoll(ufds.events)
+   obj:/lib/ld-musl-aarch64.so.1
 }

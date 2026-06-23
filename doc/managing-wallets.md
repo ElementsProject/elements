@@ -20,7 +20,7 @@ By default, wallets are created in the `wallets` folder of the data directory, w
 | Operating System | Default wallet directory                                    |
 | -----------------|:------------------------------------------------------------|
 | Linux            | `/home/<user>/.bitcoin/wallets`                             |
-| Windows          | `C:\Users\<user>\AppData\Roaming\Bitcoin\wallets`           |
+| Windows          | `C:\Users\<user>\AppData\Local\Bitcoin\wallets`             |
 | macOS            | `/Users/<user>/Library/Application Support/Bitcoin/wallets` |
 
 ### 1.2 Encrypting the Wallet
@@ -88,7 +88,7 @@ In the RPC, the destination parameter must include the name of the file. Otherwi
 $ bitcoin-cli -rpcwallet="wallet-01" backupwallet /home/node01/Backups/backup-01.dat
 ```
 
-In the GUI, the wallet is selected in the `Wallet` drop-down list in the upper right corner. If this list is not present, the wallet can be loaded in `File` ->`Open wallet` if necessary. Then, the backup can be done in `File` -> `Backup Wallet...`.
+In the GUI, the wallet is selected in the `Wallet` drop-down list in the upper right corner. If this list is not present, the wallet can be loaded in `File` ->`Open Wallet` if necessary. Then, the backup can be done in `File` -> `Backup Wallet…`.
 
 This backup file can be stored on one or multiple offline devices, which must be reliable enough to work in an emergency and be malware free. Backup files can be regularly tested to avoid problems in the future.
 
@@ -108,7 +108,7 @@ Wallets created before version 0.13 are not HD and must be backed up every 100 k
 
 ### 1.6 Restoring the Wallet From a Backup
 
-To restore a wallet, the `restorewallet` RPC must be used.
+To restore a wallet, the `restorewallet` RPC or the `Restore Wallet` GUI menu item (`File` -> `Restore Wallet…`) must be used.
 
 ```
 $ bitcoin-cli restorewallet "restored-wallet" /home/node01/Backups/backup-01.dat
@@ -121,3 +121,44 @@ $ bitcoin-cli -rpcwallet="restored-wallet" getwalletinfo
 ```
 
 The restored wallet can also be loaded in the GUI via `File` ->`Open wallet`.
+
+## Wallet Passphrase
+
+Understanding wallet security is crucial for safely storing your Bitcoin. A key aspect is the wallet passphrase, used for encryption. Let's explore its nuances, role, encryption process, and limitations.
+
+- **Not the Seed:**
+The wallet passphrase and the seed are two separate components in wallet security. The seed, or HD seed, functions as a master key for deriving private and public keys in a hierarchical deterministic (HD) wallet. In contrast, the passphrase serves as an additional layer of security specifically designed to secure the private keys within the wallet. The passphrase serves as a safeguard, demanding an additional layer of authentication to access funds in the wallet.
+
+- **Protection Against Unauthorized Access:**
+The passphrase serves as a protective measure, securing your funds in situations where an unauthorized user gains access to your unlocked computer or device while your wallet application is active. Without the passphrase, they would be unable to access your wallet's funds or execute transactions. However, it's essential to be aware that someone with access can potentially compromise the security of your passphrase by installing a keylogger.
+
+- **Doesn't Encrypt Metadata or Public Keys:**
+It's important to note that the passphrase primarily secures the private keys and access to funds within the wallet. It does not encrypt metadata associated with transactions or public keys. Information about your transaction history and the public keys involved may still be visible.
+
+- **Risk of Fund Loss if Forgotten or Lost:**
+If the wallet passphrase is too complex and is subsequently forgotten or lost, there is a risk of losing access to the funds permanently. A forgotten passphrase will result in the inability to unlock the wallet and access the funds.
+
+## Migrating Legacy Wallets to Descriptor Wallets
+
+Legacy wallets (traditional non-descriptor wallets) can be migrated to become Descriptor wallets
+through the use of the `migratewallet` RPC. Migrated wallets will have all of their addresses and private keys added to
+a newly created Descriptor wallet that has the same name as the original wallet. Because Descriptor
+wallets do not support having private keys and watch-only scripts, there may be up to two
+additional wallets created after migration. In addition to a descriptor wallet of the same name,
+there may also be a wallet named `<name>_watchonly` and `<name>_solvables`. `<name>_watchonly`
+contains all of the watchonly scripts. `<name>_solvables` contains any scripts which the wallet
+knows but is not watching the corresponding P2(W)SH scripts.
+
+Migrated wallets will also generate new addresses differently. While the same BIP 32 seed will be
+used, the BIP 44, 49, 84, and 86 standard derivation paths will be used. After migrating, a new
+backup of the wallet(s) will need to be created.
+
+Given that there is an extremely large number of possible configurations for the scripts that
+Legacy wallets can know about, be watching for, and be able to sign for, `migratewallet` only
+makes a best effort attempt to capture all of these things into Descriptor wallets. There may be
+unforeseen configurations which result in some scripts being excluded. If a migration fails
+unexpectedly or otherwise misses any scripts, please create an issue on GitHub. A backup of the
+original wallet can be found in the wallet directory with the name `<name>-<timestamp>.legacy.bak`.
+
+The backup can be restored using the methods discussed in the
+[Restoring the Wallet From a Backup](#16-restoring-the-wallet-from-a-backup) section.

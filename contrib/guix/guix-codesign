@@ -137,7 +137,7 @@ fi
 
 
 ################
-# Unsigned tarballs SHOULD exist
+# Codesigning tarballs SHOULD exist
 ################
 
 # Usage: outdir_for_host HOST SUFFIX
@@ -149,13 +149,13 @@ outdir_for_host() {
 }
 
 
-unsigned_tarball_for_host() {
+codesigning_tarball_for_host() {
     case "$1" in
         *mingw*)
-            echo "$(outdir_for_host "$1")/${DISTNAME}-win64-unsigned.tar.gz"
+            echo "$(outdir_for_host "$1")/${DISTNAME}-win64-codesigning.tar.gz"
             ;;
         *darwin*)
-            echo "$(outdir_for_host "$1")/${DISTNAME}-${1}-unsigned.tar.gz"
+            echo "$(outdir_for_host "$1")/${DISTNAME}-${1}-codesigning.tar.gz"
             ;;
         *)
             exit 1
@@ -164,22 +164,22 @@ unsigned_tarball_for_host() {
 }
 
 # Accumulate a list of build directories that already exist...
-hosts_unsigned_tarball_missing=""
+hosts_codesigning_tarball_missing=""
 for host in $HOSTS; do
-    if [ ! -e "$(unsigned_tarball_for_host "$host")" ]; then
-        hosts_unsigned_tarball_missing+=" ${host}"
+    if [ ! -e "$(codesigning_tarball_for_host "$host")" ]; then
+        hosts_codesigning_tarball_missing+=" ${host}"
     fi
 done
 
-if [ -n "$hosts_unsigned_tarball_missing" ]; then
+if [ -n "$hosts_codesigning_tarball_missing" ]; then
     # ...so that we can print them out nicely in an error message
     cat << EOF
-ERR: Unsigned tarballs do not exist
+ERR: Codesigning tarballs do not exist
 ...
 
 EOF
-for host in $hosts_unsigned_tarball_missing; do
-    echo "     ${host} '$(unsigned_tarball_for_host "$host")'"
+for host in $hosts_codesigning_tarball_missing; do
+    echo "     ${host} '$(codesigning_tarball_for_host "$host")'"
 done
 exit 1
 fi
@@ -221,20 +221,6 @@ JOBS="${JOBS:-$(nproc)}"
 
 # Determine the reference time used for determinism (overridable by environment)
 SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git -c log.showSignature=false log --format=%at -1)}"
-
-# Execute "$@" in a pinned, possibly older version of Guix, for reproducibility
-# across time.
-time-machine() {
-    # shellcheck disable=SC2086
-    guix time-machine --url=https://codeberg.org/guix/guix.git \
-                      --commit=ae03f401381e956c4c41b4cf495cbde964fa43d0 \
-                      --cores="$JOBS" \
-                      --keep-failed \
-                      --fallback \
-                      ${SUBSTITUTE_URLS:+--substitute-urls="$SUBSTITUTE_URLS"} \
-                      ${ADDITIONAL_GUIX_COMMON_FLAGS} ${ADDITIONAL_GUIX_TIMEMACHINE_FLAGS} \
-                      -- "$@"
-}
 
 # Make sure an output directory exists for our builds
 OUTDIR_BASE="${OUTDIR_BASE:-${VERSION_BASE}/output}"
@@ -300,7 +286,7 @@ EOF
         # Run the build script 'contrib/guix/libexec/build.sh' in the build
         # container specified by 'contrib/guix/manifest.scm'.
         #
-        # Explanation of `guix environment` flags:
+        # Explanation of `guix shell` flags:
         #
         #   --container        run command within an isolated container
         #
@@ -357,7 +343,7 @@ EOF
         #    more information.
         #
         # shellcheck disable=SC2086,SC2031
-        time-machine environment --manifest="${PWD}/contrib/guix/manifest.scm" \
+        time-machine shell --manifest="${PWD}/contrib/guix/manifest.scm" \
                                  --container \
                                  --pure \
                                  --no-cwd \
@@ -385,7 +371,7 @@ EOF
                                         OUTDIR="$(OUTDIR_BASE=/outdir-base && outdir_for_host "$HOST" codesigned)" \
                                         DIST_ARCHIVE_BASE=/outdir-base/dist-archive \
                                         DETACHED_SIGS_REPO=/detached-sigs \
-                                        UNSIGNED_TARBALL="$(OUTDIR_BASE=/outdir-base && unsigned_tarball_for_host "$HOST")" \
+                                        CODESIGNING_TARBALL="$(OUTDIR_BASE=/outdir-base && codesigning_tarball_for_host "$HOST")" \
                                       bash -c "cd /bitcoin && bash contrib/guix/libexec/codesign.sh"
     )
 

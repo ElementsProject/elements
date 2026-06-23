@@ -36,6 +36,9 @@ class MandatoryCoinbaseTest(BitcoinTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
+    def add_options(self, parser):
+        self.add_wallet_options(parser)
+
     def run_test(self):
         node0 = self.nodes[0]
         node1 = self.nodes[1]
@@ -110,4 +113,4 @@ class MandatoryCoinbaseTest(BitcoinTestFramework):
         assert_template(node1, block, "bad-cb-fee")
 
 if __name__ == '__main__':
-    MandatoryCoinbaseTest().main()
+    MandatoryCoinbaseTest(__file__).main()

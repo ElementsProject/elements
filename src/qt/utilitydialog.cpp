@@ -1,10 +1,8 @@
-// Copyright (c) 2011-2021 The Bitcoin Core developers
+// Copyright (c) 2011-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h>
-#endif
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 #include <qt/utilitydialog.h>
 
@@ -13,16 +11,17 @@
 #include <qt/guiutil.h>
 
 #include <clientversion.h>
+#include <common/args.h>
 #include <init.h>
-#include <util/system.h>
 #include <util/strencodings.h>
 
-#include <stdio.h>
+#include <cstdio>
 
 #include <QCloseEvent>
 #include <QLabel>
 #include <QMainWindow>
-#include <QRegExp>
+#include <QRegularExpression>
+#include <QString>
 #include <QTextCursor>
 #include <QTextTable>
 #include <QVBoxLayout>
@@ -34,19 +33,18 @@ HelpMessageDialog::HelpMessageDialog(QWidget *parent, bool about) :
 {
     ui->setupUi(this);
 
-    QString version = QString{PACKAGE_NAME} + " " + tr("version") + " " + QString::fromStdString(FormatFullVersion());
+    QString version = QString{CLIENT_NAME} + " " + tr("version") + " " + QString::fromStdString(FormatFullVersion());
 
     if (about)
     {
-        setWindowTitle(tr("About %1").arg(PACKAGE_NAME));
+        setWindowTitle(tr("About %1").arg(CLIENT_NAME));
 
         std::string licenseInfo = LicenseInfo();
         /// HTML-format the license message from the core
         QString licenseInfoHTML = QString::fromStdString(LicenseInfo());
         // Make URLs clickable
-        QRegExp uri("<(.*)>", Qt::CaseSensitive, QRegExp::RegExp2);
-        uri.setMinimal(true); // use non-greedy matching
-        licenseInfoHTML.replace(uri, "<a href=\"\\1\">\\1</a>");
+        QRegularExpression uri(QStringLiteral("<(.*)>"), QRegularExpression::InvertedGreedinessOption);
+        licenseInfoHTML.replace(uri, QStringLiteral("<a href=\"\\1\">\\1</a>"));
         // Replace newlines with HTML breaks
         licenseInfoHTML.replace("\n", "<br>");
 
@@ -58,7 +56,11 @@ HelpMessageDialog::HelpMessageDialog(QWidget *parent, bool about) :
         ui->helpMessage->setVisible(false);
     } else {
         setWindowTitle(tr("Command-line options"));
-        QString header = "Usage:  elements-qt [command-line options]                     \n";
+        QString header = "The elements-qt application provides a graphical interface for interacting with " CLIENT_NAME ".\n\n"
+                         "It combines the core functionalities of elementsd with a user-friendly interface for wallet management, transaction history, and network statistics.\n\n"
+                         "It is suitable for users who prefer a graphical over a command-line interface.\n\n"
+                         "You can optionally specify a payment [URI], in e.g. the BIP21 URI format.\n\n"
+                         "Usage: elements-qt [options] [URI]\n\n";
         QTextCursor cursor(ui->helpMessage->document());
         cursor.insertText(version);
         cursor.insertBlock();
@@ -116,7 +118,7 @@ HelpMessageDialog::~HelpMessageDialog()
 void HelpMessageDialog::printToConsole()
 {
     // On other operating systems, the expected action is to print the message to the console.
-    tfm::format(std::cout, "%s\n", qPrintable(text));
+    tfm::format(std::cout, "%s", qPrintable(text));
 }
 
 void HelpMessageDialog::showOrPrint()
@@ -142,7 +144,7 @@ ShutdownWindow::ShutdownWindow(QWidget *parent, Qt::WindowFlags f):
 {
     QVBoxLayout *layout = new QVBoxLayout();
     layout->addWidget(new QLabel(
-        tr("%1 is shutting down…").arg(PACKAGE_NAME) + "<br /><br />" +
+        tr("%1 is shutting down…").arg(CLIENT_NAME) + "<br /><br />" +
         tr("Do not shut down the computer until this window disappears.")));
     setLayout(layout);
 

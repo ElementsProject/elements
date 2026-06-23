@@ -1,8 +1,10 @@
-// Copyright (c) 2019-2021 The Bitcoin Core developers
+// Copyright (c) 2019-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <arith_uint256.h>
+#include <common/args.h>
+#include <common/system.h>
 #include <compressor.h>
 #include <consensus/amount.h>
 #include <consensus/merkle.h>
@@ -12,11 +14,12 @@
 #include <key_io.h>
 #include <memusage.h>
 #include <netbase.h>
+#include <policy/policy.h>
 #include <policy/settings.h>
 #include <pow.h>
 #include <protocol.h>
 #include <pubkey.h>
-#include <script/standard.h>
+#include <script/script.h>
 #include <serialize.h>
 #include <streams.h>
 #include <test/fuzz/FuzzedDataProvider.h>
@@ -24,13 +27,12 @@
 #include <test/fuzz/util.h>
 #include <uint256.h>
 #include <univalue.h>
+#include <util/chaintype.h>
 #include <util/check.h>
 #include <util/moneystr.h>
 #include <util/overflow.h>
 #include <util/strencodings.h>
 #include <util/string.h>
-#include <util/system.h>
-#include <version.h>
 
 #include <cassert>
 #include <chrono>
@@ -38,12 +40,14 @@
 #include <set>
 #include <vector>
 
+using util::ToString;
+
 void initialize_integer()
 {
-    SelectParams(CBaseChainParams::REGTEST);
+    SelectParams(ChainType::REGTEST);
 }
 
-FUZZ_TARGET_INIT(integer, initialize_integer)
+FUZZ_TARGET(integer, .init = initialize_integer)
 {
     if (buffer.size() < sizeof(uint256) + sizeof(uint160)) {
         return;
@@ -65,7 +69,7 @@ FUZZ_TARGET_INIT(integer, initialize_integer)
     const bool b = fuzzed_data_provider.ConsumeBool();
 
     const Consensus::Params& consensus_params = Params().GetConsensus();
-    (void)CheckProofOfWork(u256, u32, consensus_params);
+    (void)CheckProofOfWorkImpl(u256, u32, consensus_params);
     if (u64 <= MAX_MONEY) {
         const uint64_t compressed_money_amount = CompressAmount(u64);
         assert(u64 == DecompressAmount(compressed_money_amount));
@@ -74,11 +78,10 @@ FUZZ_TARGET_INIT(integer, initialize_integer)
     } else {
         (void)CompressAmount(u64);
     }
-    static const uint256 u256_min(uint256S("0000000000000000000000000000000000000000000000000000000000000000"));
-    static const uint256 u256_max(uint256S("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
+    constexpr uint256 u256_min{"0000000000000000000000000000000000000000000000000000000000000000"};
+    constexpr uint256 u256_max{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"};
     const std::vector<uint256> v256{u256, u256_min, u256_max};
     (void)ComputeMerkleRoot(v256);
-    (void)CountBits(u64);
     (void)DecompressAmount(u64);
     {
         if (std::optional<CAmount> parsed = ParseMoney(FormatMoney(i64))) {
@@ -87,9 +90,6 @@ FUZZ_TARGET_INIT(integer, initialize_integer)
     }
     (void)GetSizeOfCompactSize(u64);
     (void)GetSpecialScriptSize(u32);
-    if (!MultiplicationOverflow(i64, static_cast<int64_t>(::nBytesPerSigOp)) && !AdditionOverflow(i64 * ::nBytesPerSigOp, static_cast<int64_t>(4))) {
-        (void)GetVirtualTransactionSize(i64, i64);
-    }
     if (!MultiplicationOverflow(i64, static_cast<int64_t>(u32)) && !AdditionOverflow(i64, static_cast<int64_t>(4)) && !AdditionOverflow(i64 * u32, static_cast<int64_t>(4))) {
         (void)GetVirtualTransactionSize(i64, i64, u32);
     }
@@ -140,7 +140,7 @@ FUZZ_TARGET_INIT(integer, initialize_integer)
 
     const arith_uint256 au256 = UintToArith256(u256);
     assert(ArithToUint256(au256) == u256);
-    assert(uint256S(au256.GetHex()) == u256);
+    assert(uint256::FromHex(au256.GetHex()).value() == u256);
     (void)au256.bits();
     (void)au256.GetCompact(/* fNegative= */ false);
     (void)au256.GetCompact(/* fNegative= */ true);
@@ -154,7 +154,7 @@ FUZZ_TARGET_INIT(integer, initialize_integer)
     const CScriptID script_id{u160};
 
     {
-        CDataStream stream(SER_NETWORK, INIT_PROTO_VERSION);
+        DataStream stream{};
 
         uint256 deserialized_u256;
         stream << u256;
@@ -214,12 +214,11 @@ FUZZ_TARGET_INIT(integer, initialize_integer)
 
     {
         const ServiceFlags service_flags = (ServiceFlags)u64;
-        (void)HasAllDesirableServiceFlags(service_flags);
         (void)MayHaveUsefulAddressDB(service_flags);
     }
 
     {
-        CDataStream stream(SER_NETWORK, INIT_PROTO_VERSION);
+        DataStream stream{};
 
         ser_writedata64(stream, u64);
         const uint64_t deserialized_u64 = ser_readdata64(stream);
@@ -247,7 +246,7 @@ FUZZ_TARGET_INIT(integer, initialize_integer)
     }
 
     {
-        CDataStream stream(SER_NETWORK, INIT_PROTO_VERSION);
+        DataStream stream{};
 
         WriteCompactSize(stream, u64);
         try {
