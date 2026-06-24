@@ -1153,8 +1153,8 @@ static RPCHelpMan decodepsbt()
                         {RPCResult::Type::NUM, "fees", "The fees specified in this psbt.", {}, /*skip_type_check=*/true}, // ELEMENTS has an explicit fee output, bitcoin does not (they are implicit)
                         {RPCResult::Type::NUM, "input_count", "The number of inputs in this psbt"},
                         {RPCResult::Type::NUM, "output_count", "The number of outputs in this psbt."},
-                        {RPCResult::Type::NUM, "inputs_modifiable", /*optional=*/true, "Whether inputs can be modified"},
-                        {RPCResult::Type::NUM, "outputs_modifiable", /*optional=*/true, "Whether outputs can be modified"},
+                        {RPCResult::Type::BOOL, "inputs_modifiable", /*optional=*/true, "Whether inputs can be modified"},
+                        {RPCResult::Type::BOOL, "outputs_modifiable", /*optional=*/true, "Whether outputs can be modified"},
                         {RPCResult::Type::BOOL, "has_sighash_single", /*optional=*/true, "Whether this PSBT has SIGHASH_SINGLE inputs"},
                         {RPCResult::Type::NUM, "psbt_version", "The PSBT version number. Not to be confused with the unsigned transaction version"},
                         {RPCResult::Type::ARR, "scalar_offsets", /*optional=*/true, "The PSET scalar elements",
