@@ -706,6 +706,9 @@ class RawTransactionsTest(BitcoinTestFramework):
         fundedTx = wallet.fundrawtransaction(rawtx)
         blindedTx = wallet.blindrawtransaction(fundedTx['hex'])
         assert fundedTx["changepos"] != -1
+        self.log.info("blindrawtransaction with null argument")
+        blindedTx_null_commitments = wallet.blindrawtransaction(fundedTx['hex'], None, None, False)
+        assert blindedTx_null_commitments
 
         # Now we need to unlock.
         with WalletUnlock(wallet, "test"):
