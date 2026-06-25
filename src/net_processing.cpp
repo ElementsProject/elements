@@ -2634,6 +2634,15 @@ bool PeerManagerImpl::TryLowWorkHeadersSync(Peer& peer, CNode& pfrom, const CBlo
         // otherwise they don't have more headers after this so no point in
         // trying to sync their too-little-work chain.
         if (headers.size() == m_opts.max_headers_result) {
+            // chain_start_header may refer to a block deep in the chain that
+            // has been trimmed from memory by -trim_headers. The HeadersSyncState
+            // constructor calls GetBlockHeader() on it via m_last_header_received,
+            // which asserts untrimmed. Reload from disk first if needed.
+            CBlockIndex tmpBlockIndexFull;
+            const CBlockIndex* chain_start_untrimmed = chain_start_header->trimmed()
+                ? chain_start_header->untrim_to(&tmpBlockIndexFull)
+                : chain_start_header;
+
             // Note: we could advance to the last header in this set that is
             // known to us, rather than starting at the first header (which we
             // may already have); however this is unlikely to matter much since
@@ -2645,7 +2654,7 @@ bool PeerManagerImpl::TryLowWorkHeadersSync(Peer& peer, CNode& pfrom, const CBlo
             // advancing to the first unknown header would be a small effect.
             LOCK(peer.m_headers_sync_mutex);
             peer.m_headers_sync.reset(new HeadersSyncState(peer.m_id, m_chainparams.GetConsensus(),
-                chain_start_header, minimum_chain_work));
+                chain_start_untrimmed, minimum_chain_work));
 
             // Now a HeadersSyncState object for tracking this synchronization
             // is created, process the headers using it as normal. Failures are
