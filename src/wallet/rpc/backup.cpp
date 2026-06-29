@@ -1307,8 +1307,8 @@ RPCHelpMan importmulti()
                         {
                             {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                                 {
-                                    {"desc", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Descriptor to import. Either desc or scriptPubKey must be provided, but not both. If using descriptor, do not also provide scripts or pubkeys"},
-                                    {"scriptPubKey", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Type of scriptPubKey (string for script, json for address). Either desc or scriptPubKey must be provided, but not both",
+                                    {"desc", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Descriptor to import. If using descriptor, do not also provide address/scriptPubKey, scripts, or pubkeys"},
+                                    {"scriptPubKey", RPCArg::Type::STR, RPCArg::Optional::NO, "Type of scriptPubKey (string for script, json for address). Should not be provided if using a descriptor",
                                         /* oneline_description */ "", {"\"<script>\" | { \"address\":\"<address>\" }", "string / json"}
                                     },
                                     {"timestamp", RPCArg::Type::NUM, RPCArg::Optional::NO, "Creation time of the key expressed in " + UNIX_EPOCH_TIME + ",\n"

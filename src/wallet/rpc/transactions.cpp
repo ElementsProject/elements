@@ -510,9 +510,6 @@ RPCHelpMan listtransactions()
                                 "\"orphan\"                Orphaned coinbase transactions received."},
                             {RPCResult::Type::STR_AMOUNT, "amount", "The amount in " + CURRENCY_UNIT + ". This is negative for the 'send' category, and is positive\n"
                                 "for all other categories"},
-                            {RPCResult::Type::STR_HEX, "amountblinder", "The amount blinding factor in hex"},
-                            {RPCResult::Type::STR_HEX, "asset", "The asset id in hex"},
-                            {RPCResult::Type::STR_HEX, "assetblinder", "The asset blinding factor in hex"},
                             {RPCResult::Type::STR, "label", /*optional=*/true, "A comment for the address/transaction, if any"},
                             {RPCResult::Type::NUM, "vout", "the vout value"},
                             {RPCResult::Type::STR_AMOUNT, "fee", /*optional=*/true, "The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the\n"
@@ -627,9 +624,6 @@ RPCHelpMan listsinceblock()
                                     "\"orphan\"                Orphaned coinbase transactions received."},
                                 {RPCResult::Type::STR_AMOUNT, "amount", "The amount in " + CURRENCY_UNIT + ". This is negative for the 'send' category, and is positive\n"
                                     "for all other categories"},
-                                {RPCResult::Type::STR_HEX, "amountblinder", "The amount blinding factor in hex"},
-                                {RPCResult::Type::STR_HEX, "asset", "The asset id in hex"},
-                                {RPCResult::Type::STR_HEX, "assetblinder", "The asset blinding factor in hex"},
                                 {RPCResult::Type::NUM, "vout", "the vout value"},
                                 {RPCResult::Type::STR_AMOUNT, "fee", /*optional=*/true, "The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the\n"
                                      "'send' category of transactions."},
@@ -773,9 +767,6 @@ RPCHelpMan gettransaction()
                                     "\"immature\"              Coinbase transactions received with 100 or fewer confirmations.\n"
                                     "\"orphan\"                Orphaned coinbase transactions received."},
                                 {RPCResult::Type::STR_AMOUNT, "amount", "The amount in " + CURRENCY_UNIT},
-                                {RPCResult::Type::STR_HEX, "amountblinder", "The amount blinding factor in hex"},
-                                {RPCResult::Type::STR_HEX, "asset", "The asset id in hex"},
-                                {RPCResult::Type::STR_HEX, "assetblinder", "The asset blinding factor in hex"},
                                 {RPCResult::Type::STR, "label", /*optional=*/true, "A comment for the address/transaction, if any"},
                                 {RPCResult::Type::NUM, "vout", "the vout value"},
                                 {RPCResult::Type::STR_AMOUNT, "fee", /*optional=*/true, "The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the \n"
