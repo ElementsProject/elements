@@ -124,11 +124,11 @@ fi
 # === CMake build (modern path used by the fork) ===
 if [ -n "$NO_DEPENDS" ]; then
   echo "Building with CMake (NO_DEPENDS=1)..."
-  cmake -B build -S . ${CMAKE_GENERATOR:+-G "$CMAKE_GENERATOR"} $BITCOIN_CONFIG_ALL
+  cmake -B build -S . ${CMAKE_GENERATOR:+-G "$CMAKE_GENERATOR"} "$BITCOIN_CONFIG_ALL"
 else
   # depends path (still uses configure in some jobs)
   ./autogen.sh
-  ./configure $BITCOIN_CONFIG_ALL
+  ./configure "$BITCOIN_CONFIG_ALL"
 fi
 
 cmake --build build --config Release --parallel "$MAKEJOBS"
@@ -159,12 +159,12 @@ cd "${BASE_BUILD_DIR}/elements-$HOST"
 
 bash -c "./configure --cache-file=../config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG" || ( (cat config.log) && false)
 
-# ELEMENTS FIXME: fix fix in order to correctly run it #30454 
+# ELEMENTS FIXME: fix fix in order to correctly run it #30454
 # # Folder where the build is done.
 # BASE_BUILD_DIR=${BASE_BUILD_DIR:-$BASE_SCRATCH_DIR/build-$HOST}
 # mkdir -p "${BASE_BUILD_DIR}"
 # cd "${BASE_BUILD_DIR}"
-# 
+#
 # BITCOIN_CONFIG_ALL="$BITCOIN_CONFIG_ALL -DENABLE_EXTERNAL_SIGNER=ON -DCMAKE_INSTALL_PREFIX=$BASE_OUTDIR"
 
 

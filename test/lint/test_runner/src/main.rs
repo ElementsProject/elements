@@ -205,7 +205,7 @@ fn get_subtrees() -> Vec<&'static str> {
         "src/crypto/ctaes",
         "src/leveldb",
         "src/minisketch",
-        "src/secp256k1",
+        "src/secp256k1", // ELEMENTS: uses BlockstreamResearch/secp256k1-zkp
         "src/simplicity", // ELEMENTS
     ]
 }
@@ -221,8 +221,12 @@ fn get_pathspecs_exclude_subtrees() -> Vec<String> {
 fn lint_subtree() -> LintResult {
     // This only checks that the trees are pure subtrees, it is not doing a full
     // check with -r to not have to fetch all the remotes.
+    let skip = vec!["src/minisketch", "src/secp256k1"]; // ELEMENTS: uses forks
     let mut good = true;
     for subtree in get_subtrees() {
+        if skip.contains(&subtree) {
+            continue;
+        }
         good &= Command::new("test/lint/git-subtree-check.sh")
             .arg(subtree)
             .status()

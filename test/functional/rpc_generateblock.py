@@ -97,4 +97,4 @@ class GenerateBlockTest(BitcoinTestFramework):
         assert_raises_rpc_error(-5, 'Cannot derive script without private keys', self.generateblock, node, child_descriptor, [])
 
 if __name__ == '__main__':
-    GenerateBlockTest().main()
+    GenerateBlockTest(__file__).main()

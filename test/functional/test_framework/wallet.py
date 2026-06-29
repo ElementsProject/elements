@@ -52,7 +52,6 @@ from test_framework.script_util import (
     key_to_p2wpkh_script,
 )
 from test_framework.util import (
-    assert_approx,
     assert_equal,
     assert_greater_than_or_equal,
     get_fee,

@@ -165,7 +165,7 @@ fn deterministic_coverage(
             .success();
         if !same {
             eprintln!();
-            eprintln!("The coverage was not determinstic between runs.");
+            eprintln!("The coverage was not deterministic between runs.");
             eprintln!("{}", err);
             eprintln!("Exiting.");
             exit(1);

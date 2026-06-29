@@ -53,4 +53,4 @@ class AddressesDeprecationTest(BitcoinTestFramework):
 
 
 if __name__ == "__main__":
-    AddressesDeprecationTest().main()
+    AddressesDeprecationTest(__file__).main()

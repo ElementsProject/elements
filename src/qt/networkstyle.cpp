@@ -14,6 +14,7 @@
 #include <util/chaintype.h>
 
 #include <QApplication>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 static const struct {
     const ChainType networkId;

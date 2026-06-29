@@ -78,6 +78,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 #if defined(Q_OS_MACOS)
 

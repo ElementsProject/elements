@@ -28,6 +28,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 typedef std::map<int, uint256> MapCheckpoints;
 
