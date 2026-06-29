@@ -24,6 +24,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 namespace {
 const BasicTestingSetup* g_setup;

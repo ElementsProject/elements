@@ -37,6 +37,7 @@
 #include <optional>
 #include <stdexcept>
 #include <stdint.h>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 using node::SnapshotMetadata;
 

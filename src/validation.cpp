@@ -864,7 +864,7 @@ private:
         // or the peg-in paid enough subsidy
         return true;
     }
-        
+
     ValidationCache& GetValidationCache()
     {
         return m_active_chainstate.m_chainman.m_validation_cache;
@@ -3095,7 +3095,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
              Ticks<SecondsDouble>(m_chainman.time_connect),
              Ticks<MillisecondsDouble>(m_chainman.time_connect) / m_chainman.num_blocks_total);
 
-    // todo: 
+    // todo:
     // CAmountMap block_reward = fee_map;
     // block_reward[consensusParams.subsidy_asset] += GetBlockSubsidy(pindex->nHeight, consensusParams);
     // if (!MoneyRange(block_reward)) {
@@ -3105,7 +3105,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
     // if (!VerifyCoinbaseAmount(*(block.vtx[0]), block_reward)) {
     //     LogPrintf("ERROR: ConnectBlock(): coinbase pays too much\n");
     //     return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-amount");
-    
+
     CAmountMap block_reward = fee_map;
     block_reward[consensusParams.subsidy_asset] += GetBlockSubsidy(pindex->nHeight, consensusParams);
     if (!MoneyRange(block_reward) && state.IsValid()) {
@@ -4832,7 +4832,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, BlockValidatio
         LogPrintf("ERROR: %s: block height in header is incorrect (got %d, expected %d)\n", __func__, block.block_height, nHeight);
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "bad-header-height");
     }
-    
+
     // Testnet4 and regtest only: Check timestamp against prev for difficulty-adjustment
     // blocks to prevent timewarp attacks (see https://github.com/bitcoin/bitcoin/pull/15482).
     if (consensusParams.enforce_BIP94) {

@@ -672,7 +672,13 @@ class CTxOutNonce:
 class CTxOut():
     __slots__ = ("nValue", "scriptPubKey", "nAsset", "nNonce")
 
-    def __init__(self, nValue=CTxOutValue(), scriptPubKey=b'', nAsset=CTxOutAsset(BITCOIN_ASSET_OUT), nNonce=CTxOutNonce()):
+    def __init__(self, nValue=None, scriptPubKey=b'', nAsset=None, nNonce=None):
+        if nValue is None:
+            nValue=CTxOutValue()
+        if nAsset is None:
+            nAsset=CTxOutAsset(BITCOIN_ASSET_OUT)
+        if nNonce is None:
+            nNonce=CTxOutNonce()
         self.nAsset = nAsset
         if isinstance(nValue, int):
             self.nValue = CTxOutValue(nValue)
@@ -1003,7 +1009,9 @@ class CProof:
     __slots__ = ("challenge", "solution")
 
     # Default allows OP_TRUE blocks
-    def __init__(self, challenge=bytearray.fromhex('51'), solution=b""):
+    def __init__(self, challenge=None, solution=b""):
+        if challenge is None:
+            challenge=bytearray.fromhex('51')
         self.challenge = challenge
         self.solution = solution
 
@@ -1105,7 +1113,11 @@ class DynaFedParamEntry:
 class DynaFedParams:
     __slots__ = ("m_current", "m_proposed")
 
-    def __init__(self, m_current=DynaFedParamEntry(), m_proposed=DynaFedParamEntry()):
+    def __init__(self, m_current=None, m_proposed=None):
+        if m_current is None:
+            m_current=DynaFedParamEntry()
+        if m_proposed is None:
+            m_proposed=DynaFedParamEntry()
         self.m_current = m_current
         self.m_proposed = m_proposed
 

@@ -16,10 +16,6 @@ from test_framework.blocktools import (
     get_witness_script,
     NORMAL_GBT_REQUEST_PARAMS,
     TIME_GENESIS_BLOCK,
-    REGTEST_N_BITS,
-    REGTEST_TARGET,
-    nbits_str,
-    target_str,
 )
 from test_framework.messages import (
     BLOCK_HEADER_SIZE,

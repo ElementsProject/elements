@@ -11,6 +11,7 @@
 
 #include <optional>
 #include <string>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 enum class ChainType {
     MAIN,
