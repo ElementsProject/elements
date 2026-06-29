@@ -98,17 +98,11 @@ RPCHelpMan getreceivedbyaddress()
                     {"include_immature_coinbase", RPCArg::Type::BOOL, RPCArg::Default{false}, "Include immature coinbase transactions."},
                 },
                 {
-                    RPCResult{"if in Elements mode and assetlabel is omitted or empty",
-                        RPCResult::Type::OBJ_DYN,
-                        "",
-                        "Map from asset label or hex asset id to numeric amount in " + CURRENCY_UNIT + ".",
-                        {
-                            {RPCResult::Type::STR_AMOUNT, "n", "amount for the keyed asset"},
-                        }},
-                    RPCResult{"if not in Elements mode, or assetlabel is provided",
-                        RPCResult::Type::STR_AMOUNT,
-                        "amount",
-                        "Single total in " + CURRENCY_UNIT + " for the default or requested asset."},
+                    RPCResult{RPCResult::Type::OBJ, "amount_map", "The total amount, per asset if none is specified, in " + CURRENCY_UNIT + " received for this wallet.",
+                    {
+                        {RPCResult::Type::ELISION, "", "the amount for each asset"},
+                    }},
+                    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
                     RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{
@@ -156,17 +150,11 @@ RPCHelpMan getreceivedbylabel()
                     {"include_immature_coinbase", RPCArg::Type::BOOL, RPCArg::Default{false}, "Include immature coinbase transactions."},
                 },
                 {
-                    RPCResult{"if in Elements mode and assetlabel is omitted or empty",
-                        RPCResult::Type::OBJ_DYN,
-                        "",
-                        "Map from asset label or hex asset id to numeric amount in " + CURRENCY_UNIT + ".",
-                        {
-                            {RPCResult::Type::STR_AMOUNT, "n", "amount for the keyed asset"},
-                        }},
-                    RPCResult{"if not in Elements mode, or assetlabel is provided",
-                        RPCResult::Type::STR_AMOUNT,
-                        "amount",
-                        "Single total in " + CURRENCY_UNIT + " for the default or requested asset."},
+                    RPCResult{RPCResult::Type::OBJ, "amount_map", "The total amount, per asset if none is specified, in " + CURRENCY_UNIT + " received for this wallet.",
+                    {
+                        {RPCResult::Type::ELISION, "", "the amount for each asset"},
+                    }},
+                    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
                     RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{
@@ -217,17 +205,11 @@ RPCHelpMan getbalance()
                     {"assetlabel", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Hex asset id or asset label for balance."},
                 },
                 {
-                    RPCResult{"if in Elements mode and assetlabel is omitted or empty",
-                        RPCResult::Type::OBJ_DYN,
-                        "",
-                        "Map from asset label or hex asset id to numeric amount in " + CURRENCY_UNIT + ".",
-                        {
-                            {RPCResult::Type::STR_AMOUNT, "n", "amount for the keyed asset"},
-                        }},
-                    RPCResult{"if not in Elements mode, or assetlabel is provided",
-                        RPCResult::Type::STR_AMOUNT,
-                        "amount",
-                        "Single total in " + CURRENCY_UNIT + " for the default or requested asset."},
+                    RPCResult{RPCResult::Type::OBJ, "amount_map", "The total amount, per asset if none is specified, in " + CURRENCY_UNIT + " received for this wallet.",
+                    {
+                        {RPCResult::Type::ELISION, "", "the amount for each asset"},
+                    }},
+                    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
                     RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{
@@ -285,17 +267,11 @@ RPCHelpMan getunconfirmedbalance()
                 "DEPRECATED\nIdentical to getbalances().mine.untrusted_pending\n",
                 {},
                 {
-                    RPCResult{"if in Elements mode (no asset filter for this RPC)",
-                        RPCResult::Type::OBJ_DYN,
-                        "",
-                        "Map from asset label or hex asset id to numeric amount in " + CURRENCY_UNIT + ".",
-                        {
-                            {RPCResult::Type::STR_AMOUNT, "n", "amount for the keyed asset"},
-                        }},
-                    RPCResult{"if not in Elements mode",
-                        RPCResult::Type::STR_AMOUNT,
-                        "amount",
-                        "Single total in " + CURRENCY_UNIT + " for the default asset."},
+                    RPCResult{RPCResult::Type::OBJ, "amount_map", "The total amount, per asset if none is specified, in " + CURRENCY_UNIT + " received for this wallet.",
+                    {
+                        {RPCResult::Type::ELISION, "", "the amount for each asset"},
+                    }},
+                    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
                     RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{""},
