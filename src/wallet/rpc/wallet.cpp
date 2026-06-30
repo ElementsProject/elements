@@ -784,6 +784,7 @@ RPCHelpMan simulaterawtransaction()
 static RPCHelpMan migratewallet()
 {
     return RPCHelpMan{"migratewallet",
+        "\nDISABLED\n"
         "\nMigrate the wallet to a descriptor wallet.\n"
         "A new wallet backup will need to be made.\n"
         "\nThe migration process will create a backup of the wallet before migrating. This backup\n"
@@ -822,6 +823,10 @@ static RPCHelpMan migratewallet()
                 wallet_name = request.params[0].get_str();
             }
 
+            throw JSONRPCError(RPC_WALLET_ERROR,
+                "migratewallet is disabled in this version.");
+
+            /* ELEMENTS v29: disable migratewallet
             SecureString wallet_pass;
             wallet_pass.reserve(100);
             if (!request.params[1].isNull()) {
@@ -845,6 +850,7 @@ static RPCHelpMan migratewallet()
             r.pushKV("backup_path", res->backup_path.utf8string());
 
             return r;
+            */
         },
     };
 }
