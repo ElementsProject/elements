@@ -416,12 +416,15 @@ static RPCHelpMan createwallet()
         throw JSONRPCError(RPC_WALLET_ERROR, "Compiled without sqlite support (required for descriptor wallets)");
 #endif
         flags |= WALLET_FLAG_DESCRIPTORS;
-    } else {
+    } 
+    /* ELEMENTS: Remove the IsDeprecatedRPCEnabled("create_bdb") check so descriptors=false always works without a runtime flag
+    else {
         if (!context.chain->rpcEnableDeprecated("create_bdb")) {
             throw JSONRPCError(RPC_WALLET_ERROR, "BDB wallet creation is deprecated and will be removed in a future release."
                                                  " In this release it can be re-enabled temporarily with the -deprecatedrpc=create_bdb setting.");
         }
     }
+    */
     if (!request.params[7].isNull() && request.params[7].get_bool()) {
 #ifdef ENABLE_EXTERNAL_SIGNER
         flags |= WALLET_FLAG_EXTERNAL_SIGNER;
