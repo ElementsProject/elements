@@ -1454,14 +1454,14 @@ RPCHelpMan getblockchaininfo()
                 {RPCResult::Type::NUM, "blocks", "the height of the most-work fully-validated chain. The genesis block has height 0"},
                 {RPCResult::Type::NUM, "headers", "the current number of headers we have validated"},
                 {RPCResult::Type::STR, "bestblockhash", "the hash of the currently best block"},
-                /* ELEMENTS: not present {RPCResult::Type::NUM, "difficulty", "the current difficulty"}, */
-                {RPCResult::Type::STR_HEX, "bits", "nBits: compact representation of the block difficulty target"},
-                {RPCResult::Type::STR_HEX, "target", "The difficulty target"},
+                {RPCResult::Type::STR_HEX, "bits", /*optional=*/true, "nBits: compact representation of the block difficulty target"},
+                {RPCResult::Type::STR_HEX, "target", /*optional=*/true, "The difficulty target"},
+                {RPCResult::Type::NUM, "difficulty", /*optional=*/true, "the current difficulty"},
                 {RPCResult::Type::NUM_TIME, "time", "The block time expressed in " + UNIX_EPOCH_TIME},
                 {RPCResult::Type::NUM_TIME, "mediantime", "The median block time expressed in " + UNIX_EPOCH_TIME},
                 {RPCResult::Type::NUM, "verificationprogress", "estimate of verification progress [0..1]"},
                 {RPCResult::Type::BOOL, "initialblockdownload", "(debug information) estimate of whether this node is in Initial Block Download mode"},
-                /* ELEMENTS: not present {RPCResult::Type::STR_HEX, "chainwork", "total amount of work in active chain, in hexadecimal"}, */
+                {RPCResult::Type::STR_HEX, "chainwork", /*optional=*/true, "total amount of work in active chain, in hexadecimal"},
                 {RPCResult::Type::NUM, "size_on_disk", "the estimated size of the block and undo files on disk"},
                 {RPCResult::Type::BOOL, "pruned", "if the blocks are subject to pruning"},
                 {RPCResult::Type::BOOL, "trim_headers", "whether header trimming is enabled (-trim-headers)"},
