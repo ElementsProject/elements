@@ -983,7 +983,7 @@ bool AppInitParameterInteraction(const ArgsManager& args)
     if (chain.chain_type == ChainType::TESTNET) {
         LogInfo("Warning: Support for testnet3 is deprecated and will be removed in an upcoming release. Consider switching to testnet4.\n");
     }
-    
+
     if (!fs::is_directory(args.GetBlocksDirPath())) {
         return InitError(strprintf(_("Specified blocks directory \"%s\" does not exist."), args.GetArg("-blocksdir", "")));
     }
@@ -1146,7 +1146,7 @@ bool AppInitParameterInteraction(const ArgsManager& args)
     } catch (const std::exception& e) {
         return InitError(Untranslated(strprintf("Error in -assetdir: %s\n", e.what())));
     }
-    
+
     const std::vector<std::string> test_options = args.GetArgs("-test");
     if (!test_options.empty()) {
         if (chainparams.GetChainTypeMeta().chain_type != ChainType::REGTEST && chainparams.GetChainTypeMeta().chain_type != ChainType::CUSTOM) {
@@ -1515,7 +1515,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
     node.scheduler = std::make_unique<CScheduler>();
     assert(!node.reverification_scheduler);
     node.reverification_scheduler = std::make_unique<CScheduler>();
-    
+
     auto& scheduler = *node.scheduler;
 
     // Start the lightweight task scheduler thread
@@ -1572,7 +1572,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
 
     // ELEMENTS:
     policyAsset = CAsset(uint256S(gArgs.GetArg("-feeasset", chainparams.GetConsensus().pegged_asset.GetHex())));
-    
+
     // Check port numbers
     if (!CheckHostPortOptions(args)) return false;
 

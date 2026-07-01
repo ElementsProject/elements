@@ -18,6 +18,7 @@
 #include <limits>
 #include <optional>
 #include <vector>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 FUZZ_TARGET(bloom_filter)
 {

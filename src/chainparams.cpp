@@ -22,13 +22,13 @@
 #include <util/moneystr.h>
 #include <util/strencodings.h>
 #include <util/string.h>
-#include <crypto/sha256.h>
 
 #include <cassert>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include <vector>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 using util::SplitString;
 

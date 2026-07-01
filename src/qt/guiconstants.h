@@ -11,6 +11,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 using namespace std::chrono_literals;
 

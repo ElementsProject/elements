@@ -8,7 +8,6 @@ import itertools
 import json
 import os
 
-from test_framework.address import address_to_scriptpubkey
 from test_framework.descriptors import descsum_create, drop_origins
 from test_framework.key import ECPubKey
 from test_framework.messages import COIN
