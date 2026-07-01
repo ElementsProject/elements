@@ -441,8 +441,8 @@ static RPCHelpMan getmininginfo()
                         {RPCResult::Type::NUM, "blocks", "The current block"},
                         {RPCResult::Type::NUM, "currentblockweight", /*optional=*/true, "The block weight of the last assembled block (only present if a block was ever assembled)"},
                         {RPCResult::Type::NUM, "currentblocktx", /*optional=*/true, "The number of block transactions of the last assembled block (only present if a block was ever assembled)"},
-                        {RPCResult::Type::NUM, "difficulty", "The current difficulty"},
-                        {RPCResult::Type::NUM, "networkhashps", "The network hashes per second"},
+                        {RPCResult::Type::NUM, "difficulty", /*optional=*/true, "The current difficulty"},
+                        {RPCResult::Type::NUM, "networkhashps", /*optional=*/true, "The network hashes per second"},
                         {RPCResult::Type::NUM, "pooledtx", "The size of the mempool"},
                         {RPCResult::Type::STR, "chain", "current network name (main, test, signet, regtest, liquidv1, liquidv1test, liquidtestnet)"},
                         {RPCResult::Type::STR, "warnings", "any network and blockchain warnings"},
@@ -556,11 +556,10 @@ static RPCHelpMan getblocktemplate()
             {"template_request", RPCArg::Type::OBJ, RPCArg::Default{UniValue::VOBJ}, "Format of the template",
             {
                 {"mode", RPCArg::Type::STR, /* treat as named arg */ RPCArg::Optional::OMITTED_NAMED_ARG, "This must be set to \"template\", \"proposal\" (see BIP 23), or omitted"},
-                {"capabilities", RPCArg::Type::ARR, /* treat as named arg */ RPCArg::Optional::OMITTED_NAMED_ARG, "A list of strings",
-                {
-                    {"str", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "client side supported feature, 'longpoll', 'coinbasevalue', 'proposal', 'serverlist', 'workid'"},
-                }},
-                {"rules", RPCArg::Type::ARR, RPCArg::Optional::NO, "A list of strings",
+                {"longpollid", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "The longpollid from a previous template to wait for an update"},
+                {"data", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The hex-encoded block data to validate when mode is \"proposal\" (see BIP 23)"},
+                {"maxversion", RPCArg::Type::NUM, RPCArg::Optional::OMITTED_NAMED_ARG, "Legacy maximum block version. Used only when \"rules\" is not provided"},
+                {"rules", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A list of strings",
                 {
                     {"segwit", RPCArg::Type::STR, RPCArg::Optional::NO, "(literal) indicates client side segwit support"},
                     {"str", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "other client side supported softfork deployment"},
@@ -1556,7 +1555,7 @@ static RPCHelpMan consumecompactsketch()
                     {
                         {RPCResult::Type::STR_HEX, "blockhex", "The filled block hex. Only returns when block is final"},
                         {RPCResult::Type::STR_HEX, "block_tx_req", "The serialized structure of missing transaction indices, given to serving node"},
-                        {RPCResult::Type::STR_HEX, "found_tranasctions", "The serialized list of found transactions to be used in finalizecompactblock"},
+                        {RPCResult::Type::STR_HEX, "found_transactions", "The serialized list of found transactions to be used in finalizecompactblock"},
                     },
                 },
                 RPCExamples{
@@ -1624,8 +1623,8 @@ static RPCHelpMan consumegetblocktxn()
     return RPCHelpMan{"consumegetblocktxn",
                 "Consumes a transaction request for a compact block sketch.",
                 {
-                    {"full_block", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialied block that corresponds to the block request `block_tx_req`."},
-                    {"block_tx_req", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialied BlockTransactionsRequest, aka getblocktxn network message."},
+                    {"full_block", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialized block that corresponds to the block request `block_tx_req`."},
+                    {"block_tx_req", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialized BlockTransactionsRequest, aka getblocktxn network message."},
                 },
                 RPCResult{
                     RPCResult::Type::STR_HEX, "block_transactions", "The serialized list of found transactions aka BlockTransactions",
