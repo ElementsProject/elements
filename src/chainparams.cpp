@@ -229,7 +229,7 @@ public:
         anyonecanspend_aremine = false;
         accept_unlimited_issuances = false;
         enforce_pak = false;
-        multi_data_permitted = false;
+        multi_data_permitted = true;
         accept_discount_ct = false;
         create_discount_ct = false;
         consensus.has_parent_chain = false;
@@ -376,7 +376,7 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         accept_unlimited_issuances = false;
-        multi_data_permitted = false;
+        multi_data_permitted = true;
         accept_discount_ct = false;
         create_discount_ct = false;
         consensus.has_parent_chain = false;
@@ -541,7 +541,7 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         accept_unlimited_issuances = false;
-        multi_data_permitted = false;
+        multi_data_permitted = true;
         accept_discount_ct = false;
         create_discount_ct = false;
         consensus.has_parent_chain = false;
@@ -645,7 +645,7 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         accept_unlimited_issuances = false;
-        multi_data_permitted = false;
+        multi_data_permitted = true;
         accept_discount_ct = false;
         create_discount_ct = false;
         consensus.has_parent_chain = false;
@@ -1061,6 +1061,7 @@ public:
         default_signblockscript = "51210217e403ddb181872c32a0cd468c710040b2f53d8cac69f18dad07985ee37e9a7151ae";
         create_discount_ct = false;
         accept_discount_ct = true;
+        accept_unlimited_issuances = true;
         UpdateFromArgs(args);
         multi_data_permitted = true;
         SetGenesisBlock();
@@ -1173,7 +1174,7 @@ public:
 
         enforce_pak = true;
 
-        accept_unlimited_issuances = args.GetBoolArg("-acceptunlimitedissuances", false);
+        accept_unlimited_issuances = args.GetBoolArg("-acceptunlimitedissuances", true);
 
         multi_data_permitted = true;
         create_discount_ct = args.GetBoolArg("-creatediscountct", false);
