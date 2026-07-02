@@ -87,7 +87,6 @@ EXTENDED_SCRIPTS = [
 #    'feature_dbcrash.py', ELEMENTS: long running test and uses excessive disk space on GHA
 #    'feature_fee_estimation.py', ELEMENTS: this is broken on v23
     'feature_index_prune.py',
-    'feature_trim_headers.py',
     'wallet_pruning.py --legacy-wallet',
 ]
 
@@ -95,6 +94,7 @@ BASE_SCRIPTS = [
     # Scripts that are run by default.
     # vv First elements tests vv
     'example_elements_code_tutorial.py',
+    'feature_trim_headers.py',
     'feature_fedpeg.py --legacy-wallet',
     'feature_fedpeg.py --pre_transition --legacy-wallet',
     'feature_fedpeg.py --post_transition --legacy-wallet',
@@ -365,7 +365,7 @@ BASE_SCRIPTS = [
     #'wallet_upgradewallet.py --legacy-wallet',
     'wallet_crosschain.py',
     'mining_basic.py',
-    # ELEMENTS: PoW test set-up disabled. 
+    # ELEMENTS: PoW test set-up disabled.
     # 'mining_mainnet.py',
     'feature_signet.py',
     'p2p_mutated_blocks.py',
