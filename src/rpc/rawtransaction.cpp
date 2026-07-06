@@ -2779,7 +2779,7 @@ static RPCHelpMan rawblindrawtransaction()
                 "Returns the hex-encoded raw transaction.\n"
                 "The input raw transaction cannot have already-blinded outputs.\n"
                 "The output keys used can be specified by using a confidential address in createrawtransaction.\n"
-                "If an additional blinded output is required to make a balanced blinding, a 0-value unspendable output will be added. Since there is no access to the wallet the blinding pubkey from the last output with blinding key will be repeated.\n"
+                "If blinded inputs exist but no output has a blinding pubkey, the caller must add another blindable output; this RPC cannot derive a wallet blinding key and will fail instead of adding a dummy output.\n"
                 "You can not blind issuances with this call.\n",
                 {
                     {"hexstring", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A hex-encoded raw transaction."},
