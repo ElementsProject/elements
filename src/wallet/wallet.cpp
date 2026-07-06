@@ -1654,6 +1654,13 @@ isminetype CWallet::IsMine(const CScript& script) const
         return spkm->IsMine(script);
     }
 
+    // ELEMENTS: OP_TRUE outputs aren't derived from any descriptor, so they never
+    // land in m_cached_spks above. Custom chains (e.g. elementsregtest) rely on
+    // -anyonecanspendaremine to treat them as wallet funds regardless of wallet type.
+    if (Params().anyonecanspend_aremine && script == CScript() << OP_TRUE) {
+        return ISMINE_SPENDABLE;
+    }
+
     return ISMINE_NO;
 }
 
