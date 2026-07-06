@@ -2037,7 +2037,7 @@ RPCHelpMan restorewallet()
 RPCHelpMan getwalletpakinfo()
 {
     return RPCHelpMan{"getwalletpakinfo",
-                "\nReturns relevant pegout authorization key (PAK) information about this wallet. Throws an error if initpegoutwallet` has not been invoked on this wallet.\n",
+                "\nReturns relevant pegout authorization key (PAK) information about this wallet. Throws an error if `initpegoutwallet` has not been invoked on this wallet.\n",
                 {},
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
@@ -2233,7 +2233,7 @@ RPCHelpMan importissuanceblindingkey()
                 },
                 RPCResult{RPCResult::Type::NONE, "", ""},
                 RPCExamples{
-                    HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
+                    HelpExampleCli("importissuanceblindingkey", "\"<txid>\" 0 \"<blindingkey>\"")
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
