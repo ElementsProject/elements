@@ -2233,7 +2233,7 @@ RPCHelpMan importissuanceblindingkey()
                 },
                 RPCResult{RPCResult::Type::NONE, "", ""},
                 RPCExamples{
-                    HelpExampleCli("importissuanceblindingkey", "<txid> 0 <blindinghex>")
+                    HelpExampleCli("importissuanceblindingkey", "\"<txid>\" 0 \"<blindingkey>\"")
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
