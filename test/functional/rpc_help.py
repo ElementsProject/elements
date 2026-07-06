@@ -94,6 +94,9 @@ class HelpRpcTest(BitcoinTestFramework):
         # invalid argument
         assert_raises_rpc_error(-1, 'JSON value is not a string as expected', node.help, 0)
 
+        # null argument
+        assert_equal(node.help(None), node.help())
+
         # help of unknown command
         assert_equal(node.help('foo'), 'help: unknown command: foo')
 
