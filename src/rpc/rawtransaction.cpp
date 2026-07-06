@@ -1171,11 +1171,12 @@ static RPCHelpMan decodepsbt()
                         }},
                         {RPCResult::Type::NUM, "tx_version", /*optional=*/true, "The version number of the unsigned transaction. Not to be confused with PSBT version"},
                         {RPCResult::Type::NUM, "fallback_locktime", /*optional=*/true, "The locktime to fallback to if no inputs specify a required locktime."},
-                        {RPCResult::Type::NUM, "input_count", /*optional=*/true, "The number of inputs in this psbt"},
-                        {RPCResult::Type::NUM, "output_count", /*optional=*/true, "The number of outputs in this psbt."},
+                        {RPCResult::Type::NUM, "fees", "The fees specified in this psbt.", {}, /*skip_type_check=*/true}, // ELEMENTS has an explicit fee output, bitcoin does not (they are implicit)
+                        {RPCResult::Type::NUM, "input_count", "The number of inputs in this psbt"},
+                        {RPCResult::Type::NUM, "output_count", "The number of outputs in this psbt."},
                         {RPCResult::Type::BOOL, "inputs_modifiable", /*optional=*/true, "Whether inputs can be modified"},
                         {RPCResult::Type::BOOL, "outputs_modifiable", /*optional=*/true, "Whether outputs can be modified"},
-                        {RPCResult::Type::BOOL, "has_sighash_single", /*optional=*/true, "Whether any input uses SIGHASH_SINGLE"},
+                        {RPCResult::Type::BOOL, "has_sighash_single", /*optional=*/true, "Whether this PSBT has SIGHASH_SINGLE inputs"},
                         {RPCResult::Type::NUM, "psbt_version", "The PSBT version number. Not to be confused with the unsigned transaction version"},
                         {RPCResult::Type::ARR, "scalar_offsets", /*optional=*/true, "The PSET scalar elements",
                         {
