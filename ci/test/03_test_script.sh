@@ -124,11 +124,13 @@ fi
 # === CMake build (modern path used by the fork) ===
 if [ -n "$NO_DEPENDS" ]; then
   echo "Building with CMake (NO_DEPENDS=1)..."
-  cmake -B build -S . ${CMAKE_GENERATOR:+-G "$CMAKE_GENERATOR"} "$BITCOIN_CONFIG_ALL"
+  # shellcheck disable=SC2086
+  cmake -B build -S . ${CMAKE_GENERATOR:+-G "$CMAKE_GENERATOR"} $BITCOIN_CONFIG_ALL
 else
   # depends path (still uses configure in some jobs)
   ./autogen.sh
-  ./configure "$BITCOIN_CONFIG_ALL"
+  # shellcheck disable=SC2086
+  ./configure $BITCOIN_CONFIG_ALL
 fi
 
 cmake --build build --config Release --parallel "$MAKEJOBS"
