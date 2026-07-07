@@ -450,14 +450,14 @@ static RPCHelpMan getmininginfo()
                         {RPCResult::Type::NUM, "networkhashps", /*optional=*/true, "The network hashes per second"},
                         {RPCResult::Type::NUM, "pooledtx", "The size of the mempool"},
                         {RPCResult::Type::STR, "chain", "current network name (" LIST_CHAIN_NAMES ")"},
-                        {RPCResult::Type::STR_HEX, "signet_challenge", /*optional=*/true, "The block challenge (aka. block script), in hexadecimal (only present if the current network is a signet)"},
-                        {RPCResult::Type::OBJ, "next", "The next block",
+                        {RPCResult::Type::OBJ, "next", /*optional=*/true, "The next block",
                         {
                             {RPCResult::Type::NUM, "height", "The next height"},
                             {RPCResult::Type::STR_HEX, "bits", "The next target nBits"},
                             {RPCResult::Type::NUM, "difficulty", "The next difficulty"},
                             {RPCResult::Type::STR_HEX, "target", "The next target"}
                         }},
+                        {RPCResult::Type::STR_HEX, "signet_challenge", /*optional=*/true, "The block challenge (aka. block script), in hexadecimal (only present if the current network is a signet)"},
                         (IsDeprecatedRPCEnabled("warnings") ?
                             RPCResult{RPCResult::Type::STR, "warnings", "any network and blockchain warnings (DEPRECATED)"} :
                             RPCResult{RPCResult::Type::ARR, "warnings", "any network and blockchain warnings (run with `-deprecatedrpc=warnings` to return the latest warning as a single string)",
@@ -663,6 +663,10 @@ static RPCHelpMan getblocktemplate()
             RPCResult{"If the proposal was not accepted with mode=='proposal'", RPCResult::Type::STR, "", "According to BIP22"},
             RPCResult{"Otherwise", RPCResult::Type::OBJ, "", "",
             {
+                {RPCResult::Type::ARR, "capabilities", "",
+                {
+                    {RPCResult::Type::STR, "value", "A supported feature, for example 'proposal'"},
+                }},
                 {RPCResult::Type::NUM, "version", "The preferred block version"},
                 {RPCResult::Type::ARR, "rules", "specific block rules that are to be enforced",
                 {
@@ -671,10 +675,6 @@ static RPCHelpMan getblocktemplate()
                 {RPCResult::Type::OBJ_DYN, "vbavailable", "set of pending, supported versionbit (BIP 9) softfork deployments",
                 {
                     {RPCResult::Type::NUM, "rulename", "identifies the bit number as indicating acceptance and readiness for the named softfork rule"},
-                }},
-                {RPCResult::Type::ARR, "capabilities", "",
-                {
-                    {RPCResult::Type::STR, "value", "A supported feature, for example 'proposal'"},
                 }},
                 {RPCResult::Type::NUM, "vbrequired", "bit mask of versionbits the server requires set in submissions"},
                 {RPCResult::Type::STR, "previousblockhash", "The hash of current highest block"},
@@ -1262,7 +1262,7 @@ static RPCHelpMan getnewblockhex()
     
     std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainman.ActiveChainstate(), node.mempool.get(), options).CreateNewBlock());
     if (!pblocktemplate.get()) {
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Block template empty");
     }
 
     {
@@ -1310,7 +1310,7 @@ static RPCHelpMan combineblocksigs()
                             },
                         },
                     },
-                    {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The hex-encoded witnessScript for the signblockscript"},
+                    {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The hex-encoded witnessScript for the signblockscript. Required for dynafed blocks; omitted for non-dynafed blocks."},
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
@@ -1391,7 +1391,7 @@ static RPCHelpMan getcompactsketch()
                     {"block_hex", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialized block proposal from `getnewblockhex`."},
                 },
                 RPCResult{
-                    RPCResult::Type::STR, "sketch", "serialized block sketch",
+                    RPCResult::Type::STR_HEX, "sketch", "serialized block sketch",
                 },
                 RPCExamples{
                     HelpExampleCli("getcompactsketch", ""),
