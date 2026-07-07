@@ -2132,7 +2132,7 @@ RPCHelpMan importblindingkey()
                 "\nImports a private blinding key in hex for a CT address.",
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The CT address"},
-                    {"hexkey", RPCArg::Type::STR, RPCArg::Optional::NO, "The blinding key in hex"},
+                    {"hexkey", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The 32-byte blinding key in hex"},
                 },
                 RPCResult{RPCResult::Type::NONE, "", ""},
                 RPCExamples{
@@ -2225,7 +2225,7 @@ RPCHelpMan importmasterblindingkey()
 RPCHelpMan importissuanceblindingkey()
 {
     return RPCHelpMan{"importissuanceblindingkey",
-                "\nImports a private blinding key in hex for an asset issuance.",
+                "\nImports a private blinding key in hex for an asset issuance. Unlike `importblindingkey`, the key is stored without verifying it matches the issuance blinding pubkey.\n",
                 {
                     {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id of the issuance"},
                     {"vin", RPCArg::Type::NUM, RPCArg::Optional::NO, "The input number of the issuance in the transaction."},

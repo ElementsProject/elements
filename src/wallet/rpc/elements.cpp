@@ -156,7 +156,7 @@ RPCHelpMan getpeginaddress()
                     RPCResult::Type::OBJ, "", "",
                     {
                         {RPCResult::Type::STR, "mainchain_address", "mainchain deposit address to send bitcoin to"},
-                        {RPCResult::Type::STR_HEX, "claim_script", "claim script committed to by the mainchain address. This may be required in `claimpegin` to retrieve pegged-in funds\n"},
+                        {RPCResult::Type::STR_HEX, "claim_script", "Full script hex committed to by the mainchain address. This may be required in `claimpegin` to retrieve pegged-in funds\n"},
                         {RPCResult::Type::STR_AMOUNT, "pegin_min_amount", /*optional=*/true, "Minimum peg-in amount in " + CURRENCY_UNIT},
                         {RPCResult::Type::NUM, "pegin_min_height", /*optional=*/true, "Minimum block height for peg-in amount rule"},
                         {RPCResult::Type::BOOL, "pegin_min_active", /*optional=*/true, "Whether the peg-in minimum height rule is active at the current tip"},
@@ -281,7 +281,7 @@ bool DerivePubTweak(const std::vector<uint32_t>& vPath, const CPubKey& keyMaster
 RPCHelpMan initpegoutwallet()
 {
     return RPCHelpMan{"initpegoutwallet",
-                "\nThis call is for Liquid network initialization on the Liquid wallet. The wallet generates a new Liquid pegout authorization key (PAK) and stores it in the Liquid wallet. It then combines this with the `bitcoin_descriptor` to finally create a PAK entry for the network. This allows the user to send Liquid coins directly to a secure offline Bitcoin wallet at the derived path from the bitcoin_descriptor using the `sendtomainchain` command. Losing the Liquid PAK or offline Bitcoin root key will result in the inability to pegout funds, so immediate backup upon initialization is required.\n" +
+                "\nThis call is for Liquid network initialization on the Liquid wallet. The wallet generates a new Liquid pegout authorization key (PAK) unless `liquid_pak` is provided, and stores it in the Liquid wallet. It then combines this with the `bitcoin_descriptor` to finally create a PAK entry for the network. This allows the user to send Liquid coins directly to a secure offline Bitcoin wallet at the derived path from the bitcoin_descriptor using the `sendtomainchain` command. Losing the Liquid PAK or offline Bitcoin root key will result in the inability to pegout funds, so immediate backup upon initialization is required. Requires a legacy wallet.\n" +
                 wallet::HELP_REQUIRING_PASSPHRASE,
                 {
                     {"bitcoin_descriptor", RPCArg::Type::STR, RPCArg::Optional::NO, "The Bitcoin descriptor that includes a single extended pubkey. Must be one of the following: pkh(<xpub>), sh(wpkh(<xpub>)), or wpkh(<xpub>). This is used as the destination chain for the Bitcoin destination wallet. The derivation path from the xpub is given by the descriptor, typically `0/k`, reflecting the external chain of the wallet. DEPRECATED: If a plain xpub is given, pkh(<xpub>) is assumed, with the `0/k` derivation from that xpub. See link for more details on script descriptors: https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md"},
@@ -456,7 +456,7 @@ RPCHelpMan initpegoutwallet()
 RPCHelpMan sendtomainchain_base()
 {
     return RPCHelpMan{"sendtomainchain",
-                "\nSends sidechain funds to the given mainchain address, through the federated peg-in mechanism\n"
+                "\nSends sidechain funds to the given mainchain address, through the federated peg-out (withdraw) mechanism\n"
                 + wallet::HELP_REQUIRING_PASSPHRASE,
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The destination address on Bitcoin mainchain"},
@@ -472,7 +472,7 @@ RPCHelpMan sendtomainchain_base()
                         RPCResult::Type::OBJ, "", "",
                         {
                             {RPCResult::Type::STR_HEX, "txid", "The transaction id."},
-                            {RPCResult::Type::STR, "fee reason", /*optional=*/true, "The transaction fee reason."}
+                            {RPCResult::Type::STR, "fee_reason", /*optional=*/true, "The transaction fee reason."}
                         },
                     },
                 },
@@ -571,11 +571,11 @@ bool ParseKeyPath(const std::vector<Span<const char>>& split, KeyPath& out)
 RPCHelpMan sendtomainchain_pak()
 {
     return RPCHelpMan{"sendtomainchain",
-                "\nSends Liquid funds to the Bitcoin mainchain, through the federated withdraw mechanism. The wallet internally generates the returned `bitcoin_address` via `bitcoin_descriptor` and `bip32_counter` previously set in `initpegoutwallet`. The counter will be incremented upon successful send, avoiding address re-use.\n"
+                "\nSends Liquid funds to the Bitcoin mainchain, through the federated withdraw mechanism. The wallet internally generates the returned `bitcoin_address` via `bitcoin_descriptor` and `bip32_counter` previously set in `initpegoutwallet`. The counter will be incremented upon successful send, avoiding address re-use. Requires a legacy wallet. Minimum peg-out amount is 0.00100000 BTC.\n"
                 + wallet::HELP_REQUIRING_PASSPHRASE,
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Must be \"\". Only for non-PAK `sendtomainchain` compatibility."},
-                    {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount being sent to `bitcoin_address`."},
+                    {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount being sent to `bitcoin_address` (minimum 0.00100000 BTC)."},
                     {"subtractfeefromamount", RPCArg::Type::BOOL, RPCArg::Default{false}, "The fee will be deducted from the amount being pegged-out."},
                     {"verbose", RPCArg::Type::BOOL, RPCArg::Default{false}, "If true, return extra information about the transaction."},
                 },
@@ -585,7 +585,7 @@ RPCHelpMan sendtomainchain_pak()
                         {RPCResult::Type::STR, "bitcoin_address", "destination address on Bitcoin mainchain"},
                         {RPCResult::Type::STR_HEX, "txid", "transaction ID of the resulting Liquid transaction"},
                         {RPCResult::Type::STR, "fee_reason", /*optional=*/true, "If verbose is set to true, the Liquid transaction fee reason"},
-                        {RPCResult::Type::STR, "bitcoin_descriptor", "xpubkey of the child destination address"},
+                        {RPCResult::Type::STR, "bitcoin_descriptor", "Bitcoin descriptor string used for peg-out destination derivation"},
                         {RPCResult::Type::STR, "bip32_counter", "derivation counter for the `bitcoin_descriptor`"},
                     },
                 },
@@ -994,8 +994,8 @@ RPCHelpMan createrawpegin()
                 {
                     {"bitcoin_tx", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress"},
                     {"txoutproof", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A rawtxoutproof (in hex) generated by the mainchain daemon's `gettxoutproof` containing a proof of only bitcoin_tx"},
-                    {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The witness program generated by getpeginaddress. Only needed if not in wallet."},
-                    {"fee_rate", RPCArg::Type::AMOUNT, RPCArg::Optional::OMITTED, "The fee rate of the Bitcoin transaction in sats/vb, only necessary when validatepegin=0."},
+                    {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The full script hex from getpeginaddress. If omitted, every script in the wallet address book is tried as a candidate claim script."},
+                    {"fee_rate", RPCArg::Type::AMOUNT, RPCArg::Optional::OMITTED, "The fee rate of the Bitcoin transaction in sats/vb. Required when validatepegin=0, including when a peg-in subsidy requires it."},
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
@@ -1039,13 +1039,13 @@ RPCHelpMan claimpegin()
 {
     return RPCHelpMan{"claimpegin",
                 "\nClaim coins from the main chain by creating a peg-in transaction with the necessary metadata after the corresponding Bitcoin transaction.\n"
-                "Note that the transaction will not be relayed unless it is buried at least 102 blocks deep.\n"
+                "Note that the transaction will not be relayed until it is buried at least `pegin_min_depth + 2` blocks deep (chain-dependent).\n"
                 "If a transaction is not relayed it may require manual addition to a functionary mempool in order for it to be mined.\n",
                 {
                     {"bitcoin_tx", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress"},
                     {"txoutproof", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A rawtxoutproof (in hex) generated by the mainchain daemon's `gettxoutproof` containing a proof of only bitcoin_tx"},
-                    {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The witness program generated by getpeginaddress. Only needed if not in wallet."},
-                    {"fee_rate", RPCArg::Type::AMOUNT, RPCArg::Optional::OMITTED, "The fee rate of the Bitcoin transaction in sats/vb, only necessary when validatepegin=0."},
+                    {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The full script hex from getpeginaddress. If omitted, every script in the wallet address book is tried as a candidate claim script."},
+                    {"fee_rate", RPCArg::Type::AMOUNT, RPCArg::Optional::OMITTED, "The fee rate of the Bitcoin transaction in sats/vb. Required when validatepegin=0, including when a peg-in subsidy requires it."},
                 },
                 RPCResult{
                     RPCResult::Type::STR_HEX, "txid", "txid of the resulting sidechain transaction",
@@ -1503,7 +1503,7 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
 RPCHelpMan issueasset()
 {
     return RPCHelpMan{"issueasset",
-                "\nCreate an asset. Must have funds in wallet to do so. Returns asset hex id.\n"
+                "\nCreate an asset. Must have funds in wallet to do so. Returns issuance details including txid, vin, entropy, asset, and token.\n"
                 "For more fine-grained control such as multiple issuances, see `rawissueasset` RPC call.\n",
                 {
                     {"assetamount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount of asset to generate. Note that the amount is BTC-like, with 8 decimal places."},
@@ -1715,7 +1715,7 @@ RPCHelpMan listissuances()
                             {RPCResult::Type::STR_HEX, "entropy", "Entropy of the asset type"},
                             {RPCResult::Type::STR_HEX, "asset", "Asset type for issuance if known"},
                             {RPCResult::Type::STR, "assetlabel", /*optional=*/true, "Asset label for issuance if set"},
-                            {RPCResult::Type::STR_HEX, "token", /*optional=*/true, "Token type for issuancen"},
+                            {RPCResult::Type::STR_HEX, "token", /*optional=*/true, "Token type for issuance"},
                             {RPCResult::Type::NUM, "vin", "The input position of the issuance in the transaction"},
                             {RPCResult::Type::STR_AMOUNT, "assetamount", "The amount of asset issued. Is -1 if blinded and unknown to wallet"},
                             {RPCResult::Type::STR_AMOUNT, "tokenamount", /*optional=*/true, "The reissuance token amount issued. Is -1 if blinded and unknown to wallet"},
@@ -1806,13 +1806,13 @@ RPCHelpMan destroyamount()
                 },
                 {
                     RPCResult{"if verbose is not set or set to false",
-                        RPCResult::Type::STR_HEX, "transactionid", "the transaction id",
+                        RPCResult::Type::STR_HEX, "txid", "the transaction id",
                     },
                     RPCResult{"if verbose is set to true",
                         RPCResult::Type::OBJ, "", "",
                         {
-                            {RPCResult::Type::STR_HEX, "transactionid", "the transaction id"},
-                            {RPCResult::Type::STR, "fee reason", "The transaction fee reason."},
+                            {RPCResult::Type::STR_HEX, "txid", "the transaction id"},
+                            {RPCResult::Type::STR, "fee_reason", "The transaction fee reason."},
                         },
                     },
                 },
