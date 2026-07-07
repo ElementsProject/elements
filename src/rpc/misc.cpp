@@ -310,7 +310,7 @@ static RPCHelpMan deriveaddresses()
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, error);
     }
 
-    if (!desc->IsRange() && request.params.size() > 1) {
+    if (!desc->IsRange() && !request.params[1].isNull()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Range should not be specified for an un-ranged descriptor");
     }
 

@@ -572,6 +572,10 @@ static RPCHelpMan getblocktemplate()
             RPCResult{"If the proposal was not accepted with mode=='proposal'", RPCResult::Type::STR, "", "According to BIP22"},
             RPCResult{"Otherwise", RPCResult::Type::OBJ, "", "",
             {
+                {RPCResult::Type::ARR, "capabilities", "",
+                {
+                    {RPCResult::Type::STR, "value", "A supported feature, for example 'proposal'"},
+                }},
                 {RPCResult::Type::NUM, "version", "The preferred block version"},
                 {RPCResult::Type::ARR, "rules", "specific block rules that are to be enforced",
                 {
@@ -580,10 +584,6 @@ static RPCHelpMan getblocktemplate()
                 {RPCResult::Type::OBJ_DYN, "vbavailable", "set of pending, supported versionbit (BIP 9) softfork deployments",
                 {
                     {RPCResult::Type::NUM, "rulename", "identifies the bit number as indicating acceptance and readiness for the named softfork rule"},
-                }},
-                {RPCResult::Type::ARR, "capabilities", "",
-                {
-                    {RPCResult::Type::STR, "value", "A supported feature, for example 'proposal'"},
                 }},
                 {RPCResult::Type::NUM, "vbrequired", "bit mask of versionbits the server requires set in submissions"},
                 {RPCResult::Type::STR, "previousblockhash", "The hash of current highest block"},
@@ -1393,7 +1393,7 @@ static RPCHelpMan getnewblockhex()
     const NodeContext& node = EnsureAnyNodeContext(request.context);
     std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainman.ActiveChainstate(), *node.mempool, Params()).CreateNewBlock(feeDestinationScript, std::chrono::seconds(required_wait), &proposed, data_commitments.empty() ? nullptr : &data_commitments));
     if (!pblocktemplate.get()) {
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Block template empty");
     }
 
     {
@@ -1433,7 +1433,7 @@ static RPCHelpMan combineblocksigs()
                             },
                         },
                     },
-                    {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The hex-encoded witnessScript for the signblockscript"},
+                    {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The hex-encoded witnessScript for the signblockscript. Required for dynafed blocks; omitted for non-dynafed blocks."},
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
@@ -1514,7 +1514,7 @@ static RPCHelpMan getcompactsketch()
                     {"block_hex", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialized block proposal from `getnewblockhex`."},
                 },
                 RPCResult{
-                    RPCResult::Type::STR, "sketch", "serialized block sketch",
+                    RPCResult::Type::STR_HEX, "sketch", "serialized block sketch",
                 },
                 RPCExamples{
                     HelpExampleCli("getcompactsketch", ""),

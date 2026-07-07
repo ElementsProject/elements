@@ -171,7 +171,7 @@ static RPCHelpMan getrawtransaction()
                 },
                 {
                     RPCResult{"if verbose is not set or set to false",
-                         RPCResult::Type::STR, "data", "The serialized, hex-encoded data for 'txid'"
+                         RPCResult::Type::STR_HEX, "data", "The serialized, hex-encoded data for 'txid'"
                      },
                      RPCResult{"if verbose is set to true",
                          RPCResult::Type::OBJ, "", "",
@@ -812,7 +812,7 @@ static RPCHelpMan combinerawtransaction()
                         },
                 },
                 RPCResult{
-                    RPCResult::Type::STR, "", "The hex-encoded raw transaction with signature(s)"
+                    RPCResult::Type::STR_HEX, "", "The hex-encoded raw transaction with signature(s)"
                 },
                 RPCExamples{
                     HelpExampleCli("combinerawtransaction", R"('["myhex1", "myhex2", "myhex3"]')")
@@ -893,7 +893,7 @@ static RPCHelpMan signrawtransactionwithkey()
                     {"hexstring", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction hex string"},
                     {"privkeys", RPCArg::Type::ARR, RPCArg::Optional::NO, "The base58-encoded private keys for signing",
                         {
-                            {"privatekey", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "private key in base58-encoding"},
+                            {"privatekey", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "private key in base58-encoding"},
                         },
                         },
                     {"prevtxs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "The previous dependent transaction outputs",
@@ -2808,7 +2808,7 @@ static RPCHelpMan rawblindrawtransaction()
                     {"ignoreblindfail", RPCArg::Type::BOOL, RPCArg::Default{true}, "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
                 },
                 RPCResult{
-                     RPCResult::Type::STR, "transaction", "hex string of the transaction"
+                     RPCResult::Type::STR_HEX, "transaction", "hex string of the transaction"
                 },
                 RPCExamples{""},
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
@@ -2842,7 +2842,7 @@ static RPCHelpMan rawblindrawtransaction()
     }
     if (inputAmounts.size() != tx.vin.size()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
-            "Invalid parameter: one (potentially empty) input blind for each input must be provided");
+            "Invalid parameter: one (potentially empty) input amount for each input must be provided");
     }
     if (inputAssets.size() != tx.vin.size()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -2893,7 +2893,7 @@ static RPCHelpMan rawblindrawtransaction()
         if (!IsHex(assetblind) || assetblind.length() != 32*2)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of 32-byte hex-encoded strings");
         if (!IsHex(asset) || asset.length() != 32*2)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of 32-byte hex-encoded strings");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset IDs must be an array of 32-byte hex-encoded strings");
 
         input_blinds.push_back(uint256S(blind));
         input_asset_blinds.push_back(uint256S(assetblind));

@@ -1003,7 +1003,7 @@ RPCHelpMan createrawpegin()
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
                     {
-                        {RPCResult::Type::STR, "hex", "raw transaction data"},
+                        {RPCResult::Type::STR_HEX, "hex", "raw transaction data"},
                         {RPCResult::Type::BOOL, "mature", "Whether the peg-in is mature (only included when validating peg-ins)"},
                     },
                 },

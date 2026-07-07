@@ -1132,7 +1132,7 @@ static RPCHelpMan getblock()
                                 {RPCResult::Type::ELISION, "", ""}
                             }},
                         }},
-                        {RPCResult::Type::OBJ, "proposed", "Proposed parameters. Uninforced. Must be published in full",
+                        {RPCResult::Type::OBJ, "proposed", "Proposed parameters. Unenforced. Must be published in full",
                         {
                             {RPCResult::Type::ELISION, "", "same entries as \"current\""}
                         }},
@@ -2732,7 +2732,7 @@ static RPCHelpMan scantxoutset()
                         {RPCResult::Type::STR_HEX, "scriptPubKey", "The script key"},
                         {RPCResult::Type::STR, "desc", "A specialized descriptor for the matched scriptPubKey"},
                         {RPCResult::Type::STR_AMOUNT, "amount", "The total amount in " + CURRENCY_UNIT + " of the unspent output"},
-                        {RPCResult::Type::STR_HEX, "asset", "The asset ID"},
+                        {RPCResult::Type::STR_HEX, "asset", /*optional=*/true,  "The asset ID"},
                         {RPCResult::Type::NUM, "height", "Height of the unspent transaction output"},
                     }},
                 }},
@@ -3101,10 +3101,10 @@ static RPCHelpMan getsidechaininfo()
                     RPCResult::Type::OBJ, "", "",
                     {
                         {RPCResult::Type::STR_HEX, "fedpegscript", "The fedpegscript from genesis block"},
-                        {RPCResult::Type::ARR, "current_fedpegscripts", "The currently-enforced fedpegscripts in hex. Peg-ins for any entries on this list are honored by consensus and policy. Newest first. Two total entries are possible",
-                            {{RPCResult::Type::STR_HEX, "", "active fedpegscript"}}},
                         {RPCResult::Type::ARR, "current_fedpeg_programs", "The currently-enforced fedpegscript scriptPubKeys in hex. Prior to a transition this may be P2SH scriptpubkey, otherwise it will be a native segwit script. Results are paired in-order with current_fedpegscripts",
                             {{RPCResult::Type::STR_HEX, "", "active fedpegscript scriptPubKeys"}}},
+                        {RPCResult::Type::ARR, "current_fedpegscripts", "The currently-enforced fedpegscripts in hex. Peg-ins for any entries on this list are honored by consensus and policy. Newest first. Two total entries are possible",
+                            {{RPCResult::Type::STR_HEX, "", "active fedpegscript"}}},
                         {RPCResult::Type::STR_HEX, "pegged_asset", "Pegged asset type"},
                         {RPCResult::Type::STR, "min_peg_diff", "The minimum difficulty parent chain header target. Peg-in headers that have less work will be rejected as an anti-Dos measure"},
                         {RPCResult::Type::STR_HEX, "parent_blockhash", "The parent genesis blockhash as source of pegged-in funds"},
