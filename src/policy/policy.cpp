@@ -83,7 +83,7 @@ std::vector<uint32_t> GetDust(const CTransaction& tx, CFeeRate dust_relay_rate)
 {
     std::vector<uint32_t> dust_outputs;
     for (uint32_t i{0}; i < tx.vout.size(); ++i) {
-        // ELEMENTS: check explicity
+        // ELEMENTS: check explicitly
         const auto& output = tx.vout[i];
         if (output.nAsset.IsExplicit() && output.nAsset.GetAsset() != ::policyAsset) continue;
         if (IsDust(output, dust_relay_rate)) dust_outputs.push_back(i);

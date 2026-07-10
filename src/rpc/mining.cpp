@@ -1259,7 +1259,7 @@ static RPCHelpMan getnewblockhex()
     options.min_tx_age = std::chrono::seconds(required_wait);
     options.proposed_entry = proposed;
     options.commit_scripts = data_commitments;
-    
+
     std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainman.ActiveChainstate(), node.mempool.get(), options).CreateNewBlock());
     if (!pblocktemplate.get()) {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Block template empty");

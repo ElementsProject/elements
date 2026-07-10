@@ -23,7 +23,7 @@ PR_PREFIX="bitcoin/bitcoin"
 # Set your git worktree location here. This is where the merges will be done, and where you should checkout the merged-master branch.
 WORKTREE="/home/byron/code/elements-worktree"
 
-# Set your parallellism during build/test. You probably want as many cores as possible.
+# Set your parallelism during build/test. You probably want as many cores as possible.
 # Parallel functional tests can somewhat exceed your core count, depends on the build machine CPU/RAM.
 PARALLEL_BUILD=23  # passed to make -j
 PARALLEL_TEST=46  # passed to test_runner.py --jobs
@@ -142,7 +142,7 @@ echo start > merge.log
 
 quietly () {
     if [[ "$VERBOSE" == "1" ]]; then
-	date | tee --append merge.log
+    date | tee --append merge.log
         time "$@" 2>&1 | tee --append merge.log
     else
         chronic "$@"
@@ -158,7 +158,7 @@ notify () {
         echo "$MESSAGE"
     fi
     if [[ "$2" == "1" ]]; then
-	    exit 1
+        exit 1
     fi
 }
 
@@ -170,7 +170,7 @@ do
     CHAIN=$(echo "$line" | cut -d ' ' -f 4)
     PR_ID=$(echo "$line" | grep -o -P "#\d+")
 
-	GIT_HEAD=$(git rev-parse HEAD)
+    GIT_HEAD=$(git rev-parse HEAD)
 
     ## Do it
     if [[ "$1" == "list-only" ]]; then
@@ -207,13 +207,13 @@ do
     )
     for STOPPER in "${STOPPERS[@]}"
     do
-	if [[ "$PR_ID" == *"$STOPPER"* ]]; then
-		echo "Found $STOPPER in $PR_ID! Exiting."
-		notify "hit stopper, exiting"
-		exit 1
-	else
-		echo "Didn't find $STOPPER in $PR_ID. Continuing."
-	fi
+    if [[ "$PR_ID" == *"$STOPPER"* ]]; then
+        echo "Found $STOPPER in $PR_ID! Exiting."
+        notify "hit stopper, exiting"
+        exit 1
+    else
+        echo "Didn't find $STOPPER in $PR_ID. Continuing."
+    fi
     done
 
     if [[ "$SKIP_MERGE" == "1" ]]; then

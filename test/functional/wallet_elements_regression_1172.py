@@ -101,7 +101,7 @@ class WalletCtTest(BitcoinTestFramework):
         self.generate(self.nodes[2], 2)
         self.sync_all()
 
-        self.log.info(f"Issuing some assets from node 1")
+        self.log.info("Issuing some assets from node 1")
         # Try issuing assets
         amt = satoshi_round(Decimal(1), rounding=ROUND_DOWN)
         res1 = self.nodes[1].issueasset(amt, amt, True)
