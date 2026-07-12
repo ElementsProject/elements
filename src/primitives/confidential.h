@@ -83,7 +83,7 @@ public:
         return IsNull() || IsExplicit() || IsCommitment();
     }
 
-    std::string GetHex() const { return HexStr(vchCommitment); }
+    std::string GetHex() const { return HexStr(MakeByteSpan(vchCommitment)); }
 
     friend bool operator==(const CConfidentialCommitment& a, const CConfidentialCommitment& b)
     {

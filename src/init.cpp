@@ -694,8 +694,8 @@ void SetupServerArgs(ArgsManager& argsman, bool can_listen_ipc)
     argsman.AddArg("-pubkeyprefix", strprintf("The byte prefix, in decimal, of the chain's base58 pubkey address. (default: %d)", defaultChainParams->Base58Prefix(CChainParams::PUBKEY_ADDRESS)[0]), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-scriptprefix", strprintf("The byte prefix, in decimal, of the chain's base58 script address. (default: %d)", defaultChainParams->Base58Prefix(CChainParams::SCRIPT_ADDRESS)[0]), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-secretprefix", strprintf("The byte prefix, in decimal, of the chain's base58 secret key encoding. (default: %d)", defaultChainParams->Base58Prefix(CChainParams::SECRET_KEY)[0]), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    argsman.AddArg("-extpubkeyprefix", strprintf("The 4-byte prefix, in hex, of the chain's base58 extended public key encoding. (default: %s)", HexStr(defaultChainParams->Base58Prefix(CChainParams::EXT_PUBLIC_KEY))), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    argsman.AddArg("-extprvkeyprefix", strprintf("The 4-byte prefix, in hex, of the chain's base58 extended private key encoding. (default: %s)", HexStr(defaultChainParams->Base58Prefix(CChainParams::EXT_SECRET_KEY))), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-extpubkeyprefix", strprintf("The 4-byte prefix, in hex, of the chain's base58 extended public key encoding. (default: %s)", HexStr(MakeByteSpan(defaultChainParams->Base58Prefix(CChainParams::EXT_PUBLIC_KEY)))), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-extprvkeyprefix", strprintf("The 4-byte prefix, in hex, of the chain's base58 extended private key encoding. (default: %s)", HexStr(MakeByteSpan(defaultChainParams->Base58Prefix(CChainParams::EXT_SECRET_KEY)))), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-bech32_hrp", strprintf("The human-readable part of the chain's bech32 encoding. (default: %s)", defaultChainParams->Bech32HRP()), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-blech32_hrp", strprintf("The human-readable part of the chain's blech32 encoding. Used in confidential addresses.(default: %s)", defaultChainParams->Blech32HRP()), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-assetdir", "Entries of pet names of assets, in this format:asset=<hex>:<label>. There can be any number of entries.", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
@@ -983,7 +983,7 @@ bool AppInitParameterInteraction(const ArgsManager& args)
     if (chain.chain_type == ChainType::TESTNET) {
         LogInfo("Warning: Support for testnet3 is deprecated and will be removed in an upcoming release. Consider switching to testnet4.\n");
     }
-    
+
     if (!fs::is_directory(args.GetBlocksDirPath())) {
         return InitError(strprintf(_("Specified blocks directory \"%s\" does not exist."), args.GetArg("-blocksdir", "")));
     }
@@ -1146,7 +1146,7 @@ bool AppInitParameterInteraction(const ArgsManager& args)
     } catch (const std::exception& e) {
         return InitError(Untranslated(strprintf("Error in -assetdir: %s\n", e.what())));
     }
-    
+
     const std::vector<std::string> test_options = args.GetArgs("-test");
     if (!test_options.empty()) {
         if (chainparams.GetChainTypeMeta().chain_type != ChainType::REGTEST && chainparams.GetChainTypeMeta().chain_type != ChainType::CUSTOM) {
@@ -1515,7 +1515,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
     node.scheduler = std::make_unique<CScheduler>();
     assert(!node.reverification_scheduler);
     node.reverification_scheduler = std::make_unique<CScheduler>();
-    
+
     auto& scheduler = *node.scheduler;
 
     // Start the lightweight task scheduler thread
@@ -1572,7 +1572,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
 
     // ELEMENTS:
     policyAsset = CAsset(uint256S(gArgs.GetArg("-feeasset", chainparams.GetConsensus().pegged_asset.GetHex())));
-    
+
     // Check port numbers
     if (!CheckHostPortOptions(args)) return false;
 
@@ -1834,6 +1834,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
                   index_cache_sizes.filter_index * (1.0 / 1024 / 1024), BlockFilterTypeName(filter_type));
     }
     LogInfo("* Using %.1f MiB for chain state database", kernel_cache_sizes.coins_db * (1.0 / 1024 / 1024));
+    LogInfo("ELIP 203 is%s active\n", (chainparams.GetAcceptUnlimitedIssuances())?"":" not");
 
     assert(!node.mempool);
     assert(!node.chainman);

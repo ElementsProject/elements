@@ -1654,6 +1654,13 @@ isminetype CWallet::IsMine(const CScript& script) const
         return spkm->IsMine(script);
     }
 
+    // ELEMENTS: OP_TRUE outputs aren't derived from any descriptor, so they never
+    // land in m_cached_spks above. Custom chains (e.g. elementsregtest) rely on
+    // -anyonecanspendaremine to treat them as wallet funds regardless of wallet type.
+    if (Params().anyonecanspend_aremine && script == CScript() << OP_TRUE) {
+        return ISMINE_SPENDABLE;
+    }
+
     return ISMINE_NO;
 }
 
@@ -2628,15 +2635,15 @@ std::optional<PSBTError> CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bo
 std::optional<common::PSBTError> CWallet::FillPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool bip32derivs, bool imbalance_ok, size_t* n_signed, bool include_explicit, bool finalize) const
 {
     complete = false;
-    
+
     std::optional<common::PSBTError> error;
     error = FillPSBTData(psbtx, bip32derivs, include_explicit);
     if (error) {
         return error;
     }
-    
+
     // For backwards compatibility, do not check if amounts balance before signing in this case.
-    
+
     error = SignPSBT(psbtx, complete, sighash_type, sign, imbalance_ok, bip32derivs, n_signed, finalize);
     if (error) {
         return error;

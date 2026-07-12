@@ -162,6 +162,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "walletcreatefundedpsbt", 3, "changePosition"},
     { "walletcreatefundedpsbt", 3, "includeWatching"},
     { "walletcreatefundedpsbt", 3, "lockUnspents"},
+    { "walletcreatefundedpsbt", 3, "include_explicit"},
     { "walletcreatefundedpsbt", 3, "fee_rate"},
     { "walletcreatefundedpsbt", 3, "feeRate"},
     { "walletcreatefundedpsbt", 3, "subtractFeeFromOutputs"},

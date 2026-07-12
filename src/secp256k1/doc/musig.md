@@ -18,6 +18,7 @@ Therefore, users of the musig module must take great care to make sure of the fo
    See also the comment on `secp256k1_musig_secnonce` in `include/secp256k1_musig.h`.
 3. Opaque data structures are never written to or read from directly.
    Instead, only the provided accessor functions are used.
+4. If adaptor signatures are used, all partial signatures are verified.
 
 ## Key Aggregation and (Taproot) Tweaking
 
@@ -52,3 +53,14 @@ Similarly, the API supports an alternative protocol flow where generating the ag
 ## Verification
 
 A participant who wants to verify the partial signatures, but does not sign itself may do so using the above instructions except that the verifier skips steps 1, 4 and 7.
+
+## Atomic Swaps
+
+The signing API supports the production of "adaptor signatures", modified partial signatures
+which are offset by an auxiliary secret known to one party. That is,
+1. One party generates a (secret) adaptor `t` with corresponding (public) adaptor `T = t*G`.
+2. When calling `secp256k1_musig_nonce_process`, the public adaptor `T` is provided as the `adaptor` argument.
+3. The party who is going to extract the secret adaptor `t` later must verify all partial signatures.
+4. Due to step 2, the signature output of `secp256k1_musig_partial_sig_agg` is a pre-signature and not a valid Schnorr signature. All parties involved extract this session's `nonce_parity` with `secp256k1_musig_nonce_parity`.
+5. The party who knows `t` must "adapt" the pre-signature with `t` (and the `nonce_parity` using `secp256k1_musig_adapt` to complete the signature.
+6. Any party who sees both the final signature and the pre-signature (and has the `nonce_parity`) can extract `t` with `secp256k1_musig_extract_adaptor`.

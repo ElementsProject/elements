@@ -24,8 +24,8 @@ github-merge.py <PR_NUMBER>
 For example for PR 1518 I see this output:
 
 ```
-ElementsProject/elements#1518 Avoid Simplicity header dependency propogation into master
-* 6c7788adf373cd8f0dc5c4fe2b7674625631721e Avoid Simplicity header dependency propogation (Russell O'Connor) (upstream/simplicity, pull/1518/head)
+ElementsProject/elements#1518 Avoid Simplicity header dependency propagation into master
+* 6c7788adf373cd8f0dc5c4fe2b7674625631721e Avoid Simplicity header dependency propagation (Russell O'Connor) (upstream/simplicity, pull/1518/head)
 
 Dropping you on a shell so you can try building/testing the merged source.
 Run 'git diff HEAD~' to show the changes being merged.
@@ -47,10 +47,10 @@ exit
 In our example this results in the following output:
 
 ```
-[pull/1518/local-merge 5e1a950e52] Merge ElementsProject/elements#1518: Avoid Simplicity header dependency propogation
+[pull/1518/local-merge 5e1a950e52] Merge ElementsProject/elements#1518: Avoid Simplicity header dependency propagation
  Date: Thu Jan 22 14:49:26 2026 +0200
-ElementsProject/elements#1518 Avoid Simplicity header dependency propogation into master
-* 6c7788adf373cd8f0dc5c4fe2b7674625631721e Avoid Simplicity header dependency propogation (Russell O'Connor) (upstream/simplicity, pull/1518/head)
+ElementsProject/elements#1518 Avoid Simplicity header dependency propagation into master
+* 6c7788adf373cd8f0dc5c4fe2b7674625631721e Avoid Simplicity header dependency propagation (Russell O'Connor) (upstream/simplicity, pull/1518/head)
 ACKs:
 * ACK 6c7788a; built and tested locally  (delta1)
 * ACK 6c7788adf373cd8f0dc5c4fe2b7674625631721e; successfully ran local tests (apoelstra)

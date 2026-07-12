@@ -499,18 +499,12 @@ def get_datadir_path(dirname, n):
 
 
 def get_temp_default_datadir(temp_dir: pathlib.Path) -> tuple[dict, pathlib.Path]:
-    """Return os-specific environment variables that can be set to make the
-    GetDefaultDataDir() function return a datadir path under the provided
-    temp_dir, as well as the complete path it would return."""
     if platform.system() == "Windows":
         env = dict(APPDATA=str(temp_dir))
         datadir = temp_dir / "Bitcoin"
     else:
         env = dict(HOME=str(temp_dir))
-        if platform.system() == "Darwin":
-            datadir = temp_dir / "Library/Application Support/Elements"
-        else:
-            datadir = temp_dir / ".elements"
+        datadir = temp_dir / ".elements"  # ELEMENTS: ~/.elements on all POSIX platforms
     return env, datadir
 
 

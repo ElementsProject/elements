@@ -39,12 +39,6 @@ from test_framework.wallet import (
     getnewdestination,
     MiniWallet,
 )
-from test_framework.blocktools import (
-    REGTEST_N_BITS,
-    REGTEST_TARGET,
-    nbits_str,
-    target_str,
-)
 
 START_HEIGHT = 199
 SNAPSHOT_BASE_HEIGHT = 299

@@ -188,7 +188,7 @@ void RecentRequestsTableModel::addNewRequest(const SendCoinsRecipient &recipient
 void RecentRequestsTableModel::addNewRequest(const std::string &recipient)
 {
     std::vector<uint8_t> data(recipient.begin(), recipient.end());
-    DataStream ss{data};
+    DataStream ss{MakeByteSpan(data)};
 
     RecentRequestEntry entry;
     ss >> entry;

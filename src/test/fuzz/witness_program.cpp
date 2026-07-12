@@ -104,7 +104,7 @@ FUZZ_TARGET(witness_program)
             witness.stack.push_back(program);
 
             std::vector<unsigned char> control;
-            control.push_back(TAPROOT_LEAF_TAPSCRIPT | extkey_parity->second);
+            control.push_back(TAPROOT_LEAF_TAPSCRIPT | static_cast<uint8_t>(extkey_parity->second));
             control.insert(control.end(), intkey.begin(), intkey.end());
             witness.stack.push_back(control);
 

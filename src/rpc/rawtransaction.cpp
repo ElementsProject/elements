@@ -98,17 +98,16 @@ static std::vector<RPCResult> DecodeTxDoc(const std::string& txid_field_doc)
 {
     return {
         // When updating this documentation, update `getrawtransaction` in the same way.
-        {RPCResult::Type::STR_HEX, "txid", "The transaction id"},
+        {RPCResult::Type::STR_HEX, "txid", txid_field_doc},
         {RPCResult::Type::STR_HEX, "hash", "The transaction hash (differs from txid for witness transactions)"},
-        {RPCResult::Type::OBJ, "fee", "The fee specified in the transaction", {}, /*skip_type_check=*/true}, // Elements: this is an object
+        {RPCResult::Type::STR_HEX, "wtxid", /*optional=*/true, "The witness transaction id"},
+        {RPCResult::Type::STR_HEX, "withash", /*optional=*/true, "Hash of witness serialization only"},
+        {RPCResult::Type::NUM, "version", "The version"},
         {RPCResult::Type::NUM, "size", "The serialized transaction size"},
         {RPCResult::Type::NUM, "vsize", "The virtual transaction size (differs from size for witness transactions)"},
         {RPCResult::Type::NUM, "weight", "The transaction's weight (between vsize*4-3 and vsize*4)"},
         {RPCResult::Type::NUM, "discountvsize", /*optional=*/true, "The discounted virtual transaction size, only differs from vsize for Confidential Transactions"},
         {RPCResult::Type::NUM, "discountweight", /*optional=*/true, "The discounted transaction weight, only differs from weight for Confidential Transactions"},
-        {RPCResult::Type::STR_HEX, "withash", /*optional=*/true, "The hash of the witness"},
-        {RPCResult::Type::STR_HEX, "wtxid", /*optional=*/true, "Hash of the serialized transaction, including witness data"},
-        {RPCResult::Type::NUM, "version", "The version"},
         {RPCResult::Type::NUM_TIME, "locktime", "The lock time"},
         {RPCResult::Type::ARR, "vin", "",
         {
@@ -122,27 +121,27 @@ static std::vector<RPCResult> DecodeTxDoc(const std::string& txid_field_doc)
                     {RPCResult::Type::STR, "asm", "Disassembly of the signature script"},
                     {RPCResult::Type::STR_HEX, "hex", "The raw signature script bytes, hex-encoded"},
                 }},
+                {RPCResult::Type::BOOL, "is_pegin", /*optional=*/true, "Whether this input is a peg-in (if not coinbase transaction)"},
+                {RPCResult::Type::NUM, "sequence", "The script sequence number"},
                 {RPCResult::Type::ARR, "txinwitness", /*optional=*/true, "",
                 {
-                    {RPCResult::Type::STR_HEX, "hex", "hex-encoded witness data (if any)"},
+                    {RPCResult::Type::STR_HEX, "", "hex-encoded witness stack item (if any)"},
                 }},
-                {RPCResult::Type::NUM, "sequence", "The script sequence number"},
-                {RPCResult::Type::BOOL, "is_pegin", /*optional=*/true, "Is this input a pegin"},
                 {RPCResult::Type::ARR, "pegin_witness", /*optional=*/true, "",
                 {
-                    {RPCResult::Type::STR_HEX, "", "hex-encoded witness data (if any)"},
+                    {RPCResult::Type::STR_HEX, "", "hex-encoded peg-in witness stack item (if any)"},
                 }},
-                {RPCResult::Type::OBJ, "issuance", /*optional=*/true, "",
+                {RPCResult::Type::OBJ, "issuance", /*optional=*/true, "Asset issuance data (if present on input)",
                 {
-                    {RPCResult::Type::STR_HEX, "assetBlindingNonce", /*optional=*/true, ""},
-                    {RPCResult::Type::STR_HEX, "assetEntropy", /*optional=*/true, ""},
-                    {RPCResult::Type::BOOL, "isreissuance", /*optional=*/true, ""},
-                    {RPCResult::Type::STR_HEX, "token", /*optional=*/true, ""},
-                    {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, ""},
-                    {RPCResult::Type::STR_AMOUNT, "assetamount", /*optional=*/true, ""},
-                    {RPCResult::Type::STR_HEX, "assetamountcommitment", /*optional=*/true, ""},
-                    {RPCResult::Type::STR_AMOUNT, "tokenamount", /*optional=*/true, ""},
-                    {RPCResult::Type::STR_HEX, "tokenamountcommitment", /*optional=*/true, ""},
+                    {RPCResult::Type::STR_HEX, "assetBlindingNonce", "The asset blinding nonce"},
+                    {RPCResult::Type::STR_HEX, "assetEntropy", "The asset entropy"},
+                    {RPCResult::Type::BOOL, "isreissuance", "Whether this is a reissuance"},
+                    {RPCResult::Type::STR_HEX, "token", /*optional=*/true, "The reissuance token id (omitted for reissuances)"},
+                    {RPCResult::Type::STR_HEX, "asset", "The asset id"},
+                    {RPCResult::Type::STR_AMOUNT, "assetamount", /*optional=*/true, "The explicit issued asset amount"},
+                    {RPCResult::Type::STR_HEX, "assetamountcommitment", /*optional=*/true, "The blinded issued asset amount commitment"},
+                    {RPCResult::Type::STR_AMOUNT, "tokenamount", /*optional=*/true, "The explicit reissuance token amount"},
+                    {RPCResult::Type::STR_HEX, "tokenamountcommitment", /*optional=*/true, "The blinded reissuance token amount commitment"},
                 }},
             }},
         }},
@@ -150,21 +149,33 @@ static std::vector<RPCResult> DecodeTxDoc(const std::string& txid_field_doc)
         {
             {RPCResult::Type::OBJ, "", "",
             {
-                {RPCResult::Type::STR_AMOUNT, "value", /*optional=*/true, "The value in " + CURRENCY_UNIT + " if known"}, // ELEMENTS: present if not confidential
-                {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "Asset type for issuance if known"},
-                {RPCResult::Type::STR_HEX, "assetcommitment", /*optional=*/true, "Commitment for the asset"},
-                {RPCResult::Type::STR_HEX, "commitmentnonce", "The commitment nonce"},
-                {RPCResult::Type::BOOL, "commitmentnonce_fully_valid", "Whether the commitment nonce is a valid pubkey"},
-                {RPCResult::Type::NUM, "ct-bits", /*optional=*/true, "The mantissa of the range proof"},
-                {RPCResult::Type::NUM, "ct-exponent", /*optional=*/true, "The exponent of the range proof"},
-                {RPCResult::Type::NUM, "n", "index"},
-                {RPCResult::Type::STR_HEX, "surjectionproof", /*optional=*/true, "The surjection proof for the output"},
-                {RPCResult::Type::NUM, "value-maximum", /*optional=*/true, "The maximum value in the range of the confidential output"},
-                {RPCResult::Type::NUM, "value-minimum", /*optional=*/true, "The minimum value in the range of the confidential output"},
-                {RPCResult::Type::STR_HEX, "valuecommitment", /*optional=*/true, "The commitment of the value"},
-                {RPCResult::Type::OBJ, "scriptPubKey", "", ScriptPubKeyDoc()},
+                {RPCResult::Type::STR_AMOUNT, "value", /*optional=*/true, "The value in " + CURRENCY_UNIT + " (explicit outputs, or decoded confidential value)"},
+                {RPCResult::Type::STR_AMOUNT, "value-minimum", /*optional=*/true, "Minimum decoded value for confidential outputs"},
+                {RPCResult::Type::STR_AMOUNT, "value-maximum", /*optional=*/true, "Maximum decoded value for confidential outputs"},
+                {RPCResult::Type::NUM, "ct-exponent", /*optional=*/true, "Confidential transaction value exponent"},
+                {RPCResult::Type::NUM, "ct-bits", /*optional=*/true, "Confidential transaction value mantissa bits"},
+                {RPCResult::Type::STR_HEX, "valuecommitment", /*optional=*/true, "Hex-encoded value commitment for confidential outputs"},
+                {RPCResult::Type::STR_HEX, "surjectionproof", /*optional=*/true, "Hex-encoded asset surjection proof"},
+                {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "Explicit asset id"},
+                {RPCResult::Type::STR_HEX, "assetcommitment", /*optional=*/true, "Hex-encoded asset commitment"},
+                {RPCResult::Type::STR_HEX, "commitmentnonce", /*optional=*/true, "Hex-encoded output blinding pubkey or nonce commitment"},
+                {RPCResult::Type::BOOL, "commitmentnonce_fully_valid", /*optional=*/true, "Whether the nonce commitment parses as a valid pubkey"},
+                {RPCResult::Type::NUM, "n", "The output index"},
+                {RPCResult::Type::OBJ, "scriptPubKey", "", Cat<std::vector<RPCResult>>(ScriptPubKeyDoc(), {
+                    {RPCResult::Type::STR_HEX, "pegout_chain", /*optional=*/true, "Parent chain genesis block hash (peg-out outputs only)"},
+                    {RPCResult::Type::STR, "pegout_asm", /*optional=*/true, "Disassembly of the peg-out output script"},
+                    {RPCResult::Type::STR, "pegout_desc", /*optional=*/true, "Inferred descriptor for the peg-out output script"},
+                    {RPCResult::Type::STR_HEX, "pegout_hex", /*optional=*/true, "The peg-out output script bytes, hex-encoded"},
+                    {RPCResult::Type::STR, "pegout_address", /*optional=*/true, "The peg-out address on the parent chain"},
+                    {RPCResult::Type::STR, "pegout_type", /*optional=*/true, "The peg-out output script type"},
+                })},
             }},
         }},
+        {RPCResult::Type::OBJ, "fee", /*optional=*/true, "Fee output totals mapped by asset id", {
+            {RPCResult::Type::ELISION, "", "fee amount for each asset"},
+        }, /*skip_type_check=*/true},
+        {RPCResult::Type::STR_HEX, "blockhash", /*optional=*/true, "The block hash"},
+        {RPCResult::Type::STR_HEX, "hex", /*optional=*/true, "The serialized, hex-encoded transaction"},
     };
 }
 
@@ -204,12 +215,15 @@ static std::vector<RPCArg> CreateTxDoc()
                     },
                 {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                     {
-                        {"vdata", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The key is \"vdata\", the value is an array of hex encoded data"},
+                        {"vdata", RPCArg::Type::ARR, RPCArg::Optional::NO, "The key is \"vdata\", the value is an array of hex encoded data",
+                        {
+                            {"", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Hex-encoded data"},
+                        }},
                     },
                     },
                 {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                     {
-                        {"burn", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A key-value pair. The key must be \"burn\", the value is the amount that will be burned."},
+                        {"burn", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "A key-value pair. The key must be \"burn\", the value is the amount that will be burned."},
                     },
                     },
                 {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -329,19 +343,16 @@ static RPCHelpMan getrawtransaction()
                 },
                 {
                     RPCResult{"if verbosity is not set or set to 0",
-                         RPCResult::Type::STR, "data", "The serialized transaction as a hex-encoded string for 'txid'"
+                         RPCResult::Type::STR_HEX, "data", "The serialized transaction as a hex-encoded string for 'txid'"
                      },
                      RPCResult{"if verbosity is set to 1",
                          RPCResult::Type::OBJ, "", "",
                          Cat<std::vector<RPCResult>>(
                          {
                              {RPCResult::Type::BOOL, "in_active_chain", /*optional=*/true, "Whether specified block is in the active chain or not (only present with explicit \"blockhash\" argument)"},
-                             {RPCResult::Type::STR_HEX, "blockhash", /*optional=*/true, "the block hash"},
                              {RPCResult::Type::NUM, "confirmations", /*optional=*/true, "The confirmations"},
                              {RPCResult::Type::NUM_TIME, "blocktime", /*optional=*/true, "The block time expressed in " + UNIX_EPOCH_TIME},
                              {RPCResult::Type::NUM, "time", /*optional=*/true, "Same as \"blocktime\""},
-                             {RPCResult::Type::OBJ, "fee", "The fee supplied for the transaction.", {}, /*skip_type_check=*/true}, // ELEMENTS: this is an object (assetId and value), but in bitcoin this is a STR_AMOUNT
-                             {RPCResult::Type::STR_HEX, "hex", "The serialized, hex-encoded data for 'txid'"},
                          },
                          DecodeTxDoc(/*txid_field_doc=*/"The transaction id (same as provided)")),
                     },
@@ -349,7 +360,6 @@ static RPCHelpMan getrawtransaction()
                         RPCResult::Type::OBJ, "", "",
                         {
                             {RPCResult::Type::ELISION, "", "Same output as verbosity = 1"},
-                            {RPCResult::Type::NUM, "fee", /*optional=*/true, "transaction fee in " + CURRENCY_UNIT + ", omitted if block undo data is not available"},
                             {RPCResult::Type::ARR, "vin", "",
                             {
                                 {RPCResult::Type::OBJ, "", "utxo being spent",
@@ -701,7 +711,7 @@ static RPCHelpMan combinerawtransaction()
                         },
                 },
                 RPCResult{
-                    RPCResult::Type::STR, "", "The hex-encoded raw transaction with signature(s)"
+                    RPCResult::Type::STR_HEX, "", "The hex-encoded raw transaction with signature(s)"
                 },
                 RPCExamples{
                     HelpExampleCli("combinerawtransaction", R"('["myhex1", "myhex2", "myhex3"]')")
@@ -785,7 +795,7 @@ static RPCHelpMan signrawtransactionwithkey()
                     {"hexstring", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction hex string"},
                     {"privkeys", RPCArg::Type::ARR, RPCArg::Optional::NO, "The base58-encoded private keys for signing",
                         {
-                            {"privatekey", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "private key in base58-encoding"},
+                            {"privatekey", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "private key in base58-encoding"},
                         },
                         },
                     {"prevtxs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED, "The previous dependent transaction outputs",
@@ -947,6 +957,35 @@ const RPCResult decodepsbt_inputs{
             {
                 {RPCResult::Type::STR_HEX, "", "hex-encoded witness data (if any)"},
             }},
+            {RPCResult::Type::STR_HEX, "previous_txid", /*optional=*/ true, "The TXID of the prevout"},
+            {RPCResult::Type::NUM, "previous_vout", /*optional=*/ true, "The output index of the prevout"},
+            {RPCResult::Type::NUM, "sequence", /*optional=*/ true, "The sequence number"},
+            {RPCResult::Type::NUM, "time_locktime", /*optional=*/ true, "The required time-based locktime for this input"},
+            {RPCResult::Type::NUM, "height_locktime", /*optional=*/ true, "The required height-based locktime for this input"},
+            {RPCResult::Type::STR_AMOUNT, "issuance_value", /*optional=*/ true, "The explicit issuance value"},
+            {RPCResult::Type::STR_HEX, "issuance_value_commitment", /*optional=*/ true, "The issuance value commitment"},
+            {RPCResult::Type::STR_HEX, "issuance_value_rangeproof", /*optional=*/ true, "The issuance value rangeproof"},
+            {RPCResult::Type::STR_HEX, "blind_issuance_value_proof", /*optional=*/ true, "The blind issuance value proof"},
+            {RPCResult::Type::STR_AMOUNT, "issuance_reissuance_amount", /*optional=*/ true, "The explicit reissuance token amount"},
+            {RPCResult::Type::STR_HEX, "issuance_reissuance_amount_commitment", /*optional=*/ true, "The reissuance token amount commitment"},
+            {RPCResult::Type::STR_HEX, "issuance_reissuance_amount_rangeproof", /*optional=*/ true, "The reissuance token amount rangeproof"},
+            {RPCResult::Type::STR_HEX, "blind_reissuance_amount_proof", /*optional=*/ true, "The blind reissuance token amount proof"},
+            {RPCResult::Type::STR_HEX, "issuance_blinding_nonce", /*optional=*/ true, "The issuance blinding nonce"},
+            {RPCResult::Type::STR_HEX, "issuance_asset_entropy", /*optional=*/ true, "The issuance asset entropy"},
+            {RPCResult::Type::STR_HEX, "pegin_bitcoin_tx", /*optional=*/ true, "The hex-encoded Bitcoin transaction"},
+            {RPCResult::Type::STR_HEX, "pegin_txout_proof", /*optional=*/ true, "The hex-encoded raw txout proof"},
+            {RPCResult::Type::STR_HEX, "pegin_claim_script", /*optional=*/ true, "The peg-in claim script"},
+            {RPCResult::Type::STR_HEX, "pegin_genesis_hash", /*optional=*/ true, "The hex-encoded genesis block hash of the parent chain"},
+            {RPCResult::Type::STR_AMOUNT, "pegin_value", /*optional=*/ true, "The peg-in value"},
+            {RPCResult::Type::ARR, "pegin_witness", /*optional=*/ true, "The peg-in witness stack",
+                {{RPCResult::Type::STR_HEX, "", "hex-encoded witness item"}}},
+            {RPCResult::Type::STR_HEX, "utxo_rangeproof", /*optional=*/ true, "The UTXO range proof"},
+            {RPCResult::Type::STR_HEX, "asset_proof", /*optional=*/ true, "The asset proof"},
+            {RPCResult::Type::STR_HEX, "explicit_asset", /*optional=*/ true, "The explicit asset type"},
+            {RPCResult::Type::STR_AMOUNT, "explicit_value", /*optional=*/ true, "The explicit value"},
+            {RPCResult::Type::STR_HEX, "value_proof", /*optional=*/ true, "The value proof"},
+            {RPCResult::Type::BOOL, "blinded_issuance", /*optional=*/ true, "Whether the issuance is blinded"},
+            {RPCResult::Type::STR, "status", /*optional=*/true, "Status"},
             {RPCResult::Type::OBJ_DYN, "ripemd160_preimages", /*optional=*/ true, "",
             {
                 {RPCResult::Type::STR, "hash", "The hash and preimage that corresponds to it."},
@@ -1000,35 +1039,21 @@ const RPCResult decodepsbt_inputs{
             }},
             {RPCResult::Type::STR_HEX, "taproot_internal_key", /*optional=*/ true, "The hex-encoded Taproot x-only internal key"},
             {RPCResult::Type::STR_HEX, "taproot_merkle_root", /*optional=*/ true, "The hex-encoded Taproot merkle root"},
-            {RPCResult::Type::OBJ_DYN, "unknown", /*optional=*/ true, "The unknown input fields",
-            {
-                {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
-            }},
             {RPCResult::Type::ARR, "proprietary", /*optional=*/true, "The input proprietary map",
-            {
-                {RPCResult::Type::OBJ, "", "",
                 {
-                    {RPCResult::Type::STR_HEX, "identifier", "The hex string for the proprietary identifier"},
-                    {RPCResult::Type::NUM, "subtype", "The number for the subtype"},
-                    {RPCResult::Type::STR_HEX, "key", "The hex for the key"},
-                    {RPCResult::Type::STR_HEX, "value", "The hex for the value"},
+                    {RPCResult::Type::OBJ, "", "",
+                        {
+                            {RPCResult::Type::STR_HEX, "identifier", "The hex string for the proprietary identifier"},
+                            {RPCResult::Type::NUM, "subtype", "The number for the subtype"},
+                            {RPCResult::Type::STR_HEX, "key", "The hex for the key"},
+                            {RPCResult::Type::STR_HEX, "value", "The hex for the value"},
+                        }},
+                    }},
                 }},
-            }},
-            {RPCResult::Type::STR_HEX, "previous_txid", /*optional=*/ true, "The TXID of the prevout"},
-            {RPCResult::Type::NUM, "previous_vout", /*optional=*/ true, "The output index of the prevout"},
-            {RPCResult::Type::NUM, "sequence", /*optional=*/ true, "The sequence number"},
-            {RPCResult::Type::STR_HEX, "pegin_bitcoin_tx", /*optional=*/ true, "The hex-encoded Bitcoin transaction"},
-            {RPCResult::Type::STR_HEX, "pegin_claim_script", /*optional=*/ true, "The peg-in claim script"},
-            {RPCResult::Type::STR_HEX, "pegin_genesis_hash", /*optional=*/ true, "The hex-encoded genesis block hash of the parent chain"},
-            {RPCResult::Type::STR_HEX, "pegin_txout_proof", /*optional=*/ true, "The hex-encoded raw txout proof"},
-            {RPCResult::Type::STR_AMOUNT, "pegin_value", /*optional=*/ true, "The peg-in value"},
-            {RPCResult::Type::STR_HEX, "utxo_rangeproof", /*optional=*/ true, "The UTXO range proof"},
-            {RPCResult::Type::STR_HEX, "asset_proof", /*optional=*/ true, "The asset proof"},
-            {RPCResult::Type::STR_HEX, "explicit_asset", /*optional=*/ true, "The explicit asset type"},
-            {RPCResult::Type::STR_AMOUNT, "explicit_value", /*optional=*/ true, "The explicit value"},
-            {RPCResult::Type::STR_HEX, "value_proof", /*optional=*/ true, "The value proof"},
-            {RPCResult::Type::STR, "status", /*optional=*/true, "Status"},
-        }},
+            {RPCResult::Type::OBJ_DYN, "unknown", /*optional=*/ true, "The unknown input fields",
+                {
+                    {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
+                }},
     }
 };
 
@@ -1058,6 +1083,26 @@ const RPCResult decodepsbt_outputs{
                     {RPCResult::Type::STR, "path", "The path"},
                 }},
             }},
+            {RPCResult::Type::STR_AMOUNT, "amount", /*optional=*/true, "The value in " + CURRENCY_UNIT},
+            {RPCResult::Type::OBJ, "script", /*optional=*/true, "The output script (scriptPubKey) for this output",
+                {
+                    {RPCResult::Type::STR, "asm", "Disassembly of the public key script"},
+                    {RPCResult::Type::STR, "desc", "Inferred descriptor for the output"},
+                    {RPCResult::Type::STR_HEX, "hex", "The raw public key script bytes, hex-encoded"},
+                    {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
+                    {RPCResult::Type::STR, "address", /*optional=*/true, "The Bitcoin address (only if a well-defined address exists)"},
+                }},
+            {RPCResult::Type::STR_HEX, "value_commitment", /*optional=*/true, "The value commitment"},
+            {RPCResult::Type::STR_HEX, "asset_commitment", /*optional=*/true, "The asset commitment"},
+            {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "The asset type"},
+            {RPCResult::Type::STR_HEX, "rangeproof", /*optional=*/true, "The rangeproof"},
+            {RPCResult::Type::STR_HEX, "surjection_proof", /*optional=*/true, "The surjection proof"},
+            {RPCResult::Type::STR_HEX, "ecdh_pubkey", /*optional=*/true, "The ECDH pubkey"},
+            {RPCResult::Type::STR_HEX, "blinding_pubkey", /*optional=*/true, "The blinding pubkey"},
+            {RPCResult::Type::NUM, "blinder_index", /*optional=*/true, "Output index of the blinder for this output"},
+            {RPCResult::Type::STR_HEX, "blind_value_proof", /*optional=*/true, "The blind value proof"},
+            {RPCResult::Type::STR_HEX, "blind_asset_proof", /*optional=*/true, "The blind asset proof"},
+            {RPCResult::Type::STR, "status", /*optional=*/true, "Status"},
             {RPCResult::Type::STR_HEX, "taproot_internal_key", /*optional=*/ true, "The hex-encoded Taproot x-only internal key"},
             {RPCResult::Type::ARR, "taproot_tree", /*optional=*/ true, "The tuples that make up the Taproot tree, in depth first search order",
             {
@@ -1081,10 +1126,6 @@ const RPCResult decodepsbt_outputs{
                     }},
                 }},
             }},
-            {RPCResult::Type::OBJ_DYN, "unknown", /*optional=*/true, "The unknown output fields",
-            {
-                {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
-            }},
             {RPCResult::Type::ARR, "proprietary", /*optional=*/true, "The output proprietary map",
             {
                 {RPCResult::Type::OBJ, "", "",
@@ -1095,26 +1136,10 @@ const RPCResult decodepsbt_outputs{
                     {RPCResult::Type::STR_HEX, "value", "The hex for the value"},
                 }},
             }},
-            {RPCResult::Type::NUM, "amount", /*optional=*/true, "The value in " + CURRENCY_UNIT},
-            {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "The asset type"},
-            {RPCResult::Type::OBJ, "script", "",
+            {RPCResult::Type::OBJ_DYN, "unknown", /*optional=*/true, "The unknown output fields",
             {
-                {RPCResult::Type::STR, "asm", "Disassembly of the public key script"},
-                {RPCResult::Type::STR, "desc", "Inferred descriptor for the output"},
-                {RPCResult::Type::STR_HEX, "hex", "The raw public key script bytes, hex-encoded"},
-                {RPCResult::Type::STR, "type", "The type, eg 'pubkeyhash'"},
-                {RPCResult::Type::STR, "address", /*optional=*/true, "The Bitcoin address (only if a well-defined address exists)"},
+                {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
             }},
-            {RPCResult::Type::NUM, "blinder_index", /*optional=*/true, "Output index of the blinder for this output"},
-            {RPCResult::Type::STR_HEX, "blinding_pubkey", /*optional=*/true, "The blinding pubkey"},
-            {RPCResult::Type::STR, "status", /*optional=*/true, "Status"},
-            {RPCResult::Type::STR, "asset_commitment", /*optional=*/true, "The asset commitment"},
-            {RPCResult::Type::STR, "blind_asset_proof", /*optional=*/true, "The blind asset proof"},
-            {RPCResult::Type::STR, "blind_value_proof", /*optional=*/true, "The blind value proof"},
-            {RPCResult::Type::STR, "ecdh_pubkey", /*optional=*/true, "The ECDH pubkey"},
-            {RPCResult::Type::STR, "rangeproof", /*optional=*/true, "The rangeproof"},
-            {RPCResult::Type::STR, "surjection_proof", /*optional=*/true, "The surjection proof"},
-            {RPCResult::Type::STR, "value_commitment", /*optional=*/true, "The value commitment"},
         }},
     }
 };
@@ -1144,20 +1169,17 @@ static RPCHelpMan decodepsbt()
                                 {RPCResult::Type::STR, "path", "The path"},
                             }},
                         }},
-                        {RPCResult::Type::NUM, "tx_version", "The version number of the unsigned transaction. Not to be confused with PSBT version"},
+                        {RPCResult::Type::NUM, "tx_version", /*optional=*/true, "The version number of the unsigned transaction. Not to be confused with PSBT version"},
                         {RPCResult::Type::NUM, "fallback_locktime", /*optional=*/true, "The locktime to fallback to if no inputs specify a required locktime."},
-                        {RPCResult::Type::NUM, "fees", "The fees specified in this psbt.", {}, /*skip_type_check=*/true}, // ELEMENTS has an explicit fee output, bitcoin does not (they are implicit)
-                        {RPCResult::Type::NUM, "input_count", "The number of inputs in this psbt"},
-                        {RPCResult::Type::NUM, "output_count", "The number of outputs in this psbt."},
-                        {RPCResult::Type::NUM, "inputs_modifiable", /*optional=*/true, "Whether inputs can be modified"},
-                        {RPCResult::Type::NUM, "outputs_modifiable", /*optional=*/true, "Whether outputs can be modified"},
-                        {RPCResult::Type::ARR, "sighash_single_indexes", /*optional=*/true, "The indexes which have SIGHASH_SINGLE signatures",
-                            {{RPCResult::Type::NUM, "", "Index of an input with a SIGHASH_SINGLE signature"}},
-                        },
+                        {RPCResult::Type::NUM, "input_count", /*optional=*/true, "The number of inputs in this psbt"},
+                        {RPCResult::Type::NUM, "output_count", /*optional=*/true, "The number of outputs in this psbt."},
+                        {RPCResult::Type::BOOL, "inputs_modifiable", /*optional=*/true, "Whether inputs can be modified"},
+                        {RPCResult::Type::BOOL, "outputs_modifiable", /*optional=*/true, "Whether outputs can be modified"},
+                        {RPCResult::Type::BOOL, "has_sighash_single", /*optional=*/true, "Whether this PSBT has SIGHASH_SINGLE inputs"},
                         {RPCResult::Type::NUM, "psbt_version", "The PSBT version number. Not to be confused with the unsigned transaction version"},
                         {RPCResult::Type::ARR, "scalar_offsets", /*optional=*/true, "The PSET scalar elements",
                         {
-                             {RPCResult::Type::STR_HEX, "scalar", "A scalar offset stored in the PSET"},
+                             {RPCResult::Type::STR_HEX, "", "A scalar offset stored in the PSET"},
                         }},
                         {RPCResult::Type::ARR, "proprietary", "The global proprietary map",
                         {
@@ -1169,13 +1191,16 @@ static RPCHelpMan decodepsbt()
                                 {RPCResult::Type::STR_HEX, "value", "The hex for the value"},
                             }},
                         }},
-                        {RPCResult::Type::OBJ_DYN, "unknown", /*optional=*/true, "The unknown global fields",
+                        {RPCResult::Type::OBJ, "fees", "The fees specified in this psbt, mapped by asset label or id",
+                        {
+                            {RPCResult::Type::ELISION, "", "fee amount for each asset"},
+                        }},
+                        {RPCResult::Type::OBJ_DYN, "unknown", "The unknown global fields",
                         {
                              {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
                         }},
                         decodepsbt_inputs,
                         decodepsbt_outputs,
-                        {RPCResult::Type::STR_AMOUNT, "fee", /*optional=*/true, "The transaction fee paid if all UTXOs slots in the PSBT have been filled."},
                     }
                 },
                 RPCExamples{
@@ -1999,12 +2024,12 @@ static RPCHelpMan createpsbt()
                                     {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
                                     {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                                     {"sequence", RPCArg::Type::NUM, RPCArg::DefaultHint{"depends on the value of the 'replaceable' and 'locktime' arguments"}, "The sequence number"},
-                                    {"pegin_bitcoin_tx", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress"},
-                                    {"pegin_txout_proof", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A rawtxoutproof (in hex) generated by the mainchain daemon's `gettxoutproof` containing a proof of only bitcoin_tx"},
-                                    {"pegin_claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The witness program generated by getpeginaddress."},
+                                    {"pegin_bitcoin_tx", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "(only for pegin inputs) The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress"},
+                                    {"pegin_txout_proof", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "(only for pegin inputs) A rawtxoutproof (in hex) generated by the mainchain daemon's `gettxoutproof` containing a proof of only bitcoin_tx"},
+                                    {"pegin_claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "(only for pegin inputs) The claim script generated by getpeginaddress."},
                                     {"issuance_amount", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The amount to be issued"},
                                     {"issuance_tokens", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The number of asset issuance tokens to generate"},
-                                    {"asset_entropy", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "For new asset issuance, this is any additional entropy to be used in the asset tag calculation. For reissuance, this is the original asaset entropy"},
+                                    {"asset_entropy", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "For new asset issuance, this is any additional entropy to be used in the asset tag calculation. For reissuance, this is the original asset entropy"},
                                     {"asset_blinding_nonce", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Do not set for new asset issuance. For reissuance, this is the blinding factor for reissuance token output for the asset being reissued"},
                                     {"blind_reissuance",  RPCArg::Type::BOOL, RPCArg::Default{true}, "Whether to mark the issuance input for blinding or not. Only affects issuances with re-issuance tokens."},
                                 },
@@ -2553,7 +2578,7 @@ static RPCHelpMan rawblindrawtransaction()
                 "Returns the hex-encoded raw transaction.\n"
                 "The input raw transaction cannot have already-blinded outputs.\n"
                 "The output keys used can be specified by using a confidential address in createrawtransaction.\n"
-                "If an additional blinded output is required to make a balanced blinding, a 0-value unspendable output will be added. Since there is no access to the wallet the blinding pubkey from the last output with blinding key will be repeated.\n"
+                "If blinded inputs exist but no output has a blinding pubkey, the caller must add another blindable output; this RPC cannot derive a wallet blinding key and will fail instead of adding a dummy output.\n"
                 "You can not blind issuances with this call.\n",
                 {
                     {"hexstring", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A hex-encoded raw transaction."},
@@ -2582,7 +2607,7 @@ static RPCHelpMan rawblindrawtransaction()
                     {"ignoreblindfail", RPCArg::Type::BOOL, RPCArg::Default{true}, "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
                 },
                 RPCResult{
-                     RPCResult::Type::STR, "transaction", "hex string of the transaction"
+                     RPCResult::Type::STR_HEX, "transaction", "hex string of the transaction"
                 },
                 RPCExamples{""},
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
@@ -2616,7 +2641,7 @@ static RPCHelpMan rawblindrawtransaction()
     }
     if (inputAmounts.size() != tx.vin.size()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
-            "Invalid parameter: one (potentially empty) input blind for each input must be provided");
+            "Invalid parameter: one (potentially empty) input amount for each input must be provided");
     }
     if (inputAssets.size() != tx.vin.size()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -2668,7 +2693,7 @@ static RPCHelpMan rawblindrawtransaction()
         if (!IsHex(assetblind) || assetblind.length() != 32*2)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of 32-byte hex-encoded strings");
         if (!IsHex(asset) || asset.length() != 32*2)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of 32-byte hex-encoded strings");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset IDs must be an array of 32-byte hex-encoded strings");
 
         input_blinds.push_back(uint256S(blind));
         input_asset_blinds.push_back(uint256S(assetblind));
@@ -3134,7 +3159,7 @@ static RPCHelpMan updatepsbtpegin()
                 {"input", RPCArg::Type::NUM, RPCArg::Optional::NO, "The index of the input to update"},
                 {"value", RPCArg::Type::AMOUNT, RPCArg::Optional::OMITTED, "The value of the peg-in"},
                 {"bitcoin_tx", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress"},
-                {"txout_proof", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A rawtxoutproof (in hex) generated by the mainchain daemon'sgettxoutproof containing a proof of only bitcoin_tx"},
+                {"txout_proof", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A rawtxoutproof (in hex) generated by the mainchain daemon's gettxoutproof containing a proof of only bitcoin_tx"},
                 {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The witness program generated by getpeginaddress."},
                 {"genesis_hash", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The hash of the genesis block of the chain the bitcoin_tx is in"},
             },

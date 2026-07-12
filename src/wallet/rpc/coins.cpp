@@ -99,11 +99,17 @@ RPCHelpMan getreceivedbyaddress()
                     {"include_immature_coinbase", RPCArg::Type::BOOL, RPCArg::Default{false}, "Include immature coinbase transactions."},
                 },
                 {
-                    RPCResult{RPCResult::Type::OBJ, "amount_map", "The total amount, per asset if none is specified, in " + CURRENCY_UNIT + " received for this wallet.",
-                    {
-                        {RPCResult::Type::ELISION, "", "the amount for each asset"},
-                    }},
-                    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
+                    RPCResult{"if in Elements mode and assetlabel is omitted or empty",
+                        RPCResult::Type::OBJ_DYN,
+                        "",
+                        "Map from asset label or hex asset id to numeric amount in " + CURRENCY_UNIT + ".",
+                        {
+                            {RPCResult::Type::STR_AMOUNT, "n", "amount for the keyed asset"},
+                        }},
+                    RPCResult{"if not in Elements mode, or assetlabel is provided",
+                        RPCResult::Type::STR_AMOUNT,
+                        "amount",
+                        "Single total in " + CURRENCY_UNIT + " for the default or requested asset."},
                     RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{
@@ -114,7 +120,7 @@ RPCHelpMan getreceivedbyaddress()
             "\nThe amount with at least 6 confirmations\n"
             + HelpExampleCli("getreceivedbyaddress", "\"" + EXAMPLE_ADDRESS[0] + "\" 6") +
             "\nThe amount with at least 6 confirmations including immature coinbase outputs\n"
-            + HelpExampleCli("getreceivedbyaddress", "\"" + EXAMPLE_ADDRESS[0] + "\" 6 true") +
+            + HelpExampleCli("getreceivedbyaddress", "\"" + EXAMPLE_ADDRESS[0] + "\" 6 \"\" true") +
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("getreceivedbyaddress", "\"" + EXAMPLE_ADDRESS[0] + "\", 6")
                 },
@@ -151,11 +157,17 @@ RPCHelpMan getreceivedbylabel()
                     {"include_immature_coinbase", RPCArg::Type::BOOL, RPCArg::Default{false}, "Include immature coinbase transactions."},
                 },
                 {
-                    RPCResult{RPCResult::Type::OBJ, "amount_map", "The total amount, per asset if none is specified, in " + CURRENCY_UNIT + " received for this wallet.",
-                    {
-                        {RPCResult::Type::ELISION, "", "the amount for each asset"},
-                    }},
-                    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
+                    RPCResult{"if in Elements mode and assetlabel is omitted or empty",
+                        RPCResult::Type::OBJ_DYN,
+                        "",
+                        "Map from asset label or hex asset id to numeric amount in " + CURRENCY_UNIT + ".",
+                        {
+                            {RPCResult::Type::STR_AMOUNT, "n", "amount for the keyed asset"},
+                        }},
+                    RPCResult{"if not in Elements mode, or assetlabel is provided",
+                        RPCResult::Type::STR_AMOUNT,
+                        "amount",
+                        "Single total in " + CURRENCY_UNIT + " for the default or requested asset."},
                     RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{
@@ -166,9 +178,9 @@ RPCHelpMan getreceivedbylabel()
             "\nThe amount with at least 6 confirmations\n"
             + HelpExampleCli("getreceivedbylabel", "\"tabby\" 6") +
             "\nThe amount with at least 6 confirmations including immature coinbase outputs\n"
-            + HelpExampleCli("getreceivedbylabel", "\"tabby\" 6 true") +
+            + HelpExampleCli("getreceivedbylabel", "\"tabby\" 6 \"\" true") +
             "\nAs a JSON-RPC call\n"
-            + HelpExampleRpc("getreceivedbylabel", "\"tabby\", 6, true")
+            + HelpExampleRpc("getreceivedbylabel", "\"tabby\", 6, \"\", true")
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
@@ -206,11 +218,17 @@ RPCHelpMan getbalance()
                     {"assetlabel", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Hex asset id or asset label for balance."},
                 },
                 {
-                    RPCResult{RPCResult::Type::OBJ, "amount_map", "The total amount, per asset if none is specified, in " + CURRENCY_UNIT + " received for this wallet.",
-                    {
-                        {RPCResult::Type::ELISION, "", "the amount for each asset"},
-                    }},
-                    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
+                    RPCResult{"if in Elements mode and assetlabel is omitted or empty",
+                        RPCResult::Type::OBJ_DYN,
+                        "",
+                        "Map from asset label or hex asset id to numeric amount in " + CURRENCY_UNIT + ".",
+                        {
+                            {RPCResult::Type::STR_AMOUNT, "n", "amount for the keyed asset"},
+                        }},
+                    RPCResult{"if not in Elements mode, or assetlabel is provided",
+                        RPCResult::Type::STR_AMOUNT,
+                        "amount",
+                        "Single total in " + CURRENCY_UNIT + " for the default or requested asset."},
                     RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{
@@ -265,11 +283,17 @@ RPCHelpMan getunconfirmedbalance()
                 "DEPRECATED\nIdentical to getbalances().mine.untrusted_pending\n",
                 {},
                 {
-                    RPCResult{RPCResult::Type::OBJ, "amount_map", "The total amount, per asset if none is specified, in " + CURRENCY_UNIT + " received for this wallet.",
-                    {
-                        {RPCResult::Type::ELISION, "", "the amount for each asset"},
-                    }},
-                    RPCResult{RPCResult::Type::NUM, "amount", "the total amount for the asset, if one is specified"},
+                    RPCResult{"if in Elements mode (no asset filter for this RPC)",
+                        RPCResult::Type::OBJ_DYN,
+                        "",
+                        "Map from asset label or hex asset id to numeric amount in " + CURRENCY_UNIT + ".",
+                        {
+                            {RPCResult::Type::STR_AMOUNT, "n", "amount for the keyed asset"},
+                        }},
+                    RPCResult{"if not in Elements mode",
+                        RPCResult::Type::STR_AMOUNT,
+                        "amount",
+                        "Single total in " + CURRENCY_UNIT + " for the default asset."},
                     RPCResult{RPCResult::Type::NONE, "", ""}, // in case the wallet is disabled
                 },
                 RPCExamples{""},
@@ -616,14 +640,14 @@ RPCHelpMan listunspent()
                             {RPCResult::Type::STR, "scriptPubKey", "the output script"},
                             {RPCResult::Type::STR_AMOUNT, "amount", "the transaction output amount in " + CURRENCY_UNIT},
                             {RPCResult::Type::STR_HEX, "amountcommitment", /*optional=*/true, "the transaction output commitment in hex"},
-                            {RPCResult::Type::STR_HEX, "asset", "the transaction output asset in hex"},
+                            {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "the transaction output asset in hex"},
                             {RPCResult::Type::STR_HEX, "assetcommitment", /*optional=*/true, "the transaction output asset commitment in hex"},
-                            {RPCResult::Type::STR_HEX, "amountblinder", "the transaction output amount blinding factor in hex"},
-                            {RPCResult::Type::STR_HEX, "assetblinder", "the transaction output asset blinding factor in hex"},
+                            {RPCResult::Type::STR_HEX, "amountblinder", /*optional=*/true, "the transaction output amount blinding factor in hex"},
+                            {RPCResult::Type::STR_HEX, "assetblinder", /*optional=*/true, "the transaction output asset blinding factor in hex"},
                             {RPCResult::Type::NUM, "confirmations", "The number of confirmations"},
                             {RPCResult::Type::NUM, "ancestorcount", /*optional=*/true, "The number of in-mempool ancestor transactions, including this one (if transaction is in the mempool)"},
                             {RPCResult::Type::NUM, "ancestorsize", /*optional=*/true, "The virtual transaction size of in-mempool ancestors, including this one (if transaction is in the mempool)"},
-                            {RPCResult::Type::STR_AMOUNT, "ancestorfees", /*optional=*/true, "The total fees of in-mempool ancestors (including this one) with fee deltas used for mining priority in " + CURRENCY_ATOM + " (if transaction is in the mempool)"},
+                            {RPCResult::Type::NUM, "ancestorfees", /*optional=*/true, "The total fees of in-mempool ancestors (including this one) with fee deltas used for mining priority in " + CURRENCY_ATOM + " (if transaction is in the mempool)"},
                             {RPCResult::Type::STR_HEX, "redeemScript", /*optional=*/true, "The redeem script if the output script is P2SH"},
                             {RPCResult::Type::STR, "witnessScript", /*optional=*/true, "witness script if the output script is P2WSH or P2SH-P2WSH"},
                             {RPCResult::Type::BOOL, "spendable", "Whether we have the private keys to spend this output"},
@@ -814,11 +838,11 @@ RPCHelpMan listunspent()
         entry.pushKV("amount", ValueFromAmount(amount));
         if (g_con_elementsmode) {
             if (tx_out.nAsset.IsCommitment()) {
-                entry.pushKV("assetcommitment", HexStr(tx_out.nAsset.vchCommitment));
+                entry.pushKV("assetcommitment", HexStr(MakeByteSpan(tx_out.nAsset.vchCommitment)));
             }
             entry.pushKV("asset", assetid.GetHex());
             if (tx_out.nValue.IsCommitment()) {
-                entry.pushKV("amountcommitment", HexStr(tx_out.nValue.vchCommitment));
+                entry.pushKV("amountcommitment", HexStr(MakeByteSpan(tx_out.nValue.vchCommitment)));
             }
             entry.pushKV("amountblinder", out.bf_value.ToString());
             entry.pushKV("assetblinder", out.bf_asset.ToString());

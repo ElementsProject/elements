@@ -26,7 +26,7 @@ class HeadersSyncSetup : public TestingSetup
     std::vector<CNode*> m_connections;
 
 public:
-    HeadersSyncSetup(const ChainType chain_type, TestOpts opts) : TestingSetup(chain_type, opts)
+    HeadersSyncSetup(const ChainType chain_type, TestOpts opts, const std::string& fedpegscript = "") : TestingSetup(chain_type, opts, fedpegscript)
     {
         PeerManager::Options peerman_opts;
         node::ApplyArgsManOptions(*m_node.args, peerman_opts);

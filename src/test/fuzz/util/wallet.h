@@ -79,7 +79,7 @@ struct FuzzedWallet {
     {
         // The fee of "tx" is 0, so this is the total input and output amount
         const CAmount total_amt{
-            std::accumulate(tx.vout.begin(), tx.vout.end(), CAmount{}, [](CAmount t, const CTxOut& out) { return t + out.nValue; })};
+            std::accumulate(tx.vout.begin(), tx.vout.end(), CAmount{}, [](CAmount t, const CTxOut& out) { return t + out.nValue.GetAmount(); })};
         const uint32_t tx_size(GetVirtualTransactionSize(CTransaction{tx}));
         std::set<int> subtract_fee_from_outputs;
         if (fuzzed_data_provider.ConsumeBool()) {
@@ -94,13 +94,13 @@ struct FuzzedWallet {
             const CTxOut& tx_out = tx.vout[idx];
             CTxDestination dest;
             ExtractDestination(tx_out.scriptPubKey, dest);
-            CRecipient recipient = {dest, tx_out.nValue, subtract_fee_from_outputs.count(idx) == 1};
+            CRecipient recipient = {dest, tx_out.nValue.GetAmount(), ::policyAsset, CPubKey(), subtract_fee_from_outputs.count(idx) == 1};
             recipients.push_back(recipient);
         }
         CCoinControl coin_control;
         coin_control.m_allow_other_inputs = fuzzed_data_provider.ConsumeBool();
         CallOneOf(
-            fuzzed_data_provider, [&] { coin_control.destChange = GetDestination(fuzzed_data_provider); },
+            fuzzed_data_provider, [&] { coin_control.destChange[::policyAsset] = GetDestination(fuzzed_data_provider); },
             [&] { coin_control.m_change_type.emplace(fuzzed_data_provider.PickValueInArray(OUTPUT_TYPES)); },
             [&] { /* no op (leave uninitialized) */ });
         coin_control.fAllowWatchOnly = fuzzed_data_provider.ConsumeBool();

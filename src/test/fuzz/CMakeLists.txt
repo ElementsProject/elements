@@ -4,6 +4,12 @@
 
 add_subdirectory(util)
 
+set_source_files_properties(
+    simplicity_compute_amr.c
+    PROPERTIES COMPILE_OPTIONS
+        "$<IF:$<CXX_COMPILER_ID:MSVC>,/std:c11;-UNDEBUG;-DPRODUCTION,-UNDEBUG;-DPRODUCTION>"
+)
+
 add_executable(fuzz
   addition_overflow.cpp
   addrman.cpp

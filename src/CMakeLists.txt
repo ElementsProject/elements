@@ -105,10 +105,21 @@ target_include_directories(elementssimplicity
 target_compile_definitions(elementssimplicity PRIVATE PRODUCTION)
 # Simplicity requires assertions; remove NDEBUG that cmake adds for optimized builds.
 target_compile_options(elementssimplicity PRIVATE -UNDEBUG)
+target_compile_options(elementssimplicity PRIVATE
+  $<$<CXX_COMPILER_ID:MSVC>:/std:c11>
+)
 target_link_libraries(elementssimplicity
   PRIVATE
     core_interface
 )
+
+# macOS Apple Clang is stricter than Linux GCC on this vendored code
+if(APPLE)
+  target_compile_options(elementssimplicity PRIVATE
+    -Wno-error=conditional-uninitialized
+    -Wno-error=implicit-fallthrough
+  )
+endif()
 
 # Set top-level target output locations.
 if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)

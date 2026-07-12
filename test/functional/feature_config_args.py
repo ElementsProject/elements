@@ -24,6 +24,9 @@ class ConfArgsTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
+        # Prune to prevent disk space warning on CI systems with limited space,
+        # when using networks other than regtest.
+        self.extra_args = [["-prune=550"]]
         self.supports_cli = False
         self.wallet_names = []
         self.disable_autoconnect = False
@@ -191,18 +194,17 @@ class ConfArgsTest(BitcoinTestFramework):
         env, default_datadir = util.get_temp_default_datadir(Path(self.options.tmpdir, "test_config_file_log"))
         default_datadir.mkdir(parents=True)
 
-        # Write a bitcoin.conf file in the default data directory containing a
-        # datadir= line pointing at the node datadir.
         node = self.nodes[0]
         conf_text = node.bitcoinconf.read_text()
-        conf_path = default_datadir / "elements.conf"
+        # ELEMENTS: default datadir is ~/.elements, not ~/.bitcoin
+        conf_path = default_datadir / "elements.conf"  # ELEMENTS: ~/.elements/elements.conf
         conf_path.write_text(f"datadir={node.datadir_path}\n{conf_text}")
 
         # Drop the node -datadir= argument during this test, because if it is
         # specified it would take precedence over the datadir setting in the
         # config file.
         node_args = node.args
-        node.args = [arg for arg in node.args if not arg.startswith("-datadir=")]
+        node.args = [arg for arg in node.args if not arg.startswith("-datadir=") and not arg.startswith("-prune=")]
 
         # Check that correct configuration file path is actually logged
         # (conf_path, not node.bitcoinconf)
@@ -471,32 +473,22 @@ class ConfArgsTest(BitcoinTestFramework):
         self.log.info("Test testnet3 deprecation warning")
         t3_warning_log = "Warning: Support for testnet3 is deprecated and will be removed in an upcoming release. Consider switching to testnet4."
 
-        def warning_msg(node, approx_size):
-            return f'Warning: Disk space for "{node.datadir_path / node.chain / "blocks" }" may not accommodate the block files. Approximately {approx_size} GB of data will be stored in this directory.'
-
-        # Testnet3 node will log the warning
+        self.log.debug("Testnet3 node will log the deprecation warning")
         self.nodes[0].chain = 'testnet3'
         self.nodes[0].replace_in_config([('chain=elementsregtest', 'chain=test'), ('[elementsregtest]', '[test]')])
         with self.nodes[0].assert_debug_log([t3_warning_log]):
-            self.start_node(0, extra_args=["-validatepegin=0"])
-        # Some CI environments will have limited space and some others won't
-        # so we need to handle both cases as a valid result.
-        self.nodes[0].stderr.seek(0)
-        err = self.nodes[0].stdout.read()
-        self.nodes[0].stderr.seek(0)
-        self.nodes[0].stderr.truncate()
-        if err != b'' and err != warning_msg(self.nodes[0], 42):
-            raise AssertionError("Unexpected stderr after shutdown of Testnet3 node")
+            self.start_node(0, extra_args=["-validatepegin=0", "-prune=550"])
         self.stop_node(0)
 
-        # Testnet4 node will not log the warning
+        self.log.debug("Testnet4 node will not log the deprecation warning")
         self.nodes[0].chain = 'testnet4'
         self.nodes[0].replace_in_config([('chain=test\n', 'chain=testnet4\n'), ('[test]', '[testnet4]')])
         with self.nodes[0].assert_debug_log([], unexpected_msgs=[t3_warning_log]):
-            self.start_node(0, extra_args=["-validatepegin=0"])
+            self.start_node(0, extra_args=["-validatepegin=0", "-prune=550"])
         self.stop_node(0)
 
         # Reset to elementsregtest
+        self.log.debug("Reset to regtest")
         self.nodes[0].chain = 'elementsregtest'
         self.nodes[0].replace_in_config([('chain=testnet4', 'chain=elementsregtest'), ('[testnet4]', '[elementsregtest]')])
 

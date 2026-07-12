@@ -52,16 +52,13 @@ static RPCHelpMan getwalletinfo()
                         {RPCResult::Type::NUM, "walletversion", "the wallet version"},
                         {RPCResult::Type::STR, "format", "the database format (bdb or sqlite)"},
                         {RPCResult::Type::OBJ, "balance", "DEPRECATED. Identical to getbalances().mine.trusted", {
-                            // A different entry for each asset in the wallet
-                            {RPCResult::Type::STR_AMOUNT, "bitcoin", "amount of bitcoin in the wallet"},
+                            {RPCResult::Type::ELISION, "", "the amount for each asset"},
                         }, /*skip_type_check=*/true},
                         {RPCResult::Type::OBJ, "unconfirmed_balance", "DEPRECATED. Identical to getbalances().mine.untrusted_pending", {
-                            // A different entry for each asset in the wallet
-                            {RPCResult::Type::STR_AMOUNT, "bitcoin", "amount of bitcoin in the wallet"},
+                            {RPCResult::Type::ELISION, "", "the amount for each asset"},
                         }, /*skip_type_check=*/true},
                         {RPCResult::Type::OBJ, "immature_balance", "DEPRECATED. Identical to getbalances().mine.immature", {
-                            // A different entry for each asset in the wallet
-                            {RPCResult::Type::STR_AMOUNT, "bitcoin", "amount of bitcoin in the wallet"},
+                            {RPCResult::Type::ELISION, "", "the amount for each asset"},
                         }, /*skip_type_check=*/true},
                         {RPCResult::Type::NUM, "txcount", "the total number of transactions in the wallet"},
                         {RPCResult::Type::NUM_TIME, "keypoololdest", /*optional=*/true, "the " + UNIX_EPOCH_TIME + " of the oldest pre-generated key in the key pool. Legacy wallets only."},

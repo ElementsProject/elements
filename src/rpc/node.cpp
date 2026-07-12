@@ -422,7 +422,8 @@ static RPCHelpMan tweakfedpegscript()
                     RPCResult::Type::OBJ, "", "",
                     {
                         {RPCResult::Type::STR_HEX, "script", "The fedpegscript tweaked with claim_script"},
-                        {RPCResult::Type::STR, "address", "The address corresponding to the tweaked fedpegscript"},
+                        {RPCResult::Type::STR, "p2wsh", "The native segwit address for the tweaked fedpegscript"},
+                        {RPCResult::Type::STR, "p2shwsh", "The P2SH-wrapped segwit address for the tweaked fedpegscript"},
                     }
                 },
                 RPCExamples{""},
@@ -492,7 +493,11 @@ static RPCHelpMan getpakinfo()
                     {
                         {RPCResult::Type::OBJ, "block_paklist", "The PAK list loaded from latest epoch",
                         {
-                            {RPCResult::Type::ELISION, "", ""}
+                            {RPCResult::Type::ARR, "online", "Online PAK pubkeys in hex",
+                                {{RPCResult::Type::STR_HEX, "", "online pubkey"}}},
+                            {RPCResult::Type::ARR, "offline", "Offline PAK pubkeys in hex",
+                                {{RPCResult::Type::STR_HEX, "", "offline pubkey"}}},
+                            {RPCResult::Type::BOOL, "reject", "Whether peg-outs are rejected (no offline keys)"},
                         }},
                     }
                 },
@@ -516,9 +521,9 @@ static RPCHelpMan calcfastmerkleroot()
     return RPCHelpMan{"calcfastmerkleroot",
                 "\nhidden utility RPC for computing sha2 midstates\n",
                 {
-                    {"leaves", RPCArg::Type::ARR, RPCArg::Optional::NO, "array of data to compute the fast merkle root of.",
+                    {"leaves", RPCArg::Type::ARR, RPCArg::Optional::NO, "Array of 32-byte hashes to compute the fast merkle root of.",
                         {
-                            {"data", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "hex-encoded data"},
+                            {"hash", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "32-byte hex-encoded hash"},
                         }},
                 },
                 RPCResult{
@@ -548,12 +553,12 @@ static RPCHelpMan calcfastmerkleroot()
 static RPCHelpMan dumpassetlabels()
 {
     return RPCHelpMan{"dumpassetlabels",
-                "\nLists all known asset id/label pairs in this wallet. This list can be modified with `-assetdir` configuration argument.\n",
+                "\nLists all known asset label/id pairs known to this node. This list can be modified with the `-assetdir` configuration argument.\n",
                 {},
                 RPCResult{
                     RPCResult::Type::OBJ, "labels", "",
                     {
-                        {RPCResult::Type::ELISION, "", "the label for each asset id"},
+                        {RPCResult::Type::ELISION, "", "the asset id (hex) for each label"},
                     },
                 },
                 RPCExamples{
@@ -623,7 +628,7 @@ static RPCHelpMan createblindedaddress()
                     {"blinding_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The blinding public key. This can be obtained for a given address using `getaddressinfo` (`confidential_key` field)."},
                 },
                 RPCResult{
-                    RPCResult::Type::STR, "blinded_address", "The blinded address"
+                    RPCResult::Type::STR, "", "The blinded address"
                 },
                 RPCExamples{
             "\nCreate a blinded address\n"

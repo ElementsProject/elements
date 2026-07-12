@@ -13,6 +13,7 @@
 #define MAX_KEYS SECP256K1_WHITELIST_MAX_N_KEYS  /* shorter alias */
 
 int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_signature *sig, const secp256k1_pubkey *online_pubkeys, const secp256k1_pubkey *offline_pubkeys, const size_t n_keys, const secp256k1_pubkey *sub_pubkey, const unsigned char *online_seckey, const unsigned char *summed_seckey, const size_t index) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     secp256k1_gej pubs[MAX_KEYS];
     secp256k1_scalar s[MAX_KEYS];
     secp256k1_scalar sec, non;
@@ -54,7 +55,7 @@ int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_s
                 break;
             }
             secp256k1_scalar_set_b32(&non, nonce32, &overflow);
-            memset(nonce32, 0, 32);
+            secp256k1_memclear_explicit(nonce32, 32);
             if (overflow || secp256k1_scalar_is_zero(&non)) {
                 count++;
                 continue;
@@ -80,12 +81,12 @@ int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_s
                 break;
             }
         }
-        memset(seckey32, 0, 32);
+        secp256k1_memclear_explicit(seckey32, 32);
     }
     /* Actually sign */
     if (ret) {
         sig->n_keys = n_keys;
-        ret = secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, &sig->data[0], s, pubs, &non, &sec, &n_keys, &index, 1, msg32, 32);
+        ret = secp256k1_borromean_sign(hash_ctx, &ctx->ecmult_gen_ctx, &sig->data[0], s, pubs, &non, &sec, &n_keys, &index, 1, msg32, 32);
         /* Signing will change s[index], so update in the sig structure */
         secp256k1_scalar_get_b32(&sig->data[32 * (index + 1)], &s[index]);
     }
@@ -96,6 +97,7 @@ int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_s
 }
 
 int secp256k1_whitelist_verify(const secp256k1_context* ctx, const secp256k1_whitelist_signature *sig, const secp256k1_pubkey *online_pubkeys, const secp256k1_pubkey *offline_pubkeys, const size_t n_keys, const secp256k1_pubkey *sub_pubkey) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     secp256k1_scalar s[MAX_KEYS];
     secp256k1_gej pubs[MAX_KEYS];
     unsigned char msg32[32];
@@ -123,7 +125,7 @@ int secp256k1_whitelist_verify(const secp256k1_context* ctx, const secp256k1_whi
         return 0;
     }
     /* Do verification */
-    return secp256k1_borromean_verify(NULL, &sig->data[0], s, pubs, &sig->n_keys, 1, msg32, 32);
+    return secp256k1_borromean_verify(hash_ctx, NULL, &sig->data[0], s, pubs, &sig->n_keys, 1, msg32, 32);
 }
 
 size_t secp256k1_whitelist_signature_n_keys(const secp256k1_whitelist_signature *sig) {

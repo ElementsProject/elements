@@ -9,6 +9,7 @@ from decimal import Decimal
 # from test_framework.script import CScript
 from test_framework.messages import (
     MAX_BIP125_RBF_SEQUENCE,
+    SEQUENCE_FINAL,
     COIN,
     # CTransaction,
     # CTxIn,
@@ -81,6 +82,9 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
         self.log.info("Running test full replace by fee...")
         self.test_fullrbf()
+
+        self.log.info("Running test no inherited signaling (CVE-2021-31876)...")
+        self.test_no_inherited_signaling()
 
         self.log.info("Passed")
 
@@ -602,11 +606,13 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
     def test_fullrbf(self):
         # BIP125 signaling is not respected
+        # ELEMENTS: disable mempoolfullrbf and keep BIP125 signaling
 
         confirmed_utxo = self.make_utxo(self.nodes[0], int(2 * COIN))
-        assert self.nodes[0].getmempoolinfo()["fullrbf"]
+        assert not self.nodes[0].getmempoolinfo()["fullrbf"] # ELEMENTS
 
         # Create an explicitly opt-out BIP125 transaction, which will be ignored
+        # ELEMENTS: respect BIP125 signal
         optout_tx = self.wallet.send_self_transfer(
             from_node=self.nodes[0],
             utxo_to_spend=confirmed_utxo,
@@ -620,12 +626,67 @@ class ReplaceByFeeTest(BitcoinTestFramework):
                 fee_rate=Decimal('0.02'),
         )
 
-        # Send the replacement transaction, conflicting with the optout_tx.
-        self.nodes[0].sendrawtransaction(conflicting_tx['hex'], 0)
+        # ELEMENTS: The replacement is rejected because optout_tx did not signal replaceability.
+        assert_raises_rpc_error(-26, "txn-mempool-conflict", self.nodes[0].sendrawtransaction, conflicting_tx['hex'], 0)
 
-        # Optout_tx is not anymore in the mempool.
-        assert optout_tx['txid'] not in self.nodes[0].getrawmempool()
-        assert conflicting_tx['txid'] in self.nodes[0].getrawmempool()
+        # ELEMENTS: Optout_tx is still in the mempool; the replacement was rejected
+        assert optout_tx['txid'] in self.nodes[0].getrawmempool()
+        assert conflicting_tx['txid'] not in self.nodes[0].getrawmempool()
+
+    # ELEMENTS
+    def test_no_inherited_signaling(self):
+        """Make sure we're not susceptible to CVE-2021-31876.
+
+        BIP125 says a transaction is replaceable if it directly signals via
+        nSequence, *or* if it spends an output of an unconfirmed parent that
+        itself signals replaceability ("inherited signaling").
+        Elements only enforces the direct-signaling half of that rule
+        when deciding whether to *accept* a replacement -- see the comment
+        next to the SignalsOptInRBF() call in MemPoolAccept::PreChecks().
+        This is the discrepancy reported as CVE-2021-31876: a transaction
+        can be reported as `bip125-replaceable` (because it inherits the
+        signal from an unconfirmed ancestor) while an actual attempt to
+        replace it is still rejected.
+
+        This test confirms that this divergence is consistent: a
+        non-signaling child of a signaling, unconfirmed parent must remain
+        non-replaceable.
+        """
+        confirmed_utxo = self.make_utxo(self.nodes[0], int(2 * COIN))
+
+        # Parent explicitly signals replaceability...
+        parent_utxo = self.wallet.send_self_transfer(
+            from_node=self.nodes[0],
+            utxo_to_spend=confirmed_utxo,
+            sequence=MAX_BIP125_RBF_SEQUENCE,
+            fee=Decimal("0.01"),
+        )["new_utxo"]
+
+        # ...but the child spending it does not.
+        child_tx = self.wallet.send_self_transfer(
+            from_node=self.nodes[0],
+            utxo_to_spend=parent_utxo,
+            sequence=SEQUENCE_FINAL,
+            fee=Decimal("0.01"),
+        )
+
+        # `bip125-replaceable` reports True: it is inherited from the
+        # unconfirmed, signaling parent (the BIP125-compliant half of the logic,
+        # implemented by IsRBFOptIn() for RPC reporting purposes).
+        assert_equal(True, self.nodes[0].getmempoolentry(child_tx['txid'])['bip125-replaceable'])
+
+        # However, an actual replacement of the child is rejected: PreChecks()
+        # only consults the child's own sequence numbers, not its ancestors',
+        # so the inherited signal is *not* honoured for acceptance purposes.
+        conflicting_tx = self.wallet.create_self_transfer(
+            utxo_to_spend=parent_utxo,
+            fee=Decimal("0.05"),
+        )
+        assert_raises_rpc_error(-26, "txn-mempool-conflict", self.nodes[0].sendrawtransaction, conflicting_tx['hex'], 0)
+
+        # The non-signaling child is still in the mempool; the replacement never got in.
+        assert child_tx['txid'] in self.nodes[0].getrawmempool()
+        assert conflicting_tx['txid'] not in self.nodes[0].getrawmempool()
 
 if __name__ == '__main__':
     ReplaceByFeeTest(__file__).main()

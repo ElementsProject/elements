@@ -39,7 +39,7 @@ extern "C" {
  *  The representation is exposed to allow creation of these objects on the
  *  stack; please *do not* use these internals directly.
  */
-typedef struct {
+typedef struct secp256k1_surjectionproof {
 #ifdef VERIFY
     /** Mark whether this proof has gone through `secp256k1_surjectionproof_initialize` */
     int initialized;
@@ -100,7 +100,7 @@ SECP256K1_API int secp256k1_surjectionproof_serialize(
  * data the API user wants to use as an asset tag. Its contents have no
  * semantic meaning to libsecp whatsoever.
  */
-typedef struct {
+typedef struct secp256k1_fixed_asset_tag {
     unsigned char data[32];
 } secp256k1_fixed_asset_tag;
 

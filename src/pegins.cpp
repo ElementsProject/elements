@@ -550,7 +550,7 @@ bool DecomposePeginWitness(const CScriptWitness& witness, CAmount& value, CAsset
 {
     const auto& stack = witness.stack;
 
-    if (stack.size() < 5) return false;
+    if (stack.size() != 6) return false;
 
     DataStream stream{stack[0]};
     stream >> value;

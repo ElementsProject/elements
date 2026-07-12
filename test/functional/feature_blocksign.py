@@ -180,6 +180,39 @@ class BlockSignTest(BitcoinTestFramework):
         for i in range(num_blocks):
             self.mine_block(transactions)
 
+    def test_combineblocksigs_witnessscript_arg(self):
+        # Regression test for combineblocksigs witnessScript optionality.
+
+        node = self.nodes[0]
+        block = node.getnewblockhex()
+
+        is_dyna = node.getdeploymentinfo()['deployments']['dynafed']['bip9']['status'] == "active"
+
+        if is_dyna:
+            # no witnessScript must give RPC_INVALID_PARAMETER, not a help error from arg-count validation.
+            assert_raises_rpc_error(
+                -8,
+                "Signing dynamic blocks requires the witnessScript argument",
+                node.combineblocksigs,
+                block,
+                [],
+            )
+            # Supplying witnessScript must work normally.
+            result = node.combineblocksigs(block, [], self.witnessScript)
+            assert "hex" in result
+            assert "complete" in result
+        else:
+            # Non-dynafed: 2-argument call must not be rejected by arg-count validation. 
+            try:
+                result = node.combineblocksigs(block, [])
+                assert "hex" in result
+                assert "complete" in result
+            except Exception as e:
+                # If exception it must not be the help string
+                assert "combineblocksigs" not in str(e), \
+                    "Got help text — 2-arg call was rejected by arg-count validation"
+                raise
+
     def run_test(self):
         # Have every node except last import its block signing private key.
         for i in range(self.num_keys):
@@ -211,6 +244,10 @@ class BlockSignTest(BitcoinTestFramework):
 
         assert_equal(info['deployments']['dynafed']['bip9']['status'], "defined")
 
+        # Test combineblocksigs witnessScript optionality pre-dynafed
+        self.log.info("Testing combineblocksigs witnessScript argument (pre-dynafed)")
+        self.test_combineblocksigs_witnessscript_arg()
+
         # Next let's activate dynafed
         blocks_til_dynafed = 431 - self.nodes[0].getblockcount()
         self.log.info("Activating dynafed")
@@ -221,6 +258,11 @@ class BlockSignTest(BitcoinTestFramework):
 
         self.log.info("Mine some dynamic federation blocks without txns")
         self.mine_blocks(10, False)
+
+        # Test combineblocksigs witnessScript optionality post-dynafed
+        self.log.info("Testing combineblocksigs witnessScript argument (post-dynafed)")
+        self.test_combineblocksigs_witnessscript_arg()
+
         self.log.info("Mine some dynamic federation blocks with txns")
         self.mine_blocks(10, True)
 

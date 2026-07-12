@@ -159,7 +159,7 @@ BasicTestingSetup::BasicTestingSetup(const ChainType chainType, TestOpts opts, c
         // tests, such as the fuzz tests to run in several processes at the
         // same time, add a random element to the path. Keep it small enough to
         // avoid a MAX_PATH violation on Windows.
-        const auto rand{HexStr(g_rng_temp_path.randbytes(10))};
+        const auto rand{HexStr(MakeByteSpan(g_rng_temp_path.randbytes(10)))};
         m_path_root = fs::temp_directory_path() / TEST_DIR_PATH_ELEMENT / test_name / rand;
         TryCreateDirectories(m_path_root);
     } else {

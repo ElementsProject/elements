@@ -267,7 +267,7 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
                     // Create input
                     CTxIn in;
                     in.prevout = outpoint;
-                    in.scriptWitness.stack = P2WSH_EMPTY_TRUE_STACK;
+                    tx_mut.witness.vtxinwit[&in - &tx_mut.vin[0]].scriptWitness.stack = P2WSH_EMPTY_TRUE_STACK;
 
                     tx_mut.vin.push_back(in);
                 }
@@ -275,13 +275,13 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
                 const auto amount_fee = fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(0, amount_in);
                 const auto amount_out = (amount_in - amount_fee) / num_out;
                 for (int i = 0; i < num_out; ++i) {
-                    tx_mut.vout.emplace_back(amount_out, P2WSH_EMPTY);
+                    tx_mut.vout.emplace_back(CConfidentialAsset{}, CConfidentialValue(amount_out), P2WSH_EMPTY);
                 }
 
                 // Note output amounts can naturally drop to dust on their own.
                 if (!outpoint_to_rbf && fuzzed_data_provider.ConsumeBool()) {
                     uint32_t dust_index = fuzzed_data_provider.ConsumeIntegralInRange<uint32_t>(0, num_out);
-                    tx_mut.vout.insert(tx_mut.vout.begin() + dust_index, CTxOut(0, P2WSH_EMPTY));
+                    tx_mut.vout.insert(tx_mut.vout.begin() + dust_index, CTxOut(CConfidentialAsset{}, CConfidentialValue(0), P2WSH_EMPTY));
                 }
 
                 auto tx = MakeTransactionRef(tx_mut);
@@ -297,7 +297,7 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
                 }
                 // We need newly-created values for the duration of this run
                 for (size_t i = 0; i < tx->vout.size(); ++i) {
-                    outpoints_value[COutPoint(tx->GetHash(), i)] = tx->vout[i].nValue;
+                    outpoints_value[COutPoint(tx->GetHash(), i)] = tx->vout[i].nValue.GetAmount();
                 }
                 return tx;
             }());
@@ -341,7 +341,7 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
 
     node.validation_signals->UnregisterSharedValidationInterface(outpoints_updater);
 
-    WITH_LOCK(::cs_main, tx_pool.check(chainstate.CoinsTip(), chainstate.m_chain.Height() + 1));
+    WITH_LOCK(::cs_main, tx_pool.check(chainstate.m_chain.Tip(), chainstate.CoinsTip(), chainstate.m_chain.Height() + 1));
 }
 
 

@@ -62,25 +62,28 @@ SECP256K1_INLINE static void secp256k1_scalar_set_u64(secp256k1_scalar *r, uint6
     r->d[5] = 0;
     r->d[6] = 0;
     r->d[7] = 0;
+
+    SECP256K1_SCALAR_VERIFY(r);
 }
 
-SECP256K1_INLINE static unsigned int secp256k1_scalar_get_bits(const secp256k1_scalar *a, unsigned int offset, unsigned int count) {
+SECP256K1_INLINE static uint32_t secp256k1_scalar_get_bits_limb32(const secp256k1_scalar *a, unsigned int offset, unsigned int count) {
     SECP256K1_SCALAR_VERIFY(a);
+    VERIFY_CHECK(count > 0 && count <= 32);
     VERIFY_CHECK((offset + count - 1) >> 5 == offset >> 5);
 
-    return (a->d[offset >> 5] >> (offset & 0x1F)) & ((1 << count) - 1);
+    return (a->d[offset >> 5] >> (offset & 0x1F)) & (0xFFFFFFFF >> (32 - count));
 }
 
-SECP256K1_INLINE static unsigned int secp256k1_scalar_get_bits_var(const secp256k1_scalar *a, unsigned int offset, unsigned int count) {
+SECP256K1_INLINE static uint32_t secp256k1_scalar_get_bits_var(const secp256k1_scalar *a, unsigned int offset, unsigned int count) {
     SECP256K1_SCALAR_VERIFY(a);
-    VERIFY_CHECK(count < 32);
+    VERIFY_CHECK(count > 0 && count <= 32);
     VERIFY_CHECK(offset + count <= 256);
 
     if ((offset + count - 1) >> 5 == offset >> 5) {
-        return secp256k1_scalar_get_bits(a, offset, count);
+        return secp256k1_scalar_get_bits_limb32(a, offset, count);
     } else {
         VERIFY_CHECK((offset >> 5) + 1 < 8);
-        return ((a->d[offset >> 5] >> (offset & 0x1F)) | (a->d[(offset >> 5) + 1] << (32 - (offset & 0x1F)))) & ((((uint32_t)1) << count) - 1);
+        return ((a->d[offset >> 5] >> (offset & 0x1F)) | (a->d[(offset >> 5) + 1] << (32 - (offset & 0x1F)))) & (0xFFFFFFFF >> (32 - count));
     }
 }
 
@@ -159,6 +162,7 @@ static int secp256k1_scalar_add(secp256k1_scalar *r, const secp256k1_scalar *a, 
 static void secp256k1_scalar_cadd_bit(secp256k1_scalar *r, unsigned int bit, int flag) {
     uint64_t t;
     volatile int vflag = flag;
+    VERIFY_CHECK(flag == 0 || flag == 1);
     SECP256K1_SCALAR_VERIFY(r);
     VERIFY_CHECK(bit < 256);
 
@@ -326,6 +330,7 @@ static int secp256k1_scalar_cond_negate(secp256k1_scalar *r, int flag) {
     uint32_t mask = -vflag;
     uint32_t nonzero = 0xFFFFFFFFUL * (secp256k1_scalar_is_zero(r) == 0);
     uint64_t t = (uint64_t)(r->d[0] ^ mask) + ((SECP256K1_N_0 + 1) & mask);
+    VERIFY_CHECK(flag == 0 || flag == 1);
     SECP256K1_SCALAR_VERIFY(r);
 
     r->d[0] = t & nonzero; t >>= 32;
@@ -810,6 +815,7 @@ SECP256K1_INLINE static void secp256k1_scalar_mul_shift_var(secp256k1_scalar *r,
 static SECP256K1_INLINE void secp256k1_scalar_cmov(secp256k1_scalar *r, const secp256k1_scalar *a, int flag) {
     uint32_t mask0, mask1;
     volatile int vflag = flag;
+    VERIFY_CHECK(flag == 0 || flag == 1);
     SECP256K1_SCALAR_VERIFY(a);
     SECP256K1_CHECKMEM_CHECK_VERIFY(r->d, sizeof(r->d));
 

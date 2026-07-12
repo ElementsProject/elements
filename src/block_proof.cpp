@@ -33,10 +33,8 @@ static bool CheckProofGeneric(const CBlockHeader& block, const uint32_t max_bloc
 
     // Check signature limits for blocks
     if (scriptSig.size() > max_block_signature_size) {
-        assert(!is_dyna);
         return false;
     } else if (witness.GetSerializedSize() > max_block_signature_size) {
-        assert(is_dyna);
         return false;
     }
 

@@ -36,37 +36,26 @@ int secp256k1_ecdsa_s2c_opening_serialize(const secp256k1_context* ctx, unsigned
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("s2c/ecdsa/point")||SHA256("s2c/ecdsa/point"). */
 static void secp256k1_s2c_ecdsa_point_sha256_tagged(secp256k1_sha256 *sha) {
-    secp256k1_sha256_initialize(sha);
-    sha->s[0] = 0xa9b21c7bul;
-    sha->s[1] = 0x358c3e3eul;
-    sha->s[2] = 0x0b6863d1ul;
-    sha->s[3] = 0xc62b2035ul;
-    sha->s[4] = 0xb44b40ceul;
-    sha->s[5] = 0x254a8912ul;
-    sha->s[6] = 0x0f85d0d4ul;
-    sha->s[7] = 0x8a5bf91cul;
-
-    sha->bytes = 64;
+    static const uint32_t midstate[8] = {
+        0xa9b21c7bul, 0x358c3e3eul, 0x0b6863d1ul, 0xc62b2035ul,
+        0xb44b40ceul, 0x254a8912ul, 0x0f85d0d4ul, 0x8a5bf91cul
+    };
+    secp256k1_sha256_initialize_midstate(sha, 64, midstate);
 }
 
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("s2c/ecdsa/data")||SHA256("s2c/ecdsa/data"). */
 static void secp256k1_s2c_ecdsa_data_sha256_tagged(secp256k1_sha256 *sha) {
-    secp256k1_sha256_initialize(sha);
-    sha->s[0] = 0xfeefd675ul;
-    sha->s[1] = 0x73166c99ul;
-    sha->s[2] = 0xe2309cb8ul;
-    sha->s[3] = 0x6d458113ul;
-    sha->s[4] = 0x01d3a512ul;
-    sha->s[5] = 0x00e18112ul;
-    sha->s[6] = 0x37ee0874ul;
-    sha->s[7] = 0x421fc55ful;
-
-    sha->bytes = 64;
+    static const uint32_t midstate[8] = {
+        0xfeefd675ul, 0x73166c99ul, 0xe2309cb8ul, 0x6d458113ul,
+        0x01d3a512ul, 0x00e18112ul, 0x37ee0874ul, 0x421fc55ful
+    };
+    secp256k1_sha256_initialize_midstate(sha, 64, midstate);
 }
 
 int secp256k1_ecdsa_s2c_sign(const secp256k1_context* ctx, secp256k1_ecdsa_signature* signature, secp256k1_ecdsa_s2c_opening* s2c_opening, const unsigned char
  *msg32, const unsigned char *seckey, const unsigned char* s2c_data32) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     secp256k1_scalar r, s;
     int ret;
     unsigned char ndata[32];
@@ -84,8 +73,9 @@ int secp256k1_ecdsa_s2c_sign(const secp256k1_context* ctx, secp256k1_ecdsa_signa
      * to derive nonces even if only a SHA256 commitment to the data is
      * known.  This is important in the ECDSA anti-exfil protocol. */
     secp256k1_s2c_ecdsa_data_sha256_tagged(&s2c_sha);
-    secp256k1_sha256_write(&s2c_sha, s2c_data32, 32);
-    secp256k1_sha256_finalize(&s2c_sha, ndata);
+    secp256k1_sha256_write(hash_ctx, &s2c_sha, s2c_data32, 32);
+    secp256k1_sha256_finalize(hash_ctx, &s2c_sha, ndata);
+    secp256k1_sha256_clear(&s2c_sha);
 
     secp256k1_s2c_ecdsa_point_sha256_tagged(&s2c_sha);
     ret = secp256k1_ecdsa_sign_inner(ctx, &r, &s, NULL, &s2c_sha, s2c_opening, s2c_data32, msg32, seckey, NULL, ndata);
@@ -96,6 +86,7 @@ int secp256k1_ecdsa_s2c_sign(const secp256k1_context* ctx, secp256k1_ecdsa_signa
 }
 
 int secp256k1_ecdsa_s2c_verify_commit(const secp256k1_context* ctx, const secp256k1_ecdsa_signature* sig, const unsigned char* data32, const secp256k1_ecdsa_s2c_opening* opening) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     secp256k1_ge commitment_ge;
     secp256k1_ge original_pubnonce_ge;
     unsigned char x_bytes[32];
@@ -111,7 +102,7 @@ int secp256k1_ecdsa_s2c_verify_commit(const secp256k1_context* ctx, const secp25
         return 0;
     }
     secp256k1_s2c_ecdsa_point_sha256_tagged(&s2c_sha);
-    if (!secp256k1_ec_commit(&commitment_ge, &original_pubnonce_ge, &s2c_sha, data32, 32)) {
+    if (!secp256k1_ec_commit(hash_ctx, &commitment_ge, &original_pubnonce_ge, &s2c_sha, data32, 32)) {
         return 0;
     }
 
@@ -139,14 +130,16 @@ int secp256k1_ecdsa_s2c_verify_commit(const secp256k1_context* ctx, const secp25
 /*** anti-exfil ***/
 int secp256k1_ecdsa_anti_exfil_host_commit(const secp256k1_context* ctx, unsigned char* rand_commitment32, const unsigned char* rand32) {
     secp256k1_sha256 sha;
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(rand_commitment32 != NULL);
     ARG_CHECK(rand32 != NULL);
 
     secp256k1_s2c_ecdsa_data_sha256_tagged(&sha);
-    secp256k1_sha256_write(&sha, rand32, 32);
-    secp256k1_sha256_finalize(&sha, rand_commitment32);
+    secp256k1_sha256_write(hash_ctx, &sha, rand32, 32);
+    secp256k1_sha256_finalize(hash_ctx, &sha, rand_commitment32);
+    secp256k1_sha256_clear(&sha);
     return 1;
 }
 
@@ -180,7 +173,7 @@ int secp256k1_ecdsa_anti_exfil_signer_commit(const secp256k1_context* ctx, secp2
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &rj, &k);
     secp256k1_ge_set_gej(&r, &rj);
     secp256k1_ecdsa_s2c_opening_save(opening, &r);
-    memset(nonce32, 0, 32);
+    secp256k1_memclear_explicit(nonce32, 32);
     secp256k1_scalar_clear(&k);
     return 1;
 }

@@ -438,7 +438,7 @@ void Session::CreateIfNotCreatedAlready()
             GenerateAndSavePrivateKey(*sock);
         }
 
-        const std::string& private_key_b64 = SwapBase64(EncodeBase64(m_private_key));
+        const std::string& private_key_b64 = SwapBase64(EncodeBase64(MakeByteSpan(m_private_key)));
 
         SendRequestAndGetReply(*sock,
                                strprintf("SESSION CREATE STYLE=STREAM ID=%s DESTINATION=%s "

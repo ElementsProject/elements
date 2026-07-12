@@ -24,7 +24,7 @@ class WalletCrossChain(BitcoinTestFramework):
         self.nodes[1].chain = 'liquidtestnet'
         self.nodes[1].extra_args = ['-maxconnections=0', '-prune=550'] # disable testnet sync
         self.nodes[1].replace_in_config([('regtest=', 'testnet='), ('elementsregtest', 'liquidtestnet')])
-        
+
         # Switch node 2 to testnet4 before starting it.
         self.nodes[2].chain = 'testnet4'
         self.nodes[2].extra_args = ['-maxconnections=0', '-prune=550', '-validatepegin=0'] # disable testnet4 sync

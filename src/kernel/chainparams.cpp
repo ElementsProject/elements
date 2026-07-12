@@ -34,6 +34,7 @@
 #include <type_traits>
 
 #include <assert.h>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 using util::SplitString;
 using namespace util::hex_literals;
@@ -538,7 +539,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].min_activation_height = 0; // No activation delay
-        
+
         consensus.nMinimumChainWork = uint256{"0000000000000000000000000000000000000000000001d6dce8651b6094e4c1"};
         consensus.defaultAssumeValid = uint256{"0000000000003ed4f08dbdf6f7d6b271a6bcffce25675cb40aa9fa43179a89f3"}; // 72600
 
@@ -1293,6 +1294,7 @@ public:
         default_signblockscript = "51210217e403ddb181872c32a0cd468c710040b2f53d8cac69f18dad07985ee37e9a7151ae";
         create_discount_ct = false;
         accept_discount_ct = true;
+        accept_unlimited_issuances = true;
         UpdateFromArgs(args);
         multi_data_permitted = true;
         SetGenesisBlock();
@@ -1402,7 +1404,7 @@ public:
 
         enforce_pak = true;
 
-        accept_unlimited_issuances = args.GetBoolArg("-acceptunlimitedissuances", false);
+        accept_unlimited_issuances = args.GetBoolArg("-acceptunlimitedissuances", true);
 
         multi_data_permitted = true;
         create_discount_ct = args.GetBoolArg("-creatediscountct", false);
