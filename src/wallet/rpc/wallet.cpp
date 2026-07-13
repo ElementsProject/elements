@@ -413,7 +413,7 @@ static RPCHelpMan createwallet()
         throw JSONRPCError(RPC_WALLET_ERROR, "Compiled without sqlite support (required for descriptor wallets)");
 #endif
         flags |= WALLET_FLAG_DESCRIPTORS;
-    } 
+    }
     /* ELEMENTS: Remove the IsDeprecatedRPCEnabled("create_bdb") check so descriptors=false always works without a runtime flag
     else {
         if (!context.chain->rpcEnableDeprecated("create_bdb")) {
