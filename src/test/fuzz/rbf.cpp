@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 The Bitcoin Core developers
+// Copyright (c) 2020-present The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -116,7 +116,7 @@ FUZZ_TARGET(package_rbf, .init = initialize_package_rbf)
 
     // Add a bunch of parent-child pairs to the mempool, and remember them.
     std::vector<CTransaction> mempool_txs;
-    size_t iter{0};
+    uint32_t iter{0};
 
     // Keep track of the total vsize of CTxMemPoolEntry's being added to the mempool to avoid overflow
     // Add replacement_vsize since this is added to new diagram during RBF check
@@ -124,9 +124,8 @@ FUZZ_TARGET(package_rbf, .init = initialize_package_rbf)
     if (!replacement_tx) {
         return;
     }
-    assert(iter <= g_outpoints.size());
     replacement_tx->vin.resize(1);
-    replacement_tx->vin[0].prevout = g_outpoints[iter++];
+    replacement_tx->vin[0].prevout = g_outpoints.at(iter++);
     CTransaction replacement_tx_final{*replacement_tx};
     auto replacement_entry = ConsumeTxMemPoolEntry(fuzzed_data_provider, replacement_tx_final);
     int32_t replacement_vsize = replacement_entry.GetTxSize();
@@ -134,14 +133,14 @@ FUZZ_TARGET(package_rbf, .init = initialize_package_rbf)
 
     LOCK2(cs_main, pool.cs);
 
-    LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), NUM_ITERS)
-    {
+    while (fuzzed_data_provider.ConsumeBool()) {
+        if (iter >= NUM_ITERS) break;
+
         // Make sure txns only have one input, and that a unique input is given to avoid circular references
         CMutableTransaction parent;
-        assert(iter <= g_outpoints.size());
         parent.vin.resize(1);
-        parent.vin[0].prevout = g_outpoints[iter++];
-        parent.vout.emplace_back(CAsset(), 0, CScript());
+        parent.vin[0].prevout = g_outpoints.at(iter++);
+        parent.vout.emplace_back(CAsset(),0, CScript());
 
         mempool_txs.emplace_back(parent);
         const auto parent_entry = ConsumeTxMemPoolEntry(fuzzed_data_provider, mempool_txs.back());
