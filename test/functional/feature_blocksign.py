@@ -202,7 +202,7 @@ class BlockSignTest(BitcoinTestFramework):
             assert "hex" in result
             assert "complete" in result
         else:
-            # Non-dynafed: 2-argument call must not be rejected by arg-count validation. 
+            # Non-dynafed: 2-argument call must not be rejected by arg-count validation.
             try:
                 result = node.combineblocksigs(block, [])
                 assert "hex" in result
