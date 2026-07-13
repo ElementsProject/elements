@@ -453,6 +453,7 @@ BASE_SCRIPTS = [
     'feature_presegwit_node_upgrade.py',
     'feature_settings.py',
     'rpc_getdescriptorinfo.py',
+    'mempool_annex_padding.py',
     'rpc_mempool_info.py',
     'rpc_help.py',
     'p2p_handshake.py',
