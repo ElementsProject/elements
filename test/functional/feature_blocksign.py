@@ -3,6 +3,7 @@
 import codecs
 
 from test_framework.test_framework import BitcoinTestFramework
+from test_framework.authproxy import JSONRPCException
 from test_framework.util import (assert_raises_rpc_error, assert_equal)
 from test_framework import (
     address,
@@ -140,7 +141,14 @@ class BlockSignTest(BitcoinTestFramework):
             compact_response = self.nodes[i].consumecompactsketch(sketch)
             if "block_tx_req" in compact_response:
                 block_txn =  self.nodes[i].consumegetblocktxn(block, compact_response["block_tx_req"])
-                final_block = self.nodes[i].finalizecompactblock(sketch, block_txn, compact_response["found_transactions"])
+                try:
+                    final_block = self.nodes[i].finalizecompactblock(sketch, block_txn, compact_response["found_transactions"])
+                except JSONRPCException as e:
+                    # finalizecompactblock can fail on valid short-ID collisions.
+                    if e.error.get("code") == -22 and "short ID collision" in e.error.get("message", ""):
+                        final_block = block
+                    else:
+                        raise
             else:
                 assert (mineridx == 4 and i == 0) or not make_transactions
                 # If there's only coinbase, it should succeed immediately
