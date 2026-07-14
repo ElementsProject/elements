@@ -1721,7 +1721,13 @@ isminetype CWallet::IsMine(const COutPoint& outpoint) const
 
 bool CWallet::IsFromMe(const CTransaction& tx) const
 {
-    return (GetDebit(tx, ISMINE_ALL) > CAmountMap());
+    LOCK(cs_wallet);
+    for (const CTxIn& txin : tx.vin) {
+        if (IsMine(txin.prevout)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 CAmountMap CWallet::GetDebit(const CTransaction& tx, const isminefilter& filter) const
