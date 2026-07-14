@@ -5368,10 +5368,14 @@ util::Result<MigrationResult> MigrateLegacyToDescriptor(std::shared_ptr<CWallet>
         return util::Error{_("Error: This wallet is already a descriptor wallet")};
     }
 
-    // Make a backup of the DB
-    fs::path this_wallet_dir = fs::absolute(fs::PathFromString(local_wallet->GetDatabase().Filename())).parent_path();
+    // Make a backup of the DB in the wallet dir (top-level wallets directory).
+    // Using GetWalletDir() directly (rather than deriving the directory from
+    // the database's current Filename()) avoids depending on whether the
+    // legacy BDB file lives directly in GetWalletDir() or in its own
+    // subdirectory, and avoids having to move/rename the backup after the
+    // storage format changes from BDB to SQLite below.
     fs::path backup_filename = fs::PathFromString(strprintf("%s_%d.legacy.bak", MigrationPrefixName(*local_wallet), GetTime()));
-    fs::path backup_path = this_wallet_dir / backup_filename;
+    fs::path backup_path = fsbridge::AbsPathJoin(GetWalletDir(), backup_filename);
     if (!local_wallet->BackupWallet(fs::PathToString(backup_path))) {
         if (was_loaded) {
             reload_wallet(local_wallet);
@@ -5402,12 +5406,6 @@ util::Result<MigrationResult> MigrateLegacyToDescriptor(std::shared_ptr<CWallet>
         LOCK(local_wallet->cs_wallet);
         // First change to using SQLite
         if (!local_wallet->MigrateToSQLite(error)) return util::Error{error};
-
-        // In case we're migrating from file to directory, move the backup into it
-        this_wallet_dir = fs::absolute(fs::PathFromString(local_wallet->GetDatabase().Filename())).parent_path();
-        backup_path = this_wallet_dir / backup_filename;
-        fs::rename(res.backup_path, backup_path);
-        res.backup_path = backup_path;
 
         // Do the migration of keys and scripts for non-blank wallets, and cleanup if it fails
         success = local_wallet->IsWalletFlagSet(WALLET_FLAG_BLANK_WALLET);
