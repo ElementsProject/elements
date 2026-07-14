@@ -229,6 +229,7 @@ UniValue blockheaderToJSON(const CBlockIndex& tip, const CBlockIndex& blockindex
     if (!g_signed_blocks) {
         result.pushKV("nonce", (uint64_t)blockindex->nNonce);
         result.pushKV("bits", strprintf("%08x", blockindex->nBits));
+        result.pushKV("target", GetTarget(*blockindex, pow_limit).GetHex());
         result.pushKV("difficulty", GetDifficulty(*blockindex));
         result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     } else {
