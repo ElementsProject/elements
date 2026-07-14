@@ -567,12 +567,13 @@ class PackageRBFTest(BitcoinTestFramework):
         )
 
         node.sendrawtransaction(grandparent_result["hex"])
+        minrelayfeerate = node.getnetworkinfo()["relayfee"]
 
         # Now make package of two descendants that looks
         # like a cpfp where the parent can't get in on its own
         self.ctr += 1
         parent_result = self.wallet.create_self_transfer(
-            fee_rate=Decimal('0.00001000'),
+            fee_rate=minrelayfeerate,
             utxo_to_spend=grandparent_result["new_utxo"],
             sequence=MAX_BIP125_RBF_SEQUENCE - self.ctr,
         )

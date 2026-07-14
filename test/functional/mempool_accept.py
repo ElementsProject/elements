@@ -9,6 +9,10 @@ from decimal import Decimal
 import math
 
 from test_framework.test_framework import BitcoinTestFramework
+from test_framework.mempool_util import (
+    DEFAULT_MIN_RELAY_TX_FEE,
+    DEFAULT_INCREMENTAL_RELAY_FEE,
+)
 from test_framework.messages import (
     MAX_BIP125_RBF_SEQUENCE,
     COIN,
@@ -59,6 +63,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
             '-txindex','-permitbaremultisig=0',
             '-multi_data_permitted=1', # Elements test
             '-dustrelayfee=0.00003000', # ELEMENTS: use the Bitcoin default dust relay fee rate
+            '-minrelaytxfee=0.00000100', # ELEMENTS: use upstream (post-#33226) default
         ]] * self.num_nodes
         self.supports_cli = False
 
@@ -84,6 +89,11 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         self.mempool_size = 0
         assert_equal(node.getblockcount(), 200)
         assert_equal(node.getmempoolinfo()['size'], self.mempool_size)
+
+        self.log.info("Check default settings")
+        # Settings are listed in BTC/kvB
+        assert_equal(node.getmempoolinfo()['minrelaytxfee'], Decimal(DEFAULT_MIN_RELAY_TX_FEE) / COIN)
+        assert_equal(node.getmempoolinfo()['incrementalrelayfee'], Decimal(DEFAULT_INCREMENTAL_RELAY_FEE) / COIN)
 
         self.log.info('Should not accept garbage to testmempoolaccept')
         assert_raises_rpc_error(-3, 'JSON value of type string is not of expected type array', lambda: node.testmempoolaccept(rawtxs='ff00baar'))
