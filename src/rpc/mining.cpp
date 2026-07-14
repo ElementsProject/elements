@@ -1471,13 +1471,11 @@ static RPCHelpMan consumecompactsketch()
     if (req.indexes.empty()) {
         std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
         std::vector<CTransactionRef> dummy;
-        ReadStatus status = partialBlock.FillBlock(*pblock, dummy, false /* don't get pow */);
+        ReadStatus status = partialBlock.FillBlock(*pblock, dummy, /*segwit_active=*/true);
         if (status == READ_STATUS_INVALID) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Bogus crap sketch.");
         } else if (status == READ_STATUS_FAILED) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Failed to complete block though all transactions were apparently found. Could be random short ID collision; requires full block instead.");
-        } else if (status == READ_STATUS_CHECKBLOCK_FAILED) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Checkblock failed.");
         }
         DataStream ssBlock{};
         ssBlock << TX_WITH_WITNESS(*pblock);
