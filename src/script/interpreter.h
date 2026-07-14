@@ -289,8 +289,27 @@ extern const HashWriter HASHER_TAPSIGHASH_ELEMENTS; //!< Hasher with tag "TapSig
 extern const HashWriter HASHER_TAPLEAF_ELEMENTS;    //!< Hasher with tag "TapLeaf" pre-fed to it.
 extern const HashWriter HASHER_TAPBRANCH_ELEMENTS;  //!< Hasher with tag "TapBranch" pre-fed to it.
 
+/** Data structure to cache SHA256 midstates for the ECDSA sighash calculations
+ *  (bare, P2SH, P2WPKH, P2WSH). */
+class SigHashCache
+{
+    /** For each sighash mode (ALL, SINGLE, NONE, ALL|ANYONE, SINGLE|ANYONE, NONE|ANYONE),
+     *  optionally store a scriptCode which the hash is for, plus a midstate for the SHA256
+     *  computation just before adding the hash_type itself. */
+    std::optional<std::pair<CScript, HashWriter>> m_cache_entries[6];
+
+    /** Given a hash_type, find which of the 6 cache entries is to be used. */
+    int CacheIndex(int32_t hash_type) const noexcept;
+
+public:
+    /** Load into writer the SHA256 midstate if found in this cache. */
+    [[nodiscard]] bool Load(int32_t hash_type, const CScript& script_code, HashWriter& writer) const noexcept;
+    /** Store into this cache object the provided SHA256 midstate. */
+    void Store(int32_t hash_type, const CScript& script_code, const HashWriter& writer) noexcept;
+};
+
 template <class T>
-uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn, int32_t nHashType, const CConfidentialValue& amount, SigVersion sigversion, unsigned int flags, const PrecomputedTransactionData* cache = nullptr);
+uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn, int32_t nHashType, const CConfidentialValue& amount, SigVersion sigversion, unsigned int flags, const PrecomputedTransactionData* cache = nullptr, SigHashCache* sighash_cache = nullptr);
 
 class BaseSignatureChecker
 {
@@ -374,6 +393,7 @@ private:
     unsigned int nIn;
     const CConfidentialValue amount;
     const PrecomputedTransactionData* txdata;
+    mutable SigHashCache m_sighash_cache;
 
 protected:
     virtual bool VerifyECDSASignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;

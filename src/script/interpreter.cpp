@@ -2802,10 +2802,56 @@ bool SignatureHashSchnorr(uint256& hash_out, ScriptExecutionData& execdata, cons
     return true;
 }
 
+int SigHashCache::CacheIndex(int32_t hash_type) const noexcept
+{
+    // Note that we do not distinguish between BASE and WITNESS_V0 to determine the cache index,
+    // because no input can simultaneously use both.
+    return 3 * !!(hash_type & SIGHASH_ANYONECANPAY) +
+           2 * ((hash_type & 0x1f) == SIGHASH_SINGLE) +
+           1 * ((hash_type & 0x1f) == SIGHASH_NONE);
+}
+
+bool SigHashCache::Load(int32_t hash_type, const CScript& script_code, HashWriter& writer) const noexcept
+{
+    auto& entry = m_cache_entries[CacheIndex(hash_type)];
+    if (entry.has_value()) {
+        if (script_code == entry->first) {
+            writer = HashWriter(entry->second);
+            return true;
+        }
+    }
+    return false;
+}
+
+void SigHashCache::Store(int32_t hash_type, const CScript& script_code, const HashWriter& writer) noexcept
+{
+    auto& entry = m_cache_entries[CacheIndex(hash_type)];
+    entry.emplace(script_code, writer);
+}
+
 template <class T>
-uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn, int32_t nHashType, const CConfidentialValue& amount, SigVersion sigversion, unsigned int flags, const PrecomputedTransactionData* cache)
+uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn, int32_t nHashType, const CConfidentialValue& amount, SigVersion sigversion, unsigned int flags, const PrecomputedTransactionData* cache, SigHashCache* sighash_cache)
 {
     assert(nIn < txTo.vin.size());
+
+    if (sigversion != SigVersion::WITNESS_V0) {
+        // Check for invalid use of SIGHASH_SINGLE
+        if ((nHashType & 0x1f) == SIGHASH_SINGLE) {
+            if (nIn >= txTo.vout.size()) {
+                //  nOut out of range
+                return uint256::ONE;
+            }
+        }
+    }
+
+    HashWriter ss{};
+
+    // Try to compute using cached SHA256 midstate.
+    if (sighash_cache && sighash_cache->Load(nHashType, scriptCode, ss)) {
+        // Add sighash type and hash.
+        ss << nHashType;
+        return ss.GetHash();
+    }
 
     if (sigversion == SigVersion::WITNESS_V0) {
         uint256 hashPrevouts;
@@ -2835,24 +2881,23 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
                 hashRangeproofs = cacheready ? cache->hashRangeproofs : GetRangeproofsHash(txTo);
             }
         } else if ((nHashType & 0x1f) == SIGHASH_SINGLE && nIn < txTo.vout.size()) {
-            HashWriter ss{};
-            ss << txTo.vout[nIn];
-            hashOutputs = ss.GetHash();
+            HashWriter inner_ss{};
+            inner_ss << txTo.vout[nIn];
+            hashOutputs = inner_ss.GetHash();
 
             if (fRangeproof) {
-                HashWriter ss{};
+                HashWriter rp_ss{};
                 if (nIn < txTo.witness.vtxoutwit.size()) {
-                    ss << txTo.witness.vtxoutwit[nIn].vchRangeproof;
-                    ss << txTo.witness.vtxoutwit[nIn].vchSurjectionproof;
+                    rp_ss << txTo.witness.vtxoutwit[nIn].vchRangeproof;
+                    rp_ss << txTo.witness.vtxoutwit[nIn].vchSurjectionproof;
                 } else {
-                    ss << (unsigned char) 0;
-                    ss << (unsigned char) 0;
+                    rp_ss << (unsigned char) 0;
+                    rp_ss << (unsigned char) 0;
                 }
-                hashRangeproofs = ss.GetHash();
+                hashRangeproofs = rp_ss.GetHash();
             }
         }
 
-        HashWriter ss{};
         // Version
         ss << txTo.version;
         // Input prevouts/nSequence (none/all, depending on flags)
@@ -2885,26 +2930,21 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
         }
         // Locktime
         ss << txTo.nLockTime;
-        // Sighash type
-        ss << nHashType;
+    } else {
+        // Wrapper to serialize only the necessary parts of the transaction being signed
+        CTransactionSignatureSerializer<T> txTmp(txTo, scriptCode, nIn, nHashType, flags);
 
-        return ss.GetHash();
+        // Serialize
+        ss << txTmp;
     }
 
-    // Check for invalid use of SIGHASH_SINGLE
-    if ((nHashType & 0x1f) == SIGHASH_SINGLE) {
-        if (nIn >= txTo.vout.size()) {
-            //  nOut out of range
-            return uint256::ONE;
-        }
+    // If a cache object was provided, store the midstate there.
+    if (sighash_cache != nullptr) {
+        sighash_cache->Store(nHashType, scriptCode, ss);
     }
 
-    // Wrapper to serialize only the necessary parts of the transaction being signed
-    CTransactionSignatureSerializer<T> txTmp(txTo, scriptCode, nIn, nHashType, flags);
-
-    // Serialize and hash
-    HashWriter ss{};
-    ss << txTmp << nHashType;
+    // Add sighash type and hash.
+    ss << nHashType;
     return ss.GetHash();
 }
 
@@ -2937,7 +2977,7 @@ bool GenericTransactionSignatureChecker<T>::CheckECDSASignature(const std::vecto
     // Witness sighashes need the amount.
     if (sigversion == SigVersion::WITNESS_V0 && amount.IsNull()) return HandleMissingData(m_mdb);
 
-    uint256 sighash = SignatureHash(scriptCode, *txTo, nIn, nHashType, amount, sigversion, flags, this->txdata);
+    uint256 sighash = SignatureHash(scriptCode, *txTo, nIn, nHashType, amount, sigversion, flags, this->txdata, &m_sighash_cache);
 
     if (!VerifyECDSASignature(vchSig, pubkey, sighash))
         return false;
