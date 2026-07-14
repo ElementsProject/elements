@@ -41,19 +41,34 @@ Notable changes
 
 - #34093 netif: fix compilation warning in QueryDefaultGatewayImpl()
 
+### Build
+
+- #34848 cmake: Migrate away from deprecated SQLite3 target
+
 ### Doc
 
 - #34510 doc: fix broken bpftrace installation link
 - #34561 wallet: rpc: manpage: fix example missing `fee_rate` argument
 - #34671 doc: Update Guix install for Debian/Ubuntu
 
+### CI
+
+- #35202 ci: restore sockets in i686, no IPC job
+
+### Misc
+
+- #35175 multi_index: fix compilation failure with boost >= 1.91
+
 Credits
 =======
 
 Thanks to everyone who directly contributed to this release:
 
+- Cory Fields
+- Daniel Pfeifer
 - Hennadii Stepanov
 - jayvaliya
+- Lőrinc
 - MarcoFalke
 - SomberNight
 - ToRyVand
