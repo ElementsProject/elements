@@ -23,7 +23,7 @@ BOOST_AUTO_TEST_CASE(max_signed_input_size_uses_external_outpoint)
     FillableSigningProvider provider;
     BOOST_REQUIRE(provider.AddKey(key));
 
-    const CTxOut txout{COIN, GetScriptForDestination(PKHash{key.GetPubKey()})};
+    const CTxOut txout{CAsset(), COIN, GetScriptForDestination(PKHash{key.GetPubKey()})};
     const COutPoint outpoint{Txid{}, 0};
     CCoinControl coin_control;
     coin_control.Select(outpoint).SetTxOut(txout);
