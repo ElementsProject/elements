@@ -27,6 +27,13 @@ add_library(bitcoinkernel
   ../chainparams.cpp
   ../coins.cpp
   ../common/bloom.cpp
+  ../common/args.cpp
+  ../mainchainrpc.cpp
+  ../chainparams.cpp
+  ../chainparamsbase.cpp
+  ../coins.cpp
+  ../common/config.cpp
+  ../common/settings.cpp
   ../compressor.cpp
   ../confidential_validation.cpp
   ../consensus/merkle.cpp
@@ -41,7 +48,8 @@ add_library(bitcoinkernel
   ../hash.cpp
   ../issuance.cpp
   ../logging.cpp
-  ../mainchainrpc.cpp
+  ../addresstype.cpp
+  ../key.cpp
   ../merkleblock.cpp
   ../node/blockstorage.cpp
   ../node/chainstate.cpp
@@ -76,6 +84,7 @@ add_library(bitcoinkernel
   ../script/sign.cpp
   ../script/signingprovider.cpp
   ../script/solver.cpp
+  ../script/miniscript.cpp
   ../signet.cpp
   ../streams.cpp
   ../support/lockedpool.cpp
@@ -113,6 +122,10 @@ target_link_libraries(bitcoinkernel
     elementssimplicity
     univalue
     $<TARGET_NAME_IF_EXISTS:USDT::headers>
+    $<TARGET_NAME_IF_EXISTS:libevent::libevent>
+    $<TARGET_NAME_IF_EXISTS:libevent::core>
+    $<TARGET_NAME_IF_EXISTS:libevent::extra>
+    $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
   PUBLIC
     Boost::headers
 )

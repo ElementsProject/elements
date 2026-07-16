@@ -1734,6 +1734,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
             use_anti_fee_sniping = false;
         }
         txNew.vin.emplace_back(coin->outpoint, CScript{}, sequence.value_or(default_sequence));
+        txNew.witness.vtxinwit.emplace_back(); // ELEMENTS: keep vtxinwit in lockstep with vin
 
         auto scripts = coin_control.GetScripts(coin->outpoint);
         if (scripts.first) {
@@ -1746,7 +1747,6 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
         auto pegin_witness = coin_control.GetPeginWitness(coin->outpoint);
         if (pegin_witness) {
             txNew.vin.back().m_is_pegin = true;
-            txNew.witness.vtxinwit.emplace_back();
             txNew.witness.vtxinwit.back().m_pegin_witness = *pegin_witness;
         }
         if (issuance_details && coin->asset == issuance_details->reissuance_token) {

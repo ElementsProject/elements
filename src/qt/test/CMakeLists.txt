@@ -14,6 +14,10 @@ add_executable(test_elements-qt
   ../../init/bitcoin-qt.cpp
 )
 
+set_target_properties(test_elements-qt PROPERTIES
+  SKIP_BUILD_RPATH OFF
+)
+
 target_link_libraries(test_elements-qt
   core_interface
   bitcoinqt

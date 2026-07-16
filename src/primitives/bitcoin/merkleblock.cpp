@@ -39,7 +39,7 @@ CMerkleBlock::CMerkleBlock(const CBlock& block, CBloomFilter* filter, const std:
     txn = CPartialMerkleTree(vHashes, vMatch);
 }
 */
-uint256 CPartialMerkleTree::CalcHash(int height, unsigned int pos, const std::vector<uint256> &vTxid) {
+uint256 CPartialMerkleTree::CalcHash(int height, unsigned int pos, const std::vector<uint256> &vTxid) {  // NOLINT(misc-no-recursion)
     //we can never have zero txs in a merkle block, we always need the coinbase tx
     //if we do not have this assert, we can hit a memory access violation when indexing into vTxid
     assert(vTxid.size() != 0);
@@ -59,7 +59,7 @@ uint256 CPartialMerkleTree::CalcHash(int height, unsigned int pos, const std::ve
     }
 }
 
-void CPartialMerkleTree::TraverseAndBuild(int height, unsigned int pos, const std::vector<uint256> &vTxid, const std::vector<bool> &vMatch) {
+void CPartialMerkleTree::TraverseAndBuild(int height, unsigned int pos, const std::vector<uint256> &vTxid, const std::vector<bool> &vMatch) {  // NOLINT(misc-no-recursion)
     // determine whether this node is the parent of at least one matched txid
     bool fParentOfMatch = false;
     for (unsigned int p = pos << height; p < (pos+1) << height && p < nTransactions; p++)
@@ -77,7 +77,7 @@ void CPartialMerkleTree::TraverseAndBuild(int height, unsigned int pos, const st
     }
 }
 
-uint256 CPartialMerkleTree::TraverseAndExtract(int height, unsigned int pos, unsigned int &nBitsUsed, unsigned int &nHashUsed, std::vector<uint256> &vMatch, std::vector<unsigned int> &vnIndex) {
+uint256 CPartialMerkleTree::TraverseAndExtract(int height, unsigned int pos, unsigned int &nBitsUsed, unsigned int &nHashUsed, std::vector<uint256> &vMatch, std::vector<unsigned int> &vnIndex) {  // NOLINT(misc-no-recursion)
     if (nBitsUsed >= vBits.size()) {
         // overflowed the bits array - failure
         fBad = true;

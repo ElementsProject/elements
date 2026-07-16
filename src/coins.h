@@ -131,7 +131,7 @@ private:
     //! Adding a flag requires a reference to the sentinel of the flagged pair linked list.
     static void AddFlags(uint8_t flags, CoinsCachePair& pair, CoinsCachePair& sentinel) noexcept
     {
-        Assume(flags & (DIRTY | FRESH));
+        Assume(flags & (DIRTY | FRESH | PEGIN)); // ELEMENTS: PEGIN may be set on its own
         if (!pair.second.m_flags) {
             Assume(!pair.second.m_prev && !pair.second.m_next);
             pair.second.m_prev = sentinel.second.m_prev;
@@ -388,7 +388,7 @@ protected:
      * declared as "const".
      */
     mutable uint256 hashBlock;
-    mutable CCoinsMapMemoryResource m_cache_coins_memory_resource{};
+    mutable CCoinsMapMemoryResource m_cache_coins_memory_resource{ /*chunk_size_bytes=*/(sizeof(CoinsCachePair) + sizeof(void*) * 4) * 1024};
     /* The starting sentinel of the flagged entry circular doubly linked list. */
     mutable CoinsCachePair m_sentinel;
     mutable CCoinsMap cacheCoins;

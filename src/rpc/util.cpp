@@ -1406,7 +1406,7 @@ std::vector<CScript> EvalDescriptorStringOrObject(const UniValue& scanobject, Fl
 class BlindingPubkeyVisitor
 {
 public:
-    explicit BlindingPubkeyVisitor() {}
+    explicit BlindingPubkeyVisitor() = default;
 
     CPubKey operator()(const CNoDestination& dest) const
     {
@@ -1466,7 +1466,7 @@ class DescribeBlindAddressVisitor
 {
 public:
 
-    explicit DescribeBlindAddressVisitor() {}
+    explicit DescribeBlindAddressVisitor() = default;
 
     UniValue operator()(const CNoDestination& dest) const { return UniValue(UniValue::VOBJ); }
     UniValue operator()(const PubKeyDestination& dest) const { return UniValue(UniValue::VOBJ); }

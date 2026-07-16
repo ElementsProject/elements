@@ -107,6 +107,7 @@ struct PeginMinimum {
 class CChainParams
 {
 public:
+    virtual ~CChainParams() = default;   // required: subclasses are stored and destroyed via std::unique_ptr<const CChainParams>
     enum Base58Type {
         PUBKEY_ADDRESS,
         SCRIPT_ADDRESS,

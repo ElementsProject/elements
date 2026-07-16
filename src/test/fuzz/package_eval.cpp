@@ -267,9 +267,9 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
                     // Create input
                     CTxIn in;
                     in.prevout = outpoint;
-                    tx_mut.witness.vtxinwit[&in - &tx_mut.vin[0]].scriptWitness.stack = P2WSH_EMPTY_TRUE_STACK;
-
                     tx_mut.vin.push_back(in);
+                    tx_mut.witness.vtxinwit.emplace_back();
+                    tx_mut.witness.vtxinwit.back().scriptWitness.stack = P2WSH_EMPTY_TRUE_STACK;
                 }
 
                 const auto amount_fee = fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(0, amount_in);

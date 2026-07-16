@@ -131,7 +131,7 @@ FilteredOutputGroups GroupOutputs(const CWallet& wallet,
  * single OutputType, fallback to running `ChooseSelectionResult()` over all available coins.
  *
  * @param[in]  chain                     The chain interface to get information on bump fees for unconfirmed UTXOs
- * @param[in]  nTargetValue              The target value
+ * @param[in]  mapTargetValue              The target value
  * @param[in]  groups                    The grouped outputs mapped by coin eligibility filters
  * @param[in]  coin_selection_params     Parameters for the coin selection
  * @param[in]  allow_mixed_output_types  Relax restriction that SelectionResults must be of the same OutputType
@@ -149,7 +149,7 @@ util::Result<SelectionResult> AttemptSelection(interfaces::Chain& chain, const C
  * (according to the waste metric) will be chosen.
  *
  * @param[in]  chain                     The chain interface to get information on bump fees for unconfirmed UTXOs
- * @param[in]  nTargetValue              The target value
+ * @param[in]  mapTargetValue              The target value
  * @param[in]  groups                    The struct containing the outputs grouped by script and divided by (1) positive only outputs and (2) all outputs (positive + negative).
  * @param[in]  coin_selection_params     Parameters for the coin selection
  * returns                               If successful, a SelectionResult containing the input set
@@ -188,10 +188,10 @@ util::Result<PreSelectedInputs> FetchSelectedInputs(const CWallet& wallet, const
                                                     const CoinSelectionParams& coin_selection_params) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 
 /**
- * Select a set of coins such that nTargetValue is met; never select unconfirmed coins if they are not ours
+ * Select a set of coins such that mapTargetValue is met; never select unconfirmed coins if they are not ours
  * @param[in]   wallet                 The wallet which provides data necessary to spend the selected coins
  * @param[in]   available_coins        The struct of coins, organized by OutputType, available for selection prior to filtering
- * @param[in]   nTargetValue           The target value
+ * @param[in]   mapTargetValue           The target value
  * @param[in]   coin_selection_params  Parameters for this coin selection such as feerates, whether to avoid partial spends,
  *                                     and whether to subtract the fee from the outputs.
  * returns                             If successful, a SelectionResult containing the selected coins
@@ -204,7 +204,7 @@ util::Result<SelectionResult> AutomaticCoinSelection(const CWallet& wallet, Coin
 
 /**
  * Select all coins from coin_control, and if coin_control 'm_allow_other_inputs=true', call 'AutomaticCoinSelection' to
- * select a set of coins such that nTargetValue - pre_set_inputs.total_amount is met.
+ * select a set of coins such that mapTargetValue - pre_set_inputs.total_amount is met.
  */
 util::Result<SelectionResult> SelectCoins(const CWallet& wallet, CoinsResult& available_coins, const PreSelectedInputs& pre_set_inputs,
                                           const CAmountMap& mapTargetValue, const CCoinControl& coin_control,

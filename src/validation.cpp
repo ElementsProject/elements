@@ -2487,17 +2487,15 @@ bool CheckInputScripts(const CTransaction& tx, TxValidationState& state,
         CCheck* check = new CScriptCheck(txdata.m_spent_outputs[i], tx, validation_cache.m_signature_cache, i, flags, cacheSigStore, &txdata);
         if (pvChecks) {
             pvChecks->emplace_back(std::move(check));
-        } else if (auto result = (*check)(); result.has_value()) {
-            // Tx failures never trigger disconnections/bans.
-            // This is so that network splits aren't triggered
-            // either due to non-consensus relay policies (such as
-            // non-standard DER encodings or non-null dummy
-            // arguments) or due to new consensus rules introduced in
-            // soft forks.
-            if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
-                return state.Invalid(TxValidationResult::TX_NOT_STANDARD, strprintf("mempool-script-verify-flag-failed (%s)", ScriptErrorString(result->first)), result->second);
-            } else {
-                return state.Invalid(TxValidationResult::TX_CONSENSUS, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(result->first)), result->second);
+        } else {
+            auto result = (*check)();
+            delete check; // ELEMENTS: synchronous path owns `check`; queued path (above) transfers ownership instead.
+            if (result.has_value()) {
+                if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
+                    return state.Invalid(TxValidationResult::TX_NOT_STANDARD, strprintf("mempool-script-verify-flag-failed (%s)", ScriptErrorString(result->first)), result->second);
+                } else {
+                    return state.Invalid(TxValidationResult::TX_CONSENSUS, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(result->first)), result->second);
+                }
             }
         }
     }
@@ -2982,6 +2980,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
     // for as long as `control`.
     std::vector<PrecomputedTransactionData> txsdata;
     CCheckQueueControl<CCheck> control(fScriptChecks && parallel_script_checks ? &m_chainman.GetCheckQueue() : nullptr);
+    txsdata.reserve(block.vtx.size());
     for (unsigned int i = 0; i < block.vtx.size(); i++){
         txsdata.emplace_back(m_chainman.GetParams().HashGenesisBlock());
     }
@@ -6272,7 +6271,14 @@ double GuessVerificationProgress(const CBlockIndex* pindex, int64_t blockInterva
 
     int64_t nNow = GetTime();
     int64_t moreBlocksExpected = (nNow - pindex->GetBlockTime()) / blockInterval;
-    double progress = (pindex->nHeight + 0.0) / (pindex->nHeight + moreBlocksExpected);
+    int64_t totalBlocksExpected = pindex->nHeight + moreBlocksExpected;
+    if (totalBlocksExpected <= 0) {
+        // The block's timestamp is far enough ahead of nNow (relative to
+        // blockInterval) that the naive extrapolation is degenerate;
+        // treat this the same as "caught up".
+        return 1.0;
+    }
+    double progress = (pindex->nHeight + 0.0) / totalBlocksExpected;
     // Round to 3 digits to avoid 0.999999 when finished.
     progress = ceil(progress * 1000.0) / 1000.0;
     // Avoid higher than one if last block is newer than current time.

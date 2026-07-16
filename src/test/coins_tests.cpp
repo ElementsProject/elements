@@ -1081,7 +1081,7 @@ BOOST_FIXTURE_TEST_CASE(coins_db_leveldb_layout, FlushTest)
 
 BOOST_AUTO_TEST_CASE(coins_resource_is_used)
 {
-    CCoinsMapMemoryResource resource;
+    CCoinsMapMemoryResource resource{/*chunk_size_bytes=*/(sizeof(CoinsCachePair) + sizeof(void*) * 4) * 1024};
     PoolResourceTester::CheckAllDataAccountedFor(resource);
 
     {

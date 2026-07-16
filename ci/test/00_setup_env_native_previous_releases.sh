@@ -11,7 +11,7 @@ export CI_IMAGE_NAME_TAG="mirror.gcr.io/ubuntu:22.04"
 # Use minimum supported python3.10 and gcc-11, see doc/dependencies.md
 export PACKAGES="gcc-11 g++-11 python3-zmq"
 export DEP_OPTS="DEBUG=1 CC=gcc-11 CXX=g++-11"
-export TEST_RUNNER_EXTRA="--previous-releases --coverage --extended --exclude feature_dbcrash"  # Run extended tests so that coverage does not fail, but exclude the very slow dbcrash
+export TEST_RUNNER_EXTRA="--previous-releases --coverage --extended --exclude wallet_inactive_hdchains"  # Run extended tests so that coverage does not fail
 export RUN_UNIT_TESTS_SEQUENTIAL="true"
 export RUN_UNIT_TESTS="false"
 export GOAL="install"
@@ -25,4 +25,4 @@ export BITCOIN_CONFIG="\
  -DCMAKE_CXX_FLAGS_DEBUG='-g0 -O2' \
  -DAPPEND_CPPFLAGS='-DBOOST_MULTI_INDEX_ENABLE_SAFE_MODE' \
 "
-export TEST_RUNNER_EXTRA="${TEST_RUNNER_EXTRA},feature_fee_estimation,wallet_inactive_hdchains,wallet_elements_regression_fundrawtransaction,feature_txindex_compatibility,feature_unsupported_utxo_db" # ELEMENTS
+export TEST_RUNNER_EXTRA="${TEST_RUNNER_EXTRA},wallet_elements_regression_fundrawtransaction,feature_txindex_compatibility,feature_unsupported_utxo_db" # ELEMENTS

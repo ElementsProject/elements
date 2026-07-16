@@ -109,6 +109,9 @@ if [ -z "$NO_DEPENDS" ]; then
   esac
   bash -c "$SHELL_OPTS make $MAKEJOBS -C depends HOST=$HOST $DEP_OPTS LOG=1"
 fi
+if [ "$DOWNLOAD_PREVIOUS_RELEASES" = "true" ]; then
+  test/get_previous_releases.py -b -t "$PREVIOUS_RELEASES_DIR"
+fi
 
 BITCOIN_CONFIG_ALL="-DBUILD_BENCH=ON -DBUILD_FUZZ_BINARY=ON"
 if [ -z "$NO_DEPENDS" ]; then
@@ -121,62 +124,12 @@ fi
 ccache --zero-stats
 PRINT_CCACHE_STATISTICS="ccache --version | head -n 1 && ccache --show-stats"
 
-if [ -z "$NO_DEPENDS" ]; then
-  # legacy autotools path (depends builds)
-  BITCOIN_CONFIG_ALL="${BITCOIN_CONFIG_ALL} --enable-external-signer --prefix=$BASE_OUTDIR"
-else
-  # modern CMake path (native macOS + NO_DEPENDS=1)
-  BITCOIN_CONFIG_ALL="${BITCOIN_CONFIG_ALL} -DENABLE_EXTERNAL_SIGNER=ON"
-fi
-
-# === CMake build (modern path used by the fork) ===
-if [ -n "$NO_DEPENDS" ]; then
-  echo "Building with CMake (NO_DEPENDS=1)..."
-  # shellcheck disable=SC2086
-  cmake -B build -S . ${CMAKE_GENERATOR:+-G "$CMAKE_GENERATOR"} $BITCOIN_CONFIG_ALL
-else
-  # depends path (still uses configure in some jobs)
-  ./autogen.sh
-  # shellcheck disable=SC2086
-  ./configure $BITCOIN_CONFIG_ALL
-fi
-
-cmake --build build --config Release --parallel "$MAKEJOBS"
-
-if [ -n "$NO_DEPENDS" ]; then
-  bash -c "${PRINT_CCACHE_STATISTICS}"
-
-  if [ "$RUN_UNIT_TESTS" = "true" ]; then
-    DIR_UNIT_TEST_DATA="${DIR_UNIT_TEST_DATA}" CTEST_OUTPUT_ON_FAILURE=ON ctest --stop-on-failure "${MAKEJOBS}" --timeout $(( TEST_RUNNER_TIMEOUT_FACTOR * 60 ))
-  fi
-
-  if [ "$RUN_FUNCTIONAL_TESTS" = "true" ]; then
-    eval "TEST_RUNNER_EXTRA=($TEST_RUNNER_EXTRA)"
-    test/functional/test_runner.py --ci "${MAKEJOBS}" --tmpdirprefix "${BASE_SCRATCH_DIR}"/test_runner/ --ansi --combinedlogslen=99999999 --timeout-factor="${TEST_RUNNER_TIMEOUT_FACTOR}" "${TEST_RUNNER_EXTRA[@]}" --quiet --failfast
-  fi
-
-  exit 0
-fi
-
+# Folder where the build is done.
+BASE_BUILD_DIR=${BASE_BUILD_DIR:-$BASE_SCRATCH_DIR/build-$HOST}
 mkdir -p "${BASE_BUILD_DIR}"
 cd "${BASE_BUILD_DIR}"
 
-bash -c "${BASE_ROOT_DIR}/configure --cache-file=config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG" || ( (cat config.log) && false)
-
-make distdir VERSION="$HOST"
-
-cd "${BASE_BUILD_DIR}/elements-$HOST"
-
-bash -c "./configure --cache-file=../config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG" || ( (cat config.log) && false)
-
-# ELEMENTS FIXME: fix fix in order to correctly run it #30454
-# # Folder where the build is done.
-# BASE_BUILD_DIR=${BASE_BUILD_DIR:-$BASE_SCRATCH_DIR/build-$HOST}
-# mkdir -p "${BASE_BUILD_DIR}"
-# cd "${BASE_BUILD_DIR}"
-#
-# BITCOIN_CONFIG_ALL="$BITCOIN_CONFIG_ALL -DENABLE_EXTERNAL_SIGNER=ON -DCMAKE_INSTALL_PREFIX=$BASE_OUTDIR"
-
+BITCOIN_CONFIG_ALL="$BITCOIN_CONFIG_ALL -DENABLE_EXTERNAL_SIGNER=ON -DCMAKE_INSTALL_PREFIX=$BASE_OUTDIR"
 
 if [[ "${RUN_TIDY}" == "true" ]]; then
   BITCOIN_CONFIG_ALL="$BITCOIN_CONFIG_ALL -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
@@ -233,17 +186,17 @@ if [ "${RUN_TIDY}" = "true" ]; then
   jq 'map(select(.file | test("src/qt/.*_autogen/.*\\.cpp$") | not))' "${BASE_BUILD_DIR}/compile_commands.json" > tmp.json
   mv tmp.json "${BASE_BUILD_DIR}/compile_commands.json"
 
-  cd "${BASE_BUILD_DIR}/elements-$HOST/src/"
+  cd "${BASE_BUILD_DIR}/src/"
   if ! ( run-clang-tidy-"${TIDY_LLVM_V}" -quiet -load="/tidy-build/libbitcoin-tidy.so" "${MAKEJOBS}" | tee tmp.tidy-out.txt ); then
     grep -C5 "error: " tmp.tidy-out.txt
     echo "^^^ ⚠️ Failure generated from clang-tidy"
     false
   fi
 
-  cd "${BASE_BUILD_DIR}/elements-$HOST/"
+  cd "${BASE_ROOT_DIR}"
   python3 "/include-what-you-use/iwyu_tool.py" \
-           -p . "${MAKEJOBS}" \
-           -- -Xiwyu --cxx17ns -Xiwyu --mapping_file="${BASE_BUILD_DIR}/elements-$HOST/contrib/devtools/iwyu/bitcoin.core.imp" \
+           -p "${BASE_BUILD_DIR}" "${MAKEJOBS}" \
+           -- -Xiwyu --cxx17ns -Xiwyu --mapping_file="${BASE_ROOT_DIR}/contrib/devtools/iwyu/bitcoin.core.imp" \
            -Xiwyu --max_line_length=160 \
            2>&1 | tee /tmp/iwyu_ci.out
   cd "${BASE_ROOT_DIR}/src"

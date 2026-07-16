@@ -467,20 +467,20 @@ static void MutateTxAddOutData(CMutableTransaction& tx, const std::string& strIn
     CAsset asset(Params().GetConsensus().pegged_asset);
 
     if (vStrInputParts.size()==1) {
-        std::string strData = vStrInputParts[0];
+        const std::string& strData = vStrInputParts[0];
         if (!IsHex(strData))
             throw std::runtime_error("invalid TX output data");
         data = ParseHex(strData);
 
     } else {
         value = ExtractAndValidateValue(vStrInputParts[0]);
-        std::string strData = vStrInputParts[1];
+        const std::string& strData = vStrInputParts[1];
         if (!IsHex(strData))
             throw std::runtime_error("invalid TX output data");
         data = ParseHex(strData);
 
         if (vStrInputParts.size()==3) {
-            std::string strAsset = vStrInputParts[2];
+            const std::string& strAsset = vStrInputParts[2];
             if (!IsHex(strAsset))
                 throw std::runtime_error("invalid TX output asset type");
 

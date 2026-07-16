@@ -51,6 +51,69 @@ SUPPRESS["init.cpp.o bdb.cpp.o _ZN6wallet27BerkeleyDatabaseSanityCheckEv"]=1
 SUPPRESS["common.cpp.o interface_ui.cpp.o _Z11InitWarningRK13bilingual_str"]=1
 SUPPRESS["common.cpp.o interface_ui.cpp.o _Z9InitErrorRK13bilingual_str"]=1
 
+# ELEMENTS: wallet fee/balance verification depends on confidential-transaction
+# validation logic (fee map, amount/CT-balance checks), which lives alongside
+# consensus validation rather than in the wallet library.
+SUPPRESS["transactions.cpp.o confidential_validation.cpp.o _Z11HasValidFeeRK12CTransaction"]=1
+SUPPRESS["wallet.cpp.o confidential_validation.cpp.o _Z13VerifyAmountsRKSt6vectorI6CTxOutSaIS0_EERK12CTransactionPS_IP6CCheckSaIS9_EEb"]=1
+SUPPRESS["feebumper.cpp.o confidential_validation.cpp.o _Z9GetFeeMapRK12CTransaction"]=1
+SUPPRESS["receive.cpp.o confidential_validation.cpp.o _Z9GetFeeMapRK12CTransaction"]=1
+SUPPRESS["transactions.cpp.o confidential_validation.cpp.o _Z9GetFeeMapRK12CTransaction"]=1
+
+# ELEMENTS: RPC and wallet code that constructs or verifies peg-in transactions
+# depends directly on the peg-in logic (SPV proof checking, fedpeg script
+# resolution, witness construction/decomposition).
+SUPPRESS["elements.cpp.o pegins.cpp.o _Z18CreatePeginWitnessRKlRK6CAssetRK7uint256RK7CScriptRKSt10shared_ptrIK12CTransactionERK12CMerkleBlock"]=1
+SUPPRESS["wallet.cpp.o pegins.cpp.o _Z18CreatePeginWitnessRKlRK6CAssetRK7uint256RK7CScriptRKSt10shared_ptrIK12CTransactionERK12CMerkleBlock"]=1
+SUPPRESS["psbt.cpp.o pegins.cpp.o _Z18CreatePeginWitnessRKlRK6CAssetRK7uint256RK7CScriptRKSt10shared_ptrIK12CTransactionERK12CMerkleBlock"]=1
+SUPPRESS["rawtransaction_util.cpp.o pegins.cpp.o _Z18CreatePeginWitnessRKlRK6CAssetRK7uint256RK7CScriptRKSt10shared_ptrIK12CTransactionERK12CMerkleBlock"]=1
+SUPPRESS["wallet.cpp.o pegins.cpp.o _Z18CreatePeginWitnessRKlRK6CAssetRK7uint256RK7CScriptRKSt10shared_ptrIKN9Sidechain7Bitcoin12CTransactionEERKNSC_12CMerkleBlockE"]=1
+SUPPRESS["psbt.cpp.o pegins.cpp.o _Z18CreatePeginWitnessRKlRK6CAssetRK7uint256RK7CScriptRKSt10shared_ptrIKN9Sidechain7Bitcoin12CTransactionEERKNSC_12CMerkleBlockE"]=1
+SUPPRESS["rawtransaction_util.cpp.o pegins.cpp.o _Z18CreatePeginWitnessRKlRK6CAssetRK7uint256RK7CScriptRKSt10shared_ptrIKN9Sidechain7Bitcoin12CTransactionEERKNSC_12CMerkleBlockE"]=1
+SUPPRESS["elements.cpp.o pegins.cpp.o _Z18calculate_contractRK7CScriptS1_"]=1
+SUPPRESS["rawtransaction_util.cpp.o pegins.cpp.o _Z18calculate_contractRK7CScriptS1_"]=1
+SUPPRESS["elements.cpp.o pegins.cpp.o _Z19IsValidPeginWitnessRK14CScriptWitnessRKSt6vectorISt4pairI7CScriptS4_ESaIS5_EERK9COutPointRNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEbPb"]=1
+SUPPRESS["spend.cpp.o pegins.cpp.o _Z19IsValidPeginWitnessRK14CScriptWitnessRKSt6vectorISt4pairI7CScriptS4_ESaIS5_EERK9COutPointRNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEbPb"]=1
+SUPPRESS["rawtransaction_util.cpp.o pegins.cpp.o _Z19IsValidPeginWitnessRK14CScriptWitnessRKSt6vectorISt4pairI7CScriptS4_ESaIS5_EERK9COutPointRNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEbPb"]=1
+SUPPRESS["elements.cpp.o pegins.cpp.o _Z21GetValidFedpegScriptsPK11CBlockIndexRKN9Consensus6ParamsEb"]=1
+SUPPRESS["spend.cpp.o pegins.cpp.o _Z21GetValidFedpegScriptsPK11CBlockIndexRKN9Consensus6ParamsEb"]=1
+SUPPRESS["rawtransaction_util.cpp.o pegins.cpp.o _Z21GetValidFedpegScriptsPK11CBlockIndexRKN9Consensus6ParamsEb"]=1
+SUPPRESS["psbt.cpp.o pegins.cpp.o _Z21DecomposePeginWitnessRK14CScriptWitnessRlR6CAssetR7uint256R7CScriptRSt7variantIJSt9monostateSt10shared_ptrIKN9Sidechain7Bitcoin12CTransactionEESB_IK12CTransactionEEERS9_IJSA_NSD_12CMerkleBlockE12CMerkleBlockEE"]=1
+SUPPRESS["elements.cpp.o pegins.cpp.o _Z22CheckParentProofOfWork7uint256jRKN9Consensus6ParamsE"]=1
+SUPPRESS["rawtransaction_util.cpp.o pegins.cpp.o _Z22CheckParentProofOfWork7uint256jRKN9Consensus6ParamsE"]=1
+SUPPRESS["elements.cpp.o pegins.cpp.o _Z29GetAmountFromParentChainPeginRlRK12CTransactionj"]=1
+SUPPRESS["rawtransaction_util.cpp.o pegins.cpp.o _Z29GetAmountFromParentChainPeginRlRK12CTransactionj"]=1
+SUPPRESS["elements.cpp.o pegins.cpp.o _Z29GetAmountFromParentChainPeginRlRKN9Sidechain7Bitcoin12CTransactionEj"]=1
+SUPPRESS["rawtransaction_util.cpp.o pegins.cpp.o _Z29GetAmountFromParentChainPeginRlRKN9Sidechain7Bitcoin12CTransactionEj"]=1
+
+# ELEMENTS: RPC's peg-in verification needs a client to query the parent
+# (mainchain) node for block confirmation in the non-SPV verification path.
+SUPPRESS["elements.cpp.o mainchainrpc.cpp.o _Z16CallMainChainRPCRKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERK8UniValue"]=1
+SUPPRESS["elements.cpp.o mainchainrpc.cpp.o _Z23IsConfirmedBitcoinBlockRK7uint256ii"]=1
+
+# ELEMENTS: RPC needs the active Pegout Authorization Key list and PAK-proof
+# verification for pegout-related RPCs.
+SUPPRESS["elements.cpp.o pak.cpp.o _Z16GetActivePAKListPK11CBlockIndexRKN9Consensus6ParamsE"]=1
+SUPPRESS["elements.cpp.o pak.cpp.o _Z22ScriptHasValidPAKProofRK7CScriptRK7uint256RK8CPAKList"]=1
+
+# ELEMENTS: RPC needs to parse the federation quorum out of a fedpeg script
+# for dynamic federation RPCs.
+SUPPRESS["elements.cpp.o dynafed.cpp.o _Z17ParseFedPegQuorumRK7CScriptRiS2_"]=1
+
+# ELEMENTS: RPC needs to verify the parent chain's proof-of-work signature
+# for federated peg verification.
+SUPPRESS["elements.cpp.o block_proof.cpp.o _Z22CheckProofSignedParentRK12CBlockHeaderRKN9Consensus6ParamsE"]=1
+SUPPRESS["rawtransaction_util.cpp.o block_proof.cpp.o _Z22CheckProofSignedParentRK12CBlockHeaderRKN9Consensus6ParamsE"]=1
+
+# ELEMENTS: RPC needs deployment/versionbits state for dynamic federation
+# related RPCs.
+SUPPRESS["elements.cpp.o versionbits.cpp.o _ZN16VersionBitsCache5StateEPK11CBlockIndexRKN9Consensus6ParamsENS3_13DeploymentPosE"]=1
+
+# Upstream gap: node/chain.cpp depends on kernel/blockstorage.cpp's block-index
+# regeneration helper. Not yet suppressed upstream as of this merge; worth
+# checking if a newer upstream commit already added this suppression.
+SUPPRESS["chain.cpp.o blockstorage.cpp.o _ZNK6kernel11BlockTreeDB19RegenerateFullIndexEPK11CBlockIndexPS1_"]=1
+
 usage() {
    echo "Usage: $(basename "${BASH_SOURCE[0]}") [BUILD_DIR]"
 }

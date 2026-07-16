@@ -36,8 +36,10 @@ BOOST_AUTO_TEST_CASE(getcoinscachesizestate)
         BOOST_TEST_MESSAGE("CCoinsViewCache memory usage: " << view.DynamicMemoryUsage());
     };
 
-    // PoolResource defaults to 256 KiB that will be allocated, so we'll take that and make it a bit larger.
-    constexpr size_t MAX_COINS_CACHE_BYTES = 262144 + 512;
+    // PoolResource for CCoinsMap sizes its chunk relative to sizeof(CoinsCachePair)
+    // (see CCoinsMapMemoryResource in coins.h) rather than a fixed byte count.
+    // Mirror that calculation here instead of hardcoding the old 256 KiB default.
+    constexpr size_t MAX_COINS_CACHE_BYTES = (sizeof(CoinsCachePair) + sizeof(void*) * 4) * 1024 + 512;
 
     // Without any coins in the cache, we shouldn't need to flush.
     BOOST_TEST(
@@ -49,7 +51,8 @@ BOOST_AUTO_TEST_CASE(getcoinscachesizestate)
     if (view.DynamicMemoryUsage() != 32 && view.DynamicMemoryUsage() != 16) {
         // Add a bunch of coins to see that we at least flip over to CRITICAL.
 
-        for (int i{0}; i < 1000; ++i) {
+        const int num_coins_to_add = static_cast<int>(MAX_COINS_CACHE_BYTES / COIN_SIZE) + 100; // margin to guarantee crossing the threshold
+        for (int i{0}; i < num_coins_to_add; ++i) {
             const COutPoint res = AddTestCoin(m_rng, view);
             BOOST_CHECK_EQUAL(view.AccessCoin(res).DynamicMemoryUsage(), COIN_SIZE);
         }

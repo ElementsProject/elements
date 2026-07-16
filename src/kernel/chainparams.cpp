@@ -542,6 +542,20 @@ public:
         consensus.nMinimumChainWork = uint256{"0000000000000000000000000000000000000000000001d6dce8651b6094e4c1"};
         consensus.defaultAssumeValid = uint256{"0000000000003ed4f08dbdf6f7d6b271a6bcffce25675cb40aa9fa43179a89f3"}; // 72600
 
+        consensus.genesis_subsidy = 50*COIN;
+        consensus.connect_genesis_outputs = false;
+        consensus.subsidy_asset = CAsset();
+        anyonecanspend_aremine = false;
+        enforce_pak = false;
+        accept_unlimited_issuances = false;
+        multi_data_permitted = false;
+        accept_discount_ct = false;
+        create_discount_ct = false;
+        pegin_subsidy = PeginSubsidy();
+        pegin_minimum = PeginMinimum();
+        consensus.has_parent_chain = false;
+        g_signed_blocks = false;
+
         pchMessageStart[0] = 0x1c;
         pchMessageStart[1] = 0x16;
         pchMessageStart[2] = 0x3f;

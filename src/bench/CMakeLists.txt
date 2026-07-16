@@ -52,6 +52,10 @@ add_executable(bench_bitcoin
   xor.cpp
 )
 
+set_target_properties(bench_bitcoin PROPERTIES
+  SKIP_BUILD_RPATH OFF
+)
+
 include(TargetDataSources)
 target_raw_data_sources(bench_bitcoin NAMESPACE benchmark::data
   data/block413567.raw

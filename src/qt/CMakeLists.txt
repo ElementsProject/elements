@@ -227,6 +227,10 @@ add_executable(elements-qt
   ../init/bitcoin-qt.cpp
 )
 
+set_target_properties(elements-qt PROPERTIES
+  SKIP_BUILD_RPATH OFF
+)
+
 add_windows_resources(elements-qt res/bitcoin-qt-res.rc)
 
 target_link_libraries(elements-qt
@@ -252,7 +256,7 @@ if(WITH_MULTIPROCESS)
     bitcoin_node
     bitcoin_ipc
   )
-  import_plugins(bitcoin-gui)
+  import_plugins(elements-gui)
   install_binary_component(elements-gui)
   if(WIN32)
     set_target_properties(elements-gui PROPERTIES WIN32_EXECUTABLE TRUE)

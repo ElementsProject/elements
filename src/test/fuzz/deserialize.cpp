@@ -233,7 +233,16 @@ FUZZ_TARGET_DESERIALIZE(blockundo_deserialize, {
 })
 FUZZ_TARGET_DESERIALIZE(coins_deserialize, {
     Coin coin;
-    DeserializeFromFuzzingInput(buffer, coin);
+    DataStream ds{buffer};
+    try {
+        ds >> coin;
+    } catch (const std::ios_base::failure&) {
+        throw invalid_fuzzing_input_exception();
+    }
+    // ELEMENTS: Coin::Serialize() asserts !IsSpent(), which arbitrary fuzzed
+    // bytes can trivially violate via a decompressed null CTxOut. Skip the
+    // generic deserialize-then-reserialize round-trip check that
+    // DeserializeFromFuzzingInput() performs for other types.
 })
 FUZZ_TARGET(netaddr_deserialize, .init = initialize_deserialize)
 {
