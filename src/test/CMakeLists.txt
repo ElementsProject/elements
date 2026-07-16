@@ -129,6 +129,10 @@ add_executable(test_elements
   versionbits_tests.cpp
 )
 
+set_target_properties(test_elements PROPERTIES
+  SKIP_BUILD_RPATH OFF
+)
+
 include(TargetDataSources)
 target_json_data_sources(test_elements
   data/base58_encode_decode.json

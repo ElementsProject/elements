@@ -49,6 +49,7 @@ class PreSyncHeadersTest(BitcoinTestFramework):
         self.connect_nodes(0, 3)
 
     def run_test(self):
+        self.skip_if_no_wallet()
         # ELEMENTS: this test taken from p2p_headers_sync_with_mainchainwork.py to run on elements regtest
         self.nodes[0].createwallet("miner")
         wallet = self.nodes[0].get_wallet_rpc("miner")

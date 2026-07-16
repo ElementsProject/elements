@@ -2550,6 +2550,7 @@ std::optional<PSBTError> CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bo
 
     CMutableTransaction tx = psbtx.GetUnsignedTx();
     tx.witness.vtxoutwit.resize(tx.vout.size());
+    tx.witness.vtxinwit.resize(tx.vin.size()); // ELEMENTS: keep vtxinwit in lockstep with vin, mirroring vtxoutwit above
 
     // Stuff in auxiliary CA blinding data, if we have it
     for (unsigned int i = 0; i < tx.vout.size(); ++i) {

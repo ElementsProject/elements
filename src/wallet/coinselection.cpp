@@ -788,7 +788,7 @@ util::Result<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, c
         for (const OutputGroup& g : groups) {
             bool add = true;
             for (const std::shared_ptr<wallet::COutput>& c : g.m_outputs) {
-                auto input_set = result.GetInputSet();
+                const auto& input_set = result.GetInputSet();
                 if (input_set.find(c) != input_set.end()) {
                     add = false;
                     break;
@@ -811,7 +811,7 @@ util::Result<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, c
         }
 
         if (auto inner_result = KnapsackSolver(inner_groups, it->second, change_target, rng, max_selection_weight, it->first)) {
-            auto set = inner_result->GetInputSet();
+            const auto& set = inner_result->GetInputSet();
             for (const std::shared_ptr<wallet::COutput>& ic : set) {
                 non_policy_effective_value += ic->GetEffectiveValue();
             }
@@ -837,7 +837,7 @@ util::Result<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, c
         for (const OutputGroup& g : groups) {
             bool add = true;
             for (const std::shared_ptr<wallet::COutput>& c : g.m_outputs) {
-                auto set = result.GetInputSet();
+                const auto& set = result.GetInputSet();
                 if (set.find(c) != set.end()) {
                     add = false;
                     break;

@@ -113,11 +113,21 @@ target_link_libraries(elementssimplicity
     core_interface
 )
 
-# macOS Apple Clang is stricter than Linux GCC on this vendored code
-if(APPLE)
+# Clang (Apple of upstream) is stricter than Linux GCC on this vendored code
+if(CMAKE_C_COMPILER_ID MATCHES "Clang")
   target_compile_options(elementssimplicity PRIVATE
     -Wno-error=conditional-uninitialized
     -Wno-error=implicit-fallthrough
+  )
+endif()
+
+# GCC's -Wtype-limits (via -Wextra) flags some of Simplicity's defensive
+# runtime asserts as tautological on LLP64 targets (e.g. mingw-w64 win64),
+# where uint_fast32_t is narrower than size_t. The checks are intentional,
+# not bugs.
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+  target_compile_options(elementssimplicity PRIVATE
+    -Wno-error=type-limits
   )
 endif()
 
@@ -267,6 +277,9 @@ if(ENABLE_WALLET)
       init/bitcoin-wallet.cpp
       wallet/wallettool.cpp
     )
+    set_target_properties(elements-wallet PROPERTIES
+      SKIP_BUILD_RPATH OFF
+    )
     add_windows_resources(elements-wallet bitcoin-wallet-res.rc)
     target_link_libraries(elements-wallet
       core_interface
@@ -408,6 +421,9 @@ if(BUILD_DAEMON)
     bitcoind.cpp
     init/bitcoind.cpp
   )
+  set_target_properties(elementsd PROPERTIES
+  SKIP_BUILD_RPATH OFF
+  )
   add_windows_resources(elementsd bitcoind-res.rc)
   target_link_libraries(elementsd
     core_interface
@@ -421,6 +437,9 @@ if(WITH_MULTIPROCESS AND BUILD_DAEMON)
   add_executable(elements-node
     bitcoind.cpp
     init/bitcoin-node.cpp
+  )
+  set_target_properties(elements-node PROPERTIES
+    SKIP_BUILD_RPATH OFF
   )
   target_link_libraries(elements-node
     core_interface
@@ -463,6 +482,9 @@ target_link_libraries(bitcoin_cli
 # Elements Core RPC client
 if(BUILD_CLI)
   add_executable(elements-cli bitcoin-cli.cpp)
+  set_target_properties(elements-cli PROPERTIES
+    SKIP_BUILD_RPATH OFF
+  )
   add_windows_resources(elements-cli bitcoin-cli-res.rc)
   target_link_libraries(elements-cli
     core_interface
@@ -479,6 +501,9 @@ endif()
 if(BUILD_TX)
   add_executable(elements-tx bitcoin-tx.cpp)
   add_windows_resources(elements-tx bitcoin-tx-res.rc)
+  set_target_properties(elements-tx PROPERTIES
+    SKIP_BUILD_RPATH OFF
+  )
   target_link_libraries(elements-tx
     core_interface
     bitcoin_common
@@ -493,6 +518,9 @@ endif()
 if(BUILD_UTIL)
   add_executable(elements-util bitcoin-util.cpp)
   add_windows_resources(elements-util bitcoin-util-res.rc)
+  set_target_properties(elements-util PROPERTIES
+    SKIP_BUILD_RPATH OFF
+  )
   target_link_libraries(elements-util
     core_interface
     bitcoin_common

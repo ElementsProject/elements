@@ -36,7 +36,7 @@ void CAssetsDir::SetHex(const std::string& assetHex, const std::string& label)
 
 void CAssetsDir::InitFromStrings(const std::vector<std::string>& assetsToInit, const std::string& pegged_asset_name)
 {
-    for (std::string strToSplit : assetsToInit) {
+    for (const std::string& strToSplit : assetsToInit) {
         std::vector<std::string> vAssets;
         const auto pos = strToSplit.find(':');
         if (pos != std::string::npos) {
