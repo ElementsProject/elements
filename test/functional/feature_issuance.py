@@ -112,12 +112,19 @@ class IssuanceTest(BitcoinTestFramework):
         # Make sure test starts with no initial issuance.
         assert_equal(len(self.nodes[0].listissuances()), 0)
 
+        self.log.info("listissuances with null argument")
+        assert_equal(self.nodes[0].listissuances(None), [])
+
         # Unblinded issuance of asset
         contract_hash = "deadbeef"*8
         issued = self.nodes[0].issueasset(1, 1, False, contract_hash)
         balance = self.nodes[0].getwalletinfo()["balance"]
         assert_equal(balance[issued["asset"]], 1)
         assert_equal(balance[issued["token"]], 1)
+
+        self.log.info("issueasset with null argument")
+        assert_equal(len(self.nodes[0].listissuances(None)), len(self.nodes[0].listissuances()))
+
         # Quick unblinded reissuance check, making 2*COIN total
         self.nodes[0].reissueasset(issued["asset"], 1)
 

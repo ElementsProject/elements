@@ -330,7 +330,7 @@ RPCHelpMan initpegoutwallet()
 
     // Generate a new key that is added to wallet or set from argument
     CPubKey online_pubkey;
-    if (request.params.size() < 3) {
+    if (request.params[2].isNull()) {
         std::string error;
         if (!pwallet->GetOnlinePakKey(online_pubkey, error)) {
             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
@@ -347,7 +347,7 @@ RPCHelpMan initpegoutwallet()
 
     // Parse offline counter
     int counter = 0;
-    if (request.params.size() > 1) {
+    if (!request.params[1].isNull()) {
         counter = request.params[1].get_int();
         if (counter < 0 || counter > 1000000000) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "bip32_counter must be between 0 and 1,000,000,000, inclusive.");
@@ -502,7 +502,7 @@ RPCHelpMan sendtomainchain_base()
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
 
     bool subtract_fee = false;
-    if (request.params.size() > 2) {
+    if (!request.params[2].isNull()) {
         subtract_fee = request.params[2].get_bool();
     }
 
@@ -523,7 +523,7 @@ RPCHelpMan sendtomainchain_base()
 
     EnsureWalletIsUnlocked(*pwallet);
 
-    bool verbose = request.params[3].isNull() ? false: request.params[3].get_bool();
+    bool verbose = request.params[3].isNull() ? false : request.params[3].get_bool();
     mapValue_t mapValue;
     CCoinControl no_coin_control; // This is a deprecated API
     return SendMoney(*pwallet, no_coin_control, recipients, std::move(mapValue), verbose, true /* ignore_blind_fail */);
@@ -587,7 +587,7 @@ RPCHelpMan sendtomainchain_pak()
                     {
                         {RPCResult::Type::STR, "bitcoin_address", "destination address on Bitcoin mainchain"},
                         {RPCResult::Type::STR_HEX, "txid", "transaction ID of the resulting Liquid transaction"},
-                        {RPCResult::Type::STR, "fee reason", "If verbose is set to true, the Liquid transaction fee reason"},
+                        {RPCResult::Type::STR, "fee_reason", /*optional=*/true, "If verbose is set to true, the Liquid transaction fee reason"},
                         {RPCResult::Type::STR, "bitcoin_descriptor", "xpubkey of the child destination address"},
                         {RPCResult::Type::STR, "bip32_counter", "derivation counter for the `bitcoin_descriptor`"},
                     },
@@ -615,7 +615,7 @@ RPCHelpMan sendtomainchain_pak()
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount for send, must send more than 0.00100000 BTC");
 
     bool subtract_fee = false;
-    if (request.params.size() > 2) {
+    if (!request.params[2].isNull()) {
         subtract_fee = request.params[2].get_bool();
     }
 
@@ -827,7 +827,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     std::vector<unsigned char> txOutProofData = ParseHex(request.params[1].get_str());
 
     std::set<CScript> claim_scripts;
-    if (request.params.size() > 2) {
+    if (!request.params[2].isNull()) {
         const std::string claim_script = request.params[2].get_str();
         if (!IsHex(claim_script)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Given claim_script is not hex.");
@@ -1003,7 +1003,7 @@ RPCHelpMan createrawpegin()
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
                     {
-                        {RPCResult::Type::STR, "hex", "raw transaction data"},
+                        {RPCResult::Type::STR_HEX, "hex", "raw transaction data"},
                         {RPCResult::Type::BOOL, "mature", "Whether the peg-in is mature (only included when validating peg-ins)"},
                     },
                 },
@@ -1273,12 +1273,12 @@ RPCHelpMan blindrawtransaction()
     }
 
     bool ignore_blind_fail = true;
-    if (request.params.size() > 1) {
+    if (!request.params[1].isNull()) {
         ignore_blind_fail = request.params[1].get_bool();
     }
 
     std::vector<std::vector<unsigned char> > auxiliary_generators;
-    if (request.params.size() > 2) {
+    if (!request.params[2].isNull()) {
         UniValue assetCommitments = request.params[2].get_array();
         if (assetCommitments.size() != 0 && assetCommitments.size() < tx.vin.size()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Asset commitment array must have at least as many entries as transaction inputs.");
@@ -1542,11 +1542,11 @@ RPCHelpMan issueasset()
         throw JSONRPCError(RPC_TYPE_ERROR, "Issuance must have one non-zero component");
     }
 
-    bool blind_issuances = request.params.size() < 3 || request.params[2].get_bool();
+    bool blind_issuances = request.params[2].isNull() || request.params[2].get_bool();
 
     // Check for optional contract to hash into definition
     uint256 contract_hash;
-    if (request.params.size() >= 4) {
+    if (!request.params[3].isNull()) {
         contract_hash = ParseHashV(request.params[3], "contract_hash");
     }
 
@@ -1733,7 +1733,7 @@ RPCHelpMan listissuances()
 
     std::string assetstr;
     CAsset asset_filter;
-    if (request.params.size() > 0) {
+    if (!request.params[0].isNull()) {
         assetstr = request.params[0].get_str();
         asset_filter = GetAssetFromString(assetstr);
     }
@@ -1956,7 +1956,7 @@ RPCHelpMan getpegoutkeys()
                 "\n(DEPRECATED) Please see `initpegoutwallet` and `sendtomainchain` for best-supported and easiest workflow. This call is for the Liquid network participants' `offline` wallet ONLY. Returns `sumkeys` corresponding to the sum of the Offline PAK and the imported Bitcoin key. The wallet must have the Offline private PAK to succeed. The output will be used in `generatepegoutproof` and `sendtomainchain`. Care is required to keep the bitcoin private key, as well as the `sumkey` safe, as a leak of both results in the leak of your `offlinekey`. Therefore it is recommended to create Bitcoin keys and do Bitcoin transaction signing directly on an offline wallet co-located with your offline Liquid wallet.\n",
                 {
                     {"btcprivkey", RPCArg::Type::STR, RPCArg::Optional::NO, "Base58 Bitcoin private key that will be combined with the offline privkey"},
-                    {"offlinepubkey", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "Hex pubkey of key to combine with btcprivkey. Primarily intended for integration testing."},
+                    {"offlinepubkey", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "33-byte compressed public key encoded as 66 hex characters, to combine with btcprivkey. Primarily intended for integration testing."},
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
@@ -1967,10 +1967,8 @@ RPCHelpMan getpegoutkeys()
                     },
                 },
                 RPCExamples{
-                    HelpExampleCli("getpegoutkeys", "")
-            + HelpExampleCli("getpegoutkeys", "\"5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KF\" \"0389275d512326f7016e014d8625f709c01f23bd0dc16522bf9845a9ee1ef6cbf9\"")
-            + HelpExampleRpc("getpegoutkeys", "")
-           + HelpExampleRpc("getpegoutkeys", "\"5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KF\", \"0389275d512326f7016e014d8625f709c01f23bd0dc16522bf9845a9ee1ef6cbf9\"")
+                    HelpExampleCli("getpegoutkeys", "\"5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KF\" \"0389275d512326f7016e014d8625f709c01f23bd0dc16522bf9845a9ee1ef6cbf9\"")
+            + HelpExampleRpc("getpegoutkeys", "\"5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KF\", \"0389275d512326f7016e014d8625f709c01f23bd0dc16522bf9845a9ee1ef6cbf9\"")
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {

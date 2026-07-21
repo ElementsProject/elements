@@ -649,6 +649,10 @@ class RawTransactionsTest(BitcoinTestFramework):
         rawtx = self.nodes[1].createrawtransaction(inputs, outputs)
         fundedTx = self.nodes[1].fundrawtransaction(rawtx)
         blindedTx = self.nodes[1].blindrawtransaction(fundedTx['hex'])
+        assert fundedTx["changepos"] != -1
+        self.log.info("blindrawtransaction with null argument")
+        blindedTx_null_commitments = self.nodes[1].blindrawtransaction(fundedTx['hex'], None, None, False)
+        assert blindedTx_null_commitments
 
         # Now we need to unlock.
         self.nodes[1].walletpassphrase("test", 600)

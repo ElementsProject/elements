@@ -600,6 +600,12 @@ class FedPegTest(BitcoinTestFramework):
 
         peg_out_txid = sidechain.sendtomainchain(some_btc_addr, 1)
 
+        self.log.info("sendtomainchain with null argument")
+        verbose_result = sidechain.sendtomainchain(some_btc_addr, 1, None, True)
+        assert isinstance(verbose_result, dict)
+        assert 'txid' in verbose_result
+        assert 'fee_reason' in verbose_result
+
         peg_out_details = sidechain.decoderawtransaction(sidechain.getrawtransaction(peg_out_txid))
         # peg-out, change, fee
         assert len(peg_out_details["vout"]) == 3

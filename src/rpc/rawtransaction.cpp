@@ -171,7 +171,7 @@ static RPCHelpMan getrawtransaction()
                 },
                 {
                     RPCResult{"if verbose is not set or set to false",
-                         RPCResult::Type::STR, "data", "The serialized, hex-encoded data for 'txid'"
+                         RPCResult::Type::STR_HEX, "data", "The serialized, hex-encoded data for 'txid'"
                      },
                      RPCResult{"if verbose is set to true",
                          RPCResult::Type::OBJ, "", "",
@@ -812,7 +812,7 @@ static RPCHelpMan combinerawtransaction()
                         },
                 },
                 RPCResult{
-                    RPCResult::Type::STR, "", "The hex-encoded raw transaction with signature(s)"
+                    RPCResult::Type::STR_HEX, "", "The hex-encoded raw transaction with signature(s)"
                 },
                 RPCExamples{
                     HelpExampleCli("combinerawtransaction", R"('["myhex1", "myhex2", "myhex3"]')")
@@ -893,7 +893,7 @@ static RPCHelpMan signrawtransactionwithkey()
                     {"hexstring", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction hex string"},
                     {"privkeys", RPCArg::Type::ARR, RPCArg::Optional::NO, "The base58-encoded private keys for signing",
                         {
-                            {"privatekey", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "private key in base58-encoding"},
+                            {"privatekey", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "private key in base58-encoding"},
                         },
                         },
                     {"prevtxs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "The previous dependent transaction outputs",
@@ -1237,11 +1237,9 @@ static RPCHelpMan decodepsbt()
                         {RPCResult::Type::NUM, "fallback_locktime", /*optional=*/true, "The locktime to fallback to if no inputs specify a required locktime."},
                         {RPCResult::Type::NUM, "input_count", /*optional=*/true, "The number of inputs in this psbt"},
                         {RPCResult::Type::NUM, "output_count", /*optional=*/true, "The number of outputs in this psbt."},
-                        {RPCResult::Type::NUM, "inputs_modifiable", /*optional=*/true, "Whether inputs can be modified"},
-                        {RPCResult::Type::NUM, "outputs_modifiable", /*optional=*/true, "Whether outputs can be modified"},
-                        {RPCResult::Type::ARR, "sighash_single_indexes", /*optional=*/true, "The indexes which have SIGHASH_SINGLE signatures",
-                            {{RPCResult::Type::NUM, "", "Index of an input with a SIGHASH_SINGLE signature"}},
-                        },
+                        {RPCResult::Type::BOOL, "inputs_modifiable", /*optional=*/true, "Whether inputs can be modified"},
+                        {RPCResult::Type::BOOL, "outputs_modifiable", /*optional=*/true, "Whether outputs can be modified"},
+                        {RPCResult::Type::BOOL, "has_sighash_single", /*optional=*/true, "Whether this PSBT has SIGHASH_SINGLE inputs"},
                         {RPCResult::Type::NUM, "psbt_version", "The PSBT version number. Not to be confused with the unsigned transaction version"},
                         {RPCResult::Type::OBJ_DYN, "scalar_offsets", /*optional=*/true, "The PSET scalar elements",
                         {
@@ -2781,7 +2779,7 @@ static RPCHelpMan rawblindrawtransaction()
                 "Returns the hex-encoded raw transaction.\n"
                 "The input raw transaction cannot have already-blinded outputs.\n"
                 "The output keys used can be specified by using a confidential address in createrawtransaction.\n"
-                "If an additional blinded output is required to make a balanced blinding, a 0-value unspendable output will be added. Since there is no access to the wallet the blinding pubkey from the last output with blinding key will be repeated.\n"
+                "If blinded inputs exist but no output has a blinding pubkey, the caller must add another blindable output; this RPC cannot derive a wallet blinding key and will fail instead of adding a dummy output.\n"
                 "You can not blind issuances with this call.\n",
                 {
                     {"hexstring", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A hex-encoded raw transaction."},
@@ -2810,7 +2808,7 @@ static RPCHelpMan rawblindrawtransaction()
                     {"ignoreblindfail", RPCArg::Type::BOOL, RPCArg::Default{true}, "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
                 },
                 RPCResult{
-                     RPCResult::Type::STR, "transaction", "hex string of the transaction"
+                     RPCResult::Type::STR_HEX, "transaction", "hex string of the transaction"
                 },
                 RPCExamples{""},
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
@@ -2844,7 +2842,7 @@ static RPCHelpMan rawblindrawtransaction()
     }
     if (inputAmounts.size() != tx.vin.size()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
-            "Invalid parameter: one (potentially empty) input blind for each input must be provided");
+            "Invalid parameter: one (potentially empty) input amount for each input must be provided");
     }
     if (inputAssets.size() != tx.vin.size()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -2895,7 +2893,7 @@ static RPCHelpMan rawblindrawtransaction()
         if (!IsHex(assetblind) || assetblind.length() != 32*2)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of 32-byte hex-encoded strings");
         if (!IsHex(asset) || asset.length() != 32*2)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of 32-byte hex-encoded strings");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset IDs must be an array of 32-byte hex-encoded strings");
 
         input_blinds.push_back(uint256S(blind));
         input_asset_blinds.push_back(uint256S(assetblind));
