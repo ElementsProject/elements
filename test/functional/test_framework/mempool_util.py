@@ -54,10 +54,10 @@ def fill_mempool(test_framework, node, *, tx_sync_fun=None):
     minrelayfee = node.getnetworkinfo()['relayfee']
 
     tx_batch_size = 1
-    num_of_batches = 75
+    num_of_batches = 74
     # Generate UTXOs to flood the mempool
     # 1 to create a tx initially that will be evicted from the mempool later
-    # 75 transactions each with a fee rate higher than the previous one
+    # 74 transactions each with a fee rate higher than the previous one
     ephemeral_miniwallet = MiniWallet(node, tag_name="fill_mempool_ephemeral_wallet")
     test_framework.generate(ephemeral_miniwallet, 1 + num_of_batches * tx_batch_size)
 

@@ -277,9 +277,11 @@ if(ENABLE_WALLET)
       init/bitcoin-wallet.cpp
       wallet/wallettool.cpp
     )
-    set_target_properties(elements-wallet PROPERTIES
-      SKIP_BUILD_RPATH OFF
-    )
+    if(APPLE)
+      set_target_properties(elements-wallet PROPERTIES
+        SKIP_BUILD_RPATH OFF
+      )
+    endif()
     add_windows_resources(elements-wallet bitcoin-wallet-res.rc)
     target_link_libraries(elements-wallet
       core_interface
@@ -421,9 +423,11 @@ if(BUILD_DAEMON)
     bitcoind.cpp
     init/bitcoind.cpp
   )
-  set_target_properties(elementsd PROPERTIES
-  SKIP_BUILD_RPATH OFF
-  )
+  if(APPLE)
+    set_target_properties(elementsd PROPERTIES
+      SKIP_BUILD_RPATH OFF
+    )
+  endif()
   add_windows_resources(elementsd bitcoind-res.rc)
   target_link_libraries(elementsd
     core_interface
@@ -438,9 +442,11 @@ if(WITH_MULTIPROCESS AND BUILD_DAEMON)
     bitcoind.cpp
     init/bitcoin-node.cpp
   )
-  set_target_properties(elements-node PROPERTIES
-    SKIP_BUILD_RPATH OFF
-  )
+  if(APPLE)
+    set_target_properties(elements-node PROPERTIES
+      SKIP_BUILD_RPATH OFF
+    )
+  endif()
   target_link_libraries(elements-node
     core_interface
     bitcoin_node
@@ -482,9 +488,11 @@ target_link_libraries(bitcoin_cli
 # Elements Core RPC client
 if(BUILD_CLI)
   add_executable(elements-cli bitcoin-cli.cpp)
-  set_target_properties(elements-cli PROPERTIES
-    SKIP_BUILD_RPATH OFF
-  )
+  if(APPLE)
+    set_target_properties(elements-cli PROPERTIES
+      SKIP_BUILD_RPATH OFF
+    )
+  endif()
   add_windows_resources(elements-cli bitcoin-cli-res.rc)
   target_link_libraries(elements-cli
     core_interface
@@ -501,9 +509,11 @@ endif()
 if(BUILD_TX)
   add_executable(elements-tx bitcoin-tx.cpp)
   add_windows_resources(elements-tx bitcoin-tx-res.rc)
-  set_target_properties(elements-tx PROPERTIES
-    SKIP_BUILD_RPATH OFF
-  )
+  if(APPLE)
+    set_target_properties(elements-tx PROPERTIES
+      SKIP_BUILD_RPATH OFF
+    )
+  endif()
   target_link_libraries(elements-tx
     core_interface
     bitcoin_common
@@ -518,9 +528,11 @@ endif()
 if(BUILD_UTIL)
   add_executable(elements-util bitcoin-util.cpp)
   add_windows_resources(elements-util bitcoin-util-res.rc)
-  set_target_properties(elements-util PROPERTIES
-    SKIP_BUILD_RPATH OFF
-  )
+  if(APPLE)
+    set_target_properties(elements-util PROPERTIES
+      SKIP_BUILD_RPATH OFF
+    )
+  endif()
   target_link_libraries(elements-util
     core_interface
     bitcoin_common
@@ -550,9 +562,11 @@ if(BUILD_UTIL_CHAINSTATE)
   # Relevant discussions:
   # - https://github.com/hebasto/bitcoin/pull/236#issuecomment-2183120953
   # - https://github.com/bitcoin/bitcoin/pull/30312#issuecomment-2191235833
-  set_target_properties(bitcoin-chainstate PROPERTIES
-    SKIP_BUILD_RPATH OFF
-  )
+  if(APPLE)
+    set_target_properties(bitcoin-chainstate PROPERTIES
+      SKIP_BUILD_RPATH OFF
+    )
+  endif()
   target_link_libraries(bitcoin-chainstate
     PRIVATE
       core_interface
