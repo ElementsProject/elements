@@ -227,9 +227,11 @@ add_executable(elements-qt
   ../init/bitcoin-qt.cpp
 )
 
-set_target_properties(elements-qt PROPERTIES
-  SKIP_BUILD_RPATH OFF
-)
+if(APPLE)
+  set_target_properties(elements-qt PROPERTIES
+    SKIP_BUILD_RPATH OFF
+  )
+endif()
 
 add_windows_resources(elements-qt res/bitcoin-qt-res.rc)
 

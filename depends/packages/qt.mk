@@ -63,6 +63,7 @@ $(package)_config_opts += -no-openssl
 $(package)_config_opts += -no-openvg
 $(package)_config_opts += -no-pkg-config
 $(package)_config_opts += -no-reduce-relocations
+$(package)_config_opts += -no-rpath
 $(package)_config_opts += -no-schannel
 $(package)_config_opts += -no-sctp
 $(package)_config_opts += -no-securetransport
