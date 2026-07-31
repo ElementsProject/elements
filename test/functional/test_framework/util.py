@@ -580,8 +580,8 @@ def check_node_connections(*, node, num_in, num_out):
 def gen_return_txouts():
     from .messages import CTxOut, CTxOutValue
     from .script import CScript, OP_RETURN
-    txouts = [CTxOut(nValue=CTxOutValue(0), scriptPubKey=CScript([OP_RETURN, b'\x01'*67437]))]
-    assert_equal(sum([len(txout.serialize()) for txout in txouts]), 67491)
+    txouts = [CTxOut(nValue=CTxOutValue(0), scriptPubKey=CScript([OP_RETURN, b'\x01'*64760]))] # ELEMENTS: tx size
+    assert_equal(sum([len(txout.serialize()) for txout in txouts]), 64810)
     return txouts
 
 

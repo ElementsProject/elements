@@ -264,7 +264,8 @@ BASE_SCRIPTS = [
     'wallet_reorgsrestore.py',
     'interface_http.py',
     'interface_rpc.py',
-    'interface_usdt_coinselection.py',
+    # ELEMENTS: tracepoints disabled
+    # 'interface_usdt_coinselection.py',
     'interface_usdt_mempool.py',
     'interface_usdt_net.py',
     'interface_usdt_utxocache.py',
@@ -462,7 +463,8 @@ BASE_SCRIPTS = [
     'feature_dirsymlinks.py',
     'feature_help.py',
     'feature_shutdown.py',
-    'wallet_migration.py',
+    # ELEMENTS: v29 not supporting migration to descriptors
+    # 'wallet_migration.py',
     'p2p_ibd_txrelay.py',
     'p2p_seednode.py',
     # Don't append tests at the end to avoid merge conflicts
@@ -992,7 +994,8 @@ class RPCCoverage():
         # ELEMENTS: also consider `getdifficulty` and `getnetworkhashps` covered, which should be removed as they are meaningless on a signed-block chain
         # ELEMENTS: also consider `pruneblockchain` covered since its test is temporarily disabled
         # ELEMENTS FIXME: consider `descriptprocesspsbt` and `parsepsbt` as covered until PSBT FIXMEs are taken care of
-        covered_cmds = set({'generate', 'getdifficulty', 'getnetworkhashps', 'pruneblockchain', 'descriptorprocesspsbt', 'parsepsbt'})
+        # ELEMENTS: also consider `finalizecompactblock` covered, as no test currently exercises this newly-added RPC
+        covered_cmds = set({'generate', 'getdifficulty', 'getnetworkhashps', 'pruneblockchain', 'descriptorprocesspsbt', 'parsepsbt', 'finalizecompactblock'})
 
         if not os.path.isfile(coverage_ref_filename):
             raise RuntimeError("No coverage reference found")

@@ -311,7 +311,7 @@ class UTXOCacheTracepointTest(BitcoinTestFramework):
                         "is_coinbase": spends_coinbase,
                     })
             for (i, vout) in enumerate(tx["vout"]):
-                if vout["scriptPubKey"]["type"] != "nulldata":
+                if vout["scriptPubKey"]["type"] not in ("nulldata", "fee"):
                     expected_utxocache_adds.append({
                         "txid": tx["txid"],
                         "index": i,

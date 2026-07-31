@@ -54,7 +54,7 @@ def fill_mempool(test_framework, node, *, tx_sync_fun=None):
     minrelayfee = node.getnetworkinfo()['relayfee']
 
     tx_batch_size = 1
-    num_of_batches = 73
+    num_of_batches = 77 # ELEMENTS: different tx size. 67504 + 76*66176 = 5096880 (over 5M and eviction correctly triggers)
     # Generate UTXOs to flood the mempool
     # 1 to create a tx initially that will be evicted from the mempool later
     # 74 transactions each with a fee rate higher than the previous one
