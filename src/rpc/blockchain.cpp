@@ -3757,6 +3757,44 @@ static RPCHelpMan getsidechaininfo()
     };
 }
 
+UniValue NodeGenerationToJSON(const NodeGenerationSnapshot& generation)
+{
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("startup_id", generation.startup_id.GetHex());
+    result.pushKV("chainstate_revision", generation.chainstate_revision);
+    result.pushKV("blocks", generation.blocks);
+    result.pushKV("bestblockhash", generation.bestblockhash.GetHex());
+    return result;
+}
+
+static RPCHelpMan getnodegeneration()
+{
+    return RPCHelpMan{"getnodegeneration",
+        "Returns process and active-chain generation fields for stale-response and reorganization ABA detection.\n"
+        "These fields do not establish binary provenance and do not prove that the connected node is honest.\n",
+        {},
+        RPCResult{
+            RPCResult::Type::OBJ, "", "",
+            {
+                {RPCResult::Type::STR_HEX, "startup_id", "a cryptographically random 256-bit identifier that is constant for this daemon process"},
+                {RPCResult::Type::NUM, "chainstate_revision", "an unsigned counter advanced for every active-chain connect, disconnect, or active chainstate switch"},
+                {RPCResult::Type::NUM, "blocks", "the active chain height bound atomically to chainstate_revision"},
+                {RPCResult::Type::STR_HEX, "bestblockhash", "the active best block hash bound atomically to chainstate_revision"},
+            }},
+        RPCExamples{
+            HelpExampleCli("getnodegeneration", "")
+            + HelpExampleRpc("getnodegeneration", "")
+        },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    ChainstateManager& chainman = EnsureAnyChainman(request.context);
+    LOCK(chainman.GetMutex());
+    const NodeGenerationSnapshot generation{chainman.GetNodeGeneration()};
+    return NodeGenerationToJSON(generation);
+},
+    };
+}
+
 // END ELEMENTS
 //
 
@@ -3765,6 +3803,7 @@ void RegisterBlockchainRPCCommands(CRPCTable &t)
     static const CRPCCommand commands[] =
     {
         {"blockchain", &getblockchaininfo},
+        {"blockchain", &getnodegeneration},
         {"blockchain", &getchaintxstats},
         {"blockchain", &getblockstats},
         {"blockchain", &getbestblockhash},

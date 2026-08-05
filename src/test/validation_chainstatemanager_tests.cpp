@@ -49,6 +49,10 @@ BOOST_FIXTURE_TEST_CASE(chainstatemanager, TestChain100Setup)
     Chainstate& c1 = manager.ActiveChainstate();
     chainstates.push_back(&c1);
 
+    const NodeGenerationSnapshot initial_generation{
+        WITH_LOCK(manager.GetMutex(), return manager.GetNodeGeneration())};
+    BOOST_CHECK_GT(initial_generation.chainstate_revision, 0U);
+
     BOOST_CHECK(!manager.IsSnapshotActive());
     BOOST_CHECK(WITH_LOCK(::cs_main, return !manager.IsSnapshotValidated()));
     auto all = manager.GetAll();
@@ -59,6 +63,10 @@ BOOST_FIXTURE_TEST_CASE(chainstatemanager, TestChain100Setup)
 
     // Get to a valid assumeutxo tip (per chainparams);
     mineBlocks(10);
+    const NodeGenerationSnapshot mined_generation{
+        WITH_LOCK(manager.GetMutex(), return manager.GetNodeGeneration())};
+    BOOST_CHECK_EQUAL(mined_generation.startup_id, initial_generation.startup_id);
+    BOOST_CHECK_EQUAL(mined_generation.chainstate_revision, initial_generation.chainstate_revision + 10);
     BOOST_CHECK_EQUAL(WITH_LOCK(manager.GetMutex(), return manager.ActiveHeight()), 110);
     auto active_tip = WITH_LOCK(manager.GetMutex(), return manager.ActiveTip());
     auto exp_tip = c1.m_chain.Tip();
@@ -83,6 +91,11 @@ BOOST_FIXTURE_TEST_CASE(chainstatemanager, TestChain100Setup)
     BlockValidationState _;
     BOOST_CHECK(c2.ActivateBestChain(_, nullptr));
 
+    const NodeGenerationSnapshot snapshot_generation{
+        WITH_LOCK(manager.GetMutex(), return manager.GetNodeGeneration())};
+    BOOST_CHECK_EQUAL(snapshot_generation.startup_id, initial_generation.startup_id);
+    BOOST_CHECK_EQUAL(snapshot_generation.chainstate_revision, mined_generation.chainstate_revision + 1);
+
     BOOST_CHECK_EQUAL(manager.SnapshotBlockhash().value(), snapshot_blockhash);
     BOOST_CHECK(manager.IsSnapshotActive());
     BOOST_CHECK(WITH_LOCK(::cs_main, return !manager.IsSnapshotValidated()));
@@ -96,6 +109,9 @@ BOOST_FIXTURE_TEST_CASE(chainstatemanager, TestChain100Setup)
 
     BOOST_CHECK_EQUAL(WITH_LOCK(manager.GetMutex(), return manager.ActiveHeight()), 110);
     mineBlocks(1);
+    const NodeGenerationSnapshot snapshot_mined_generation{
+        WITH_LOCK(manager.GetMutex(), return manager.GetNodeGeneration())};
+    BOOST_CHECK_EQUAL(snapshot_mined_generation.chainstate_revision, snapshot_generation.chainstate_revision + 1);
     BOOST_CHECK_EQUAL(WITH_LOCK(manager.GetMutex(), return manager.ActiveHeight()), 111);
     BOOST_CHECK_EQUAL(WITH_LOCK(manager.GetMutex(), return c1.m_chain.Height()), 110);
 
@@ -574,6 +590,8 @@ BOOST_FIXTURE_TEST_CASE(chainstatemanager_snapshot_init, SnapshotTestSetup)
     BOOST_CHECK(chainman.IsSnapshotActive());
     const uint256 snapshot_tip_hash = WITH_LOCK(chainman.GetMutex(),
         return chainman.ActiveTip()->GetBlockHash());
+    const NodeGenerationSnapshot generation_before_background_disconnect{
+        WITH_LOCK(chainman.GetMutex(), return chainman.GetNodeGeneration())};
 
     auto all_chainstates = chainman.GetAll();
     BOOST_CHECK_EQUAL(all_chainstates.size(), 2);
@@ -591,6 +609,12 @@ BOOST_FIXTURE_TEST_CASE(chainstatemanager_snapshot_init, SnapshotTestSetup)
         unused_pool.clear();  // to avoid queuedTx assertion errors on teardown
     }
     BOOST_CHECK_EQUAL(bg_chainstate.m_chain.Height(), 109);
+    const NodeGenerationSnapshot generation_after_background_disconnect{
+        WITH_LOCK(chainman.GetMutex(), return chainman.GetNodeGeneration())};
+    BOOST_CHECK_EQUAL(generation_after_background_disconnect.startup_id, generation_before_background_disconnect.startup_id);
+    BOOST_CHECK_EQUAL(generation_after_background_disconnect.chainstate_revision, generation_before_background_disconnect.chainstate_revision);
+    BOOST_CHECK_EQUAL(generation_after_background_disconnect.blocks, generation_before_background_disconnect.blocks);
+    BOOST_CHECK_EQUAL(generation_after_background_disconnect.bestblockhash, generation_before_background_disconnect.bestblockhash);
 
     // Test that simulating a shutdown (resetting ChainstateManager) and then performing
     // chainstate reinitializing successfully cleans up the background-validation
@@ -610,6 +634,10 @@ BOOST_FIXTURE_TEST_CASE(chainstatemanager_snapshot_init, SnapshotTestSetup)
 
         BOOST_CHECK_EQUAL(chainman_restarted.ActiveTip()->GetBlockHash(), snapshot_tip_hash);
         BOOST_CHECK_EQUAL(chainman_restarted.ActiveHeight(), 210);
+
+        const NodeGenerationSnapshot restarted_generation{chainman_restarted.GetNodeGeneration()};
+        BOOST_CHECK_EQUAL(restarted_generation.startup_id, generation_before_background_disconnect.startup_id);
+        BOOST_CHECK_GT(restarted_generation.chainstate_revision, generation_before_background_disconnect.chainstate_revision);
     }
 
     BOOST_TEST_MESSAGE(
