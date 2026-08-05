@@ -118,6 +118,13 @@ const std::vector<std::string> CHECKLEVEL_DOC {
  * */
 static constexpr int PRUNE_LOCK_BUFFER{10};
 
+// Return whether the completed full flush should compact chainstate
+static bool ShouldCompactChainstate(bool in_ibd)
+{
+    static constexpr uint32_t flush_ratio{320}; // Roughly every 2 weeks with hourly flushes
+    return !in_ibd && FastRandomContext().randrange(flush_ratio) == 0;
+}
+
 TRACEPOINT_SEMAPHORE(validation, block_connected);
 TRACEPOINT_SEMAPHORE(utxocache, flush);
 TRACEPOINT_SEMAPHORE(mempool, replaced);
@@ -864,7 +871,7 @@ private:
         // or the peg-in paid enough subsidy
         return true;
     }
-        
+
     ValidationCache& GetValidationCache()
     {
         return m_active_chainstate.m_chainman.m_validation_cache;
@@ -986,7 +993,24 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
                 // Transaction conflicts with a mempool tx, but we're not allowing replacements in this context.
                 return state.Invalid(TxValidationResult::TX_MEMPOOL_POLICY, "bip125-replacement-disallowed");
             }
-            ws.m_conflicts.insert(ptxConflicting->GetHash());
+            if (!ws.m_conflicts.count(ptxConflicting->GetHash()))
+            {
+                // Transactions that don't explicitly signal replaceability are
+                // *not* replaceable with the current logic, even if one of their
+                // unconfirmed ancestors signals replaceability. This diverges
+                // from BIP125's inherited signaling description (see CVE-2021-31876).
+                // Applications relying on first-seen mempool behavior should
+                // check all unconfirmed ancestors; otherwise an opt-in ancestor
+                // might be replaced, causing removal of this descendant.
+                //
+                // All TRUC transactions are considered replaceable.
+                const bool allow_rbf{SignalsOptInRBF(*ptxConflicting) || ptxConflicting->version == TRUC_VERSION};
+                if (!allow_rbf) {
+                    return state.Invalid(TxValidationResult::TX_MEMPOOL_POLICY, "txn-mempool-conflict");
+                }
+
+                ws.m_conflicts.insert(ptxConflicting->GetHash());
+            }
         }
     }
 
@@ -1252,26 +1276,28 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
     // Even though just checking direct mempool parents for inheritance would be sufficient, we
     // check using the full ancestor set here because it's more convenient to use what we have
     // already calculated.
-    if (const auto err{SingleTRUCChecks(ws.m_ptx, ws.m_ancestors, ws.m_conflicts, ws.m_vsize)}) {
-        // Single transaction contexts only.
-        if (args.m_allow_sibling_eviction && err->second != nullptr) {
-            // We should only be considering where replacement is considered valid as well.
-            Assume(args.m_allow_replacement);
+    if (!args.m_bypass_limits) {
+        if (const auto err{SingleTRUCChecks(ws.m_ptx, ws.m_ancestors, ws.m_conflicts, ws.m_vsize)}) {
+            // Single transaction contexts only.
+            if (args.m_allow_sibling_eviction && err->second != nullptr) {
+                // We should only be considering where replacement is considered valid as well.
+                Assume(args.m_allow_replacement);
 
-            // Potential sibling eviction. Add the sibling to our list of mempool conflicts to be
-            // included in RBF checks.
-            ws.m_conflicts.insert(err->second->GetHash());
-            // Adding the sibling to m_iters_conflicting here means that it doesn't count towards
-            // RBF Carve Out above. This is correct, since removing to-be-replaced transactions from
-            // the descendant count is done separately in SingleTRUCChecks for TRUC transactions.
-            ws.m_iters_conflicting.insert(m_pool.GetIter(err->second->GetHash()).value());
-            ws.m_sibling_eviction = true;
-            // The sibling will be treated as part of the to-be-replaced set in ReplacementChecks.
-            // Note that we are not checking whether it opts in to replaceability via BIP125 or TRUC
-            // (which is normally done in PreChecks). However, the only way a TRUC transaction can
-            // have a non-TRUC and non-BIP125 descendant is due to a reorg.
-        } else {
-            return state.Invalid(TxValidationResult::TX_MEMPOOL_POLICY, "TRUC-violation", err->first);
+                // Potential sibling eviction. Add the sibling to our list of mempool conflicts to be
+                // included in RBF checks.
+                ws.m_conflicts.insert(err->second->GetHash());
+                // Adding the sibling to m_iters_conflicting here means that it doesn't count towards
+                // RBF Carve Out above. This is correct, since removing to-be-replaced transactions from
+                // the descendant count is done separately in SingleTRUCChecks for TRUC transactions.
+                ws.m_iters_conflicting.insert(m_pool.GetIter(err->second->GetHash()).value());
+                ws.m_sibling_eviction = true;
+                // The sibling will be treated as part of the to-be-replaced set in ReplacementChecks.
+                // Note that we are not checking whether it opts in to replaceability via BIP125 or TRUC
+                // (which is normally done in PreChecks). However, the only way a TRUC transaction can
+                // have a non-TRUC and non-BIP125 descendant is due to a reorg.
+            } else {
+                return state.Invalid(TxValidationResult::TX_MEMPOOL_POLICY, "TRUC-violation", err->first);
+            }
         }
     }
 
@@ -1471,13 +1497,8 @@ bool MemPoolAccept::PolicyScriptChecks(const ATMPArgs& args, Workspace& ws)
     // Check input scripts and signatures.
     // This is done last to help prevent CPU exhaustion denial-of-service attacks.
     if (!CheckInputScripts(tx, state, m_view, scriptVerifyFlags, true, false, ws.m_precomputed_txdata, GetValidationCache())) {
-        // SCRIPT_VERIFY_CLEANSTACK requires SCRIPT_VERIFY_WITNESS, so we
-        // need to turn both off, and compare against just turning off CLEANSTACK
-        // to see if the failure is specifically due to witness validation.
-        TxValidationState state_dummy; // Want reported failures to be from first CheckInputScripts
-        if (!tx.HasWitness() && CheckInputScripts(tx, state_dummy, m_view, scriptVerifyFlags & ~(SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_CLEANSTACK), true, false, ws.m_precomputed_txdata, GetValidationCache()) &&
-                !CheckInputScripts(tx, state_dummy, m_view, scriptVerifyFlags & ~SCRIPT_VERIFY_CLEANSTACK, true, false, ws.m_precomputed_txdata, GetValidationCache())) {
-            // Only the witness is missing, so the transaction itself may be fine.
+        // Detect a failure due to a missing witness so that p2p code can handle rejection caching appropriately.
+        if (!tx.HasWitness() && SpendsNonAnchorWitnessProg(tx, m_view)) {
             state.Invalid(TxValidationResult::TX_WITNESS_STRIPPED,
                     state.GetRejectReason(), state.GetDebugMessage());
         }
@@ -2466,35 +2487,16 @@ bool CheckInputScripts(const CTransaction& tx, TxValidationState& state,
         CCheck* check = new CScriptCheck(txdata.m_spent_outputs[i], tx, validation_cache.m_signature_cache, i, flags, cacheSigStore, &txdata);
         if (pvChecks) {
             pvChecks->emplace_back(std::move(check));
-        } else if (auto result = (*check)(); result.has_value()) {
-            if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
-                // Check whether the failure was caused by a
-                // non-mandatory script verification check, such as
-                // non-standard DER encodings or non-null dummy
-                // arguments; if so, ensure we return NOT_STANDARD
-                // instead of CONSENSUS to avoid downstream users
-                // splitting the network between upgraded and
-                // non-upgraded nodes by banning CONSENSUS-failing
-                // data providers.
-                CScriptCheck check2(txdata.m_spent_outputs[i], tx, validation_cache.m_signature_cache, i,
-                        flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheSigStore, &txdata);
-                auto mandatory_result = check2();
-                if (!mandatory_result.has_value()) {
-                    return state.Invalid(TxValidationResult::TX_NOT_STANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(result->first)), result->second);
+        } else {
+            auto result = (*check)();
+            delete check; // ELEMENTS: synchronous path owns `check`; queued path (above) transfers ownership instead.
+            if (result.has_value()) {
+                if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
+                    return state.Invalid(TxValidationResult::TX_NOT_STANDARD, strprintf("mempool-script-verify-flag-failed (%s)", ScriptErrorString(result->first)), result->second);
                 } else {
-                    // If the second check failed, it failed due to a mandatory script verification
-                    // flag, but the first check might have failed on a non-mandatory script
-                    // verification flag.
-                    //
-                    // Avoid reporting a mandatory script check failure with a non-mandatory error
-                    // string by reporting the error from the second check.
-                    result = mandatory_result;
+                    return state.Invalid(TxValidationResult::TX_CONSENSUS, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(result->first)), result->second);
                 }
             }
-
-            // MANDATORY flag failures correspond to
-            return state.Invalid(TxValidationResult::TX_CONSENSUS, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(result->first)), result->second);
-
         }
     }
 
@@ -2976,8 +2978,9 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
     // in multiple threads). Preallocate the vector size so a new allocation
     // doesn't invalidate pointers into the vector, and keep txsdata in scope
     // for as long as `control`.
-    CCheckQueueControl<CCheck> control(fScriptChecks && parallel_script_checks ? &m_chainman.GetCheckQueue() : nullptr);
     std::vector<PrecomputedTransactionData> txsdata;
+    CCheckQueueControl<CCheck> control(fScriptChecks && parallel_script_checks ? &m_chainman.GetCheckQueue() : nullptr);
+    txsdata.reserve(block.vtx.size());
     for (unsigned int i = 0; i < block.vtx.size(); i++){
         txsdata.emplace_back(m_chainman.GetParams().HashGenesisBlock());
     }
@@ -3095,7 +3098,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
              Ticks<SecondsDouble>(m_chainman.time_connect),
              Ticks<MillisecondsDouble>(m_chainman.time_connect) / m_chainman.num_blocks_total);
 
-    // todo: 
+    // todo:
     // CAmountMap block_reward = fee_map;
     // block_reward[consensusParams.subsidy_asset] += GetBlockSubsidy(pindex->nHeight, consensusParams);
     // if (!MoneyRange(block_reward)) {
@@ -3105,7 +3108,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
     // if (!VerifyCoinbaseAmount(*(block.vtx[0]), block_reward)) {
     //     LogPrintf("ERROR: ConnectBlock(): coinbase pays too much\n");
     //     return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-amount");
-    
+
     CAmountMap block_reward = fee_map;
     block_reward[consensusParams.subsidy_asset] += GetBlockSubsidy(pindex->nHeight, consensusParams);
     if (!MoneyRange(block_reward) && state.IsValid()) {
@@ -3391,9 +3394,20 @@ bool Chainstate::FlushStateToDisk(
                    (bool)fFlushForPrune);
         }
     }
-    if (full_flush_completed && m_chainman.m_options.signals) {
-        // Update best block in wallet (so we can detect restored wallets).
-        m_chainman.m_options.signals->ChainStateFlushed(this->GetRole(), m_chain.GetLocator());
+
+    if (full_flush_completed) {
+        if (m_chainman.m_options.signals) {
+            // Update best block in wallet (so we can detect restored wallets).
+            m_chainman.m_options.signals->ChainStateFlushed(this->GetRole(), m_chain.GetLocator());
+        }
+
+        if (!m_chainman.m_interrupt && ShouldCompactChainstate(m_chainman.IsInitialBlockDownload())) {
+            try {
+                CoinsDB().CompactFull();
+            } catch (const std::exception& e) {
+                LogWarning("Failed to start chainstate compaction (%s)", e.what());
+            }
+        }
     }
     } catch (const std::runtime_error& e) {
         return FatalError(m_chainman.GetNotifications(), state, strprintf(_("System error while flushing: %s"), e.what()));
@@ -3428,15 +3442,17 @@ static void UpdateTipLog(
 {
 
     AssertLockHeld(::cs_main);
-    LogPrintf("%s%s: new best=%s height=%d version=0x%08x log2_work=%f tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)%s\n",
-        prefix, func_name,
-        tip->GetBlockHash().ToString(), tip->nHeight, tip->nVersion,
-        log(tip->nChainWork.getdouble()) / log(2.0), tip->m_chain_tx_count,
-        FormatISO8601DateTime(tip->GetBlockTime()),
-        chainman.GuessVerificationProgress(tip),
-        coins_tip.DynamicMemoryUsage() * (1.0 / (1 << 20)),
-        coins_tip.GetCacheSize(),
-        !warning_messages.empty() ? strprintf(" warning='%s'", warning_messages) : "");
+
+    // Disable rate limiting in LogPrintLevel_ so this source location may log during IBD.
+    LogPrintLevel_(BCLog::LogFlags::ALL, BCLog::Level::Info, /*should_ratelimit=*/false, "%s%s: new best=%s height=%d version=0x%08x log2_work=%f tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)%s\n",
+                   prefix, func_name,
+                   tip->GetBlockHash().ToString(), tip->nHeight, tip->nVersion,
+                   log(tip->nChainWork.getdouble()) / log(2.0), tip->m_chain_tx_count,
+                   FormatISO8601DateTime(tip->GetBlockTime()),
+                   chainman.GuessVerificationProgress(tip),
+                   coins_tip.DynamicMemoryUsage() * (1.0 / (1 << 20)),
+                   coins_tip.GetCacheSize(),
+                   !warning_messages.empty() ? strprintf(" warning='%s'", warning_messages) : "");
 }
 
 void ForceUntrimHeader(const CBlockIndex *pindex_) EXCLUSIVE_LOCKS_REQUIRED(::cs_main)
@@ -4832,7 +4848,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, BlockValidatio
         LogPrintf("ERROR: %s: block height in header is incorrect (got %d, expected %d)\n", __func__, block.block_height, nHeight);
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "bad-header-height");
     }
-    
+
     // Testnet4 and regtest only: Check timestamp against prev for difficulty-adjustment
     // blocks to prevent timewarp attacks (see https://github.com/bitcoin/bitcoin/pull/15482).
     if (consensusParams.enforce_BIP94) {
@@ -6255,7 +6271,14 @@ double GuessVerificationProgress(const CBlockIndex* pindex, int64_t blockInterva
 
     int64_t nNow = GetTime();
     int64_t moreBlocksExpected = (nNow - pindex->GetBlockTime()) / blockInterval;
-    double progress = (pindex->nHeight + 0.0) / (pindex->nHeight + moreBlocksExpected);
+    int64_t totalBlocksExpected = pindex->nHeight + moreBlocksExpected;
+    if (totalBlocksExpected <= 0) {
+        // The block's timestamp is far enough ahead of nNow (relative to
+        // blockInterval) that the naive extrapolation is degenerate;
+        // treat this the same as "caught up".
+        return 1.0;
+    }
+    double progress = (pindex->nHeight + 0.0) / totalBlocksExpected;
     // Round to 3 digits to avoid 0.999999 when finished.
     progress = ceil(progress * 1000.0) / 1000.0;
     // Avoid higher than one if last block is newer than current time.

@@ -49,6 +49,7 @@ KNOWN_VIOLATIONS = [
     "src/util/syserror.cpp:.*strerror",      # Outside this function use `SysErrorString`
     # ELEMENTS
     "src/chain.h:.*bool trim()", # False positive, we define our own `trim` it's not boost
+    "src/rpc/blockchain.cpp:.*trim_headers", # False positive
 ]
 
 REGEXP_EXTERNAL_DEPENDENCIES_EXCLUSIONS = [

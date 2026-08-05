@@ -24,6 +24,14 @@ fi
 echo "Free disk space:"
 df -h
 
+# We force an install of linux-headers again here via $PACKAGES to fix any
+# kernel mismatch between a cached docker image and the underlying host.
+# This can happen occasionally on hosted runners if the runner image is updated.
+if [[ "$CONTAINER_NAME" == "ci_native_asan" ]]; then
+  $CI_RETRY_EXE apt-get update
+  ${CI_RETRY_EXE} bash -c "apt-get install --no-install-recommends --no-upgrade -y $PACKAGES"
+fi
+
 # What host to compile for. See also ./depends/README.md
 # Tests that need cross-compilation export the appropriate HOST.
 # Tests that run natively guess the host
@@ -93,13 +101,16 @@ fi
 if [ -z "$NO_DEPENDS" ]; then
   case "${CI_IMAGE_NAME_TAG}" in
     *centos*|*rocky*)
-      SHELL_OPTS="CONFIG_SHELL=/bin/ksh"  # Temporarily use ksh instead of dash, until https://bugzilla.redhat.com/show_bug.cgi?id=2335416 is fixed.
+      SHELL_OPTS="CONFIG_SHELL=/bin/dash"
       ;;
     *)
       SHELL_OPTS="CONFIG_SHELL="
       ;;
   esac
   bash -c "$SHELL_OPTS make $MAKEJOBS -C depends HOST=$HOST $DEP_OPTS LOG=1"
+fi
+if [ "$DOWNLOAD_PREVIOUS_RELEASES" = "true" ]; then
+  test/get_previous_releases.py -b -t "$PREVIOUS_RELEASES_DIR"
 fi
 
 BITCOIN_CONFIG_ALL="-DBUILD_BENCH=ON -DBUILD_FUZZ_BINARY=ON"
@@ -113,60 +124,12 @@ fi
 ccache --zero-stats
 PRINT_CCACHE_STATISTICS="ccache --version | head -n 1 && ccache --show-stats"
 
-if [ -z "$NO_DEPENDS" ]; then
-  # legacy autotools path (depends builds)
-  BITCOIN_CONFIG_ALL="${BITCOIN_CONFIG_ALL} --enable-external-signer --prefix=$BASE_OUTDIR"
-else
-  # modern CMake path (native macOS + NO_DEPENDS=1)
-  BITCOIN_CONFIG_ALL="${BITCOIN_CONFIG_ALL} -DENABLE_EXTERNAL_SIGNER=ON"
-fi
-
-# === CMake build (modern path used by the fork) ===
-if [ -n "$NO_DEPENDS" ]; then
-  echo "Building with CMake (NO_DEPENDS=1)..."
-  cmake -B build -S . ${CMAKE_GENERATOR:+-G "$CMAKE_GENERATOR"} $BITCOIN_CONFIG_ALL
-else
-  # depends path (still uses configure in some jobs)
-  ./autogen.sh
-  ./configure $BITCOIN_CONFIG_ALL
-fi
-
-cmake --build build --config Release --parallel "$MAKEJOBS"
-
-if [ -n "$NO_DEPENDS" ]; then
-  bash -c "${PRINT_CCACHE_STATISTICS}"
-
-  if [ "$RUN_UNIT_TESTS" = "true" ]; then
-    DIR_UNIT_TEST_DATA="${DIR_UNIT_TEST_DATA}" CTEST_OUTPUT_ON_FAILURE=ON ctest --stop-on-failure "${MAKEJOBS}" --timeout $(( TEST_RUNNER_TIMEOUT_FACTOR * 60 ))
-  fi
-
-  if [ "$RUN_FUNCTIONAL_TESTS" = "true" ]; then
-    eval "TEST_RUNNER_EXTRA=($TEST_RUNNER_EXTRA)"
-    test/functional/test_runner.py --ci "${MAKEJOBS}" --tmpdirprefix "${BASE_SCRATCH_DIR}"/test_runner/ --ansi --combinedlogslen=99999999 --timeout-factor="${TEST_RUNNER_TIMEOUT_FACTOR}" "${TEST_RUNNER_EXTRA[@]}" --quiet --failfast
-  fi
-
-  exit 0
-fi
-
+# Folder where the build is done.
+BASE_BUILD_DIR=${BASE_BUILD_DIR:-$BASE_SCRATCH_DIR/build-$HOST}
 mkdir -p "${BASE_BUILD_DIR}"
 cd "${BASE_BUILD_DIR}"
 
-bash -c "${BASE_ROOT_DIR}/configure --cache-file=config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG" || ( (cat config.log) && false)
-
-make distdir VERSION="$HOST"
-
-cd "${BASE_BUILD_DIR}/elements-$HOST"
-
-bash -c "./configure --cache-file=../config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG" || ( (cat config.log) && false)
-
-# ELEMENTS FIXME: fix fix in order to correctly run it #30454 
-# # Folder where the build is done.
-# BASE_BUILD_DIR=${BASE_BUILD_DIR:-$BASE_SCRATCH_DIR/build-$HOST}
-# mkdir -p "${BASE_BUILD_DIR}"
-# cd "${BASE_BUILD_DIR}"
-# 
-# BITCOIN_CONFIG_ALL="$BITCOIN_CONFIG_ALL -DENABLE_EXTERNAL_SIGNER=ON -DCMAKE_INSTALL_PREFIX=$BASE_OUTDIR"
-
+BITCOIN_CONFIG_ALL="$BITCOIN_CONFIG_ALL -DENABLE_EXTERNAL_SIGNER=ON -DCMAKE_INSTALL_PREFIX=$BASE_OUTDIR"
 
 if [[ "${RUN_TIDY}" == "true" ]]; then
   BITCOIN_CONFIG_ALL="$BITCOIN_CONFIG_ALL -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
@@ -177,6 +140,12 @@ bash -c "cmake -S $BASE_ROOT_DIR $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG || ( (cat $
 bash -c "cmake --build . $MAKEJOBS --target all $GOAL" || ( echo "Build failure. Verbose build follows." && cmake --build . --target all "$GOAL" --verbose ; false )
 
 bash -c "${PRINT_CCACHE_STATISTICS}"
+if [ "$CI" = "true" ]; then
+  hit_rate=$(ccache -s | grep "Hits:" | head -1 | sed 's/.*(\(.*\)%).*/\1/')
+  if [ "${hit_rate%.*}" -lt 75 ]; then
+      echo "::notice title=low ccache hitrate::Ccache hit-rate in $CONTAINER_NAME was $hit_rate%"
+  fi
+fi
 du -sh "${DEPENDS_DIR}"/*/
 du -sh "${PREVIOUS_RELEASES_DIR}"
 
@@ -193,17 +162,17 @@ if [ "$RUN_CHECK_DEPS" = "true" ]; then
 fi
 
 if [ "$RUN_UNIT_TESTS" = "true" ]; then
-  DIR_UNIT_TEST_DATA="${DIR_UNIT_TEST_DATA}" LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib" CTEST_OUTPUT_ON_FAILURE=ON ctest --stop-on-failure "${MAKEJOBS}" --timeout $(( TEST_RUNNER_TIMEOUT_FACTOR * 60 ))
+  DIR_UNIT_TEST_DATA="${DIR_UNIT_TEST_DATA}" LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib:${BASE_BUILD_DIR}/lib:${BASE_BUILD_DIR}/src/secp256k1/lib" CTEST_OUTPUT_ON_FAILURE=ON ctest --stop-on-failure "${MAKEJOBS}" --timeout $(( TEST_RUNNER_TIMEOUT_FACTOR * 60 ))
 fi
 
 if [ "$RUN_UNIT_TESTS_SEQUENTIAL" = "true" ]; then
-  DIR_UNIT_TEST_DATA="${DIR_UNIT_TEST_DATA}" LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib" "${BASE_OUTDIR}"/bin/test_elements --catch_system_errors=no -l test_suite
+  DIR_UNIT_TEST_DATA="${DIR_UNIT_TEST_DATA}" LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib:${BASE_BUILD_DIR}/lib:${BASE_BUILD_DIR}/src/secp256k1/lib" "${BASE_OUTDIR}"/bin/test_elements --catch_system_errors=no -l test_suite
 fi
 
 if [ "$RUN_FUNCTIONAL_TESTS" = "true" ]; then
   # parses TEST_RUNNER_EXTRA as an array which allows for multiple arguments such as TEST_RUNNER_EXTRA='--exclude "rpc_bind.py --ipv6"'
   eval "TEST_RUNNER_EXTRA=($TEST_RUNNER_EXTRA)"
-  LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib" test/functional/test_runner.py --ci "${MAKEJOBS}" --tmpdirprefix "${BASE_SCRATCH_DIR}"/test_runner/ --ansi --combinedlogslen=99999999 --timeout-factor="${TEST_RUNNER_TIMEOUT_FACTOR}" "${TEST_RUNNER_EXTRA[@]}" --quiet --failfast
+  LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib:${BASE_BUILD_DIR}/lib:${BASE_BUILD_DIR}/src/secp256k1/lib" test/functional/test_runner.py --ci "${MAKEJOBS}" --tmpdirprefix "${BASE_SCRATCH_DIR}"/test_runner/ --ansi --combinedlogslen=99999999 --timeout-factor="${TEST_RUNNER_TIMEOUT_FACTOR}" "${TEST_RUNNER_EXTRA[@]}" --quiet --failfast
 fi
 
 if [ "${RUN_TIDY}" = "true" ]; then
@@ -217,17 +186,17 @@ if [ "${RUN_TIDY}" = "true" ]; then
   jq 'map(select(.file | test("src/qt/.*_autogen/.*\\.cpp$") | not))' "${BASE_BUILD_DIR}/compile_commands.json" > tmp.json
   mv tmp.json "${BASE_BUILD_DIR}/compile_commands.json"
 
-  cd "${BASE_BUILD_DIR}/elements-$HOST/src/"
+  cd "${BASE_BUILD_DIR}/src/"
   if ! ( run-clang-tidy-"${TIDY_LLVM_V}" -quiet -load="/tidy-build/libbitcoin-tidy.so" "${MAKEJOBS}" | tee tmp.tidy-out.txt ); then
     grep -C5 "error: " tmp.tidy-out.txt
     echo "^^^ ⚠️ Failure generated from clang-tidy"
     false
   fi
 
-  cd "${BASE_BUILD_DIR}/elements-$HOST/"
+  cd "${BASE_ROOT_DIR}"
   python3 "/include-what-you-use/iwyu_tool.py" \
-           -p . "${MAKEJOBS}" \
-           -- -Xiwyu --cxx17ns -Xiwyu --mapping_file="${BASE_BUILD_DIR}/elements-$HOST/contrib/devtools/iwyu/bitcoin.core.imp" \
+           -p "${BASE_BUILD_DIR}" "${MAKEJOBS}" \
+           -- -Xiwyu --cxx17ns -Xiwyu --mapping_file="${BASE_ROOT_DIR}/contrib/devtools/iwyu/bitcoin.core.imp" \
            -Xiwyu --max_line_length=160 \
            2>&1 | tee /tmp/iwyu_ci.out
   cd "${BASE_ROOT_DIR}/src"
@@ -237,5 +206,5 @@ fi
 
 if [ "$RUN_FUZZ_TESTS" = "true" ]; then
   # shellcheck disable=SC2086
-  LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib" test/fuzz/test_runner.py ${FUZZ_TESTS_CONFIG} "${MAKEJOBS}" -l DEBUG "${DIR_FUZZ_IN}" --empty_min_time=60
+  LD_LIBRARY_PATH="${DEPENDS_DIR}/${HOST}/lib:${BASE_BUILD_DIR}/lib:${BASE_BUILD_DIR}/src/secp256k1/lib" test/fuzz/test_runner.py ${FUZZ_TESTS_CONFIG} "${MAKEJOBS}" -l DEBUG "${DIR_FUZZ_IN}" --empty_min_time=60
 fi

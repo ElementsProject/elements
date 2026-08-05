@@ -86,7 +86,7 @@ Otherwise, if you don't need QR encoding support, use the `-DWITH_QRENCODE=OFF` 
 #### Notifications
 ###### ZeroMQ
 
-Bitcoin Core can provide notifications via ZeroMQ. If the package is installed, support will be compiled in.
+Bitcoin Core can provide notifications via ZeroMQ. To compile ZMQ support, install the following dependency and pass `-DWITH_ZMQ=ON` when configuring.
 ```bash
 pkg install libzmq4
 ```
@@ -129,6 +129,6 @@ cmake -B build -DENABLE_WALLET=OFF
 ### 2. Compile
 
 ```bash
-cmake --build build     # Use "-j N" for N parallel jobs.
-ctest --test-dir build  # Use "-j N" for N parallel tests. Some tests are disabled if Python 3 is not available.
+cmake --build build     # Append "-j N" for N parallel jobs.
+ctest --test-dir build  # Append "-j N" for N parallel tests. Some tests are disabled if Python 3 is not available.
 ```

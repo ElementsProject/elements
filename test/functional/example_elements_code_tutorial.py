@@ -45,7 +45,7 @@ class WalletTest(BitcoinTestFramework):
         assert len(self.nodes[0].listissuances()) == 2  # asset & reisuance token
 
         self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress(), called_by_framework=True)  # confirm the tx
-
+        self.sync_all()
         issuance_addr = self.nodes[0].gettransaction(issuance_txid)['details'][0]['address']
         self.nodes[1].importaddress(issuance_addr)
 

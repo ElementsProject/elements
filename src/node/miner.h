@@ -106,7 +106,9 @@ struct CompareTxIterByAncestorCount {
 };
 
 
-struct CTxMemPoolModifiedEntry_Indices final : boost::multi_index::indexed_by<
+using indexed_modified_transaction_set = boost::multi_index_container<
+    CTxMemPoolModifiedEntry,
+    boost::multi_index::indexed_by<
     boost::multi_index::ordered_unique<
         modifiedentry_iter,
         CompareCTxMemPoolIter
@@ -125,12 +127,7 @@ struct CTxMemPoolModifiedEntry_Indices final : boost::multi_index::indexed_by<
         CompareTxMemPoolEntryByConfidentialFee
     >
 >
-{};
-
-typedef boost::multi_index_container<
-    CTxMemPoolModifiedEntry,
-    CTxMemPoolModifiedEntry_Indices
-> indexed_modified_transaction_set;
+>;
 
 typedef indexed_modified_transaction_set::nth_index<0>::type::iterator modtxiter;
 typedef indexed_modified_transaction_set::index<ancestor_score>::type::iterator modtxscoreiter;

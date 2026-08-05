@@ -21,7 +21,7 @@ BEGIN
     BEGIN
         BLOCK "040904E4" // U.S. English - multilingual (hex)
         BEGIN
-            VALUE "CompanyName",        "Elements"
+            VALUE "CompanyName",        CLIENT_NAME " project"
             VALUE "FileDescription",    CLIENT_NAME
             VALUE "FileVersion",        VER_FILEVERSION_STR
             VALUE "InternalName",       "elements-qt"

@@ -76,6 +76,11 @@ class PAKTest (BitcoinTestFramework):
         assert_equal(new_init["address_lookahead"][0], init_results[1]["address_lookahead"][2])
         assert new_init["liquid_pak"] != init_results[1]["liquid_pak"]
 
+        self.log.info("initpegoutwallet with null argument")
+        null_pak_init = self.nodes[2].initpegoutwallet(xpub, 5, None)
+        assert_equal(self.nodes[2].getwalletpakinfo()["bip32_counter"], "5")
+        assert null_pak_init["liquid_pak"]
+
         # Restart and connect peers to check wallet persistence
         self.stop_nodes()
         self.start_nodes()
@@ -191,6 +196,12 @@ class PAKTest (BitcoinTestFramework):
         self.generatetoaddress(self.nodes[1], 101, self.nodes[1].getnewaddress(), sync_fun=self.no_op)
         wpkh_stmc = self.nodes[1].sendtomainchain("", 1)
         wpkh_txid = wpkh_stmc['txid']
+
+        self.log.info("sendtomainchain with null argument")
+        verbose_stmc = self.nodes[1].sendtomainchain("", 1, None, True)
+        assert isinstance(verbose_stmc, dict)
+        assert 'txid' in verbose_stmc
+        assert 'fee_reason' in verbose_stmc
 
         # Also check some basic return fields of sendtomainchain with pak
         assert_equal(wpkh_stmc["bitcoin_address"], wpkh_info["address_lookahead"][0])

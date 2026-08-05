@@ -18,8 +18,6 @@
 #include <memory>
 #include <vector>
 
-#include <primitives/transaction.h>
-
 static void AddTx(const CTransactionRef& tx, const CAmount& nFee, CTxMemPool& pool) EXCLUSIVE_LOCKS_REQUIRED(cs_main, pool.cs)
 {
     int64_t nTime = 0;

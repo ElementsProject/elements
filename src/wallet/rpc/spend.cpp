@@ -268,7 +268,7 @@ RPCHelpMan sendtoaddress()
                     {"avoid_reuse", RPCArg::Type::BOOL, RPCArg::Default{true}, "(only available if avoid_reuse wallet flag is set) Avoid spending from dirty addresses; addresses are considered\n"
                                          "dirty if they have previously been used in a transaction. If true, this also activates avoidpartialspends, grouping outputs by their addresses."},
                     {"assetlabel", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Hex asset id or asset label for balance."},
-                    {"ignoreblindfail", RPCArg::Type::BOOL, RPCArg::Default{true}, "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
+                    {"ignoreblindfail", RPCArg::Type::BOOL, RPCArg::Default{true}, "If true, continue when output blinding fails (e.g. due to too many blinded inputs/outputs) instead of failing the RPC."},
                     {"fee_rate", RPCArg::Type::AMOUNT, RPCArg::DefaultHint{"not set, fall back to wallet fee estimation"}, "Specify a fee rate in " + CURRENCY_ATOM + "/vB."},
                     {"verbose", RPCArg::Type::BOOL, RPCArg::Default{false}, "If true, return extra information about the transaction."},
                 },
@@ -396,7 +396,7 @@ RPCHelpMan sendmany()
                             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "A key-value pair where the key is the address used and the value is an asset label or hex asset ID."},
                         },
                     },
-                    {"ignoreblindfail", RPCArg::Type::BOOL, RPCArg::Default{true}, "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
+                    {"ignoreblindfail", RPCArg::Type::BOOL, RPCArg::Default{true}, "If true, continue when output blinding fails (e.g. due to too many blinded inputs/outputs) instead of failing the RPC."},
                     {"fee_rate", RPCArg::Type::AMOUNT, RPCArg::DefaultHint{"not set, fall back to wallet fee estimation"}, "Specify a fee rate in " + CURRENCY_ATOM + "/vB."},
                     {"verbose", RPCArg::Type::BOOL, RPCArg::Default{false}, "If true, return extra information about the transaction."},
                 },
@@ -854,7 +854,10 @@ RPCHelpMan fundrawtransaction()
                 "Note that all inputs selected must be of standard form and P2SH scripts must be\n"
                 "in the wallet using importaddress or addmultisigaddress (to calculate fees).\n"
                 "You can see whether this is the case by checking the \"solvable\" field in the listunspent output.\n"
-                "Only pay-to-pubkey, multisig, and P2SH versions thereof are currently supported for watch-only\n",
+                "Only pay-to-pubkey, multisig, and P2SH versions thereof are currently supported for watch-only.\n"
+                "Note that if specifying an exact fee rate, the resulting transaction may have a higher fee rate\n"
+                "if the transaction has unconfirmed inputs. This is because the wallet will attempt to make the\n"
+                "entire package have the given fee rate, not the resulting transaction.\n",
                 {
                     {"hexstring", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex string of the raw transaction"},
                     {"options", RPCArg::Type::OBJ_NAMED_PARAMS, RPCArg::Optional::OMITTED, "For backward compatibility: passing in a true instead of an object will result in {\"includeWatching\":true}",
@@ -1001,7 +1004,7 @@ RPCHelpMan signrawtransactionwithwallet()
                                     {"redeemScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "(required for P2SH) redeem script"},
                                     {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "(required for P2WSH or P2SH-P2WSH) witness script"},
                                     {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::OMITTED, "The amount spent (required if non-confidential segwit output)"},
-                                    {"amountcommitment", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The amount commitment spent (required if confidential segwit output)"},
+                                    {"amountcommitment", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The amount commitment spent (required if confidential segwit output)"},
                                 },
                             },
                         },
@@ -1028,7 +1031,7 @@ RPCHelpMan signrawtransactionwithwallet()
                                 {RPCResult::Type::NUM, "vout", "The index of the output to spent and used as input"},
                                 {RPCResult::Type::ARR, "witness", "",
                                 {
-                                    {RPCResult::Type::STR_HEX, "witness", ""},
+                                    {RPCResult::Type::STR_HEX, "", "hex-encoded witness stack item"},
                                 }},
                                 {RPCResult::Type::STR_HEX, "scriptSig", "The hex-encoded signature script"},
                                 {RPCResult::Type::NUM, "sequence", "Script sequence number"},
@@ -1285,7 +1288,7 @@ static RPCHelpMan bumpfee_helper(std::string method_name)
     } else {
         PartiallySignedTransaction psbtx(mtx, 2 /* version */);
         bool complete = false;
-        const auto err{pwallet->FillPSBT(psbtx, complete, SIGHASH_DEFAULT, /*sign=*/false, /*bip32derivs=*/true)};
+        const auto err{pwallet->FillPSBT(psbtx, complete, SIGHASH_DEFAULT, /*sign=*/false, /*bip32derivs=*/true, /*imbalance_ok=*/true)};
         CHECK_NONFATAL(!err);
         CHECK_NONFATAL(!complete);
         DataStream ssTx{};
@@ -1348,6 +1351,14 @@ RPCHelpMan send()
                             {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
                             {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                             {"sequence", RPCArg::Type::NUM, RPCArg::DefaultHint{"depends on the value of the 'replaceable' and 'locktime' arguments"}, "The sequence number"},
+                            {"pegin_bitcoin_tx", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "(only for pegin inputs) The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress"},
+                            {"pegin_txout_proof", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "(only for pegin inputs) A rawtxoutproof (in hex) generated by the mainchain daemon's `gettxoutproof` containing a proof of only bitcoin_tx"},
+                            {"pegin_claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "(only for pegin inputs) The claim script generated by getpeginaddress."},
+                            {"issuance_amount", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The amount to be issued on this input"},
+                            {"issuance_tokens", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The number of reissuance tokens to generate on this input"},
+                            {"asset_entropy", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Additional entropy for new issuance, or original asset entropy for reissuance"},
+                            {"asset_blinding_nonce", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "For reissuance only, the blinding nonce of the reissuance token being spent"},
+                            {"blind_reissuance", RPCArg::Type::BOOL, RPCArg::Default{true}, "Whether reissuance tokens should be blinded"},
                             {"weight", RPCArg::Type::NUM, RPCArg::DefaultHint{"Calculated from wallet and solving data"}, "The maximum weight for this input, "
                                         "including the weight of the outpoint and sequence number. "
                                         "Note that signature sizes are not guaranteed to be consistent, "
@@ -1392,7 +1403,7 @@ RPCHelpMan send()
         "Send 0.3 BTC with a fee rate of 25 " + CURRENCY_ATOM + "/vB using named arguments\n"
         + HelpExampleCli("-named send", "outputs='{\"" + EXAMPLE_ADDRESS[0] + "\": 0.3}' fee_rate=25\n") +
         "Create a transaction that should confirm the next block, with a specific input, and return result without adding to wallet or broadcasting to the network\n"
-        + HelpExampleCli("send", "'{\"" + EXAMPLE_ADDRESS[0] + "\": 0.1}' 1 economical '{\"add_to_wallet\": false, \"inputs\": [{\"txid\":\"a08e6907dbbd3d809776dbfc5d82e371b764ed838b5655e72f463568df1aadf0\", \"vout\":1}]}'")
+        + HelpExampleCli("send", "'{\"" + EXAMPLE_ADDRESS[0] + "\": 0.1}' 1 economical null '{\"add_to_wallet\": false, \"inputs\": [{\"txid\":\"a08e6907dbbd3d809776dbfc5d82e371b764ed838b5655e72f463568df1aadf0\", \"vout\":1}]}'")
         },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
         {
@@ -1445,6 +1456,7 @@ RPCHelpMan sendall()
                     {"", RPCArg::Type::OBJ_USER_KEYS, RPCArg::Optional::OMITTED, "",
                         {
                             {"address", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "A key-value pair. The key (string) is the bitcoin address, the value (float or string) is the amount in " + CURRENCY_UNIT + ""},
+                            {"asset", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The asset label or hex id for this output if it is not the main chain asset"},
                         },
                     },
                 },
@@ -1619,6 +1631,9 @@ RPCHelpMan sendall()
 
             // estimate final size of tx
             const TxSize tx_size{CalculateMaximumSignedTxSize(CTransaction(rawTx), pwallet.get())};
+            if (tx_size.vsize == -1) {
+                throw JSONRPCError(RPC_WALLET_ERROR, "Unable to determine the size of the transaction, the wallet contains unsolvable descriptors");
+            }
             const CAmount fee_from_size{fee_rate.GetFee(tx_size.vsize)};
             const std::optional<CAmount> total_bump_fees{pwallet->chain().calculateCombinedBumpFee(outpoints_spent, fee_rate)};
             CAmount effective_value = total_input_value - fee_from_size - total_bump_fees.value_or(0);
@@ -1702,7 +1717,7 @@ RPCHelpMan walletprocesspsbt()
         HELP_REQUIRING_PASSPHRASE,
                 {
                     {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
-                    {"sign", RPCArg::Type::BOOL, RPCArg::Default{true}, "Also sign the transaction when updating (requires wallet to be unlocked)"},
+                    {"sign", RPCArg::Type::BOOL, RPCArg::Default{true}, "Also sign the transaction when updating (requires wallet to be unlocked). Signing is only performed once the PSBT is fully blinded."},
                     {"sighashtype", RPCArg::Type::STR, RPCArg::Default{"DEFAULT for Taproot, ALL otherwise"}, "The signature hash type to sign with if not specified by the PSBT. Must be one of\n"
             "       \"DEFAULT\"\n"
             "       \"ALL\"\n"
@@ -1908,7 +1923,7 @@ RPCHelpMan walletcreatefundedpsbt()
                         FundTxDoc()),
                         RPCArgOptions{.oneline_description="options"}},
                     {"bip32derivs", RPCArg::Type::BOOL, RPCArg::Default{true}, "Include BIP 32 derivation paths for public keys if we know them"},
-                    {"psbt_version", RPCArg::Type::NUM, RPCArg::Default{2}, "The PSBT version number to use."},
+                    {"psbt_version", RPCArg::Type::NUM, RPCArg::Default{2}, "The PSBT version number to use. Must be 2."},
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",

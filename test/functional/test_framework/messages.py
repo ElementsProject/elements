@@ -672,7 +672,13 @@ class CTxOutNonce:
 class CTxOut():
     __slots__ = ("nValue", "scriptPubKey", "nAsset", "nNonce")
 
-    def __init__(self, nValue=CTxOutValue(), scriptPubKey=b'', nAsset=CTxOutAsset(BITCOIN_ASSET_OUT), nNonce=CTxOutNonce()):
+    def __init__(self, nValue=None, scriptPubKey=b'', nAsset=None, nNonce=None):
+        if nValue is None:
+            nValue=CTxOutValue()
+        if nAsset is None:
+            nAsset=CTxOutAsset(BITCOIN_ASSET_OUT)
+        if nNonce is None:
+            nNonce=CTxOutNonce()
         self.nAsset = nAsset
         if isinstance(nValue, int):
             self.nValue = CTxOutValue(nValue)
@@ -980,8 +986,14 @@ class CTransaction:
     def is_valid(self):
         self.calc_sha256()
         for tout in self.vout:
-            if tout.nValue < 0 or tout.nValue > 21000000 * COIN:
-                return False
+            value = tout.nValue
+            # ELEMENTS: nValue is a CTxOutValue. Only explicit (unblinded)
+            # amounts can be range-checked here; confidential outputs are
+            # validated via rangeproofs elsewhere, not by this sanity check.
+            if value.vchCommitment[0] == 1:
+                amount = value.getAmount()
+                if amount < 0 or amount > 21000000 * COIN:
+                    return False
         return True
 
     # Calculate the transaction weight using witness and non-witness
@@ -1003,7 +1015,9 @@ class CProof:
     __slots__ = ("challenge", "solution")
 
     # Default allows OP_TRUE blocks
-    def __init__(self, challenge=bytearray.fromhex('51'), solution=b""):
+    def __init__(self, challenge=None, solution=b""):
+        if challenge is None:
+            challenge=bytearray.fromhex('51')
         self.challenge = challenge
         self.solution = solution
 
@@ -1105,7 +1119,11 @@ class DynaFedParamEntry:
 class DynaFedParams:
     __slots__ = ("m_current", "m_proposed")
 
-    def __init__(self, m_current=DynaFedParamEntry(), m_proposed=DynaFedParamEntry()):
+    def __init__(self, m_current=None, m_proposed=None):
+        if m_current is None:
+            m_current=DynaFedParamEntry()
+        if m_proposed is None:
+            m_proposed=DynaFedParamEntry()
         self.m_current = m_current
         self.m_proposed = m_proposed
 
@@ -1841,7 +1859,7 @@ class msg_block:
 # for cases where a user needs tighter control over what is sent over the wire
 # note that the user must supply the name of the msgtype, and the data
 class msg_generic:
-    __slots__ = ("data")
+    __slots__ = ("msgtype", "data")
 
     def __init__(self, msgtype, data=None):
         self.msgtype = msgtype

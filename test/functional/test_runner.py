@@ -87,7 +87,6 @@ EXTENDED_SCRIPTS = [
 #    'feature_dbcrash.py', ELEMENTS: long running test and uses excessive disk space on GHA
 #    'feature_fee_estimation.py', ELEMENTS: this is broken on v23
     'feature_index_prune.py',
-    'feature_trim_headers.py',
     'wallet_pruning.py --legacy-wallet',
 ]
 
@@ -95,6 +94,7 @@ BASE_SCRIPTS = [
     # Scripts that are run by default.
     # vv First elements tests vv
     'example_elements_code_tutorial.py',
+    'feature_trim_headers.py',
     'feature_fedpeg.py --legacy-wallet',
     'feature_fedpeg.py --pre_transition --legacy-wallet',
     'feature_fedpeg.py --post_transition --legacy-wallet',
@@ -206,6 +206,8 @@ BASE_SCRIPTS = [
     'wallet_listreceivedby.py --descriptors',
     'wallet_abandonconflict.py --legacy-wallet',
     'wallet_abandonconflict.py --descriptors',
+    'wallet_anchor.py --legacy-wallet',
+    'wallet_anchor.py --descriptors',
     'feature_reindex.py',
     'feature_reindex_readonly.py',
     'wallet_labels.py --legacy-wallet',
@@ -262,7 +264,8 @@ BASE_SCRIPTS = [
     'wallet_reorgsrestore.py',
     'interface_http.py',
     'interface_rpc.py',
-    'interface_usdt_coinselection.py',
+    # ELEMENTS: tracepoints disabled
+    # 'interface_usdt_coinselection.py',
     'interface_usdt_mempool.py',
     'interface_usdt_net.py',
     'interface_usdt_utxocache.py',
@@ -365,7 +368,7 @@ BASE_SCRIPTS = [
     #'wallet_upgradewallet.py --legacy-wallet',
     'wallet_crosschain.py',
     'mining_basic.py',
-    # ELEMENTS: PoW test set-up disabled. 
+    # ELEMENTS: PoW test set-up disabled.
     # 'mining_mainnet.py',
     'feature_signet.py',
     'p2p_mutated_blocks.py',
@@ -460,7 +463,8 @@ BASE_SCRIPTS = [
     'feature_dirsymlinks.py',
     'feature_help.py',
     'feature_shutdown.py',
-    'wallet_migration.py',
+    # ELEMENTS: v29 not supporting migration to descriptors
+    # 'wallet_migration.py',
     'p2p_ibd_txrelay.py',
     'p2p_seednode.py',
     # Don't append tests at the end to avoid merge conflicts
@@ -990,7 +994,8 @@ class RPCCoverage():
         # ELEMENTS: also consider `getdifficulty` and `getnetworkhashps` covered, which should be removed as they are meaningless on a signed-block chain
         # ELEMENTS: also consider `pruneblockchain` covered since its test is temporarily disabled
         # ELEMENTS FIXME: consider `descriptprocesspsbt` and `parsepsbt` as covered until PSBT FIXMEs are taken care of
-        covered_cmds = set({'generate', 'getdifficulty', 'getnetworkhashps', 'pruneblockchain', 'descriptorprocesspsbt', 'parsepsbt'})
+        # ELEMENTS: also consider `finalizecompactblock` covered, as no test currently exercises this newly-added RPC
+        covered_cmds = set({'generate', 'getdifficulty', 'getnetworkhashps', 'pruneblockchain', 'descriptorprocesspsbt', 'parsepsbt', 'finalizecompactblock'})
 
         if not os.path.isfile(coverage_ref_filename):
             raise RuntimeError("No coverage reference found")

@@ -15,6 +15,7 @@ extern "C" {
 #include <test/fuzz/FuzzedDataProvider.h>
 #include <test/fuzz/fuzz.h>
 #include <test/fuzz/util.h>
+#include <test/util/random.h>
 
 #include <cstdint>
 #include <optional>
@@ -66,6 +67,7 @@ void initialize_simplicity_tx()
 
 FUZZ_TARGET(simplicity_tx, .init = initialize_simplicity_tx)
 {
+    SeedRandomStateForTest(SeedRand::ZEROS);
     simplicity_err error;
 
     // 1. (no-op) run through Rust code

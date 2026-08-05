@@ -5,24 +5,19 @@ import codecs
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal
 from test_framework import (
-    address,
     key,
 )
 from test_framework.messages import (
     CBlock,
     from_hex,
+    ser_uint256,
 )
 from test_framework.script import (
     OP_NOP,
     OP_RETURN,
-    CScript
+    CScript,
+    SIGHASH_ALL,
 )
-
-# Generate wallet import format from private key.
-def wif(pk):
-    # Base58Check version for regtest WIF keys is 0xef = 239
-    pk_compressed = pk + bytes([0x1])
-    return address.byte_to_base58(pk_compressed, 239)
 
 # The signblockscript is a Bitcoin Script k-of-n multisig script.
 def make_signblockscript(num_nodes, required_signers, keys):
@@ -39,7 +34,6 @@ def make_signblockscript(num_nodes, required_signers, keys):
 class TrimHeadersTest(BitcoinTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
-        self.skip_if_no_bdb()
 
     def add_options(self, parser):
         self.add_wallet_options(parser)
@@ -47,13 +41,10 @@ class TrimHeadersTest(BitcoinTestFramework):
     # Dynamically generate N keys to be used for block signing.
     def init_keys(self, num_keys):
         self.keys = []
-        self.wifs = []
         for i in range(num_keys):
             k = key.ECKey()
             k.generate()
-            w = wif(k.get_bytes())
             self.keys.append(k)
-            self.wifs.append(w)
 
     def set_test_params(self):
         self.num_nodes = 3
@@ -91,6 +82,21 @@ class TrimHeadersTest(BitcoinTestFramework):
                 assert_equal(n.getblockcount(), expected_height)
         else:
             assert_equal(self.nodes[0].getblockcount(), expected_height)
+
+    # The signblock RPC only works on legacy (BDB) wallets.
+    # Sign the block header hash directly with the key instead,
+    # then use combineblocksigs (a non-wallet RPC).
+    def sign_block(self, key, block):
+        block.rehash()
+        msg = ser_uint256(block.sha256)
+        sig = key.sign_ecdsa(msg)
+        if not block.m_dynafed_params.is_null():
+            sig += bytes([SIGHASH_ALL])
+
+        return [{
+            "pubkey": key.get_pubkey().get_bytes().hex(),
+            "sig": sig.hex(),
+        }]
 
     def mine_block(self, make_transactions):
         # alternate mining between the signing nodes
@@ -141,7 +147,7 @@ class TrimHeadersTest(BitcoinTestFramework):
         sigs = []
         for i in range(self.num_keys):
             result = miner.combineblocksigs(block, sigs, self.witnessScript)
-            sigs = sigs + self.nodes[i].signblock(block, self.witnessScript)
+            sigs = sigs + self.sign_block(self.keys[i], block_struct)
             assert_equal(result["complete"], i >= self.required_signers)
             # submitting should have no effect pre-threshhold
             if i < self.required_signers:
@@ -171,7 +177,7 @@ class TrimHeadersTest(BitcoinTestFramework):
             block.solve()
             h = block.serialize().hex()
 
-            sigs = node.signblock(h, self.witnessScript)
+            sigs = self.sign_block(self.keys[0], block)
 
             result = node.combineblocksigs(h, sigs, self.witnessScript)
             assert_equal(result["complete"], True)
@@ -180,9 +186,6 @@ class TrimHeadersTest(BitcoinTestFramework):
 
 
     def run_test(self):
-        for i in range(self.num_keys):
-            self.nodes[i].importprivkey(self.wifs[i])
-
         expected_height = 0
         self.check_height(expected_height, all=True)
 

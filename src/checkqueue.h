@@ -128,10 +128,13 @@ private:
             // execute work
             if (do_work) {
                 for (T* check : vChecks) {
-                    local_result = (*check)();
-                    if (local_result.has_value()) break;
-                    delete check;
+                    if (!local_result.has_value()) {
+                        local_result = (*check)();
+                    }
+                    delete check; // ELEMENTS: always take ownership of popped checks, even ones skipped after a failure
                 }
+            } else {
+                for (T* check : vChecks) delete check; // ELEMENTS: queue already failed; still own and free these
             }
             vChecks.clear();
         } while (true);

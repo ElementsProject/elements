@@ -14,6 +14,7 @@
 #include <util/chaintype.h>
 
 #include <QApplication>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 static const struct {
     const ChainType networkId;
@@ -84,7 +85,7 @@ NetworkStyle::NetworkStyle(const QString &_appName, const int iconColorHueShift,
     trayAndWindowIcon   = QIcon(pixmap.scaled(QSize(256,256)));
 }
 
-const NetworkStyle* NetworkStyle::instantiate(const ChainType networkId)
+const NetworkStyle* NetworkStyle::instantiate(const ChainType networkId)  // NOLINT(misc-no-recursion)
 {
     std::string titleAddText = networkId == ChainType::LIQUID1 ? "" : strprintf("[%s]", ChainTypeToString(networkId));
     for (const auto& network_style : network_styles) {

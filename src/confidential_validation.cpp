@@ -86,7 +86,7 @@ std::optional<std::pair<ScriptError, std::string>> CSurjectionCheck::operator()(
         error = SCRIPT_ERR_SURJECTION;
         return std::make_pair(error, std::move(debug_str));
     }
-    
+
     return std::nullopt;
 }
 

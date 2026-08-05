@@ -23,6 +23,7 @@
 #include <vector>
 
 #include <boost/test/unit_test.hpp>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 using util::ToString;
 

@@ -127,6 +127,7 @@ class RejectLowDifficultyHeadersTest(BitcoinTestFramework):
 
 
     def run_test(self):
+        self.skip_if_no_wallet()
         # ELEMENTS: setup a bcrt1 address to mine to, since our deterministic privkeys are invalid for bitcoin regtest
         # calls to self.generate have been replaced with self.generatetoaddress with this global address
         self.nodes[0].createwallet("miner")

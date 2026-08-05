@@ -52,14 +52,22 @@ static void CCheckQueueSpeedPrevectorJob(benchmark::Bench& bench)
         vChecks.reserve(BATCH_SIZE);
         // ELEMENTS: allocate new jobs...
         for (size_t x = 0; x < BATCH_SIZE; ++x)
-            vChecks[x] = new PrevectorJob(insecure_rand);
+            vChecks.push_back(new PrevectorJob(insecure_rand));
     }
 
     bench.minEpochIterations(10).batch(BATCH_SIZE * BATCHES).unit("job").run([&] {
         // Make insecure_rand here so that each iteration is identical.
         CCheckQueueControl<PrevectorJob> control(&queue);
-        for (auto vChecks : vBatches) {
-            control.Add(std::move(vChecks));
+        for (const auto& vChecks : vBatches) {
+            // ELEMENTS: the queue takes ownership and deletes each check after
+            // processing it, so we must give it fresh copies every iteration —
+            // vBatches itself must stay untouched as the template for all runs.
+            std::vector<PrevectorJob*> vChecksCopy;
+            vChecksCopy.reserve(vChecks.size());
+            for (const auto* check : vChecks) {
+                vChecksCopy.push_back(new PrevectorJob(*check));
+            }
+            control.Add(std::move(vChecksCopy));
         }
         // control waits for completion by RAII, but
         // it is done explicitly here for clarity

@@ -329,6 +329,13 @@ def wait_until_helper_internal(predicate, *, timeout=60, lock=None, timeout_fact
     raise AssertionError("Predicate {} not true after {} seconds".format(predicate_source, timeout))
 
 
+def bpf_cflags():
+    return [
+        "-Wno-error=implicit-function-declaration",
+        "-Wno-duplicate-decl-specifier",  # https://github.com/bitcoin/bitcoin/issues/32322
+    ]
+
+
 def sha256sum_file(filename):
     h = hashlib.sha256()
     with open(filename, 'rb') as f:
@@ -573,8 +580,8 @@ def check_node_connections(*, node, num_in, num_out):
 def gen_return_txouts():
     from .messages import CTxOut, CTxOutValue
     from .script import CScript, OP_RETURN
-    txouts = [CTxOut(nValue=CTxOutValue(0), scriptPubKey=CScript([OP_RETURN, b'\x01'*67437]))]
-    assert_equal(sum([len(txout.serialize()) for txout in txouts]), 67491)
+    txouts = [CTxOut(nValue=CTxOutValue(0), scriptPubKey=CScript([OP_RETURN, b'\x01'*64760]))] # ELEMENTS: tx size
+    assert_equal(sum([len(txout.serialize()) for txout in txouts]), 64810)
     return txouts
 
 

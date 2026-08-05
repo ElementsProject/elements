@@ -22,6 +22,12 @@ from test_framework.script import (
     sha256,
 )
 
+# Maximum number of potentially executed legacy signature operations in validating a transaction.
+MAX_STD_LEGACY_SIGOPS = 2_500
+
+# Maximum number of sigops per standard P2SH redeemScript.
+MAX_STD_P2SH_SIGOPS = 15
+
 # To prevent a "tx-size-small" policy rule error, a transaction has to have a
 # non-witness size of at least 65 bytes (MIN_STANDARD_TX_NONWITNESS_SIZE in
 # src/policy/policy.h). Considering a Tx with the smallest possible single
@@ -44,6 +50,7 @@ DUMMY_MIN_OP_RETURN_SCRIPT = CScript([OP_RETURN] + ([OP_0] * (MIN_PADDING - 1)))
 assert len(DUMMY_MIN_OP_RETURN_SCRIPT) == MIN_PADDING
 
 PAY_TO_ANCHOR = CScript([OP_1, bytes.fromhex("4e73")])
+ANCHOR_ADDRESS = "bcrt1pfeesnyr2tx"
 
 def key_to_p2pk_script(key):
     key = check_key(key)

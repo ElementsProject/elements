@@ -139,7 +139,7 @@ static RPCHelpMan help()
         [&](const RPCHelpMan& self, const JSONRPCRequest& jsonRequest) -> UniValue
 {
     std::string strCommand;
-    if (jsonRequest.params.size() > 0) {
+    if (!jsonRequest.params[0].isNull()) {
         strCommand = jsonRequest.params[0].get_str();
     }
     if (strCommand == "dump_all_command_conversions") {

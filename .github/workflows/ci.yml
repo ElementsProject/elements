@@ -19,12 +19,29 @@ concurrency:
 
 env:
   CI_FAILFAST_TEST_LEAVE_DANGLING: 1  # GHA does not care about dangling processes and setting this variable avoids killing the CI script itself on error
-  MAKEJOBS: '-j10'
+  REPO_USE_WARP_RUNNERS: 'bitcoin/bitcoin' # Use warp runners for this repo, instead of falling back to the slow GHA runners
 
 jobs:
+  runners:
+    name: 'determine runners'
+    runs-on: ubuntu-latest
+    outputs:
+      use-warp-runners: ${{ steps.runners.outputs.use-warp-runners }}
+    steps:
+      - id: runners
+        run: |
+          if [[ "${REPO_USE_WARP_RUNNERS}" == "${{ github.repository }}" ]]; then
+            echo "provider=warp" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Runner Selection::Using Warp Runners"
+          else
+            echo "use-warp-runners=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Runner Selection::Using GitHub-hosted runners"
+          fi
+
   test-each-commit:
     name: 'test each commit'
-    runs-on: ubuntu-24.04
+    needs: runners
+    runs-on: ${{ needs.runners.outputs.provider == 'warp' && 'warp-ubuntu-latest-x64-8x' || 'ubuntu-latest' }}
     if: github.event_name == 'pull_request' && github.event.pull_request.commits != 1
     timeout-minutes: 360  # Use maximum time, see https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idtimeout-minutes. Assuming a worst case time of 1 hour per commit, this leads to a --max-count=6 below.
     env:
@@ -32,7 +49,7 @@ jobs:
     steps:
       - name: Determine fetch depth
         run: echo "FETCH_DEPTH=$((${{ github.event.pull_request.commits }} + 2))" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: ${{ env.FETCH_DEPTH }}
@@ -106,8 +123,12 @@ jobs:
       BASE_ROOT_DIR: ${{ github.workspace }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - &CHECKOUT
+        name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # Ensure the latest merged pull request state is used, even on re-runs.
+          ref: &CHECKOUT_REF_TMPL ${{ github.event_name == 'pull_request' && github.ref || '' }}
 
       - name: Clang version
         run: |
@@ -151,7 +172,7 @@ jobs:
           FILE_ENV: ${{ matrix.file-env }}
 
       - name: Save Ccache cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         if: github.event_name != 'pull_request' && steps.ccache-cache.outputs.cache-hit != 'true'
         with:
           path: ${{ env.CCACHE_DIR }}
@@ -183,14 +204,17 @@ jobs:
             job-name: 'Win64 native fuzz, VS 2022'
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - *CHECKOUT
 
-      - name: Configure Developer Command Prompt for Microsoft Visual C++
-        # Using microsoft/setup-msbuild is not enough.
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
+      - name: Set up VS Developer Prompt
+        shell: pwsh -Command "$PSVersionTable; $PSNativeCommandUseErrorActionPreference = $true; $ErrorActionPreference = 'Stop'; & '{0}'"
+        run: |
+          $vswherePath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installationPath = & $vswherePath -latest -property installationPath
+          & "${env:COMSPEC}" /s /c "`"$installationPath\Common7\Tools\vsdevcmd.bat`" -arch=x64 -no_logo && set" | foreach-object {
+            $name, $value = $_ -split '=', 2
+            echo "$name=$value" >> $env:GITHUB_ENV
+          }
 
       - name: Get tool information
         run: |
@@ -202,19 +226,21 @@ jobs:
           Write-Host "PowerShell version $($PSVersionTable.PSVersion.ToString())"
 
       - name: Using vcpkg with MSBuild
+        shell: bash
         run: |
-          Set-Location "$env:VCPKG_INSTALLATION_ROOT"
-          Add-Content -Path "triplets\x64-windows.cmake" -Value "set(VCPKG_BUILD_TYPE release)"
-          Add-Content -Path "triplets\x64-windows-static.cmake" -Value "set(VCPKG_BUILD_TYPE release)"
+          echo "set(VCPKG_BUILD_TYPE release)" >> "${VCPKG_INSTALLATION_ROOT}/triplets/x64-windows.cmake"
+          echo "set(VCPKG_BUILD_TYPE release)" >> "${VCPKG_INSTALLATION_ROOT}/triplets/x64-windows-static.cmake"
+          # Workaround for libevent, which requires CMake 3.1 but is incompatible with CMake >= 4.0.
+          sed -i '1s/^/set(ENV{CMAKE_POLICY_VERSION_MINIMUM} 3.5)\n/' "${VCPKG_INSTALLATION_ROOT}/scripts/ports.cmake"
 
       - name: vcpkg tools cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: C:/vcpkg/downloads/tools
           key: ${{ github.job }}-vcpkg-tools
 
       - name: Restore vcpkg binary cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         id: vcpkg-binary-cache
         with:
           path: ~/AppData/Local/vcpkg/archives
@@ -225,7 +251,7 @@ jobs:
           cmake -B build --preset vs2022-static -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE="${{ github.workspace }}/build/bin" ${{ matrix.generate-options }}
 
       - name: Save vcpkg binary cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         if: github.event_name != 'pull_request' && steps.vcpkg-binary-cache.outputs.cache-hit != 'true' && matrix.job-type == 'standard'
         with:
           path: ~/AppData/Local/vcpkg/archives
@@ -271,44 +297,133 @@ jobs:
         run: |
           py -3 test\fuzz\test_runner.py --par %NUMBER_OF_PROCESSORS% --loglevel DEBUG %RUNNER_TEMP%\qa-assets\fuzz_corpora
 
-  asan-lsan-ubsan-integer-no-depends-usdt:
-    name: 'ASan + LSan + UBSan + integer, no depends, USDT'
-    runs-on: ubuntu-24.04 # has to match container in ci/test/00_setup_env_native_asan.sh for tracing tools
+  ci-matrix:
+    name: ${{ matrix.name }}
+    needs: runners
+    runs-on: ${{ needs.runners.outputs.provider == 'warp' && matrix.warp-runner || matrix.fallback-runner }}
     if: ${{ vars.SKIP_BRANCH_PUSH != 'true' || github.event_name == 'pull_request' }}
-    timeout-minutes: 120
+    timeout-minutes: ${{ matrix.timeout-minutes }}
+
     env:
-      FILE_ENV: "./ci/test/00_setup_env_native_asan.sh"
       DANGER_CI_ON_HOST_FOLDERS: 1
+      FILE_ENV: ${{ matrix.file-env }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: '32 bit ARM, unit tests, no functional tests'
+            warp-runner: 'ubuntu-24.04-arm' # Warp's Arm runners don't support 32-bit mode currently
+            fallback-runner: 'ubuntu-24.04-arm'
+            timeout-minutes: 120
+            file-env: './ci/test/00_setup_env_arm.sh'
+
+          - name: 'win64 Cross'
+            warp-runner: 'warp-ubuntu-latest-x64-4x'
+            fallback-runner: 'ubuntu-latest'
+            timeout-minutes: 120
+            file-env: './ci/test/00_setup_env_win64.sh'
+
+          - name: 'ASan + LSan + UBSan + integer, no depends, USDT'
+            warp-runner: 'warp-ubuntu-2404-x64-8x' # has to match container in ci/test/00_setup_env_native_asan.sh for tracing tools
+            fallback-runner: 'ubuntu-latest'
+            timeout-minutes: 120
+            file-env: './ci/test/00_setup_env_native_asan.sh'
+
+          - name: 'macOS-cross, gui, no tests'
+            warp-runner: 'warp-ubuntu-latest-x64-4x'
+            fallback-runner: 'ubuntu-latest'
+            timeout-minutes: 120
+            file-env: './ci/test/00_setup_env_mac_cross.sh'
+
+          - name: 'No wallet, libbitcoinkernel'
+            warp-runner: 'warp-ubuntu-latest-x64-4x'
+            fallback-runner: 'ubuntu-latest'
+            timeout-minutes: 120
+            file-env: './ci/test/00_setup_env_native_nowallet_libbitcoinkernel.sh'
+
+          - name: 'i686, multiprocess, DEBUG'
+            warp-runner: 'warp-ubuntu-latest-x64-8x'
+            fallback-runner: 'ubuntu-latest'
+            timeout-minutes: 120
+            file-env: './ci/test/00_setup_env_i686_multiprocess.sh'
+
+          - name: 'fuzzer,address,undefined,integer, no depends'
+            warp-runner: 'warp-ubuntu-latest-x64-16x'
+            fallback-runner: 'ubuntu-latest'
+            timeout-minutes: 240
+            file-env: './ci/test/00_setup_env_native_fuzz.sh'
+
+          - name: 'previous releases, depends DEBUG'
+            warp-runner: 'warp-ubuntu-latest-x64-8x'
+            fallback-runner: 'ubuntu-latest'
+            timeout-minutes: 120
+            file-env: './ci/test/00_setup_env_native_previous_releases.sh'
+
+          - name: 'CentOS, depends, gui'
+            warp-runner: 'warp-ubuntu-latest-x64-16x'
+            fallback-runner: 'ubuntu-latest'
+            timeout-minutes: 120
+            file-env: './ci/test/00_setup_env_native_centos.sh'
+
+          - name: 'tidy'
+            warp-runner: 'warp-ubuntu-latest-x64-8x'
+            fallback-runner: 'ubuntu-latest'
+            timeout-minutes: 120
+            file-env: './ci/test/00_setup_env_native_tidy.sh'
+
+          - name: 'TSan, depends, no gui'
+            warp-runner: 'warp-ubuntu-latest-x64-8x'
+            fallback-runner: 'ubuntu-latest'
+            timeout-minutes: 120
+            file-env: './ci/test/00_setup_env_native_tsan.sh'
+
+          - name: 'MSan, depends'
+            warp-runner: 'warp-ubuntu-latest-x64-16x'
+            fallback-runner: 'ubuntu-latest'
+            timeout-minutes: 120
+            file-env: './ci/test/00_setup_env_native_msan.sh'
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - *CHECKOUT
 
-      - name: Set CI directories
-        run: |
-          echo "CCACHE_DIR=${{ runner.temp }}/ccache_dir" >> "$GITHUB_ENV"
-          echo "BASE_ROOT_DIR=${{ runner.temp }}" >> "$GITHUB_ENV"
-          echo "BASE_BUILD_DIR=${{ runner.temp }}/build-asan" >> "$GITHUB_ENV"
+      - name: Configure environment
+        uses: ./.github/actions/configure-environment
 
-      - name: Restore Ccache cache
-        id: ccache-cache
-        uses: actions/cache/restore@v4
+      - name: Restore caches
+        id: restore-cache
+        uses: ./.github/actions/restore-caches
+
+      - name: Configure Docker
+        uses: ./.github/actions/configure-docker
         with:
-          path: ${{ env.CCACHE_DIR }}
-          key: ${{ github.job }}-ccache-${{ github.run_id }}
-          restore-keys: ${{ github.job }}-ccache-
+          use-warp: ${{ needs.runners.outputs.use-warp-runners }}
 
       - name: Enable bpfcc script
+        if: ${{ env.CONTAINER_NAME == 'ci_native_asan' }}
         # In the image build step, no external environment variables are available,
         # so any settings will need to be written to the settings env file:
         run: sed -i "s|\${INSTALL_BCC_TRACING_TOOLS}|true|g" ./ci/test/00_setup_env_native_asan.sh
 
+      - name: Set mmap_rnd_bits
+        if: ${{ env.CONTAINER_NAME == 'ci_native_tsan' || env.CONTAINER_NAME == 'ci_native_msan' }}
+        # Prevents crashes due to high ASLR entropy
+        run: sudo sysctl -w vm.mmap_rnd_bits=28
+
       - name: CI script
         run: ./ci/test_run_all.sh
 
-      - name: Save Ccache cache
-        uses: actions/cache/save@v4
-        if: github.event_name != 'pull_request' && steps.ccache-cache.outputs.cache-hit != 'true'
+      - name: Save caches
+        uses: ./.github/actions/save-caches
+
+  lint:
+    name: 'lint'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
         with:
-          path: ${{ env.CCACHE_DIR }}
-          # https://github.com/actions/cache/blob/main/tips-and-workarounds.md#update-a-cache
-          key: ${{ github.job }}-ccache-${{ github.run_id }}
+          fetch-depth: 0
+      - name: Build lint Docker image
+        run: DOCKER_BUILDKIT=1 docker build -t bitcoin-linter --file "./ci/lint_imagefile" ./
+      - name: Run linter
+        run: docker run --rm -v $(pwd):/bitcoin bitcoin-linter

@@ -509,7 +509,7 @@ RPCHelpMan listtransactions()
                             {RPCResult::Type::STR_HEX, "assetblinder", /*optional=*/true, "The asset blinder"},
                             {RPCResult::Type::STR, "label", /*optional=*/true, "A comment for the address/transaction, if any"},
                             {RPCResult::Type::NUM, "vout", "the vout value"},
-                            {RPCResult::Type::STR_AMOUNT, "fee", /*optional=*/true, "The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the\n"
+                            {RPCResult::Type::STR_AMOUNT, "fee", "The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the\n"
                                  "'send' category of transactions."},
                         },
                         TransactionDescriptionString()),
@@ -621,20 +621,17 @@ RPCHelpMan listsinceblock()
                                     "\"orphan\"                Orphaned coinbase transactions received."},
                                 {RPCResult::Type::STR_AMOUNT, "amount", "The amount in " + CURRENCY_UNIT + ". This is negative for the 'send' category, and is positive\n"
                                     "for all other categories"},
-                                {RPCResult::Type::STR_HEX, "amountblinder", "The amount blinding factor in hex"},
-                                {RPCResult::Type::STR_HEX, "asset", "The asset id in hex"},
-                                {RPCResult::Type::STR_HEX, "assetblinder", "The asset blinding factor in hex"},
+                                {RPCResult::Type::STR_HEX, "amountblinder", /*optional=*/true, "The amount blinding factor in hex"},
+                                {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "The asset id in hex"},
+                                {RPCResult::Type::STR_HEX, "assetblinder", /*optional=*/true, "The asset blinding factor in hex"},
+                                {RPCResult::Type::STR, "label", /*optional=*/true, "A comment for the address/transaction, if any"},
                                 {RPCResult::Type::NUM, "vout", "the vout value"},
-                                {RPCResult::Type::STR_HEX, "amountblinder", /*optional=*/true, "The amount blinder"},
-                                {RPCResult::Type::STR_HEX, "asset", /*optional=*/true, "The asset type"},
-                                {RPCResult::Type::STR_HEX, "assetblinder", /*optional=*/true, "The asset blinder"},
-                                {RPCResult::Type::STR_AMOUNT, "fee", /*optional=*/true, "The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the\n"
-                                     "'send' category of transactions."},
+                                {RPCResult::Type::STR_AMOUNT, "fee", "The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the\n"
+                                    "'send' category of transactions."},
                             },
                             TransactionDescriptionString()),
                             {
                                 {RPCResult::Type::BOOL, "abandoned", "'true' if the transaction has been abandoned (inputs are respendable)."},
-                                {RPCResult::Type::STR, "label", /*optional=*/true, "A comment for the address/transaction, if any"},
                             })},
                         }},
                         {RPCResult::Type::ARR, "removed", /*optional=*/true, "<structure is the same as \"transactions\" above, only present if include_removed=true>\n"

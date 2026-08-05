@@ -39,6 +39,7 @@
 #include <string>
 #include <utility>
 #include <variant>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 #ifdef LIQUID
 const char * const BITCOIN_CONF_FILENAME = "liquid.conf";

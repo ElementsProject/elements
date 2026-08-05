@@ -10,6 +10,7 @@
 #include <clientversion.h>
 #include <consensus/amount.h>
 #include <consensus/tx_check.h>
+#include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <key.h>
@@ -1063,6 +1064,256 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     CheckIsStandard(t);
     t.vout[0].nValue = 239;
     CheckIsNotStandard(t, "dust");
+}
+
+BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
+{
+    CCoinsView coins_dummy;
+    CCoinsViewCache coins(&coins_dummy);
+    CKey key;
+    key.MakeNewKey(true);
+
+    // Create a pathological P2SH script padded with as many sigops as is standard.
+    CScript max_sigops_redeem_script{CScript() << std::vector<unsigned char>{} << key.GetPubKey()};
+    for (unsigned i{0}; i < MAX_P2SH_SIGOPS - 1; ++i) max_sigops_redeem_script << OP_2DUP << OP_CHECKSIG << OP_DROP;
+    max_sigops_redeem_script << OP_CHECKSIG << OP_NOT;
+    const CScript max_sigops_p2sh{GetScriptForDestination(ScriptHash(max_sigops_redeem_script))};
+
+    // Create a transaction fanning out as many such P2SH outputs as is standard to spend in a
+    // single transaction, and a transaction spending them.
+    CMutableTransaction tx_create, tx_max_sigops;
+    const unsigned p2sh_inputs_count{MAX_TX_LEGACY_SIGOPS / MAX_P2SH_SIGOPS};
+    tx_create.vout.reserve(p2sh_inputs_count);
+    for (unsigned i{0}; i < p2sh_inputs_count; ++i) {
+        tx_create.vout.emplace_back(CAsset(), 424242 + i, max_sigops_p2sh);
+    }
+    auto prev_txid{tx_create.GetHash()};
+    tx_max_sigops.vin.reserve(p2sh_inputs_count);
+    for (unsigned i{0}; i < p2sh_inputs_count; ++i) {
+        tx_max_sigops.vin.emplace_back(prev_txid, i, CScript() << ToByteVector(max_sigops_redeem_script));
+    }
+
+    // p2sh_inputs_count is truncated to 166 (from 166.6666..)
+    BOOST_CHECK_LT(p2sh_inputs_count * MAX_P2SH_SIGOPS, MAX_TX_LEGACY_SIGOPS);
+    AddCoins(coins, CTransaction(tx_create), 0, false);
+
+    // 2490 sigops is below the limit.
+    BOOST_CHECK_EQUAL(GetP2SHSigOpCount(CTransaction(tx_max_sigops), coins), 2490);
+    BOOST_CHECK(::AreInputsStandard(CTransaction(tx_max_sigops), coins));
+
+    // Adding one more input will bump this to 2505, hitting the limit.
+    tx_create.vout.emplace_back(CAsset(), 424242, max_sigops_p2sh);
+    prev_txid = tx_create.GetHash();
+    for (unsigned i{0}; i < p2sh_inputs_count; ++i) {
+        tx_max_sigops.vin[i] = CTxIn(COutPoint(prev_txid, i), CScript() << ToByteVector(max_sigops_redeem_script));
+    }
+    tx_max_sigops.vin.emplace_back(prev_txid, p2sh_inputs_count, CScript() << ToByteVector(max_sigops_redeem_script));
+    AddCoins(coins, CTransaction(tx_create), 0, false);
+    BOOST_CHECK_GT((p2sh_inputs_count + 1) * MAX_P2SH_SIGOPS, MAX_TX_LEGACY_SIGOPS);
+    BOOST_CHECK_EQUAL(GetP2SHSigOpCount(CTransaction(tx_max_sigops), coins), 2505);
+    BOOST_CHECK(!::AreInputsStandard(CTransaction(tx_max_sigops), coins));
+
+    // Now, check the limit can be reached with regular P2PK outputs too. Use a separate
+    // preparation transaction, to demonstrate spending coins from a single tx is irrelevant.
+    CMutableTransaction tx_create_p2pk;
+    const auto p2pk_script{CScript() << key.GetPubKey() << OP_CHECKSIG};
+    unsigned p2pk_inputs_count{10}; // From 2490 to 2500.
+    for (unsigned i{0}; i < p2pk_inputs_count; ++i) {
+        tx_create_p2pk.vout.emplace_back(CAsset(), 212121 + i, p2pk_script);
+    }
+    prev_txid = tx_create_p2pk.GetHash();
+    tx_max_sigops.vin.resize(p2sh_inputs_count); // Drop the extra input.
+    for (unsigned i{0}; i < p2pk_inputs_count; ++i) {
+        tx_max_sigops.vin.emplace_back(prev_txid, i);
+    }
+    AddCoins(coins, CTransaction(tx_create_p2pk), 0, false);
+
+    // The transaction now contains exactly 2500 sigops, the check should pass.
+    BOOST_CHECK_EQUAL(p2sh_inputs_count * MAX_P2SH_SIGOPS + p2pk_inputs_count * 1, MAX_TX_LEGACY_SIGOPS);
+    BOOST_CHECK(::AreInputsStandard(CTransaction(tx_max_sigops), coins));
+
+    // Now, add some Segwit inputs. We add one for each defined Segwit output type. The limit
+    // is exclusively on non-witness sigops and therefore those should not be counted.
+    CMutableTransaction tx_create_segwit;
+    const auto witness_script{CScript() << key.GetPubKey() << OP_CHECKSIG};
+    tx_create_segwit.vout.emplace_back(CAsset(), 121212, GetScriptForDestination(WitnessV0KeyHash(key.GetPubKey())));
+    tx_create_segwit.vout.emplace_back(CAsset(), 131313, GetScriptForDestination(WitnessV0ScriptHash(witness_script)));
+    tx_create_segwit.vout.emplace_back(CAsset(), 141414, GetScriptForDestination(WitnessV1Taproot{XOnlyPubKey(key.GetPubKey())}));
+    prev_txid = tx_create_segwit.GetHash();
+    for (unsigned i{0}; i < tx_create_segwit.vout.size(); ++i) {
+        tx_max_sigops.vin.emplace_back(prev_txid, i);
+    }
+
+    // The transaction now still contains exactly 2500 sigops, the check should pass.
+    AddCoins(coins, CTransaction(tx_create_segwit), 0, false);
+    BOOST_REQUIRE(::AreInputsStandard(CTransaction(tx_max_sigops), coins));
+
+    // Add one more P2PK input. We'll reach the limit.
+    tx_create_p2pk.vout.emplace_back(CAsset(), 212121, p2pk_script);
+    prev_txid = tx_create_p2pk.GetHash();
+    tx_max_sigops.vin.resize(p2sh_inputs_count);
+    ++p2pk_inputs_count;
+    for (unsigned i{0}; i < p2pk_inputs_count; ++i) {
+        tx_max_sigops.vin.emplace_back(prev_txid, i);
+    }
+    AddCoins(coins, CTransaction(tx_create_p2pk), 0, false);
+    BOOST_CHECK_GT(p2sh_inputs_count * MAX_P2SH_SIGOPS + p2pk_inputs_count * 1, MAX_TX_LEGACY_SIGOPS);
+    BOOST_CHECK(!::AreInputsStandard(CTransaction(tx_max_sigops), coins));
+}
+
+/** Sanity check the return value of SpendsNonAnchorWitnessProg for various output types. */
+BOOST_AUTO_TEST_CASE(spends_witness_prog)
+{
+    CCoinsView coins_dummy;
+    CCoinsViewCache coins(&coins_dummy);
+    CKey key;
+    key.MakeNewKey(true);
+    const CPubKey pubkey{key.GetPubKey()};
+    CMutableTransaction tx_create{}, tx_spend{};
+    tx_create.vout.emplace_back(CAsset(), 0, CScript{});
+    tx_spend.vin.emplace_back(Txid{}, 0);
+    std::vector<std::vector<uint8_t>> sol_dummy;
+
+    // CNoDestination, PubKeyDestination, PKHash, ScriptHash, WitnessV0ScriptHash, WitnessV0KeyHash,
+    // WitnessV1Taproot, PayToAnchor, WitnessUnknown, NullData (Elements-specific).
+    static_assert(std::variant_size_v<CTxDestination> == 10);
+
+    // Go through all defined output types and sanity check SpendsNonAnchorWitnessProg.
+
+    // P2PK
+    tx_create.vout[0].scriptPubKey = GetScriptForDestination(PubKeyDestination{pubkey});
+    BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::PUBKEY);
+    tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+    AddCoins(coins, CTransaction{tx_create}, 0, false);
+    BOOST_CHECK(!::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+
+    // P2PKH
+    tx_create.vout[0].scriptPubKey = GetScriptForDestination(PKHash{pubkey});
+    BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::PUBKEYHASH);
+    tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+    AddCoins(coins, CTransaction{tx_create}, 0, false);
+    BOOST_CHECK(!::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+
+    // P2SH
+    auto redeem_script{CScript{} << OP_1 << OP_CHECKSIG};
+    tx_create.vout[0].scriptPubKey = GetScriptForDestination(ScriptHash{redeem_script});
+    BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::SCRIPTHASH);
+    tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+    tx_spend.vin[0].scriptSig = CScript{} << OP_0 << ToByteVector(redeem_script);
+    AddCoins(coins, CTransaction{tx_create}, 0, false);
+    BOOST_CHECK(!::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+    tx_spend.vin[0].scriptSig.clear();
+
+    // native P2WSH
+    const auto witness_script{CScript{} << OP_12 << OP_HASH160 << OP_DUP << OP_EQUAL};
+    tx_create.vout[0].scriptPubKey = GetScriptForDestination(WitnessV0ScriptHash{witness_script});
+    BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::WITNESS_V0_SCRIPTHASH);
+    tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+    AddCoins(coins, CTransaction{tx_create}, 0, false);
+    BOOST_CHECK(::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+
+    // P2SH-wrapped P2WSH
+    redeem_script = tx_create.vout[0].scriptPubKey;
+    tx_create.vout[0].scriptPubKey = GetScriptForDestination(ScriptHash(redeem_script));
+    BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::SCRIPTHASH);
+    tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+    tx_spend.vin[0].scriptSig = CScript{} << ToByteVector(redeem_script);
+    AddCoins(coins, CTransaction{tx_create}, 0, false);
+    BOOST_CHECK(::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+    tx_spend.vin[0].scriptSig.clear();
+    BOOST_CHECK(!::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+
+    // native P2WPKH
+    tx_create.vout[0].scriptPubKey = GetScriptForDestination(WitnessV0KeyHash{pubkey});
+    BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::WITNESS_V0_KEYHASH);
+    tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+    AddCoins(coins, CTransaction{tx_create}, 0, false);
+    BOOST_CHECK(::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+
+    // P2SH-wrapped P2WPKH
+    redeem_script = tx_create.vout[0].scriptPubKey;
+    tx_create.vout[0].scriptPubKey = GetScriptForDestination(ScriptHash(redeem_script));
+    BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::SCRIPTHASH);
+    tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+    tx_spend.vin[0].scriptSig = CScript{} << ToByteVector(redeem_script);
+    AddCoins(coins, CTransaction{tx_create}, 0, false);
+    BOOST_CHECK(::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+    tx_spend.vin[0].scriptSig.clear();
+    BOOST_CHECK(!::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+
+    // P2TR
+    tx_create.vout[0].scriptPubKey = GetScriptForDestination(WitnessV1Taproot{XOnlyPubKey{pubkey}});
+    BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::WITNESS_V1_TAPROOT);
+    tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+    AddCoins(coins, CTransaction{tx_create}, 0, false);
+    BOOST_CHECK(::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+
+    // P2SH-wrapped P2TR (undefined, non-standard)
+    redeem_script = tx_create.vout[0].scriptPubKey;
+    tx_create.vout[0].scriptPubKey = GetScriptForDestination(ScriptHash(redeem_script));
+    BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::SCRIPTHASH);
+    tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+    tx_spend.vin[0].scriptSig = CScript{} << ToByteVector(redeem_script);
+    AddCoins(coins, CTransaction{tx_create}, 0, false);
+    BOOST_CHECK(::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+    tx_spend.vin[0].scriptSig.clear();
+    BOOST_CHECK(!::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+
+    // P2A
+    tx_create.vout[0].scriptPubKey = GetScriptForDestination(PayToAnchor{});
+    BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::ANCHOR);
+    tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+    AddCoins(coins, CTransaction{tx_create}, 0, false);
+    BOOST_CHECK(!::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+
+    // P2SH-wrapped P2A (undefined, non-standard)
+    redeem_script = tx_create.vout[0].scriptPubKey;
+    tx_create.vout[0].scriptPubKey = GetScriptForDestination(ScriptHash(redeem_script));
+    BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::SCRIPTHASH);
+    tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+    tx_spend.vin[0].scriptSig = CScript{} << ToByteVector(redeem_script);
+    AddCoins(coins, CTransaction{tx_create}, 0, false);
+    BOOST_CHECK(::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+    tx_spend.vin[0].scriptSig.clear();
+
+    // Undefined version 1 witness program
+    tx_create.vout[0].scriptPubKey = GetScriptForDestination(WitnessUnknown{1, {0x42, 0x42}});
+    BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::WITNESS_UNKNOWN);
+    tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+    AddCoins(coins, CTransaction{tx_create}, 0, false);
+    BOOST_CHECK(::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+
+    // P2SH-wrapped undefined version 1 witness program
+    redeem_script = tx_create.vout[0].scriptPubKey;
+    tx_create.vout[0].scriptPubKey = GetScriptForDestination(ScriptHash(redeem_script));
+    BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::SCRIPTHASH);
+    tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+    tx_spend.vin[0].scriptSig = CScript{} << ToByteVector(redeem_script);
+    AddCoins(coins, CTransaction{tx_create}, 0, false);
+    BOOST_CHECK(::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+    tx_spend.vin[0].scriptSig.clear();
+    BOOST_CHECK(!::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+
+    // Various undefined version >1 32-byte witness programs.
+    const auto program{ToByteVector(XOnlyPubKey{pubkey})};
+    for (int i{2}; i <= 16; ++i) {
+        tx_create.vout[0].scriptPubKey = GetScriptForDestination(WitnessUnknown{i, program});
+        BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::WITNESS_UNKNOWN);
+        tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+        AddCoins(coins, CTransaction{tx_create}, 0, false);
+        BOOST_CHECK(::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+
+        // It's also detected within P2SH.
+        redeem_script = tx_create.vout[0].scriptPubKey;
+        tx_create.vout[0].scriptPubKey = GetScriptForDestination(ScriptHash(redeem_script));
+        BOOST_CHECK_EQUAL(Solver(tx_create.vout[0].scriptPubKey, sol_dummy), TxoutType::SCRIPTHASH);
+        tx_spend.vin[0].prevout.hash = tx_create.GetHash();
+        tx_spend.vin[0].scriptSig = CScript{} << ToByteVector(redeem_script);
+        AddCoins(coins, CTransaction{tx_create}, 0, false);
+        BOOST_CHECK(::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+        tx_spend.vin[0].scriptSig.clear();
+        BOOST_CHECK(!::SpendsNonAnchorWitnessProg(CTransaction{tx_spend}, coins));
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

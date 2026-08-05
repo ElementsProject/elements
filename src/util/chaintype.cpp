@@ -11,6 +11,7 @@
 #include <cassert>
 #include <optional>
 #include <string>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 std::string ChainTypeToString(ChainType chain)
 {

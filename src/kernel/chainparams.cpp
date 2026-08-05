@@ -34,6 +34,7 @@
 #include <type_traits>
 
 #include <assert.h>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 using util::SplitString;
 using namespace util::hex_literals;
@@ -299,7 +300,6 @@ public:
         // release ASAP to avoid it where possible.
         vSeeds.emplace_back("seed.bitcoin.sipa.be."); // Pieter Wuille, only supports x1, x5, x9, and xd
         vSeeds.emplace_back("dnsseed.bluematt.me."); // Matt Corallo, only supports x9
-        vSeeds.emplace_back("dnsseed.bitcoin.dashjr-list-of-p2p-nodes.us."); // Luke Dashjr
         vSeeds.emplace_back("seed.bitcoin.jonasschnelli.ch."); // Jonas Schnelli, only supports x1, x5, x9, and xd
         vSeeds.emplace_back("seed.btc.petertodd.net."); // Peter Todd, only supports x1, x5, x9, and xd
         vSeeds.emplace_back("seed.bitcoin.sprovoost.nl."); // Sjors Provoost
@@ -538,9 +538,23 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         consensus.vDeployments[Consensus::DEPLOYMENT_SIMPLICITY].min_activation_height = 0; // No activation delay
-        
+
         consensus.nMinimumChainWork = uint256{"0000000000000000000000000000000000000000000001d6dce8651b6094e4c1"};
         consensus.defaultAssumeValid = uint256{"0000000000003ed4f08dbdf6f7d6b271a6bcffce25675cb40aa9fa43179a89f3"}; // 72600
+
+        consensus.genesis_subsidy = 50*COIN;
+        consensus.connect_genesis_outputs = false;
+        consensus.subsidy_asset = CAsset();
+        anyonecanspend_aremine = false;
+        enforce_pak = false;
+        accept_unlimited_issuances = false;
+        multi_data_permitted = false;
+        accept_discount_ct = false;
+        create_discount_ct = false;
+        pegin_subsidy = PeginSubsidy();
+        pegin_minimum = PeginMinimum();
+        consensus.has_parent_chain = false;
+        g_signed_blocks = false;
 
         pchMessageStart[0] = 0x1c;
         pchMessageStart[1] = 0x16;

@@ -28,6 +28,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 typedef std::map<int, uint256> MapCheckpoints;
 
@@ -106,6 +107,7 @@ struct PeginMinimum {
 class CChainParams
 {
 public:
+    virtual ~CChainParams() = default;   // required: subclasses are stored and destroyed via std::unique_ptr<const CChainParams>
     enum Base58Type {
         PUBKEY_ADDRESS,
         SCRIPT_ADDRESS,

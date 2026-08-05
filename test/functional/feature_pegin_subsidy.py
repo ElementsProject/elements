@@ -340,6 +340,16 @@ class PeginSubsidyTest(BitcoinTestFramework):
         assert_equal(len(pegin_tx["decoded"]["vout"]), 2)
         self.generate(sidechain2, 1, sync_fun=sync_sidechain)
 
+        self.log.info("createrawpegin with null argument")
+        txid, vout, txoutproof, bitcoin_txhex, claim_script = parent_pegin(parent, sidechain2, amount=1.0, feerate=2.0)
+        pegintx = sidechain2.createrawpegin(bitcoin_txhex, txoutproof, None, 2.0)
+        signed = sidechain2.signrawtransactionwithwallet(pegintx["hex"])
+        assert_equal(signed["complete"], True)
+        pegin_txid = sidechain2.sendrawtransaction(signed["hex"])
+        pegin_tx = sidechain2.gettransaction(pegin_txid, True, True)
+        assert_equal(len(pegin_tx["decoded"]["vout"]), 2)
+        self.generate(sidechain2, 1, sync_fun=sync_sidechain)
+
         self.log.info("claimpegin before enforcement, with validatepegin, below threshold")
         txid, vout, txoutproof, bitcoin_txhex, claim_script = parent_pegin(parent, sidechain, amount=1.0, feerate=2.0)
         pegin_txid = sidechain.claimpegin(bitcoin_txhex, txoutproof, claim_script)

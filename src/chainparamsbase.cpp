@@ -14,6 +14,7 @@
 #include <util/chaintype.h>
 
 #include <assert.h>
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 
 void SetupChainParamsBaseOptions(ArgsManager& argsman)
 {

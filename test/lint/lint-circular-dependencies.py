@@ -35,7 +35,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES = (
     "chain -> validation -> deploymentstatus -> chain",
     "chain -> validation -> pow -> chain",
     "chain -> validation -> primitives/pak -> chain",
-    "chain -> validation -> validationinterface -> chain",
+    "chain -> node/context -> validationinterface -> chain",
     "chain -> validation -> versionbits -> chain",
     "confidential_validation -> pegins -> validation -> confidential_validation",
     "consensus/tx_verify -> pegins -> validation -> consensus/tx_verify",

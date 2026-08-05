@@ -19,15 +19,19 @@ if(POLICY CMP0171)
   cmake_policy(SET CMP0171 NEW)
 endif()
 
+# When adjusting CMake flag variables, we must not override those explicitly
+# set by the user. These are a subset of the CACHE_VARIABLES property.
+get_directory_property(precious_variables CACHE_VARIABLES)
+
 #=============================
 # Project / Package metadata
 #=============================
 set(CLIENT_NAME "Elements Core")
-set(CLIENT_VERSION_MAJOR 28)
-set(CLIENT_VERSION_MINOR 99)
+set(CLIENT_VERSION_MAJOR 29)
+set(CLIENT_VERSION_MINOR 4)
 set(CLIENT_VERSION_BUILD 0)
-set(CLIENT_VERSION_RC 0)
-set(CLIENT_VERSION_IS_RELEASE "false")
+set(CLIENT_VERSION_RC 1)
+set(CLIENT_VERSION_IS_RELEASE "true")
 set(COPYRIGHT_YEAR "2025")
 
 # During the enabling of the CXX and CXXOBJ languages, we modify
@@ -107,8 +111,12 @@ if(WITH_SQLITE)
   if(VCPKG_TARGET_TRIPLET)
     # Use of the `unofficial::` namespace is a vcpkg package manager convention.
     find_package(unofficial-sqlite3 CONFIG REQUIRED)
+    add_library(SQLite3::SQLite3 ALIAS unofficial::sqlite3::sqlite3)
   else()
     find_package(SQLite3 3.7.17 REQUIRED)
+    if(NOT TARGET SQLite3::SQLite3) # CMake < 4.3
+      add_library(SQLite3::SQLite3 ALIAS SQLite::SQLite3)
+    endif()
   endif()
   set(USE_SQLITE ON)
 endif()
@@ -158,7 +166,7 @@ if(WITH_QRENCODE)
   set(USE_QRCODE TRUE)
 endif()
 
-cmake_dependent_option(WITH_DBUS "Enable DBus support." ON "CMAKE_SYSTEM_NAME STREQUAL \"Linux\" AND BUILD_GUI" OFF)
+cmake_dependent_option(WITH_DBUS "Enable DBus support." ON "NOT CMAKE_SYSTEM_NAME MATCHES \"(Windows|Darwin)\" AND BUILD_GUI" OFF)
 
 option(WITH_MULTIPROCESS "Build multiprocess elements-node and elements-gui executables in addition to monolithic elementsd and elements-qt executables. Requires libmultiprocess library. Experimental." OFF)
 if(WITH_MULTIPROCESS)
@@ -384,6 +392,7 @@ if(SANITIZERS)
       int main() { return 0; }
     "
     RESULT_VAR linker_supports_sanitizers
+    NO_CACHE_IF_FAILED
   )
   if(NOT linker_supports_sanitizers)
     message(FATAL_ERROR "Linker did not accept requested flags, you are missing required libraries.")
@@ -668,7 +677,7 @@ message("  external signer ..................... ${ENABLE_EXTERNAL_SIGNER}")
 message("  ZeroMQ .............................. ${WITH_ZMQ}")
 message("  USDT tracing ........................ ${WITH_USDT}")
 message("  QR code (GUI) ....................... ${WITH_QRENCODE}")
-message("  DBus (GUI, Linux only) .............. ${WITH_DBUS}")
+message("  DBus (GUI) .......................... ${WITH_DBUS}")
 message("Tests:")
 message("  test_elements ........................ ${BUILD_TESTS}")
 message("  test_elements-qt .................... ${BUILD_GUI_TESTS}")

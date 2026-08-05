@@ -44,6 +44,10 @@ class RawTransactionsTest(BitcoinTestFramework):
 
     def set_test_params(self):
         self.num_nodes = 4
+        self.extra_args = [[
+            "-deprecatedrpc=settxfee",
+            "-minrelaytxfee=0.00001000",
+        ] for i in range(self.num_nodes)]
         self.setup_clean_chain = True
         # This test isn't testing tx relay. Set whitelist on the peers for
         # instant tx relay.
@@ -706,6 +710,9 @@ class RawTransactionsTest(BitcoinTestFramework):
         fundedTx = wallet.fundrawtransaction(rawtx)
         blindedTx = wallet.blindrawtransaction(fundedTx['hex'])
         assert fundedTx["changepos"] != -1
+        self.log.info("blindrawtransaction with null argument")
+        blindedTx_null_commitments = wallet.blindrawtransaction(fundedTx['hex'], None, None, False)
+        assert blindedTx_null_commitments
 
         # Now we need to unlock.
         with WalletUnlock(wallet, "test"):

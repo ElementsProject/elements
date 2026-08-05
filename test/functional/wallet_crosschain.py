@@ -24,7 +24,7 @@ class WalletCrossChain(BitcoinTestFramework):
         self.nodes[1].chain = 'liquidtestnet'
         self.nodes[1].extra_args = ['-maxconnections=0', '-prune=550'] # disable testnet sync
         self.nodes[1].replace_in_config([('regtest=', 'testnet='), ('elementsregtest', 'liquidtestnet')])
-        
+
         # Switch node 2 to testnet4 before starting it.
         self.nodes[2].chain = 'testnet4'
         self.nodes[2].extra_args = ['-maxconnections=0', '-prune=550', '-validatepegin=0'] # disable testnet4 sync
@@ -60,12 +60,12 @@ class WalletCrossChain(BitcoinTestFramework):
             assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[2].loadwallet, node0_wallet)
             assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[1].loadwallet, node2_wallet)
             assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[2].loadwallet, node1_wallet)
-            assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[0].restorewallet, 'w', node1_wallet_backup)
-            assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[0].restorewallet, 'w', node2_wallet_backup)
-            assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[1].restorewallet, 'w', node0_wallet_backup)
-            assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[2].restorewallet, 'w', node0_wallet_backup)
-            assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[1].restorewallet, 'w', node2_wallet_backup)
-            assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[2].restorewallet, 'w', node1_wallet_backup)
+            assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[0].restorewallet, 'w0_from_node1', node1_wallet_backup)
+            assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[0].restorewallet, 'w0_from_node2', node2_wallet_backup)
+            assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[1].restorewallet, 'w1_from_node0', node0_wallet_backup)
+            assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[2].restorewallet, 'w2_from_node0', node0_wallet_backup)
+            assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[1].restorewallet, 'w1_from_node2', node2_wallet_backup)
+            assert_raises_rpc_error(-18, 'Wallet file verification failed.', self.nodes[2].restorewallet, 'w2_from_node1', node1_wallet_backup)
         else:
             assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[0].loadwallet, node1_wallet)
             assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[0].loadwallet, node2_wallet)
@@ -73,12 +73,12 @@ class WalletCrossChain(BitcoinTestFramework):
             assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[2].loadwallet, node0_wallet)
             assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[1].loadwallet, node2_wallet)
             assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[2].loadwallet, node1_wallet)
-            assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[0].restorewallet, 'w', node1_wallet_backup)
-            assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[0].restorewallet, 'w', node2_wallet_backup)
-            assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[1].restorewallet, 'w', node0_wallet_backup)
-            assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[2].restorewallet, 'w', node0_wallet_backup)
-            assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[1].restorewallet, 'w', node2_wallet_backup)
-            assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[2].restorewallet, 'w', node1_wallet_backup)
+            assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[0].restorewallet, 'w0_from_node1', node1_wallet_backup)
+            assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[0].restorewallet, 'w0_from_node2', node2_wallet_backup)
+            assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[1].restorewallet, 'w1_from_node0', node0_wallet_backup)
+            assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[2].restorewallet, 'w2_from_node0', node0_wallet_backup)
+            assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[1].restorewallet, 'w1_from_node2', node2_wallet_backup)
+            assert_raises_rpc_error(-4, 'Wallet files should not be reused across chains.', self.nodes[2].restorewallet, 'w2_from_node1', node1_wallet_backup)
 
         if not self.options.descriptors:
             self.log.info("Override cross-chain wallet load protection")

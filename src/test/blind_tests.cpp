@@ -320,6 +320,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         input_amounts.push_back(500);
         input_assets.push_back(bitcoinID);
         input_assets.push_back(otherID);
+        output_pubkeys.reserve(6);
         for (unsigned int i = 0; i < 6; i++) {
             output_pubkeys.push_back(pubkey2);
         }

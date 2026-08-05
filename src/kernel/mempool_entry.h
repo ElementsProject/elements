@@ -105,7 +105,7 @@ private:
     int64_t nSizeWithAncestors;
     CAmount nModFeesWithAncestors;
     int64_t nSigOpCostWithAncestors;
-    uint64_t discountSizeWithAncestors; // ELEMENTS
+    int64_t discountSizeWithAncestors; // ELEMENTS
 
 public:
     CTxMemPoolEntry(const CTransactionRef& tx, CAmount fee,
@@ -129,7 +129,7 @@ public:
           nSizeWithAncestors{GetTxSize()},
           nModFeesWithAncestors{nFee},
           nSigOpCostWithAncestors{sigOpCost},
-          discountSizeWithAncestors{GetDiscountTxSize()},
+          discountSizeWithAncestors{static_cast<int64_t>(GetDiscountTxSize())},
           setPeginsSpent(setPeginsSpent) {};
 
     CTxMemPoolEntry(ExplicitCopyTag, const CTxMemPoolEntry& entry) : CTxMemPoolEntry(entry) {}
@@ -190,7 +190,7 @@ public:
 
     uint64_t GetCountWithAncestors() const { return m_count_with_ancestors; }
     int64_t GetSizeWithAncestors() const { return nSizeWithAncestors; }
-    uint64_t GetDiscountSizeWithAncestors() const { return discountSizeWithAncestors; }
+    int64_t GetDiscountSizeWithAncestors() const { return discountSizeWithAncestors; }
     CAmount GetModFeesWithAncestors() const { return nModFeesWithAncestors; }
     int64_t GetSigOpCostWithAncestors() const { return nSigOpCostWithAncestors; }
 

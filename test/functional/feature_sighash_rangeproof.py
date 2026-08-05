@@ -203,7 +203,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
         if assert_valid:
             self.nodes[0].testproposedblock(block_hex)
         else:
-            assert_raises_rpc_error(-25, "mandatory-script-verify-flag-failed", self.nodes[0].testproposedblock, block_hex) 
+            assert_raises_rpc_error(-25, "mandatory-script-verify-flag-failed", self.nodes[0].testproposedblock, block_hex)
 
         # Then try submit the block and check if it was accepted or not.
         pre = self.nodes[0].getblockcount()
