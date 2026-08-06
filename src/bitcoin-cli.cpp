@@ -86,7 +86,7 @@ static void SetupCliArgs(ArgsManager& argsman)
     argsman.AddArg("-generate",
                    strprintf("Generate blocks, equivalent to RPC getnewaddress followed by RPC generatetoaddress. Optional positional integer "
                              "arguments are number of blocks to generate (default: %s) and maximum iterations to try (default: %s), equivalent to "
-                             "RPC generatetoaddress nblocks and maxtries arguments. Example: bitcoin-cli -generate 4 1000",
+                             "RPC generatetoaddress nblocks and maxtries arguments. Example: elements-cli -generate 4 1000",
                              DEFAULT_NBLOCKS, DEFAULT_MAX_TRIES),
                    ArgsManager::ALLOW_ANY, OptionsCategory::CLI_COMMANDS);
     argsman.AddArg("-addrinfo", "Get the number of addresses known to the node, per network and total, after filtering for quality and recency. The total number of addresses known to the node may be higher.", ArgsManager::ALLOW_ANY, OptionsCategory::CLI_COMMANDS);
@@ -502,15 +502,15 @@ public:
             if (ParseUInt8(args.at(0), &n)) {
                 m_details_level = std::min(n, NETINFO_MAX_LEVEL);
             } else {
-                throw std::runtime_error(strprintf("invalid -netinfo level argument: %s\nFor more information, run: bitcoin-cli -netinfo help", args.at(0)));
+                throw std::runtime_error(strprintf("invalid -netinfo level argument: %s\nFor more information, run: elements-cli -netinfo help", args.at(0)));
             }
             if (args.size() > 1) {
                 if (std::string_view s{args.at(1)}; n && (s == "o" || s == "outonly")) {
                     m_outbound_only_selected = true;
                 } else if (n) {
-                    throw std::runtime_error(strprintf("invalid -netinfo outonly argument: %s\nFor more information, run: bitcoin-cli -netinfo help", s));
+                    throw std::runtime_error(strprintf("invalid -netinfo outonly argument: %s\nFor more information, run: elements-cli -netinfo help", s));
                 } else {
-                    throw std::runtime_error(strprintf("invalid -netinfo outonly argument: %s\nThe outonly argument is only valid for a level greater than 0 (the first argument). For more information, run: bitcoin-cli -netinfo help", s));
+                    throw std::runtime_error(strprintf("invalid -netinfo outonly argument: %s\nThe outonly argument is only valid for a level greater than 0 (the first argument). For more information, run: elements-cli -netinfo help", s));
                 }
             }
         }
@@ -748,17 +748,17 @@ public:
         "* The local addresses table lists each local address broadcast by the node, the port, and the score.\n\n"
         "Examples:\n\n"
         "Peer counts table of reachable networks and list of local addresses\n"
-        "> bitcoin-cli -netinfo\n\n"
+        "> elements-cli -netinfo\n\n"
         "The same, preceded by a peers listing without address and version columns\n"
-        "> bitcoin-cli -netinfo 1\n\n"
+        "> elements-cli -netinfo 1\n\n"
         "Full dashboard\n"
-        + strprintf("> bitcoin-cli -netinfo %d\n\n", NETINFO_MAX_LEVEL) +
+        + strprintf("> elements-cli -netinfo %d\n\n", NETINFO_MAX_LEVEL) +
         "Full dashboard, but with outbound peers only\n"
-        + strprintf("> bitcoin-cli -netinfo %d outonly\n\n", NETINFO_MAX_LEVEL) +
+        + strprintf("> elements-cli -netinfo %d outonly\n\n", NETINFO_MAX_LEVEL) +
         "Full live dashboard, adjust --interval or --no-title as needed (Linux)\n"
-        + strprintf("> watch --interval 1 --no-title bitcoin-cli -netinfo %d\n\n", NETINFO_MAX_LEVEL) +
+        + strprintf("> watch --interval 1 --no-title elements-cli -netinfo %d\n\n", NETINFO_MAX_LEVEL) +
         "See this help\n"
-        "> bitcoin-cli -netinfo help\n"};
+        "> elements-cli -netinfo help\n"};
 };
 
 /** Process RPC generatetoaddress request. */
@@ -926,7 +926,7 @@ static UniValue CallRPC(BaseRequestHandler* rh, const std::string& strMethod, co
         }
         throw CConnectionFailed(strprintf("Could not connect to the server %s:%d%s\n\n"
                     "Make sure the daemon server is running and that you are connecting to the correct RPC port.\n"
-                    "Use \"bitcoin-cli -help\" for more info.",
+                    "Use \"elements-cli -help\" for more info.",
                     host, port, responseErrorMessage));
     } else if (response.status == HTTP_UNAUTHORIZED) {
         if (failedToGetAuthCookie) {

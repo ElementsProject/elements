@@ -121,7 +121,7 @@ def check_ELF_FORTIFY(binary) -> bool:
 
     # bitcoin-util and elements-util do not currently contain any fortified functions
     # (the utility binaries are intentionally kept minimal)
-    if any('bitcoin-util utility version' in s for s in binary.strings):
+    if any('elements-util utility version' in s for s in binary.strings):
         return True
 
     chk_funcs = set()
