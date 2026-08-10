@@ -29,10 +29,10 @@ get_directory_property(precious_variables CACHE_VARIABLES)
 set(CLIENT_NAME "Elements Core")
 set(CLIENT_VERSION_MAJOR 29)
 set(CLIENT_VERSION_MINOR 4)
-set(CLIENT_VERSION_BUILD 0)
+set(CLIENT_VERSION_BUILD 1)
 set(CLIENT_VERSION_RC 1)
 set(CLIENT_VERSION_IS_RELEASE "true")
-set(COPYRIGHT_YEAR "2025")
+set(COPYRIGHT_YEAR "2026")
 
 # During the enabling of the CXX and CXXOBJ languages, we modify
 # CMake's compiler/linker invocation strings by appending the content
@@ -63,7 +63,8 @@ if(CLIENT_VERSION_RC GREATER 0)
 endif()
 
 set(COPYRIGHT_HOLDERS "The %s developers")
-set(COPYRIGHT_HOLDERS_FINAL "The Elements Project developers")
+set(COPYRIGHT_HOLDERS_SUBSTITUTION "Elements Project")
+string(REPLACE "%s" "${COPYRIGHT_HOLDERS_SUBSTITUTION}" COPYRIGHT_HOLDERS_FINAL "${COPYRIGHT_HOLDERS}")
 set(CLIENT_BUGREPORT "https://github.com/ElementsProject/elements/issues")
 
 #=============================
