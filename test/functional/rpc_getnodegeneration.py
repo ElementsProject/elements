@@ -136,6 +136,8 @@ class NodeGenerationTest(BitcoinTestFramework):
             "blocks",
             "bestblockhash",
             "ABA detection",
+            "process restart",
+            "chainstate_revision changes",
             "do not establish binary provenance",
             "do not prove that the connected node is honest",
         ):

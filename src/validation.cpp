@@ -6335,6 +6335,7 @@ void ChainstateManager::AdvanceChainstateRevision()
 {
     AssertLockHeld(::cs_main);
     ProcessNodeGeneration& generation{GetProcessNodeGeneration()};
+    // Fail-stop rather than wrap because reuse would break ABA detection.
     Assert(generation.chainstate_revision != std::numeric_limits<uint64_t>::max());
     ++generation.chainstate_revision;
 }

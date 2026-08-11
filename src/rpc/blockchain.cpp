@@ -3771,6 +3771,7 @@ static RPCHelpMan getnodegeneration()
 {
     return RPCHelpMan{"getnodegeneration",
         "Returns process and active-chain generation fields for stale-response and reorganization ABA detection.\n"
+        "Treat a startup_id mismatch as a process restart, and use chainstate_revision changes to detect ABA.\n"
         "These fields do not establish binary provenance and do not prove that the connected node is honest.\n",
         {},
         RPCResult{
