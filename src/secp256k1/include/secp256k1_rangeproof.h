@@ -125,7 +125,14 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
  *          commit: the commitment being proved.
  *          blind:  32-byte blinding factor used by commit. The blinding factor may be all-zeros as long as min_bits is set to 3 or greater.
  *                  This is a side-effect of the underlying crypto, not a deliberate API choice, but it may be useful when balancing CT transactions.
- *          nonce:  32-byte secret nonce used to initialize the proof (value can be reverse-engineered out of the proof if this secret is known.)
+ *          nonce:  32-byte secret nonce used to initialize the proof.
+ *
+ *                  Each call to this function must have a UNIQUE nonce that
+ *                  MUST NOT BE REUSED in subsequent calls. The nonce must be
+ *                  KEPT SECRET except from parties authorized to rewind the
+ *                  proof. Anyone who knows the nonce can recover `value` and
+ *                  `blind` from the proof. Reusing the nonce may expose `blind`
+ *                  even to parties that do not know the nonce.
  *          exp:    Base-10 exponent. Digits below above will be made public, but the proof will be made smaller. Allowed range is -1 to 18.
  *                  (-1 is a special case that makes the value public. 0 is the most private.)
  *          min_bits: Number of bits of the value to keep private. (0 = auto/minimal, - 64).

@@ -196,9 +196,12 @@ int secp256k1_ecdsa_adaptor_encrypt(const secp256k1_context* ctx, unsigned char 
     /* R := k*Y */
     secp256k1_ecmult_const(&rj[0], &enckey_ge, &k);
     /* R' := k*G */
-    secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &rj[1], &k);
+    secp256k1_ecmult_gen_gej(&ctx->ecmult_gen_ctx, &rj[1], &k);
 
     secp256k1_ge_set_all_gej(r, rj, 2);
+
+    secp256k1_gej_clear(&rj[0]);
+    secp256k1_gej_clear(&rj[1]);
 
     /* We declassify the non-secret nonce values to allow using them as branch points. */
     secp256k1_declassify(ctx, &r[0], sizeof(r[0]));
@@ -325,7 +328,6 @@ int secp256k1_ecdsa_adaptor_recover(const secp256k1_context* ctx, unsigned char 
     secp256k1_scalar deckey;
     secp256k1_ge enckey_expected_ge;
     secp256k1_ge enckey_ge;
-    secp256k1_gej enckey_expected_gej;
     unsigned char enckey33[33];
     unsigned char enckey_expected33[33];
     int ret = 1;
@@ -349,8 +351,7 @@ int secp256k1_ecdsa_adaptor_recover(const secp256k1_context* ctx, unsigned char 
     secp256k1_scalar_mul(&deckey, &deckey, &sp);
 
     /* Deal with ECDSA malleability */
-    secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &enckey_expected_gej, &deckey);
-    secp256k1_ge_set_gej(&enckey_expected_ge, &enckey_expected_gej);
+    secp256k1_ecmult_gen_ge(&ctx->ecmult_gen_ctx, &enckey_expected_ge, &deckey);
     /* We declassify non-secret enckey_expected_ge to allow using it as a
      * branch point. */
     secp256k1_declassify(ctx, &enckey_expected_ge, sizeof(enckey_expected_ge));

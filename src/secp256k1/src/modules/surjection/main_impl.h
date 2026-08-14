@@ -337,7 +337,20 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     rsizes[0] = (int) n_used_pubkeys;
     indices[0] = (int) ring_input_index;
     secp256k1_surjection_genmessage(hash_ctx, msg32, ephemeral_input_tags, n_total_pubkeys, ephemeral_output_tag);
-    if (secp256k1_surjection_genrand(hash_ctx, borromean_s, n_used_pubkeys, &blinding_key) == 0) {
+    /* Derive every s-value, including the one used as the signing nonce, from
+     * every proof-relevant input to
+     * secp256k1_surjectionproof_generate. Except with negligible hash-collision
+     * probability, this prevents distinct proof inputs from reusing any
+     * s-value.
+     *
+     * The proof-relevant arguments to secp256k1_surjectionproof_generate
+     * correspond as follows: proof supplies n_total_pubkeys (proof->n_inputs),
+     * proof->used_inputs, and n_used_pubkeys, while proof->data is output and
+     * proof->initialized is VERIFY-only validation state; ephemeral_input_tags
+     * is committed by msg32; n_ephemeral_input_tags equals n_total_pubkeys as
+     * checked above; ephemeral_output_tag is committed by msg32; input_index
+     * and both blinding keys are passed directly. */
+    if (secp256k1_surjection_genrand(hash_ctx, borromean_s, n_used_pubkeys, n_total_pubkeys, proof->used_inputs, msg32, input_index, input_blinding_key, output_blinding_key) == 0) {
         return 0;
     }
     /* Borromean sign will overwrite one of the s values we just generated, so use

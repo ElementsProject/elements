@@ -146,7 +146,6 @@ int secp256k1_ecdsa_anti_exfil_host_commit(const secp256k1_context* ctx, unsigne
 int secp256k1_ecdsa_anti_exfil_signer_commit(const secp256k1_context* ctx, secp256k1_ecdsa_s2c_opening* opening, const unsigned char* msg32, const unsigned char* seckey32, const unsigned char* rand_commitment32) {
     unsigned char nonce32[32];
     secp256k1_scalar k;
-    secp256k1_gej rj;
     secp256k1_ge r;
     unsigned int count = 0;
     int is_nonce_valid = 0;
@@ -170,11 +169,9 @@ int secp256k1_ecdsa_anti_exfil_signer_commit(const secp256k1_context* ctx, secp2
         count++;
     }
 
-    secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &rj, &k);
-    secp256k1_ge_set_gej(&r, &rj);
+    secp256k1_ecmult_gen_ge(&ctx->ecmult_gen_ctx, &r, &k);
     secp256k1_ecdsa_s2c_opening_save(opening, &r);
     secp256k1_memclear_explicit(nonce32, 32);
-    secp256k1_scalar_clear(&k);
     return 1;
 }
 
