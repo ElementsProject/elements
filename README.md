@@ -1,99 +1,134 @@
-Elements Project blockchain platform
-====================================
+libsecp256k1-zkp
+================
 
-[![Release](https://img.shields.io/github/v/release/ElementsProject/elements?label=latest%20release&link=https%3A%2F%2Fgithub.com%2FElementsProject%2Felements%2Freleases%2Flatest)](https://github.com/ElementsProject/elements/releases)
+![Dependencies: None](https://img.shields.io/badge/dependencies-none-success)
 
-https://elementsproject.org
+A fork of [libsecp256k1](https://github.com/bitcoin-core/secp256k1) with support for advanced and experimental features
 
-This is the integration and staging tree for the Elements blockchain platform,
-a collection of feature experiments and extensions to the Bitcoin protocol.
-This platform enables anyone to build their own businesses or networks
-pegged to Bitcoin as a sidechain or run as a standalone blockchain with arbitrary asset tokens.
+Added features:
+* Experimental module for ECDSA adaptor signatures.
+* Experimental module for ECDSA sign-to-contract.
+* Experimental modules for Confidential Assets (Pedersen commitments, range proofs, and [surjection proofs](src/modules/surjection/surjection.md)).
+* Experimental module for [address whitelisting](src/modules/whitelist/whitelist.md).
+* Experimental module for Schnorr signature half-aggregation.
 
-Modes
------
+Experimental features are made available for testing and review by the community. The APIs of these features should not be considered stable.
 
-Elements supports a few different pre-set chains for syncing. Note though some are intended for QA and debugging only:
+Build steps
+-----------
 
-* Liquid mode: `elementsd -chain=liquidv1` (syncs with Liquid network)
-* Bitcoin mainnet mode: `elementsd -chain=main` (not intended to be run for commerce)
-* Bitcoin testnet mode: `elementsd -chain=testnet3`
-* Bitcoin regtest mode: `elementsd -chain=regtest`
-* Elements custom chains: Any other `-chain=` argument. It has regtest-like default parameters that can be over-ridden by the user by a rich set of start-up options.
+Obtaining and verifying
+-----------------------
 
-Confidential Assets
-----------------
-The latest feature in the Elements blockchain platform is Confidential Assets,
-the ability to issue multiple assets on a blockchain where asset identifiers
-and amounts are blinded yet auditable through the use of applied cryptography.
+The git tag for each release (e.g. `v0.6.0`) is GPG-signed by one of the maintainers.
+For a fully verified build of this project, it is recommended to obtain this repository
+via git, obtain the GPG keys of the signing maintainer(s), and then verify the release
+tag's signature using git.
 
- * [Announcement of Confidential Assets](https://blockstream.com/2017/04/03/blockstream-releases-elements-confidential-assets.html)
- * [Confidential Assets Whitepaper](https://blockstream.com/bitcoin17-final41.pdf) to be presented [April 7th at Financial Cryptography 2017](http://fc17.ifca.ai/bitcoin/schedule.html) in Malta
- * [Confidential Assets Tutorial](contrib/assets_tutorial/assets_tutorial.py)
- * [Confidential Assets Demo](https://github.com/ElementsProject/confidential-assets-demo)
- * [Elements Code Tutorial](https://elementsproject.org/elements-code-tutorial/overview) covering blockchain configuration and how to use the main features.
+This can be done with the following steps:
 
-Features of the Elements blockchain platform
-----------------
+1. Obtain the GPG keys listed in [SECURITY.md](./SECURITY.md).
+2. If possible, cross-reference these key IDs with another source controlled by its owner (e.g.
+   social media, personal website). This is to mitigate the unlikely case that incorrect 
+   content is being presented by this repository.
+3. Clone the repository: 
+    ```
+    git clone https://github.com/bitcoin-core/secp256k1
+    ```
+4. Check out the latest release tag, e.g. 
+    ```
+    git checkout v0.7.1
+    ```
+5. Use git to verify the GPG signature: 
+   ```
+   % git tag -v v0.7.1 | grep -C 3 'Good signature'
 
-Compared to Bitcoin itself, it adds the following features:
- * [Confidential Assets][asset-issuance]
- * [Confidential Transactions][confidential-transactions]
- * [Federated Two-Way Peg][federated-peg]
- * [Signed Blocks][signed-blocks]
- * [Additional opcodes][opcodes]
+   gpg: Signature made Mon 26 Jan 2026 07:42:46 PM UTC
+   gpg:                using RSA key 2840EAABF4BC9F0FFD716AFAFBAFCC46DE2D3FE2
+   gpg: Good signature from "Pieter Wuille <pieter@wuille.net>" [unknown]
+   gpg:                 aka "Pieter Wuille <pieter.wuille@gmail.com>" [full]
+   gpg:                 aka "[jpeg image of size 5996]" [undefined]
+   gpg: WARNING: This key is not certified with a trusted signature!
+   gpg:          There is no indication that the signature belongs to the owner.
+   Primary key fingerprint: 133E AC17 9436 F14A 5CF1  B794 860F EB80 4E66 9320
+        Subkey fingerprint: 2840 EAAB F4BC 9F0F FD71  6AFA FBAF CC46 DE2D 3FE2
+   ```
 
-Previous elements that have been integrated into Bitcoin:
- * Segregated Witness
- * Relative Lock Time
+Building with Autotools
+-----------------------
 
-Elements deferred for additional research and standardization:
- * [Schnorr Signatures][schnorr-signatures]
+    $ ./autogen.sh       # Generate a ./configure script
+    $ ./configure        # Generate a build system
+    $ make               # Run the actual build process
+    $ make check         # Run the test suite
+    $ sudo make install  # Install the library into the system (optional)
 
-Additional RPC commands and parameters:
-* [RPC Docs](https://elementsproject.org/en/doc/)
+To compile optional modules (such as Schnorr signatures), you need to run `./configure` with additional flags (such as `--enable-module-schnorrsig`). Run `./configure --help` to see the full list of available flags. For experimental modules, you will also need `--enable-experimental` as well as a flag for each individual module, e.g. `--enable-module-rangeproof`.
 
-Testing and code review is the bottleneck for development; we get more pull
-requests than we can review and test on short notice. Please be patient and help out by testing
-other people's pull requests, and remember this is a security-critical project where any mistake might cost people
-lots of money.
+Building with CMake
+-------------------
 
-### Automated Testing
+To maintain a pristine source tree, CMake encourages to perform an out-of-source build by using a separate dedicated build tree.
 
-Developers are strongly encouraged to write [unit tests](src/test/README.md) for new code, and to
-submit new unit tests for old code. Unit tests can be compiled and run
-(assuming they weren't disabled during the generation of the build system) with: `ctest`. Further details on running
-and extending unit tests can be found in [/src/test/README.md](/src/test/README.md).
+### Building on POSIX systems
 
-There are also [regression and integration tests](/test), written
-in Python.
-These tests can be run (if the [test dependencies](/test) are installed) with: `build/test/functional/test_runner.py`
-(assuming `build` is your build directory).
+    $ cmake -B build              # Generate a build system in subdirectory "build"
+    $ cmake --build build         # Run the actual build process
+    $ ctest --test-dir build      # Run the test suite
+    $ sudo cmake --install build  # Install the library into the system (optional)
 
-The CI (Continuous Integration) systems make sure that every pull request is built for Windows, Linux, and macOS,
-and that unit/sanity tests are run automatically.
+To compile optional modules (such as Schnorr signatures), you need to run `cmake` with additional flags (such as `-DSECP256K1_ENABLE_MODULE_SCHNORRSIG=ON`). Run `cmake -B build -LH` or `ccmake -B build` to see the full list of available flags.
 
-License
--------
-Elements is released under the terms of the MIT license. See [COPYING](COPYING) for more
-information or see http://opensource.org/licenses/MIT.
+### Cross compiling
 
-[confidential-transactions]: https://elementsproject.org/features/confidential-transactions
-[opcodes]: https://elementsproject.org/features/opcodes
-[federated-peg]: https://elementsproject.org/features#federatedpeg
-[signed-blocks]: https://elementsproject.org/features#signedblocks
-[asset-issuance]: https://elementsproject.org/features/issued-assets
-[schnorr-signatures]: https://elementsproject.org/features/schnorr-signatures
+To alleviate issues with cross compiling, preconfigured toolchain files are available in the `cmake` directory.
+For example, to cross compile for Windows:
 
-What is the Elements Project?
------------------
-Elements is an open source, sidechain-capable blockchain platform. It also allows experiments to more rapidly bring technical innovation to the Bitcoin ecosystem.
+    $ cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-w64-mingw32.toolchain.cmake
 
-Learn more on the [Elements Project website](https://elementsproject.org)
+To cross compile for Android with [NDK](https://developer.android.com/ndk/guides/cmake) (using NDK's toolchain file, and assuming the `ANDROID_NDK_ROOT` environment variable has been set):
 
-https://github.com/ElementsProject/elementsproject.github.io
+    $ cmake -B build -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=28
 
-Secure Reporting
-------------------
-See [our vulnerability reporting guide](SECURITY.md)
+### Building on Windows
 
+The following example assumes Visual Studio 2022. Using clang-cl is recommended.
+
+In "Developer Command Prompt for VS 2022":
+
+    >cmake -B build -T ClangCL
+    >cmake --build build --config RelWithDebInfo
+
+Usage examples
+-----------
+
+Usage examples can be found in the [examples](examples) directory. To compile them you need to configure with `--enable-examples`.
+  * [ECDSA example](examples/ecdsa.c)
+  * [Schnorr signatures example](examples/schnorr.c)
+  * [Deriving a shared secret (ECDH) example](examples/ecdh.c)
+  * [ElligatorSwift key exchange example](examples/ellswift.c)
+  * [MuSig2 Schnorr multi-signatures example](examples/musig.c)
+
+To compile the examples, make sure the corresponding modules are enabled.
+
+Benchmark
+------------
+If configured with `--enable-benchmark` (which is the default), binaries for benchmarking the libsecp256k1-zkp functions will be present in the root directory after the build.
+
+To print the benchmark result to the command line:
+
+    $ ./bench_name
+
+To create a CSV file for the benchmark result :
+
+    $ ./bench_name | sed '2d;s/ \{1,\}//g' > bench_name.csv
+
+Reporting a vulnerability
+------------
+
+See [SECURITY.md](SECURITY.md)
+
+Contributing to libsecp256k1
+------------
+
+See [CONTRIBUTING.md](CONTRIBUTING.md)

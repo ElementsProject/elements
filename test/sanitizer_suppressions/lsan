@@ -1,5 +1,0 @@
-# Suppress warnings triggered in dependencies
-leak:libQt5Widgets
-
-# ELEMENTS FIXME: Temporary hack while figuring out why wallet destruction doesn't seem to happen according to asan
-leak:LoadWallets

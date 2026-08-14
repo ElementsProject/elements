@@ -1,679 +1,331 @@
-# Copyright (c) 2023-present The Bitcoin Core developers
-# Distributed under the MIT software license, see the accompanying
-# file COPYING or https://opensource.org/license/mit/.
-
-# Ubuntu 22.04 LTS Jammy Jellyfish, https://wiki.ubuntu.com/Releases, EOSS in June 2027:
-#  - CMake 3.22.1, https://packages.ubuntu.com/jammy/cmake
-#
-# Centos Stream 9, https://www.centos.org/cl-vs-cs/#end-of-life, EOL in May 2027:
-#  - CMake 3.26.5, https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/
 cmake_minimum_required(VERSION 3.22)
-
-if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
-  message(FATAL_ERROR "In-source builds are not allowed.")
-endif()
-
-if(POLICY CMP0171)
-  # `codegen` is a reserved target name.
-  # See: https://cmake.org/cmake/help/latest/policy/CMP0171.html
-  cmake_policy(SET CMP0171 NEW)
-endif()
 
 #=============================
 # Project / Package metadata
 #=============================
-set(CLIENT_NAME "Elements Core")
-set(CLIENT_VERSION_MAJOR 28)
-set(CLIENT_VERSION_MINOR 99)
-set(CLIENT_VERSION_BUILD 0)
-set(CLIENT_VERSION_RC 0)
-set(CLIENT_VERSION_IS_RELEASE "false")
-set(COPYRIGHT_YEAR "2025")
-
-# During the enabling of the CXX and CXXOBJ languages, we modify
-# CMake's compiler/linker invocation strings by appending the content
-# of the user-defined `APPEND_*` variables, which allows overriding
-# any flag. We also ensure that the APPEND_* flags are considered
-# during CMake's tests, which use the `try_compile()` command.
-#
-# CMake's docs state that the `CMAKE_TRY_COMPILE_PLATFORM_VARIABLES`
-# variable "is meant to be set by CMake's platform information modules
-# for the current toolchain, or by a toolchain file." We do our best
-# to set it before the `project()` command.
-set(CMAKE_TRY_COMPILE_PLATFORM_VARIABLES
-  CMAKE_CXX_COMPILE_OBJECT
-  CMAKE_OBJCXX_COMPILE_OBJECT
-  CMAKE_CXX_LINK_EXECUTABLE
+project(libsecp256k1
+  # The package (a.k.a. release) version is based on semantic versioning 2.0.0 of
+  # the API. All changes in experimental modules are treated as
+  # backwards-compatible and therefore at most increase the minor version.
+  VERSION 0.7.2
+  DESCRIPTION "Optimized C library for ECDSA signatures and secret/public key operations on curve secp256k1."
+  HOMEPAGE_URL "https://github.com/bitcoin-core/secp256k1"
+  LANGUAGES C
 )
+enable_testing()
+include(CTestUseLaunchers) # Allow users to set CTEST_USE_LAUNCHERS in custom `ctest -S` scripts.
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
-project(ElementsCore
-  VERSION ${CLIENT_VERSION_MAJOR}.${CLIENT_VERSION_MINOR}.${CLIENT_VERSION_BUILD}
-  DESCRIPTION "Elements sidechain client software"
-  HOMEPAGE_URL "https://elementsproject.org/"
-  LANGUAGES NONE
-)
-
-set(CLIENT_VERSION_STRING ${PROJECT_VERSION})
-if(CLIENT_VERSION_RC GREATER 0)
-  string(APPEND CLIENT_VERSION_STRING "rc${CLIENT_VERSION_RC}")
-endif()
-
-set(COPYRIGHT_HOLDERS "The %s developers")
-set(COPYRIGHT_HOLDERS_FINAL "The Elements Project developers")
-set(CLIENT_BUGREPORT "https://github.com/ElementsProject/elements/issues")
+# The library version is based on libtool versioning of the ABI. The set of
+# rules for updating the version can be found here:
+# https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
+# All changes in experimental modules are treated as if they don't affect the
+# interface and therefore only increase the revision.
+set(${PROJECT_NAME}_LIB_VERSION_CURRENT 6)
+set(${PROJECT_NAME}_LIB_VERSION_REVISION 2)
+set(${PROJECT_NAME}_LIB_VERSION_AGE 0)
 
 #=============================
 # Language setup
 #=============================
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND NOT CMAKE_HOST_APPLE)
-  # We do not use the install_name_tool when cross-compiling for macOS.
-  # So disable this tool check in further enable_language() commands.
-  set(CMAKE_PLATFORM_HAS_INSTALLNAME FALSE)
-endif()
-enable_language(CXX)
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/module)
-include(ProcessConfigurations)
-
-# Flatten static lib dependencies.
-# Without this, if libfoo.a depends on libbar.a, libfoo's objects can't begin
-# to be compiled until libbar.a has been created.
-if (NOT DEFINED CMAKE_OPTIMIZE_DEPENDENCIES)
-  set(CMAKE_OPTIMIZE_DEPENDENCIES TRUE)
-endif()
+set(CMAKE_C_STANDARD 90)
+set(CMAKE_C_EXTENSIONS OFF)
 
 #=============================
 # Configurable options
 #=============================
-include(CMakeDependentOption)
-# When adding a new option, end the <help_text> with a full stop for consistency.
-option(BUILD_DAEMON "Build elementsd executable." ON)
-option(BUILD_GUI "Build elements-qt executable." OFF)
-option(BUILD_CLI "Build elements-cli executable." ON)
+if(libsecp256k1_IS_TOP_LEVEL)
+  option(BUILD_SHARED_LIBS "Build shared libraries." ON)
+endif()
 
-option(BUILD_TESTS "Build test_bitcoin executable." ON)
-option(BUILD_TX "Build elements-tx executable." ${BUILD_TESTS})
-option(BUILD_UTIL "Build elements-util executable." ${BUILD_TESTS})
+option(SECP256K1_INSTALL "Enable installation." ${PROJECT_IS_TOP_LEVEL})
 
-option(BUILD_UTIL_CHAINSTATE "Build experimental bitcoin-chainstate executable." OFF)
-option(BUILD_KERNEL_LIB "Build experimental bitcoinkernel library." ${BUILD_UTIL_CHAINSTATE})
+option(SECP256K1_ENABLE_API_VISIBILITY_ATTRIBUTES "Enable visibility attributes in the API." ON)
 
-option(ENABLE_WALLET "Enable wallet." ON)
-option(WITH_SQLITE "Enable SQLite wallet support." ${ENABLE_WALLET})
-if(WITH_SQLITE)
-  if(VCPKG_TARGET_TRIPLET)
-    # Use of the `unofficial::` namespace is a vcpkg package manager convention.
-    find_package(unofficial-sqlite3 CONFIG REQUIRED)
+## Modules
+
+# We declare all options before processing them, to make sure we can express
+# dependencies while processing.
+option(SECP256K1_ENABLE_MODULE_ECDH "Enable ECDH module." ON)
+option(SECP256K1_ENABLE_MODULE_RECOVERY "Enable ECDSA pubkey recovery module." OFF)
+option(SECP256K1_ENABLE_MODULE_EXTRAKEYS "Enable extrakeys module." ON)
+option(SECP256K1_ENABLE_MODULE_SCHNORRSIG "Enable schnorrsig module." ON)
+option(SECP256K1_ENABLE_MODULE_MUSIG "Enable musig module." ON)
+option(SECP256K1_ENABLE_MODULE_ELLSWIFT "Enable ElligatorSwift module." ON)
+
+option(SECP256K1_ENABLE_MODULE_GENERATOR "Enable NUMS generator module." ON)
+option(SECP256K1_ENABLE_MODULE_RANGEPROOF "Enable Range proof module." ON)
+option(SECP256K1_ENABLE_MODULE_SURJECTIONPROOF "Enable Surjection proof module." ON)
+option(SECP256K1_ENABLE_MODULE_WHITELIST "Enable key whitelist module." ON)
+option(SECP256K1_ENABLE_MODULE_ECDSA_ADAPTOR "Enable ecdsa adaptor signatures module." ON)
+option(SECP256K1_ENABLE_MODULE_ECDSA_S2C "Enable ECDSA sign-to-contract module." ON)
+option(SECP256K1_ENABLE_MODULE_BPPP "Enable Bulletproofs++ module." ON)
+option(SECP256K1_ENABLE_MODULE_SCHNORRSIG_HALFAGG "Enable schnorrsig half-aggregation module." ON)
+
+option(SECP256K1_USE_EXTERNAL_DEFAULT_CALLBACKS "Enable external default callback functions." OFF)
+if(SECP256K1_USE_EXTERNAL_DEFAULT_CALLBACKS)
+  add_compile_definitions(USE_EXTERNAL_DEFAULT_CALLBACKS=1)
+endif()
+
+set(SECP256K1_ECMULT_WINDOW_SIZE 15 CACHE STRING "Window size for ecmult precomputation for verification, specified as integer in range [2..24]. The default value is a reasonable setting for desktop machines (currently 15). [default=15]")
+set_property(CACHE SECP256K1_ECMULT_WINDOW_SIZE PROPERTY STRINGS 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24)
+include(CheckStringOptionValue)
+check_string_option_value(SECP256K1_ECMULT_WINDOW_SIZE)
+add_compile_definitions(ECMULT_WINDOW_SIZE=${SECP256K1_ECMULT_WINDOW_SIZE})
+
+set(SECP256K1_ECMULT_GEN_KB 86 CACHE STRING "The size of the precomputed table for signing in multiples of 1024 bytes (on typical platforms). Larger values result in possibly better signing or key generation performance at the cost of a larger table. Valid choices are 2, 22, 86. The default value is a reasonable setting for desktop machines (currently 86). [default=86]")
+set_property(CACHE SECP256K1_ECMULT_GEN_KB PROPERTY STRINGS 2 22 86)
+check_string_option_value(SECP256K1_ECMULT_GEN_KB)
+if(SECP256K1_ECMULT_GEN_KB EQUAL 2)
+  add_compile_definitions(COMB_BLOCKS=2)
+  add_compile_definitions(COMB_TEETH=5)
+elseif(SECP256K1_ECMULT_GEN_KB EQUAL 22)
+  add_compile_definitions(COMB_BLOCKS=11)
+  add_compile_definitions(COMB_TEETH=6)
+elseif(SECP256K1_ECMULT_GEN_KB EQUAL 86)
+  add_compile_definitions(COMB_BLOCKS=43)
+  add_compile_definitions(COMB_TEETH=6)
+endif()
+
+set(SECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY "OFF" CACHE STRING "Test-only override of the (autodetected by the C code) \"widemul\" setting. Legal values are: \"OFF\", \"int128_struct\", \"int128\" or \"int64\". [default=OFF]")
+set_property(CACHE SECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY PROPERTY STRINGS "OFF" "int128_struct" "int128" "int64")
+check_string_option_value(SECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY)
+if(SECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY)
+  string(TOUPPER "${SECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY}" widemul_upper_value)
+  add_compile_definitions(USE_FORCE_WIDEMUL_${widemul_upper_value}=1)
+endif()
+mark_as_advanced(FORCE SECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY)
+
+set(SECP256K1_ASM "AUTO" CACHE STRING "Assembly to use: \"AUTO\", \"OFF\", \"x86_64\" or \"arm32\" (experimental). [default=AUTO]")
+set_property(CACHE SECP256K1_ASM PROPERTY STRINGS "AUTO" "OFF" "x86_64" "arm32")
+check_string_option_value(SECP256K1_ASM)
+if(SECP256K1_ASM STREQUAL "arm32")
+  enable_language(ASM)
+  include(CheckArm32Assembly)
+  check_arm32_assembly()
+  if(HAVE_ARM32_ASM)
+    add_compile_definitions(USE_EXTERNAL_ASM=1)
   else()
-    find_package(SQLite3 3.7.17 REQUIRED)
+    message(FATAL_ERROR "ARM32 assembly requested but not available.")
   endif()
-  set(USE_SQLITE ON)
-endif()
-option(WITH_BDB "Enable Berkeley DB (BDB) wallet support." OFF)
-cmake_dependent_option(WARN_INCOMPATIBLE_BDB "Warn when using a Berkeley DB (BDB) version other than 4.8." ON "WITH_BDB" OFF)
-if(WITH_BDB)
-  find_package(BerkeleyDB 4.8 MODULE REQUIRED)
-  set(USE_BDB ON)
-  if(NOT BerkeleyDB_VERSION VERSION_EQUAL 4.8)
-    message(WARNING "Found Berkeley DB (BDB) other than 4.8.\n"
-                    "BDB (legacy) wallets opened by this build will not be portable!"
-    )
-    if(WARN_INCOMPATIBLE_BDB)
-      message(WARNING "If this is intended, pass \"-DWARN_INCOMPATIBLE_BDB=OFF\".\n"
-                      "Passing \"-DWITH_BDB=OFF\" will suppress this warning."
-      )
-    endif()
-  endif()
-endif()
-cmake_dependent_option(BUILD_WALLET_TOOL "Build elements-wallet tool." ${BUILD_TESTS} "ENABLE_WALLET" OFF)
-
-option(ENABLE_HARDENING "Attempt to harden the resulting executables." ON)
-option(REDUCE_EXPORTS "Attempt to reduce exported symbols in the resulting executables." OFF)
-option(WERROR "Treat compiler warnings as errors." OFF)
-option(WITH_CCACHE "Attempt to use ccache for compiling." ON)
-
-option(WITH_ZMQ "Enable ZMQ notifications." OFF)
-if(WITH_ZMQ)
-  find_package(ZeroMQ 4.0.0 MODULE REQUIRED)
-endif()
-
-option(WITH_USDT "Enable tracepoints for Userspace, Statically Defined Tracing." OFF)
-if(WITH_USDT)
-  find_package(USDT MODULE REQUIRED)
-endif()
-
-option(ENABLE_LIQUID "Enable build that defaults to -chain=liquidv1." OFF)
-if(ENABLE_LIQUID)
-  add_compile_definitions(LIQUID=1)
-endif()
-
-cmake_dependent_option(ENABLE_EXTERNAL_SIGNER "Enable external signer support." ON "NOT WIN32" OFF)
-
-cmake_dependent_option(WITH_QRENCODE "Enable QR code support." ON "BUILD_GUI" OFF)
-if(WITH_QRENCODE)
-  find_package(QRencode MODULE REQUIRED)
-  set(USE_QRCODE TRUE)
-endif()
-
-cmake_dependent_option(WITH_DBUS "Enable DBus support." ON "CMAKE_SYSTEM_NAME STREQUAL \"Linux\" AND BUILD_GUI" OFF)
-
-option(WITH_MULTIPROCESS "Build multiprocess elements-node and elements-gui executables in addition to monolithic elementsd and elements-qt executables. Requires libmultiprocess library. Experimental." OFF)
-if(WITH_MULTIPROCESS)
-  find_package(Libmultiprocess REQUIRED COMPONENTS Lib)
-  find_package(LibmultiprocessNative REQUIRED COMPONENTS Bin
-    NAMES Libmultiprocess
-  )
-endif()
-
-cmake_dependent_option(BUILD_GUI_TESTS "Build test_elements-qt executable." ON "BUILD_GUI;BUILD_TESTS" OFF)
-if(BUILD_GUI)
-  set(qt_components Core Gui Widgets LinguistTools)
-  if(ENABLE_WALLET)
-    list(APPEND qt_components Network)
-  endif()
-  if(WITH_DBUS)
-    list(APPEND qt_components DBus)
-    set(USE_DBUS TRUE)
-  endif()
-  if(BUILD_GUI_TESTS)
-    list(APPEND qt_components Test)
-  endif()
-  find_package(Qt 5.11.3 MODULE REQUIRED
-    COMPONENTS ${qt_components}
-  )
-  unset(qt_components)
-endif()
-
-option(BUILD_BENCH "Build bench_bitcoin executable." OFF)
-option(BUILD_FUZZ_BINARY "Build fuzz binary." OFF)
-option(BUILD_FOR_FUZZING "Build for fuzzing. Enabling this will disable all other targets and override BUILD_FUZZ_BINARY." OFF)
-
-option(INSTALL_MAN "Install man pages." ON)
-
-set(APPEND_CPPFLAGS "" CACHE STRING "Preprocessor flags that are appended to the command line after all other flags added by the build system. This variable is intended for debugging and special builds.")
-set(APPEND_CFLAGS "" CACHE STRING "C compiler flags that are appended to the command line after all other flags added by the build system. This variable is intended for debugging and special builds.")
-set(APPEND_CXXFLAGS "" CACHE STRING "(Objective) C++ compiler flags that are appended to the command line after all other flags added by the build system. This variable is intended for debugging and special builds.")
-set(APPEND_LDFLAGS "" CACHE STRING "Linker flags that are appended to the command line after all other flags added by the build system. This variable is intended for debugging and special builds.")
-# Appending to this low-level rule variables is the only way to
-# guarantee that the flags appear at the end of the command line.
-string(APPEND CMAKE_CXX_COMPILE_OBJECT " ${APPEND_CPPFLAGS} ${APPEND_CXXFLAGS}")
-string(APPEND CMAKE_CXX_CREATE_SHARED_LIBRARY " ${APPEND_LDFLAGS}")
-string(APPEND CMAKE_CXX_LINK_EXECUTABLE " ${APPEND_LDFLAGS}")
-
-set(configure_warnings)
-
-include(CheckLinkerSupportsPIE)
-check_linker_supports_pie(configure_warnings)
-
-# The core_interface library aims to encapsulate common build flags.
-# It is a usage requirement for all targets except for secp256k1, which
-# gets its flags by other means.
-add_library(core_interface INTERFACE)
-add_library(core_interface_relwithdebinfo INTERFACE)
-add_library(core_interface_debug INTERFACE)
-target_link_libraries(core_interface INTERFACE
-  $<$<CONFIG:RelWithDebInfo>:core_interface_relwithdebinfo>
-  $<$<CONFIG:Debug>:core_interface_debug>
-)
-# Elements: secp256k1.h is included from widely-used headers (confidential_validation.h, blind.h);
-# make the secp256k1 include directory available globally.
-target_include_directories(core_interface INTERFACE ${PROJECT_SOURCE_DIR}/src/secp256k1/include)
-
-if(BUILD_FOR_FUZZING)
-  message(WARNING "BUILD_FOR_FUZZING=ON will disable all other targets and force BUILD_FUZZ_BINARY=ON.")
-  set(BUILD_DAEMON OFF)
-  set(BUILD_CLI OFF)
-  set(BUILD_TX OFF)
-  set(BUILD_UTIL OFF)
-  set(BUILD_UTIL_CHAINSTATE OFF)
-  set(BUILD_KERNEL_LIB OFF)
-  set(BUILD_WALLET_TOOL OFF)
-  set(BUILD_GUI OFF)
-  set(ENABLE_EXTERNAL_SIGNER OFF)
-  set(WITH_ZMQ OFF)
-  set(BUILD_TESTS OFF)
-  set(BUILD_GUI_TESTS OFF)
-  set(BUILD_BENCH OFF)
-  set(BUILD_FUZZ_BINARY ON)
-
-  target_compile_definitions(core_interface INTERFACE
-    FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-  )
-endif()
-
-include(TryAppendCXXFlags)
-include(TryAppendLinkerFlag)
-
-# Redefine/adjust per-configuration flags.
-target_compile_definitions(core_interface_debug INTERFACE
-  DEBUG
-  DEBUG_LOCKORDER
-  DEBUG_LOCKCONTENTION
-  RPC_DOC_CHECK
-  ABORT_ON_FAILED_ASSUME
-)
-
-if(WIN32)
-  #[=[
-  This build system supports two ways to build binaries for Windows.
-
-  1. Building on Windows using MSVC.
-  Implementation notes:
-  - /DWIN32 and /D_WINDOWS definitions are included into the CMAKE_CXX_FLAGS_INIT
-    and CMAKE_CXX_FLAGS_INIT variables by default.
-  - A run-time library is selected using the CMAKE_MSVC_RUNTIME_LIBRARY variable.
-  - MSVC-specific options, for example, /Zc:__cplusplus, are additionally required.
-
-  2. Cross-compiling using MinGW.
-  Implementation notes:
-  - WIN32 and _WINDOWS definitions must be provided explicitly.
-  - A run-time library must be specified explicitly using _MT definition.
-  ]=]
-
-  target_compile_definitions(core_interface INTERFACE
-    _WIN32_WINNT=0x0A00
-    _WIN32_IE=0x0A00
-    WIN32_LEAN_AND_MEAN
-    NOMINMAX
-  )
-
-  if(MSVC)
-    if(VCPKG_TARGET_TRIPLET MATCHES "-static")
-      set(msvc_library_linkage "")
-    else()
-      set(msvc_library_linkage "DLL")
-    endif()
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>${msvc_library_linkage}")
-    unset(msvc_library_linkage)
-
-    target_compile_definitions(core_interface INTERFACE
-      _UNICODE;UNICODE
-    )
-    target_compile_options(core_interface INTERFACE
-      /utf-8
-      /Zc:preprocessor
-      /Zc:__cplusplus
-      /sdl
-    )
-    # Improve parallelism in MSBuild.
-    # See: https://devblogs.microsoft.com/cppblog/improved-parallelism-in-msbuild/.
-    list(APPEND CMAKE_VS_GLOBALS "UseMultiToolTask=true")
-  endif()
-
-  if(MINGW)
-    target_compile_definitions(core_interface INTERFACE
-      WIN32
-      _WINDOWS
-      _MT
-    )
-    # Avoid the use of aligned vector instructions when building for Windows.
-    # See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412.
-    try_append_cxx_flags("-Wa,-muse-unaligned-vector-move" TARGET core_interface SKIP_LINK)
-    try_append_linker_flag("-static" TARGET core_interface)
-    # We support Windows 10+, however it's not possible to set these values accordingly,
-    # due to a bug in mingw-w64. See https://sourceforge.net/p/mingw-w64/bugs/968/.
-    # As a best effort, target Windows 8.
-    try_append_linker_flag("-Wl,--major-subsystem-version,6" TARGET core_interface)
-    try_append_linker_flag("-Wl,--minor-subsystem-version,2" TARGET core_interface)
-  endif()
-
-  # Workaround producing large object files, which cannot be handled by the assembler.
-  # More likely to happen with no, or lower levels of optimisation.
-  # See discussion in https://github.com/bitcoin/bitcoin/issues/28109.
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    try_append_cxx_flags("/bigobj" TARGET core_interface_debug SKIP_LINK)
+elseif(SECP256K1_ASM)
+  include(CheckX86_64Assembly)
+  check_x86_64_assembly()
+  if(HAVE_X86_64_ASM)
+    set(SECP256K1_ASM "x86_64")
+    add_compile_definitions(USE_ASM_X86_64=1)
+  elseif(SECP256K1_ASM STREQUAL "AUTO")
+    set(SECP256K1_ASM "OFF")
   else()
-    try_append_cxx_flags("-Wa,-mbig-obj" TARGET core_interface_debug SKIP_LINK)
+    message(FATAL_ERROR "x86_64 assembly requested but not available.")
   endif()
 endif()
 
-# Use 64-bit off_t on 32-bit Linux.
-if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 4)
-  # Ensure 64-bit offsets are used for filesystem accesses for 32-bit compilation.
-  target_compile_definitions(core_interface INTERFACE
-    _FILE_OFFSET_BITS=64
-  )
-endif()
-
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  target_compile_definitions(core_interface INTERFACE OBJC_OLD_DISPATCH_PROTOTYPES=0)
-  # These flags are specific to ld64, and may cause issues with other linkers.
-  # For example: GNU ld will interpret -dead_strip as -de and then try and use
-  # "ad_strip" as the symbol for the entry point.
-  try_append_linker_flag("-Wl,-dead_strip" TARGET core_interface)
-  try_append_linker_flag("-Wl,-dead_strip_dylibs" TARGET core_interface)
-  if(CMAKE_HOST_APPLE)
-    try_append_linker_flag("-Wl,-headerpad_max_install_names" TARGET core_interface)
+option(SECP256K1_EXPERIMENTAL "Allow experimental configuration options." OFF)
+if(NOT SECP256K1_EXPERIMENTAL)
+  if(SECP256K1_ASM STREQUAL "arm32")
+    message(FATAL_ERROR "ARM32 assembly is experimental. Use -DSECP256K1_EXPERIMENTAL=ON to allow.")
   endif()
 endif()
 
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
-target_link_libraries(core_interface INTERFACE
-  Threads::Threads
-)
-
-add_library(sanitize_interface INTERFACE)
-target_link_libraries(core_interface INTERFACE sanitize_interface)
-if(SANITIZERS)
-  # First check if the compiler accepts flags. If an incompatible pair like
-  # -fsanitize=address,thread is used here, this check will fail. This will also
-  # fail if a bad argument is passed, e.g. -fsanitize=undfeined
-  try_append_cxx_flags("-fsanitize=${SANITIZERS}" TARGET sanitize_interface
-    RESULT_VAR cxx_supports_sanitizers
-    SKIP_LINK
-  )
-  if(NOT cxx_supports_sanitizers)
-    message(FATAL_ERROR "Compiler did not accept requested flags.")
-  endif()
-
-  # Some compilers (e.g. GCC) require additional libraries like libasan,
-  # libtsan, libubsan, etc. Make sure linking still works with the sanitize
-  # flag. This is a separate check so we can give a better error message when
-  # the sanitize flags are supported by the compiler but the actual sanitizer
-  # libs are missing.
-  try_append_linker_flag("-fsanitize=${SANITIZERS}" VAR SANITIZER_LDFLAGS
-    SOURCE "
-      #include <cstdint>
-      #include <cstddef>
-      extern \"C\" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) { return 0; }
-      __attribute__((weak)) // allow for libFuzzer linking
-      int main() { return 0; }
-    "
-    RESULT_VAR linker_supports_sanitizers
-  )
-  if(NOT linker_supports_sanitizers)
-    message(FATAL_ERROR "Linker did not accept requested flags, you are missing required libraries.")
+set(SECP256K1_VALGRIND "AUTO" CACHE STRING "Build with extra checks for running inside Valgrind. [default=AUTO]")
+set_property(CACHE SECP256K1_VALGRIND PROPERTY STRINGS "AUTO" "OFF" "ON")
+check_string_option_value(SECP256K1_VALGRIND)
+if(SECP256K1_VALGRIND)
+  find_package(Valgrind MODULE)
+  if(Valgrind_FOUND)
+    set(SECP256K1_VALGRIND ON)
+    include_directories(${Valgrind_INCLUDE_DIR})
+    add_compile_definitions(VALGRIND)
+  elseif(SECP256K1_VALGRIND STREQUAL "AUTO")
+    set(SECP256K1_VALGRIND OFF)
+  else()
+    message(FATAL_ERROR "Valgrind support requested but valgrind/memcheck.h header not available.")
   endif()
 endif()
-target_link_options(sanitize_interface INTERFACE ${SANITIZER_LDFLAGS})
 
-if(BUILD_FUZZ_BINARY)
-  target_link_libraries(core_interface INTERFACE ${FUZZ_LIBS})
-  include(CheckSourceCompilesWithFlags)
-  check_cxx_source_compiles_with_flags("
-      #include <cstdint>
-      #include <cstddef>
-      extern \"C\" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) { return 0; }
-      // No main() function.
-    " FUZZ_BINARY_LINKS_WITHOUT_MAIN_FUNCTION
-    LDFLAGS ${SANITIZER_LDFLAGS}
-    LINK_LIBRARIES ${FUZZ_LIBS}
-  )
-endif()
+option(SECP256K1_BUILD_BENCHMARK "Build benchmarks." ON)
+option(SECP256K1_BUILD_TESTS "Build tests." ON)
+option(SECP256K1_BUILD_EXHAUSTIVE_TESTS "Build exhaustive tests." ON)
+option(SECP256K1_BUILD_CTIME_TESTS "Build constant-time tests." ${SECP256K1_VALGRIND})
+option(SECP256K1_BUILD_EXAMPLES "Build examples." OFF)
 
-include(AddBoostIfNeeded)
-add_boost_if_needed()
-
-if(BUILD_DAEMON OR BUILD_GUI OR BUILD_CLI OR BUILD_TESTS OR BUILD_BENCH OR BUILD_FUZZ_BINARY)
-  find_package(Libevent 2.1.8 MODULE REQUIRED)
-endif()
-
-include(cmake/introspection.cmake)
-
-include(cmake/ccache.cmake)
-
-add_library(warn_interface INTERFACE)
-target_link_libraries(core_interface INTERFACE warn_interface)
+# Redefine configuration flags.
+# We leave assertions on, because they are only used in the examples, and we want them always on there.
 if(MSVC)
-  try_append_cxx_flags("/W3" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("/wd4018" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("/wd4146" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("/wd4244" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("/wd4267" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("/wd4715" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("/wd4805" TARGET warn_interface SKIP_LINK)
-  target_compile_definitions(warn_interface INTERFACE
-    _CRT_SECURE_NO_WARNINGS
-    _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
-  )
+  string(REGEX REPLACE "/DNDEBUG[ \t\r\n]*" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+  string(REGEX REPLACE "/DNDEBUG[ \t\r\n]*" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+  string(REGEX REPLACE "/DNDEBUG[ \t\r\n]*" "" CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL}")
+  # Match GCC/Clang's size-optimization macro for the inline guard
+  add_compile_definitions($<$<CONFIG:MinSizeRel>:__OPTIMIZE_SIZE__=1>)
 else()
-  try_append_cxx_flags("-Wall" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wextra" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wgnu" TARGET warn_interface SKIP_LINK)
-  # Some compilers will ignore -Wformat-security without -Wformat, so just combine the two here.
-  try_append_cxx_flags("-Wformat -Wformat-security" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wvla" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wshadow-field" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wthread-safety" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wloop-analysis" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wredundant-decls" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wunused-member-function" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wdate-time" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wconditional-uninitialized" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wduplicated-branches" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wduplicated-cond" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wlogical-op" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Woverloaded-virtual" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wsuggest-override" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wimplicit-fallthrough" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wunreachable-code" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wdocumentation" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wself-assign" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wbidi-chars=any" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wundef" TARGET warn_interface SKIP_LINK)
-
-  # Some compilers (gcc) ignore unknown -Wno-* options, but warn about all
-  # unknown options if any other warning is produced. Test the -Wfoo case, and
-  # set the -Wno-foo case if it works.
-  try_append_cxx_flags("-Wunused-parameter" TARGET warn_interface SKIP_LINK
-    IF_CHECK_PASSED "-Wno-unused-parameter"
-  )
+  string(REGEX REPLACE "-DNDEBUG[ \t\r\n]*" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+  string(REGEX REPLACE "-DNDEBUG[ \t\r\n]*" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+  string(REGEX REPLACE "-DNDEBUG[ \t\r\n]*" "" CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL}")
+  # Prefer -O2 optimization level. (-O3 is CMake's default for Release for many compilers.)
+  string(REGEX REPLACE "-O3( |$)" "-O2\\1" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
 endif()
 
-configure_file(cmake/script/Coverage.cmake Coverage.cmake USE_SOURCE_PERMISSIONS COPYONLY)
-configure_file(cmake/script/CoverageFuzz.cmake CoverageFuzz.cmake USE_SOURCE_PERMISSIONS COPYONLY)
-configure_file(cmake/script/CoverageInclude.cmake.in CoverageInclude.cmake USE_SOURCE_PERMISSIONS @ONLY)
-configure_file(cmake/script/cov_tool_wrapper.sh.in cov_tool_wrapper.sh.in USE_SOURCE_PERMISSIONS COPYONLY)
-configure_file(contrib/filter-lcov.py filter-lcov.py USE_SOURCE_PERMISSIONS COPYONLY)
-
-# Don't allow extended (non-ASCII) symbols in identifiers. This is easier for code review.
-try_append_cxx_flags("-fno-extended-identifiers" TARGET core_interface SKIP_LINK)
-
-# Avoiding the `-ffile-prefix-map` compiler option because it implies
-# `-fcoverage-prefix-map` on Clang or `-fprofile-prefix-map` on GCC,
-# which can cause issues with coverage builds, particularly when using
-# Clang in the OSS-Fuzz environment due to its use of other options
-# and a third party script, or with GCC.
-try_append_cxx_flags("-fdebug-prefix-map=A=B" TARGET core_interface SKIP_LINK
-  IF_CHECK_PASSED "-fdebug-prefix-map=${PROJECT_SOURCE_DIR}/src=."
+# Define custom "Coverage" build type.
+set(CMAKE_C_FLAGS_COVERAGE "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O0 -DCOVERAGE=1 --coverage" CACHE STRING
+  "Flags used by the C compiler during \"Coverage\" builds."
+  FORCE
 )
-try_append_cxx_flags("-fmacro-prefix-map=A=B" TARGET core_interface SKIP_LINK
-  IF_CHECK_PASSED "-fmacro-prefix-map=${PROJECT_SOURCE_DIR}/src=."
+set(CMAKE_EXE_LINKER_FLAGS_COVERAGE "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} --coverage" CACHE STRING
+  "Flags used for linking binaries during \"Coverage\" builds."
+  FORCE
+)
+set(CMAKE_SHARED_LINKER_FLAGS_COVERAGE "${CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO} --coverage" CACHE STRING
+  "Flags used by the shared libraries linker during \"Coverage\" builds."
+  FORCE
+)
+mark_as_advanced(
+  CMAKE_C_FLAGS_COVERAGE
+  CMAKE_EXE_LINKER_FLAGS_COVERAGE
+  CMAKE_SHARED_LINKER_FLAGS_COVERAGE
 )
 
-# Currently all versions of gcc are subject to a class of bugs, see the
-# gccbug_90348 test case (only reproduces on GCC 11 and earlier) and
-# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=111843. To work around that, set
-# -fstack-reuse=none for all gcc builds. (Only gcc understands this flag).
-try_append_cxx_flags("-fstack-reuse=none" TARGET core_interface)
-
-if(ENABLE_HARDENING)
-  add_library(hardening_interface INTERFACE)
-  target_link_libraries(core_interface INTERFACE hardening_interface)
-  if(MSVC)
-    try_append_linker_flag("/DYNAMICBASE" TARGET hardening_interface)
-    try_append_linker_flag("/HIGHENTROPYVA" TARGET hardening_interface)
-    try_append_linker_flag("/NXCOMPAT" TARGET hardening_interface)
-  else()
-
-    # _FORTIFY_SOURCE requires that there is some level of optimization,
-    # otherwise it does nothing and just creates a compiler warning.
-    try_append_cxx_flags("-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3"
-      RESULT_VAR cxx_supports_fortify_source
-      SOURCE "int main() {
-              # if !defined __OPTIMIZE__ || __OPTIMIZE__ <= 0
-                #error
-              #endif
-              }"
+if(PROJECT_IS_TOP_LEVEL)
+  get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+  set(default_build_type "RelWithDebInfo")
+  if(is_multi_config)
+    set(CMAKE_CONFIGURATION_TYPES "${default_build_type}" "Release" "Debug" "MinSizeRel" "Coverage" CACHE STRING
+      "Supported configuration types."
+      FORCE
     )
-    if(cxx_supports_fortify_source)
-      target_compile_options(hardening_interface INTERFACE
-        -U_FORTIFY_SOURCE
-        -D_FORTIFY_SOURCE=3
+  else()
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY
+      STRINGS "${default_build_type}" "Release" "Debug" "MinSizeRel" "Coverage"
+    )
+    if(NOT CMAKE_BUILD_TYPE)
+      message(STATUS "Setting build type to \"${default_build_type}\" as none was specified")
+      set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING
+        "Choose the type of build."
+        FORCE
       )
     endif()
-    unset(cxx_supports_fortify_source)
-
-    try_append_cxx_flags("-Wstack-protector" TARGET hardening_interface SKIP_LINK)
-    try_append_cxx_flags("-fstack-protector-all" TARGET hardening_interface)
-    try_append_cxx_flags("-fcf-protection=full" TARGET hardening_interface)
-
-    if(MINGW)
-      # stack-clash-protection is a no-op for Windows.
-      # See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=90458 for more details.
-    else()
-      try_append_cxx_flags("-fstack-clash-protection" TARGET hardening_interface)
-    endif()
-
-    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
-      if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-        try_append_cxx_flags("-mbranch-protection=bti" TARGET hardening_interface SKIP_LINK)
-      else()
-        try_append_cxx_flags("-mbranch-protection=standard" TARGET hardening_interface SKIP_LINK)
-      endif()
-    endif()
-
-    try_append_linker_flag("-Wl,--enable-reloc-section" TARGET hardening_interface)
-    try_append_linker_flag("-Wl,--dynamicbase" TARGET hardening_interface)
-    try_append_linker_flag("-Wl,--nxcompat" TARGET hardening_interface)
-    try_append_linker_flag("-Wl,--high-entropy-va" TARGET hardening_interface)
-    try_append_linker_flag("-Wl,-z,relro" TARGET hardening_interface)
-    try_append_linker_flag("-Wl,-z,now" TARGET hardening_interface)
-    try_append_linker_flag("-Wl,-z,separate-code" TARGET hardening_interface)
-    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-      try_append_linker_flag("-Wl,-fixup_chains" TARGET hardening_interface)
-    endif()
   endif()
 endif()
 
-if(REDUCE_EXPORTS)
-  set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-  try_append_linker_flag("-Wl,--exclude-libs,ALL" TARGET core_interface)
-  try_append_linker_flag("-Wl,-no_exported_symbols" VAR CMAKE_EXE_LINKER_FLAGS)
-endif()
-
-if(WERROR)
-  if(MSVC)
-    set(werror_flag "/WX")
-  else()
-    set(werror_flag "-Werror")
-  endif()
-  try_append_cxx_flags(${werror_flag} TARGET core_interface SKIP_LINK RESULT_VAR compiler_supports_werror)
-  if(NOT compiler_supports_werror)
-    message(FATAL_ERROR "WERROR set but ${werror_flag} is not usable.")
-  endif()
-  unset(werror_flag)
-endif()
-
-# Prefer Unix-style package components over frameworks on macOS.
-# This improves compatibility with Python version managers.
-set(Python3_FIND_FRAMEWORK LAST CACHE STRING "")
-# Search for generic names before more specialized ones. This
-# improves compatibility with Python version managers that use shims.
-set(Python3_FIND_UNVERSIONED_NAMES FIRST CACHE STRING "")
-mark_as_advanced(Python3_FIND_FRAMEWORK Python3_FIND_UNVERSIONED_NAMES)
-find_package(Python3 3.10 COMPONENTS Interpreter)
-if(Python3_EXECUTABLE)
-  set(PYTHON_COMMAND ${Python3_EXECUTABLE})
+include(TryAppendCFlags)
+if(MSVC)
+  # For both cl and clang-cl compilers.
+  try_append_c_flags(/W3) # Production quality warning level.
+  # Eliminate deprecation warnings for the older, less secure functions.
+  add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 else()
-  list(APPEND configure_warnings
-    "Minimum required Python not found. Utils and rpcauth tests are disabled."
-  )
-endif()
-
-target_compile_definitions(core_interface INTERFACE ${DEPENDS_COMPILE_DEFINITIONS})
-target_compile_definitions(core_interface_relwithdebinfo INTERFACE ${DEPENDS_COMPILE_DEFINITIONS_RELWITHDEBINFO})
-target_compile_definitions(core_interface_debug INTERFACE ${DEPENDS_COMPILE_DEFINITIONS_DEBUG})
-
-# If the {CXX,LD}FLAGS environment variables are defined during building depends
-# and configuring this build system, their content might be duplicated.
-if(DEFINED ENV{CXXFLAGS})
-  deduplicate_flags(CMAKE_CXX_FLAGS)
-endif()
-if(DEFINED ENV{LDFLAGS})
-  deduplicate_flags(CMAKE_EXE_LINKER_FLAGS)
-endif()
-
-if(BUILD_TESTS)
-  enable_testing()
-endif()
-
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
-  # have "make test" depend on "make all"
-  set(CMAKE_SKIP_TEST_ALL_DEPENDENCY FALSE)
-endif()
-
-# TODO: The `CMAKE_SKIP_BUILD_RPATH` variable setting can be deleted
-#       in the future after reordering Guix script commands to
-#       perform binary checks after the installation step.
-# Relevant discussions:
-# - https://github.com/hebasto/bitcoin/pull/236#issuecomment-2183120953
-# - https://github.com/bitcoin/bitcoin/pull/30312#issuecomment-2191235833
-# NetBSD always requires runtime paths to be set for executables.
-if(CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
-  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+  try_append_c_flags(-Wall) # GCC >= 2.95 and probably many other compilers.
+endif()  
+if(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+  # Keep the following commands ordered lexicographically.
+  try_append_c_flags(/wd4146) # Disable warning C4146 "unary minus operator applied to unsigned type, result still unsigned".
+  try_append_c_flags(/wd4244) # Disable warning C4244 "'conversion' conversion from 'type1' to 'type2', possible loss of data".
+  try_append_c_flags(/wd4267) # Disable warning C4267 "'var' : conversion from 'size_t' to 'type', possible loss of data".
 else()
-  set(CMAKE_SKIP_BUILD_RPATH TRUE)
-  set(CMAKE_SKIP_INSTALL_RPATH TRUE)
+  # Keep the following commands ordered lexicographically.
+  try_append_c_flags(-pedantic)
+  try_append_c_flags(-Wcast-align) # GCC >= 2.95.
+  try_append_c_flags(-Wcast-align=strict) # GCC >= 8.0.
+  try_append_c_flags(-Wconditional-uninitialized) # Clang >= 3.0 only.
+  try_append_c_flags(-Wextra) # GCC >= 3.4, this is the newer name of -W, which we don't use because older GCCs will warn about unused functions.
+  try_append_c_flags(-Wleading-whitespace=spaces) # GCC >= 15.0
+  try_append_c_flags(-Wnested-externs)
+  try_append_c_flags(-Wno-long-long) # GCC >= 3.0, -Wlong-long is implied by -pedantic.
+  try_append_c_flags(-Wno-overlength-strings) # GCC >= 4.2, -Woverlength-strings is implied by -pedantic.
+  try_append_c_flags(-Wno-unused-function) # GCC >= 3.0, -Wunused-function is implied by -Wall.
+  try_append_c_flags(-Wreserved-identifier) # Clang >= 13.0 only.
+  try_append_c_flags(-Wshadow)
+  try_append_c_flags(-Wstrict-prototypes)
+  try_append_c_flags(-Wtrailing-whitespace=any) # GCC >= 15.0
+  try_append_c_flags(-Wundef)
 endif()
-add_subdirectory(test)
-add_subdirectory(doc)
 
+set(print_msan_notice)
+if(SECP256K1_BUILD_CTIME_TESTS)
+  include(CheckMemorySanitizer)
+  check_memory_sanitizer(msan_enabled)
+  if(msan_enabled)
+    try_append_c_flags(-fno-sanitize-memory-param-retval)
+    set(print_msan_notice YES)
+  endif()
+  unset(msan_enabled)
+endif()
+
+set(SECP256K1_APPEND_CFLAGS "" CACHE STRING "Compiler flags that are appended to the command line after all other flags added by the build system. This variable is intended for debugging and special builds.")
+if(SECP256K1_APPEND_CFLAGS)
+  # Appending to this low-level rule variable is the only way to
+  # guarantee that the flags appear at the end of the command line.
+  string(APPEND CMAKE_C_COMPILE_OBJECT " ${SECP256K1_APPEND_CFLAGS}")
+endif()
+
+set(SECP256K1_APPEND_LDFLAGS "" CACHE STRING "Linker flags that are appended to the command line after all other flags added by the build system. This variable is intended for debugging and special builds.")
+if(SECP256K1_APPEND_LDFLAGS)
+  # Appending to this low-level rule variable is the only way to
+  # guarantee that the flags appear at the end of the command line.
+  string(APPEND CMAKE_C_CREATE_SHARED_LIBRARY " ${SECP256K1_APPEND_LDFLAGS}")
+  string(APPEND CMAKE_C_LINK_EXECUTABLE " ${SECP256K1_APPEND_LDFLAGS}")
+endif()
+
+if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
+endif()
+if(NOT CMAKE_LIBRARY_OUTPUT_DIRECTORY)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+endif()
+if(NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+endif()
 add_subdirectory(src)
-
-include(cmake/tests.cmake)
-
-include(Maintenance)
-setup_split_debug_script()
-add_maintenance_targets()
-add_windows_deploy_target()
-add_macos_deploy_target()
+if(SECP256K1_BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif()
 
 message("\n")
-message("Configure summary")
-message("=================")
-message("Executables:")
-message("  elementsd ............................ ${BUILD_DAEMON}")
-if(BUILD_DAEMON AND WITH_MULTIPROCESS)
-  set(elements_daemon_status ON)
+message("secp256k1 configure summary")
+message("===========================")
+message("Build artifacts:")
+if(BUILD_SHARED_LIBS)
+  set(library_type "Shared")
 else()
-  set(elements_daemon_status OFF)
+  set(library_type "Static")
 endif()
-message("  elements-node (multiprocess) ......... ${elements_daemon_status}")
-message("  elements-qt (GUI) .................... ${BUILD_GUI}")
-if(BUILD_GUI AND WITH_MULTIPROCESS)
-  set(bitcoin_gui_status ON)
-else()
-  set(bitcoin_gui_status OFF)
-endif()
-message("  elements-gui (GUI, multiprocess) .... ${bitcoin_gui_status}")
-message("  elements-cli ........................ ${BUILD_CLI}")
-message("  elements-tx ......................... ${BUILD_TX}")
-message("  elements-util ....................... ${BUILD_UTIL}")
-message("  elements-wallet ..................... ${BUILD_WALLET_TOOL}")
-message("  bitcoin-chainstate (experimental) ... ${BUILD_UTIL_CHAINSTATE}")
-message("  libbitcoinkernel (experimental) ..... ${BUILD_KERNEL_LIB}")
+
+message("  library type ........................ ${library_type}")
+message("Optional modules:")
+message("  ECDH ................................ ${SECP256K1_ENABLE_MODULE_ECDH}")
+message("  ECDSA pubkey recovery ............... ${SECP256K1_ENABLE_MODULE_RECOVERY}")
+message("  extrakeys ........................... ${SECP256K1_ENABLE_MODULE_EXTRAKEYS}")
+message("  schnorrsig .......................... ${SECP256K1_ENABLE_MODULE_SCHNORRSIG}")
+message("  musig ............................... ${SECP256K1_ENABLE_MODULE_MUSIG}")
+message("  ElligatorSwift ...................... ${SECP256K1_ENABLE_MODULE_ELLSWIFT}")
+message("  generator ........................... ${SECP256K1_ENABLE_MODULE_GENERATOR}")
+message("  rangeproof .......................... ${SECP256K1_ENABLE_MODULE_RANGEPROOF}")
+message("  surjectionproof ..................... ${SECP256K1_ENABLE_MODULE_SURJECTIONPROOF}")
+message("  whitelist ........................... ${SECP256K1_ENABLE_MODULE_WHITELIST}")
+message("  ecdsa-s2c ........................... ${SECP256K1_ENABLE_MODULE_ECDSA_S2C}")
+message("  ecdsa-adaptor ....................... ${SECP256K1_ENABLE_MODULE_ECDSA_ADAPTOR}")
+message("  bppp ................................ ${SECP256K1_ENABLE_MODULE_BPPP}")
+message("  schnorrsig-halfagg .................. ${SECP256K1_ENABLE_MODULE_SCHNORRSIG_HALFAGG}")
+message("Parameters:")
+message("  ecmult window size .................. ${SECP256K1_ECMULT_WINDOW_SIZE}")
+message("  ecmult gen table size ............... ${SECP256K1_ECMULT_GEN_KB} KiB")
 message("Optional features:")
-message("  wallet support ...................... ${ENABLE_WALLET}")
-if(ENABLE_WALLET)
-  message("   - descriptor wallets (SQLite) ...... ${WITH_SQLITE}")
-  message("   - legacy wallets (Berkeley DB) ..... ${WITH_BDB}")
+message("  assembly ............................ ${SECP256K1_ASM}")
+message("  external callbacks .................. ${SECP256K1_USE_EXTERNAL_DEFAULT_CALLBACKS}")
+if(SECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY)
+  message("  wide multiplication (test-only) ..... ${SECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY}")
 endif()
-message("  liquid build ........................ ${ENABLE_LIQUID}")
-message("  external signer ..................... ${ENABLE_EXTERNAL_SIGNER}")
-message("  ZeroMQ .............................. ${WITH_ZMQ}")
-message("  USDT tracing ........................ ${WITH_USDT}")
-message("  QR code (GUI) ....................... ${WITH_QRENCODE}")
-message("  DBus (GUI, Linux only) .............. ${WITH_DBUS}")
-message("Tests:")
-message("  test_bitcoin ........................ ${BUILD_TESTS}")
-message("  test_elements-qt .................... ${BUILD_GUI_TESTS}")
-message("  bench_bitcoin ....................... ${BUILD_BENCH}")
-message("  fuzz binary ......................... ${BUILD_FUZZ_BINARY}")
+message("Optional binaries:")
+message("  benchmark ........................... ${SECP256K1_BUILD_BENCHMARK}")
+message("  noverify_tests ...................... ${SECP256K1_BUILD_TESTS}")
+set(tests_status "${SECP256K1_BUILD_TESTS}")
+if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
+  set(tests_status OFF)
+endif()
+message("  tests ............................... ${tests_status}")
+message("  exhaustive tests .................... ${SECP256K1_BUILD_EXHAUSTIVE_TESTS}")
+message("  ctime_tests ......................... ${SECP256K1_BUILD_CTIME_TESTS}")
+message("  examples ............................ ${SECP256K1_BUILD_EXAMPLES}")
 message("")
 if(CMAKE_CROSSCOMPILING)
   set(cross_status "TRUE, for ${CMAKE_SYSTEM_NAME}, ${CMAKE_SYSTEM_PROCESSOR}")
@@ -681,20 +333,53 @@ else()
   set(cross_status "FALSE")
 endif()
 message("Cross compiling ....................... ${cross_status}")
-message("C++ compiler .......................... ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}, ${CMAKE_CXX_COMPILER}")
-include(FlagsSummary)
-flags_summary()
-message("Attempt to harden executables ......... ${ENABLE_HARDENING}")
-message("Treat compiler warnings as errors ..... ${WERROR}")
-message("Use ccache for compiling .............. ${WITH_CCACHE}")
-message("\n")
-if(configure_warnings)
-    message("  ******\n")
-    foreach(warning IN LISTS configure_warnings)
-      message(WARNING "${warning}")
-    endforeach()
-    message("  ******\n")
+message("API visibility attributes ............. ${SECP256K1_ENABLE_API_VISIBILITY_ATTRIBUTES}")
+message("Valgrind .............................. ${SECP256K1_VALGRIND}")
+get_directory_property(definitions COMPILE_DEFINITIONS)
+string(REPLACE ";" " " definitions "${definitions}")
+message("Preprocessor defined macros ........... ${definitions}")
+message("C compiler ............................ ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}, ${CMAKE_C_COMPILER}")
+message("CFLAGS ................................ ${CMAKE_C_FLAGS}")
+get_directory_property(compile_options COMPILE_OPTIONS)
+string(REPLACE ";" " " compile_options "${compile_options}")
+message("Compile options ....................... " ${compile_options})
+if(NOT is_multi_config)
+  message("Build type:")
+  message(" - CMAKE_BUILD_TYPE ................... ${CMAKE_BUILD_TYPE}")
+  string(TOUPPER "${CMAKE_BUILD_TYPE}" build_type)
+  message(" - CFLAGS ............................. ${CMAKE_C_FLAGS_${build_type}}")
+  message(" - LDFLAGS for executables ............ ${CMAKE_EXE_LINKER_FLAGS_${build_type}}")
+  message(" - LDFLAGS for shared libraries ....... ${CMAKE_SHARED_LINKER_FLAGS_${build_type}}")
+else()
+  message("Supported configurations .............. ${CMAKE_CONFIGURATION_TYPES}")
+  message("RelWithDebInfo configuration:")
+  message(" - CFLAGS ............................. ${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+  message(" - LDFLAGS for executables ............ ${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO}")
+  message(" - LDFLAGS for shared libraries ....... ${CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO}")
+  message("Debug configuration:")
+  message(" - CFLAGS ............................. ${CMAKE_C_FLAGS_DEBUG}")
+  message(" - LDFLAGS for executables ............ ${CMAKE_EXE_LINKER_FLAGS_DEBUG}")
+  message(" - LDFLAGS for shared libraries ....... ${CMAKE_SHARED_LINKER_FLAGS_DEBUG}")
 endif()
-
-# We want all build properties to be encapsulated properly.
-include(WarnAboutGlobalProperties)
+if(SECP256K1_APPEND_CFLAGS)
+  message("SECP256K1_APPEND_CFLAGS ............... ${SECP256K1_APPEND_CFLAGS}")
+endif()
+if(SECP256K1_APPEND_LDFLAGS)
+  message("SECP256K1_APPEND_LDFLAGS .............. ${SECP256K1_APPEND_LDFLAGS}")
+endif()
+message("")
+if(print_msan_notice)
+  message(
+    "Note:\n"
+    "  MemorySanitizer detected, tried to add -fno-sanitize-memory-param-retval to compile options\n"
+    "  to avoid false positives in ctime_tests. Pass -DSECP256K1_BUILD_CTIME_TESTS=OFF to avoid this.\n"
+  )
+endif()
+if(SECP256K1_EXPERIMENTAL)
+  message(
+    "  ******\n"
+    "  WARNING: experimental build\n"
+    "  Experimental features do not have stable APIs or properties, and may not be safe for production use.\n"
+    "  ******\n"
+  )
+endif()
