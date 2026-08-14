@@ -5,30 +5,48 @@
 
 """
 Test the post-dynafed elements-only SIGHASH_RANGEPROOF sighash flag.
+
+Also tests that the per-input ECDSA sighash midstate cache (SigHashCache= in
+src/script/interpreter.cpp) treats the SIGHASH_RANGEPROOF (0x40) bit as part
+of its key.
 """
 
 import struct
-
+from decimal import Decimal
 from test_framework import util
-from test_framework.address import base58_to_byte
+from test_framework.address import (
+    base58_to_byte,
+    script_to_p2sh,
+    script_to_p2wsh,
+)
 from test_framework.blocktools import add_witness_commitment
 from test_framework.key import ECKey
 from test_framework.messages import (
+    COIN,
     CBlock,
+    CTxInWitness,
+    hash256,
+    sha256,
     from_hex,
     tx_from_hex,
 )
 from test_framework.script import (
     OP_CHECKSIG,
     OP_DUP,
+    OP_EQUAL,
     OP_EQUALVERIFY,
     OP_HASH160,
     SIGHASH_ALL,
     SIGHASH_RANGEPROOF,
+    OP_0,
+    OP_2,
+    OP_CHECKMULTISIG,
     CScript,
     CScriptOp,
     LegacySignatureHash,
+    LegacySignatureMsg,
     SegwitV0SignatureHash,
+    SegwitV0SignatureMsg,
     hash160,
 )
 from test_framework.test_framework import BitcoinTestFramework
@@ -215,6 +233,103 @@ class SighashRangeproofTest(BitcoinTestFramework):
         has_rangeproof = bool(sighash_byte & SIGHASH_RANGEPROOF)
         assert_equal(has_rangeproof, expect_rangeproof)
 
+    def prepare_mixed_sighash_multisig_tx(self, address_type, use_polluted_midstate):
+        # Spend of a 2-of-2 CHECKMULTISIG output where the two signatures
+        # are made over the same scriptCode with sighash bytes that differ only in
+        # the SIGHASH_RANGEPROOF bit: the first uses ALL|RANGEPROOF and the second ALL.
+        # Both checks happen while evaluating a single input, so they share a `SigHashCache`.
+        #
+        # If `use_polluted_midstate` is
+        #  false, each signiture is made over its own (correct) sighash.
+        #  true,  the second signature is made over the hash a node whose cache
+        #        ignores the SIGHASH_RANGEPROOF bit would compute: the 0x41 preimage with the
+        #        sighash type replaced by 0x01.
+
+        key_a = ECKey()
+        key_a.generate()
+        key_b = ECKey()
+        key_b.generate()
+        pubkey_a = key_a.get_pubkey().get_bytes()
+        pubkey_b = key_b.get_pubkey().get_bytes()
+
+        # scriptCode is the same for both CHECKSIG evaluations
+        script = CScript([OP_2, pubkey_a, pubkey_b, OP_2, CScriptOp(OP_CHECKMULTISIG)])
+        if address_type == "p2wsh":
+            address = script_to_p2wsh(script)
+            script_pubkey = CScript([OP_0, sha256(script)])
+        elif address_type == "p2sh":
+            address = script_to_p2sh(script)
+            script_pubkey = CScript([CScriptOp(OP_HASH160), hash160(script), CScriptOp(OP_EQUAL)])
+        else:
+            assert False
+
+        # Fund the multisig
+        funding_txid = self.nodes[0].sendtoaddress(address, 1.0)
+        self.generate(self.nodes[0], 1)
+        self.sync_all()
+        funding_tx = tx_from_hex(self.nodes[0].getrawtransaction(funding_txid))
+        vout = None
+        for i, out in enumerate(funding_tx.vout):
+            if out.scriptPubKey == bytes(script_pubkey):
+                vout = i
+                break
+        assert vout is not None, "could not find the multisig output"
+        utxo_value = funding_tx.vout[vout].nValue
+        amount = Decimal(utxo_value.getAmount()) / COIN
+
+        # Spend it to two blinded outputs, so the transaction has rangeproofs.
+        unsigned_hex = self.nodes[0].createrawtransaction(
+            [{"txid": funding_txid, "vout": vout}],
+            [
+                {self.nodes[2].getnewaddress(): amount / 4},
+                {self.nodes[2].getnewaddress(): amount / 2},
+                {"fee": amount - amount / 4 - amount / 2},
+            ]
+        )
+        zero_blinder = "00" * 32
+        asset = self.nodes[0].getsidechaininfo()["pegged_asset"]
+        blinded_hex = self.nodes[0].rawblindrawtransaction(
+            unsigned_hex, [zero_blinder], [amount], [asset], [zero_blinder]
+        )
+        tx = tx_from_hex(blinded_hex)
+        assert any(len(wit.vchRangeproof) > 0 for wit in tx.wit.vtxoutwit), "the outputs were not blinded"
+
+        hashtype_rp = SIGHASH_ALL | SIGHASH_RANGEPROOF
+        hashtype_plain = SIGHASH_ALL
+
+        # Build the preimages
+        if address_type == "p2wsh":
+            msg_rp = SegwitV0SignatureMsg(script, tx, 0, hashtype_rp, utxo_value)
+            msg_plain = SegwitV0SignatureMsg(script, tx, 0, hashtype_plain, utxo_value)
+        else:
+            (msg_rp, err) = LegacySignatureMsg(script, tx, 0, hashtype_rp)
+            assert err is None, err
+            (msg_plain, err) = LegacySignatureMsg(script, tx, 0, hashtype_plain)
+            assert err is None, err
+
+        # CHECKMULTISIG signature_b is checked first and populates the cache entry; signature_a is the check that reads it back. The polluted
+        # signature must therefore be signature_a: a 0x40-blind cache serves it signature_b's
+        # midstate, computed without the rangeproof commitment, and then appends 0x41.
+        polluted_msg = msg_plain[:-4] + hashtype_rp.to_bytes(4, "little")
+        assert polluted_msg != msg_rp, "the 0x40 bit did not change the preimage"
+
+        signature_a = key_a.sign_ecdsa(
+            hash256(polluted_msg if use_polluted_midstate else msg_rp)
+        ) + bytes([hashtype_rp])
+        signature_b = key_b.sign_ecdsa(hash256(msg_plain)) + bytes([hashtype_plain])
+
+        # CHECKMULTISIG checks signature_a against pubkey_a first, so signature_a
+        # populates the cache entry and signature_b is the check that reads it back.
+        if address_type == "p2wsh":
+            if len(tx.wit.vtxinwit) != len(tx.vin):
+                tx.wit.vtxinwit = [CTxInWitness() for _ in tx.vin]
+            tx.wit.vtxinwit[0].scriptWitness.stack = [b'', signature_a, signature_b, bytes(script)]
+        else:
+            tx.vin[0].scriptSig = CScript([OP_0, signature_a, signature_b, bytes(script)])
+        tx.rehash()
+        return tx
+
+
     def assert_tx_standard(self, tx, assert_standard=True):
         # Test the standardness of the tx by submitting it to the mempool.
 
@@ -322,6 +437,20 @@ class SighashRangeproofTest(BitcoinTestFramework):
 
             self.log.info(f"Post-activation invalid sighash for {address_type} address (with issuance)")
             tx = self.prepare_tx_signed_with_sighash(address_type, False, True)
+            self.assert_tx_standard(tx, False)
+            self.assert_tx_valid(tx, False)
+
+        # Two ECDSA checks in one input, same scriptCode, sighash bytes differing
+        # only in SIGHASH_RANGEPROOF. The sighash midstate cache must not
+        # serve one check's midstate to the other.
+        for multisig_type in ["p2wsh", "p2sh"]:
+            self.log.info("Mixed SIGHASH_RANGEPROOF 2-of-2 for {}".format(multisig_type))
+            tx = self.prepare_mixed_sighash_multisig_tx(multisig_type, False)
+            self.assert_tx_standard(tx, True)
+            self.assert_tx_valid(tx, True)
+
+            self.log.info("Polluted sighash midstate for {}".format(multisig_type))
+            tx = self.prepare_mixed_sighash_multisig_tx(multisig_type, True)
             self.assert_tx_standard(tx, False)
             self.assert_tx_valid(tx, False)
 
