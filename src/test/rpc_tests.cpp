@@ -14,6 +14,7 @@
 #include <util/time.h>
 
 #include <any>
+#include <limits>
 
 #include <boost/test/unit_test.hpp>
 
@@ -83,6 +84,22 @@ UniValue RPCTestingSetup::CallRPC(std::string args)
 
 
 BOOST_FIXTURE_TEST_SUITE(rpc_tests, RPCTestingSetup)
+
+BOOST_AUTO_TEST_CASE(node_generation_revision_json_boundary)
+{
+    const NodeGenerationSnapshot generation{
+        .startup_id = uint256{},
+        .chainstate_revision = std::numeric_limits<uint64_t>::max(),
+        .blocks = 0,
+        .bestblockhash = uint256{},
+    };
+    const UniValue result{NodeGenerationToJSON(generation)};
+    const UniValue& revision{result["chainstate_revision"]};
+
+    BOOST_CHECK(revision.isNum());
+    BOOST_CHECK_EQUAL(revision.getValStr(), "18446744073709551615");
+    BOOST_CHECK_EQUAL(revision.getInt<uint64_t>(), std::numeric_limits<uint64_t>::max());
+}
 
 BOOST_AUTO_TEST_CASE(rpc_namedparams)
 {

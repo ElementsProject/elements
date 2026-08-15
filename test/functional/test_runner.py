@@ -107,6 +107,7 @@ BASE_SCRIPTS = [
     'feature_pak.py --legacy-wallet',
     'feature_blocksign.py --legacy-wallet',
     'rpc_calcfastmerkleroot.py',
+    'rpc_getnodegeneration.py',
     'feature_txwitness.py',
     'rpc_sidechaininfo.py',
     'rpc_tweakfedpeg.py --legacy-wallet',
