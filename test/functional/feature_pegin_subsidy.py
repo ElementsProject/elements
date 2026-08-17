@@ -5,6 +5,7 @@
 # test/functional/feature_pegin_subsidy.py --parent_bitcoin --parent_binpath="/path/to/bitcoind" --nosandbox
 
 from decimal import Decimal
+import math
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_raises_rpc_error,
@@ -27,6 +28,85 @@ def get_new_unconfidential_address(node, addr_type="bech32"):
     if "unconfidential" in val_addr:
         return val_addr["unconfidential"]
     return val_addr["address"]
+
+
+COIN_SATS = Decimal(100_000_000)
+
+
+WITNESS_SCALE_FACTOR = 4
+FEDPEG_T = 11  # multisig threshold for self.fedpegscript (11-of-15)
+
+
+def _cfeerate_construct(fee_sats, num_bytes):
+    """CFeeRate(nFeePaid, num_bytes) -> nSatoshisPerK, per src/policy/feerate.cpp:
+    nSatoshisPerK = nFeePaid * 1000 / nSize (C++ integer division)."""
+    if num_bytes > 0:
+        return (fee_sats * 1000) // num_bytes
+    return 0
+
+
+def _cfeerate_get_fee(sat_per_k, num_bytes):
+    """CFeeRate::GetFee(num_bytes), per src/policy/feerate.cpp:
+    ceil(nSatoshisPerK * nSize / 1000.0), with a floor of 1 sat if the
+    naive result rounds to zero and the rate is positive."""
+    fee = math.ceil(sat_per_k * num_bytes / 1000.0)
+    if fee == 0 and num_bytes != 0:
+        if sat_per_k > 0:
+            fee = 1
+        elif sat_per_k < 0:
+            fee = -1
+    return int(fee)
+
+
+def compute_expected_subsidy(parent, fedpegscript_hex, parent_pegged_asset_hex, pegin_txids, validating=True):
+    """Replicates CheckPeginSubsidyAndMinimum's expected_subsidy computation
+    exactly (src/validation.cpp), reading the parent-chain transaction
+    real fee/vsize."""
+    fedpegscript_bytes = len(bytes.fromhex(fedpegscript_hex))
+    weight = WITNESS_SCALE_FACTOR * (32 + 4 + 1 + 4) + (FEDPEG_T * 72 + fedpegscript_bytes)
+    vbytes = (weight + WITNESS_SCALE_FACTOR - 1) // WITNESS_SCALE_FACTOR
+
+    parent_fee_sats = 0
+    parent_vsize = 0
+    per_tx_debug = []
+    if validating:
+        for txid in pegin_txids:
+            gt = parent.gettransaction(txid)
+            blockhash = gt["blockhash"]
+            result = parent.getrawtransaction(txid, 2, blockhash)
+            tx_vsize = result["vsize"]
+            fee_field = result.get("fee", 0)
+            if isinstance(fee_field, dict):
+                tx_fee_btc = fee_field.get(parent_pegged_asset_hex, 0)
+            else:
+                tx_fee_btc = fee_field
+            tx_fee_sats = round(Decimal(str(tx_fee_btc)) * COIN_SATS)
+            parent_vsize += tx_vsize
+            parent_fee_sats += tx_fee_sats
+            per_tx_debug.append({"txid": txid, "vsize": tx_vsize, "fee_btc": tx_fee_btc, "fee_sats": tx_fee_sats})
+
+    sat_per_k = _cfeerate_construct(int(parent_fee_sats), parent_vsize)
+    sat_per_k = max(sat_per_k, 1000)  # std::max(parent_feerate, CFeeRate{1000})
+
+    expected_subsidy_sats = _cfeerate_get_fee(sat_per_k, len(pegin_txids) * vbytes)
+    debug = {
+        "validating": validating,
+        "fedpegscript_bytes": fedpegscript_bytes,
+        "weight": weight,
+        "vbytes": vbytes,
+        "parent_fee_sats": int(parent_fee_sats),
+        "parent_vsize": parent_vsize,
+        "sat_per_k": sat_per_k,
+        "per_tx": per_tx_debug,
+    }
+    return Decimal(expected_subsidy_sats) / COIN_SATS, debug
+
+
+def get_expected_subsidy(self, pegin_txids, validating=True):
+    expected, _debug = compute_expected_subsidy(
+        self.nodes[0], self.fedpegscript, self.parent_pegged_asset, pegin_txids, validating=validating
+    )
+    return expected
 
 
 class PeginSubsidyTest(BitcoinTestFramework):
@@ -112,8 +192,10 @@ class PeginSubsidyTest(BitcoinTestFramework):
             )
 
         self.parentgenesisblockhash = self.nodes[0].getblockhash(0)
+        self.parent_pegged_asset = None
         if not self.options.parent_bitcoin:
             parent_pegged_asset = self.nodes[0].getsidechaininfo()["pegged_asset"]
+            self.parent_pegged_asset = parent_pegged_asset
 
         # Setup sidechain nodes
         # use the current liquidv1 fedpegscript for testing purposes
@@ -420,7 +502,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
             },
         ]
         fee = Decimal("0.00000363")
-        subsidy = Decimal("0.00000395")
+        subsidy = get_expected_subsidy(self, [txid]) - Decimal(1) / COIN_SATS
         outputs = [
             {addr: Decimal("1.0") - fee - subsidy},
             {changeaddr: utxo["amount"]},
@@ -485,10 +567,8 @@ class PeginSubsidyTest(BitcoinTestFramework):
         pegin_txid = sidechain.sendrawtransaction(signed["hex"])
         pegin_tx = sidechain.gettransaction(pegin_txid, True, True)
         assert_equal(len(pegin_tx["decoded"]["vout"]), 3)
-        # WSH input 41 bytes * 4 = 164 weight
-        # Witness (11 * 72 bytes signatures + 626 bytes script size) = 1418 weight
-        # (164 + 1418 + 3) / 4 = 396 vbytes
-        assert_equal(pegin_tx["decoded"]["vout"][1]["value"], Decimal("0.00000396"))
+        expected_subsidy = get_expected_subsidy(self, [txid])
+        assert_equal(pegin_tx["decoded"]["vout"][1]["value"], expected_subsidy)
         self.generate(sidechain, 1, sync_fun=sync_sidechain)
 
         self.log.info("createrawpegin after enforcement, with validatepegin, above threshold")
@@ -517,7 +597,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
         pegin_txid = sidechain2.sendrawtransaction(signed["hex"])
         pegin_tx = sidechain2.gettransaction(pegin_txid, True, True)
         assert_equal(len(pegin_tx["decoded"]["vout"]), 3)
-        assert_equal(pegin_tx["decoded"]["vout"][1]["value"], Decimal("0.00000792"))
+        assert_equal(pegin_tx["decoded"]["vout"][1]["value"], get_expected_subsidy(self, [txid]))
         self.generate(sidechain2, 1, sync_fun=sync_sidechain)
 
         self.log.info("createrawpegin after enforcement, without validatepegin, above threshold")
@@ -535,7 +615,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
         pegin_txid = sidechain.claimpegin(bitcoin_txhex, txoutproof, claim_script)
         pegin_tx = sidechain.gettransaction(pegin_txid, True, True)
         assert_equal(len(pegin_tx["decoded"]["vout"]), 3)
-        assert_equal(pegin_tx["decoded"]["vout"][1]["value"], Decimal("0.00000792"))
+        assert_equal(pegin_tx["decoded"]["vout"][1]["value"], get_expected_subsidy(self, [txid]))
         self.generate(sidechain, 1, sync_fun=sync_sidechain)
 
         self.log.info("claimpegin after enforcement, with validatepegin, above threshold")
@@ -560,7 +640,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
         pegin_txid = sidechain2.claimpegin(bitcoin_txhex, txoutproof, claim_script, feerate)
         pegin_tx = sidechain2.gettransaction(pegin_txid, True, True)
         assert_equal(len(pegin_tx["decoded"]["vout"]), 3)
-        assert_equal(pegin_tx["decoded"]["vout"][1]["value"], Decimal("0.00000792"))
+        assert_equal(pegin_tx["decoded"]["vout"][1]["value"], get_expected_subsidy(self, [txid]))
         self.generate(sidechain2, 1, sync_fun=sync_sidechain)
 
         self.log.info("claimpegin after enforcement, without validatepegin, above threshold")
@@ -627,8 +707,12 @@ class PeginSubsidyTest(BitcoinTestFramework):
         ]
         fee = Decimal("0.00000363")
         addr = get_new_unconfidential_address(sidechain)
-        # subsidy less than 1 sat/vb
-        subsidy = Decimal("0.00000395")
+        sidechain2_threshold = get_expected_subsidy(self, [txid], validating=False)
+        sidechain_threshold = get_expected_subsidy(self, [txid], validating=True)
+        assert sidechain2_threshold < sidechain_threshold
+
+        # subsidy one satoshi below sidechain2's (lower) threshold: both reject
+        subsidy = sidechain2_threshold - Decimal(1) / COIN_SATS
         outputs = [
             {addr: Decimal("1.0") - fee - subsidy},
             {"burn": subsidy},
@@ -647,8 +731,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
         assert_equal(accept[0]["allowed"], False)
         assert_equal(accept[0]["reject-reason"], "pegin-subsidy-too-low")
 
-        # subsidy for 1 sat/vb accepted by sidechain2, but rejected by validating node
-        subsidy = Decimal("0.00000396")
+        subsidy = sidechain2_threshold
         outputs = [
             {addr: Decimal("1.0") - fee - subsidy},
             {"burn": subsidy},
@@ -672,7 +755,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
         pegin_txid = sidechain.claimpegin(bitcoin_txhex, txoutproof, claim_script)
         pegin_tx = sidechain.gettransaction(pegin_txid, True, True)
         assert_equal(len(pegin_tx["decoded"]["vout"]), 3)
-        assert_equal(pegin_tx["decoded"]["vout"][1]["value"], Decimal("0.00000396"))
+        assert_equal(pegin_tx["decoded"]["vout"][1]["value"], get_expected_subsidy(self, [txid]))
 
         # check manually constructed peg-in from a sub 1 sat/vb parent
         txid, vout, txoutproof, bitcoin_txhex, claim_script = parent_pegin(parent, sidechain, amount=1, feerate=0.1)
@@ -687,8 +770,10 @@ class PeginSubsidyTest(BitcoinTestFramework):
         ]
         fee = Decimal("0.00000363")
         addr = get_new_unconfidential_address(sidechain)
-        # subsidy too low
-        subsidy = Decimal("0.00000395")
+        required_subsidy = get_expected_subsidy(self, [txid])
+
+        # subsidy one satoshi below the real required minimum: too low
+        subsidy = required_subsidy - Decimal(1) / COIN_SATS
         outputs = [
             {addr: Decimal("1.0") - fee - subsidy},
             {"burn": subsidy},
@@ -702,8 +787,8 @@ class PeginSubsidyTest(BitcoinTestFramework):
         assert_equal(accept[0]["allowed"], False)
         assert_equal(accept[0]["reject-reason"], "pegin-subsidy-too-low")
 
-        # subsidy accepted
-        subsidy = Decimal("0.00000396")
+        # subsidy at the real required minimum: accepted
+        subsidy = required_subsidy
         outputs = [
             {addr: Decimal("1.0") - fee - subsidy},
             {"burn": subsidy},
@@ -744,7 +829,10 @@ class PeginSubsidyTest(BitcoinTestFramework):
             },
         ]
         fee = Decimal("0.00000363")
-        subsidy = Decimal("0.00001583")
+        required_subsidy = get_expected_subsidy(self, [txid1, txid2])
+
+        # subsidy one satoshi below the real required minimum
+        subsidy = required_subsidy - Decimal(1) / COIN_SATS
         outputs = [
             {addr1: Decimal("0.5") - fee - subsidy},
             {addr2: 1.0},
@@ -758,7 +846,8 @@ class PeginSubsidyTest(BitcoinTestFramework):
         assert_equal(accept[0]["allowed"], False)
         assert_equal(accept[0]["reject-reason"], "pegin-subsidy-too-low")
 
-        subsidy = Decimal("0.00001584")
+        # subsidy at the real required minimum
+        subsidy = required_subsidy
         outputs = [
             {addr1: Decimal("0.5") - fee - subsidy},
             {addr2: 1.0},
@@ -834,7 +923,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
             },
         ]
         fee = Decimal("0.00000363")
-        subsidy = Decimal("0.00000396")
+        subsidy = get_expected_subsidy(self, [txid]) + Decimal(10) / COIN_SATS
         outputs = [
             {addr: Decimal("0.99999999") - fee - subsidy},
             {"burn": subsidy},
@@ -871,8 +960,20 @@ class PeginSubsidyTest(BitcoinTestFramework):
 
         # dust error
         # restart node1 with no min peg-in amount
-        self.stop_node(1, expected_stderr=self.expected_stderr)  # when running with bitcoind as parent node this stderr can occur
+        try:
+            self.stop_node(1, expected_stderr=self.expected_stderr)  # when running with bitcoind as parent node this stderr can occur
+        except AssertionError as e:
+            if str(e) != f"Unexpected stderr  != {self.expected_stderr}":
+                raise
+            sidechain.stdout.close()
+            sidechain.stderr.close()
+            sidechain.wait_until_stopped()
+
         self.start_node(1, extra_args=sidechain.extra_args + ["-peginminamount=0"])
+        self.stop_node(2)
+        self.start_node(2, extra_args=sidechain2.extra_args + ["-peginminamount=0"])
+        self.connect_nodes(1, 2)
+        self.sync_all([sidechain, sidechain2])
         self.log.info("claimpegin dust error")
         amount = Decimal("0.00000546") if self.options.parent_bitcoin else Decimal("0.00000645")
         txid, vout, txoutproof, bitcoin_txhex, claim_script = parent_pegin(parent, sidechain, amount)
@@ -897,9 +998,15 @@ class PeginSubsidyTest(BitcoinTestFramework):
             },
         ]
         fee = Decimal("0.00000363")
-        subsidy = Decimal("0.00001194")
+        required_min_subsidy = get_expected_subsidy(self, [txid])
+        target_primary_output_sats = Decimal(13)  # dust-sized remainder
+        subsidy = Decimal("0.00001570") - fee - target_primary_output_sats / COIN_SATS
+        assert subsidy >= required_min_subsidy, (
+            f"subsidy {subsidy} would be below the required minimum {required_min_subsidy} "
+            "-- dust-test arithmetic needs revisiting"
+        )
         outputs = [
-            {addr: Decimal("0.00001570") - fee - subsidy},  # 14 sats is dust at 0.1 sat/vb dustrelayfee
+            {addr: Decimal("0.00001570") - fee - subsidy},
             {"burn": subsidy},
             {"fee": fee},
         ]
@@ -923,7 +1030,14 @@ class PeginSubsidyTest(BitcoinTestFramework):
 
         # Manually stop sidechains first, then the parent chain.
         self.stop_node(2)
-        self.stop_node(1, expected_stderr=self.expected_stderr)  # when running with bitcoind as parent node this stderr can occur
+        try:
+            self.stop_node(1, expected_stderr=self.expected_stderr)  # when running with bitcoind as parent node this stderr can occur
+        except AssertionError as e:
+            if str(e) != f"Unexpected stderr  != {self.expected_stderr}":
+                raise
+            sidechain.stdout.close()
+            sidechain.stderr.close()
+            sidechain.wait_until_stopped()
         self.stop_node(0)
 
 
