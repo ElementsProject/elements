@@ -8,36 +8,35 @@ Test the post-dynafed elements-only SIGHASH_RANGEPROOF sighash flag.
 """
 
 import struct
-from test_framework.test_framework import BitcoinTestFramework
+
+from test_framework import util
 from test_framework.address import base58_to_byte
+from test_framework.blocktools import add_witness_commitment
+from test_framework.key import ECKey
+from test_framework.messages import (
+    CBlock,
+    from_hex,
+    tx_from_hex,
+)
 from test_framework.script import (
-    hash160,
-    LegacySignatureHash,
-    SegwitV0SignatureHash,
-    SIGHASH_ALL,
-    SIGHASH_RANGEPROOF,
-    CScript,
-    CScriptOp,
     OP_CHECKSIG,
     OP_DUP,
     OP_EQUALVERIFY,
     OP_HASH160,
+    SIGHASH_ALL,
+    SIGHASH_RANGEPROOF,
+    CScript,
+    CScriptOp,
+    LegacySignatureHash,
+    SegwitV0SignatureHash,
+    hash160,
 )
-from test_framework.key import ECKey
-
-from test_framework.messages import (
-    CBlock,
-    tx_from_hex,
-    from_hex,
-)
-
-from test_framework import util
+from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
 )
 
-from test_framework.blocktools import add_witness_commitment
 
 def get_p2pkh_script(pubkeyhash):
     """Get the script associated with a P2PKH."""
@@ -112,7 +111,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
 
         # Prepare the keypair we need to re-sign the tx.
         wif = self.nodes[1].dumpprivkey(addr)
-        (b, v) = base58_to_byte(wif)
+        (b, _v) = base58_to_byte(wif)
         privkey = ECKey()
         privkey.set(b[0:32], len(b) == 33)
         pubkey = privkey.get_pubkey()
@@ -235,12 +234,12 @@ class SighashRangeproofTest(BitcoinTestFramework):
         # - the tx is not accepted in the mempool and
         # - the tx is accepted if manually mined in a block
         for address_type in ADDRESS_TYPES:
-            self.log.info("Pre-activation for {} address".format(address_type))
+            self.log.info(f"Pre-activation for {address_type} address")
             tx = self.prepare_tx_signed_with_sighash(address_type, False, False)
             self.assert_tx_standard(tx, False)
             self.assert_tx_valid(tx, True)
 
-            self.log.info("Pre-activation for {} address (with issuance)".format(address_type))
+            self.log.info(f"Pre-activation for {address_type} address (with issuance)")
             tx = self.prepare_tx_signed_with_sighash(address_type, False, True)
             self.assert_tx_standard(tx, False)
             self.assert_tx_valid(tx, True)
@@ -257,25 +256,29 @@ class SighashRangeproofTest(BitcoinTestFramework):
         # Test that the use of SIGHASH_RANGEPROOF is legal and standard
         # after activation.
         for address_type in ADDRESS_TYPES:
-            self.log.info("Post-activation for {} address".format(address_type))
+            self.log.info(f"Post-activation for {address_type} address")
             tx = self.prepare_tx_signed_with_sighash(address_type, True, False)
             self.assert_tx_standard(tx, True)
             self.assert_tx_valid(tx, True)
 
-            self.log.info("Post-activation for {} address (with issuance)".format(address_type))
+            self.log.info(f"Post-activation for {address_type} address (with issuance)")
             tx = self.prepare_tx_signed_with_sighash(address_type, True, True)
             self.assert_tx_standard(tx, True)
             self.assert_tx_valid(tx, True)
 
+            # Post-activation, the wallet default must set SIGHASH_RANGEPROOF.
+            self.log.info(f"Post-activation default sighash for {address_type} address")
+            self.assert_default_sign_commits_rangeproof(address_type, expect_rangeproof=True)
+
         # Ensure that if we then use the old sighash algorithm that doesn't hash
         # the rangeproofs, the signature is no longer valid.
         for address_type in ADDRESS_TYPES:
-            self.log.info("Post-activation invalid sighash for {} address".format(address_type))
+            self.log.info(f"Post-activation invalid sighash for {address_type} address")
             tx = self.prepare_tx_signed_with_sighash(address_type, False, False)
             self.assert_tx_standard(tx, False)
             self.assert_tx_valid(tx, False)
 
-            self.log.info("Post-activation invalid sighash for {} address (with issuance)".format(address_type))
+            self.log.info(f"Post-activation invalid sighash for {address_type} address (with issuance)")
             tx = self.prepare_tx_signed_with_sighash(address_type, False, True)
             self.assert_tx_standard(tx, False)
             self.assert_tx_valid(tx, False)
