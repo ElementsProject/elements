@@ -608,9 +608,11 @@ bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, const CBlock
     return immature_pegin;
 }
 
-void SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, const UniValue& hashType, UniValue& result, const CBlockIndex* active_chain_tip)
+void SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, const UniValue& hashType, UniValue& result, const CBlockIndex* active_chain_tip, bool sighash_rangeproof_active)
 {
-    int nHashType = ParseSighashString(hashType);
+    // ELEMENTS: when no sighash is specified, default to committing to
+    // rangeproofs if SIGHASH_RANGEPROOF is active at the current tip.
+    int nHashType = hashType.isNull() ? DefaultSighashType(sighash_rangeproof_active) : ParseSighashString(hashType);
 
     // Script verification errors
     std::map<int, bilingual_str> input_errors;
