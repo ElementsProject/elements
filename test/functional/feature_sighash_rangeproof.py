@@ -178,6 +178,46 @@ class SighashRangeproofTest(BitcoinTestFramework):
 
         return signed_tx
 
+    def assert_default_sign_commits_rangeproof(self, address_type, expect_rangeproof):
+        # Sign a blinded tx using the wallet default sighash (no explicit sighash
+        # argument) and assert whether the resulting pre-Taproot signatures
+        # commit to the SIGHASH_RANGEPROOF (0x40) bit.
+        addr = self.nodes[1].getnewaddress("", address_type)
+        assert len(self.nodes[1].getaddressinfo(addr)["confidential_key"]) > 0
+        self.nodes[0].sendtoaddress(addr, 1.0)
+        self.generate(self.nodes[0], 1)
+        self.sync_all()
+        utxo = self.nodes[1].listunspent(1, 1, [addr])[0]
+
+        sink_addr = self.nodes[2].getnewaddress()
+        unsigned_hex = self.nodes[1].createrawtransaction(
+            [{"txid": utxo["txid"], "vout": utxo["vout"]}],
+            [{sink_addr: 0.9}, {"fee": 0.1}]
+        )
+        blinded_hex = self.nodes[1].blindrawtransaction(unsigned_hex)
+        # Deliberately omit the sighash argument to exercise the wallet default.
+        signed = self.nodes[1].signrawtransactionwithwallet(blinded_hex)
+        assert signed["complete"], f"default-signed tx incomplete: {signed}"
+        signed_tx = tx_from_hex(signed["hex"])
+
+        # The tx must be accepted (standard + valid) with the default sighash.
+        test_accept = self.nodes[0].testmempoolaccept([signed["hex"]])[0]
+        assert test_accept["allowed"], "default-signed tx not accepted: {}".format(test_accept["reject-reason"])
+
+        # Extract the sighash byte from the signature and check the 0x40 bit.
+        if address_type == "legacy":
+            # scriptSig: <sig> <pubkey>; the signature is the first push.
+            script_sig = signed_tx.vin[0].scriptSig
+            # The first byte is the push length of the signature.
+            sig_len = script_sig[0]
+            sig = script_sig[1:1 + sig_len]
+        else:
+            # segwit v0 (native or p2sh-wrapped): signature is first witness item.
+            sig = signed_tx.wit.vtxinwit[0].scriptWitness.stack[0]
+        sighash_byte = sig[-1]
+        has_rangeproof = bool(sighash_byte & SIGHASH_RANGEPROOF)
+        assert_equal(has_rangeproof, expect_rangeproof)
+
     def assert_tx_standard(self, tx, assert_standard=True):
         # Test the standardness of the tx by submitting it to the mempool.
 
@@ -243,6 +283,11 @@ class SighashRangeproofTest(BitcoinTestFramework):
             tx = self.prepare_tx_signed_with_sighash(address_type, False, True)
             self.assert_tx_standard(tx, False)
             self.assert_tx_valid(tx, True)
+
+            # Pre-activation, the wallet default must NOT set SIGHASH_RANGEPROOF,
+            # otherwise it would produce non-standard/invalid signatures.
+            self.log.info(f"Pre-activation default sighash for {address_type} address")
+            self.assert_default_sign_commits_rangeproof(address_type, expect_rangeproof=False)
 
         # Activate dynafed (nb of blocks taken from dynafed activation test)
         # Generate across several calls to `generatetoaddress` to ensure no individual call times out
