@@ -47,8 +47,11 @@ static int secp256k1_bppp_parse_one_of_points(secp256k1_ge *pt, const unsigned c
 /* Outputs a serialized point in compressed form. Returns 0 at point at infinity.
 */
 static int secp256k1_bppp_serialize_pt(unsigned char *output, secp256k1_ge *lpt) {
-    size_t size;
-    return secp256k1_eckey_pubkey_serialize(lpt, output, &size, 1 /*compressed*/);
+    if (secp256k1_ge_is_infinity(lpt)) {
+        return 0;
+    }
+    secp256k1_eckey_pubkey_serialize33(lpt, output);
+    return 1;
 }
 
 /* little-endian encodes a uint64 */

@@ -66,8 +66,7 @@ static int secp256k1_der_read_len(size_t *len, const unsigned char **sigp, const
     }
     if (lenleft > sizeof(size_t)) {
         /* The resulting length would exceed the range of a size_t, so
-         * certainly longer than the passed array size.
-         */
+         * it is certainly longer than the passed array size. */
         return 0;
     }
     while (lenleft > 0) {
@@ -76,7 +75,9 @@ static int secp256k1_der_read_len(size_t *len, const unsigned char **sigp, const
         lenleft--;
     }
     if (*len > (size_t)(sigend - *sigp)) {
-        /* Result exceeds the length of the passed array. */
+        /* Result exceeds the length of the passed array.
+           (Checking this is the responsibility of the caller but it
+           can't hurt do it here, too.) */
         return 0;
     }
     if (*len < 128) {
@@ -195,6 +196,7 @@ static int secp256k1_ecdsa_sig_verify(const secp256k1_scalar *sigr, const secp25
     unsigned char c[32];
     secp256k1_scalar sn, u1, u2;
 #if !defined(EXHAUSTIVE_TEST_ORDER)
+    int range;
     secp256k1_fe xr;
 #endif
     secp256k1_gej pubkeyj;
@@ -225,9 +227,16 @@ static int secp256k1_ecdsa_sig_verify(const secp256k1_scalar *sigr, const secp25
     return secp256k1_scalar_eq(sigr, &computed_r);
 }
 #else
+
+    /* Interpret sigr as a field element xr  */
     secp256k1_scalar_get_b32(c, sigr);
-    /* we can ignore the fe_set_b32_limit return value, because we know the input is in range */
-    (void)secp256k1_fe_set_b32_limit(&xr, c);
+    range = secp256k1_fe_set_b32_limit(&xr, c);
+#ifdef VERIFY
+    /* We know that c is in range; it comes from a scalar. */
+    VERIFY_CHECK(range);
+#else
+    (void)range;
+#endif
 
     /** We now have the recomputed R point in pr, and its claimed x coordinate (modulo n)
      *  in xr. Naively, we would extract the x coordinate from pr (requiring a inversion modulo p),
@@ -264,14 +273,12 @@ static int secp256k1_ecdsa_sig_verify(const secp256k1_scalar *sigr, const secp25
 
 static int secp256k1_ecdsa_sig_sign(const secp256k1_ecmult_gen_context *ctx, secp256k1_scalar *sigr, secp256k1_scalar *sigs, const secp256k1_scalar *seckey, const secp256k1_scalar *message, const secp256k1_scalar *nonce, int *recid) {
     unsigned char b[32];
-    secp256k1_gej rp;
     secp256k1_ge r;
     secp256k1_scalar n;
     int overflow = 0;
     int high;
 
-    secp256k1_ecmult_gen(ctx, &rp, nonce);
-    secp256k1_ge_set_gej(&r, &rp);
+    secp256k1_ecmult_gen_ge(ctx, &r, nonce);
     secp256k1_fe_normalize(&r.x);
     secp256k1_fe_normalize(&r.y);
     secp256k1_fe_get_b32(b, &r.x);
@@ -287,7 +294,6 @@ static int secp256k1_ecdsa_sig_sign(const secp256k1_ecmult_gen_context *ctx, sec
     secp256k1_scalar_inverse(sigs, nonce);
     secp256k1_scalar_mul(sigs, sigs, &n);
     secp256k1_scalar_clear(&n);
-    secp256k1_gej_clear(&rp);
     secp256k1_ge_clear(&r);
     high = secp256k1_scalar_is_high(sigs);
     secp256k1_scalar_cond_negate(sigs, high);
