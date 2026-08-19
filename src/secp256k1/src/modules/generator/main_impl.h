@@ -217,7 +217,7 @@ static int secp256k1_generator_generate_internal(const secp256k1_context* ctx, s
         secp256k1_scalar blind;
         secp256k1_scalar_set_b32(&blind, blind32, &overflow);
         ret = !overflow;
-        secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &accum, &blind);
+        secp256k1_ecmult_gen_gej(&ctx->ecmult_gen_ctx, &accum, &blind);
     }
 
     secp256k1_sha256_initialize(&sha256);
@@ -243,6 +243,8 @@ static int secp256k1_generator_generate_internal(const secp256k1_context* ctx, s
     secp256k1_gej_add_ge(&accum, &accum, &add);
 
     secp256k1_ge_set_gej(&add, &accum);
+    secp256k1_gej_clear(&accum);
+
     secp256k1_generator_save(gen, &add);
     return ret;
 }
