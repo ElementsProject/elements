@@ -12,11 +12,9 @@ static void rand_scalar(secp256k1_scalar *scalar) {
 
 static void rand_point(secp256k1_ge *point) {
     secp256k1_scalar x;
-    secp256k1_gej pointj;
     rand_scalar(&x);
 
-    secp256k1_ecmult_gen(&CTX->ecmult_gen_ctx, &pointj, &x);
-    secp256k1_ge_set_gej(point, &pointj);
+    secp256k1_ecmult_gen_ge(&CTX->ecmult_gen_ctx, point, &x);
 }
 
 static void dleq_nonce_bitflip(unsigned char **args, size_t n_flip, size_t n_bytes) {

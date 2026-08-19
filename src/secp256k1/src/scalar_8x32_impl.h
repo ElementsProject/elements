@@ -69,6 +69,7 @@ SECP256K1_INLINE static void secp256k1_scalar_set_u64(secp256k1_scalar *r, uint6
 SECP256K1_INLINE static uint32_t secp256k1_scalar_get_bits_limb32(const secp256k1_scalar *a, unsigned int offset, unsigned int count) {
     SECP256K1_SCALAR_VERIFY(a);
     VERIFY_CHECK(count > 0 && count <= 32);
+    VERIFY_CHECK(offset <= 256 - count);
     VERIFY_CHECK((offset + count - 1) >> 5 == offset >> 5);
 
     return (a->d[offset >> 5] >> (offset & 0x1F)) & (0xFFFFFFFF >> (32 - count));
@@ -77,7 +78,7 @@ SECP256K1_INLINE static uint32_t secp256k1_scalar_get_bits_limb32(const secp256k
 SECP256K1_INLINE static uint32_t secp256k1_scalar_get_bits_var(const secp256k1_scalar *a, unsigned int offset, unsigned int count) {
     SECP256K1_SCALAR_VERIFY(a);
     VERIFY_CHECK(count > 0 && count <= 32);
-    VERIFY_CHECK(offset + count <= 256);
+    VERIFY_CHECK(offset <= 256 - count);
 
     if ((offset + count - 1) >> 5 == offset >> 5) {
         return secp256k1_scalar_get_bits_limb32(a, offset, count);

@@ -189,7 +189,7 @@ int secp256k1_schnorrsig_aggverify(const secp256k1_context *ctx, const secp256k1
     if (overflow) {
         return 0;
     }
-    secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &lhs, &s);
+    secp256k1_ecmult_gen_gej(&ctx->ecmult_gen_ctx, &lhs, &s);
 
     /* Check that lhs == rhs */
     secp256k1_gej_neg(&lhs, &lhs);

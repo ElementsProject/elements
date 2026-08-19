@@ -600,12 +600,10 @@ static int secp256k1_ecdsa_sign_inner(const secp256k1_context* ctx, secp256k1_sc
         secp256k1_declassify(ctx, &is_nonce_valid, sizeof(is_nonce_valid));
         if (is_nonce_valid) {
             if (s2c_data32 != NULL) {
-                secp256k1_gej nonce_pj;
                 secp256k1_ge nonce_p;
 
                 /* Compute original nonce commitment/pubkey */
-                secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &nonce_pj, &non);
-                secp256k1_ge_set_gej(&nonce_p, &nonce_pj);
+                secp256k1_ecmult_gen_ge(&ctx->ecmult_gen_ctx, &nonce_p, &non);
                 if (s2c_opening != NULL) {
                     secp256k1_ecdsa_s2c_opening_save(s2c_opening, &nonce_p);
                 }
@@ -675,15 +673,12 @@ int secp256k1_ec_seckey_verify(const secp256k1_context* ctx, const unsigned char
 }
 
 static int secp256k1_ec_pubkey_create_helper(const secp256k1_ecmult_gen_context *ecmult_gen_ctx, secp256k1_scalar *seckey_scalar, secp256k1_ge *p, const unsigned char *seckey) {
-    secp256k1_gej pj;
     int ret;
 
     ret = secp256k1_scalar_set_b32_seckey(seckey_scalar, seckey);
     secp256k1_scalar_cmov(seckey_scalar, &secp256k1_scalar_one, !ret);
 
-    secp256k1_ecmult_gen(ecmult_gen_ctx, &pj, seckey_scalar);
-    secp256k1_ge_set_gej(p, &pj);
-    secp256k1_gej_clear(&pj);
+    secp256k1_ecmult_gen_ge(ecmult_gen_ctx, p, seckey_scalar);
     return ret;
 }
 
