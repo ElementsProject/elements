@@ -28,7 +28,7 @@ static void secp256k1_pedersen_scalar_set_u64(secp256k1_scalar *sec, uint64_t va
         value <<= 8;
     }
     secp256k1_scalar_set_b32(sec, data, NULL);
-    memset(data, 0, 32);
+    secp256k1_memclear_explicit(data, 32);
 }
 
 static void secp256k1_pedersen_ecmult_small(secp256k1_gej *r, uint64_t gn, const secp256k1_ge* genp) {
@@ -41,7 +41,7 @@ static void secp256k1_pedersen_ecmult_small(secp256k1_gej *r, uint64_t gn, const
 /* sec * G + value * G2. */
 SECP256K1_INLINE static void secp256k1_pedersen_ecmult(const secp256k1_ecmult_gen_context *ecmult_gen_ctx, secp256k1_gej *rj, const secp256k1_scalar *sec, uint64_t value, const secp256k1_ge* genp) {
     secp256k1_gej vj;
-    secp256k1_ecmult_gen(ecmult_gen_ctx, rj, sec);
+    secp256k1_ecmult_gen_gej(ecmult_gen_ctx, rj, sec);
     secp256k1_pedersen_ecmult_small(&vj, value, genp);
     /* FIXME: constant time. */
     secp256k1_gej_add_var(rj, rj, &vj, NULL);

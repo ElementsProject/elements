@@ -17,7 +17,7 @@ static int secp256k1_ec_pubkey_tweak_add_helper(const secp256k1_ecmult_context* 
  *  pubp->infinity before calling this function. */
 static int secp256k1_ec_commit_pubkey_serialize_const(secp256k1_ge *pubp, unsigned char *buf33);
 /** Compute an ec commitment tweak as hash(pubkey, data). */
-static int secp256k1_ec_commit_tweak(unsigned char *tweak32, secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size);
+static int secp256k1_ec_commit_tweak(const secp256k1_hash_ctx *hash_ctx, unsigned char *tweak32, secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size);
 /** Compute an ec commitment as pubkey + hash(pubkey, data)*G. */
 static int secp256k1_ec_commit(const secp256k1_ecmult_context* ecmult_ctx, secp256k1_ge* commitp, const secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size);
 /** Compute a secret key commitment as seckey + hash(pubkey, data). */
