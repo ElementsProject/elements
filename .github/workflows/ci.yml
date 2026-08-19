@@ -1,314 +1,791 @@
-# Copyright (c) 2023-present The Bitcoin Core developers
-# Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 name: CI
 on:
-  # See: https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#pull_request.
   pull_request:
-  # See: https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#push.
   push:
     branches:
       - '**'
     tags-ignore:
       - '**'
+  schedule:
+    # Run on the default branch every Monday morning.
+    # This also warms the Docker caches after key rotation.
+    - cron: '22 2 * * 1'
 
 concurrency:
   group: ${{ github.event_name != 'pull_request' && github.run_id || github.ref }}
   cancel-in-progress: true
 
 env:
-  CI_FAILFAST_TEST_LEAVE_DANGLING: 1  # GHA does not care about dangling processes and setting this variable avoids killing the CI script itself on error
-  MAKEJOBS: '-j10'
+  ### compiler options
+  HOST:
+  WRAPPER_CMD:
+  # Specific warnings can be disabled with -Wno-error=foo.
+  # -pedantic-errors is not equivalent to -Werror=pedantic and thus not implied by -Werror according to the GCC manual.
+  WERROR_CFLAGS: '-Werror -pedantic-errors'
+  MAKEFLAGS: '-j4'
+  BUILD: 'check'
+  ### secp256k1 config
+  ECMULTWINDOW: 15
+  ECMULTGENKB: 86
+  ASM: 'no'
+  WIDEMUL: 'auto'
+  WITH_VALGRIND: 'yes'
+  EXTRAFLAGS:
+  ### secp256k1 modules
+  EXPERIMENTAL: 'no'
+  ECDH: 'no'
+  RECOVERY: 'no'
+  EXTRAKEYS: 'no'
+  SCHNORRSIG: 'no'
+  MUSIG: 'no'
+  ELLSWIFT: 'no'
+  ECDSA_S2C: 'no'
+  GENERATOR: 'no'
+  RANGEPROOF: 'no'
+  SURJECTIONPROOF: 'no'
+  WHITELIST: 'no'
+  ECDSAADAPTOR: 'no'
+  BPPP: 'no'
+  SCHNORRSIG_HALFAGG: 'no'
+  ### test options
+  SECP256K1_TEST_ITERS: 64
+  BENCH: 'yes'
+  SECP256K1_BENCH_ITERS: 2
+  CTIMETESTS: 'yes'
+  SYMBOL_CHECK: 'yes'
+  # Compile and run the examples.
+  EXAMPLES: 'yes'
+  # Disable Docker build summary generation.
+  # See https://github.com/docker/build-push-action/blob/master/README.md#environment-variables.
+  DOCKER_BUILD_SUMMARY: false
 
 jobs:
-  test-each-commit:
-    name: 'test each commit'
-    runs-on: ubuntu-24.04
-    if: github.event_name == 'pull_request' && github.event.pull_request.commits != 1
-    timeout-minutes: 360  # Use maximum time, see https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idtimeout-minutes. Assuming a worst case time of 1 hour per commit, this leads to a --max-count=6 below.
-    env:
-      MAX_COUNT: 6
-    steps:
-      - name: Determine fetch depth
-        run: echo "FETCH_DEPTH=$((${{ github.event.pull_request.commits }} + 2))" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: ${{ env.FETCH_DEPTH }}
-      - name: Determine commit range
-        run: |
-          # Checkout HEAD~ and find the test base commit
-          # Checkout HEAD~ because it would be wasteful to rerun tests on the PR
-          # head commit that are already run by other jobs.
-          git checkout HEAD~
-          # Figure out test base commit by listing ancestors of HEAD, excluding
-          # ancestors of the most recent merge commit, limiting the list to the
-          # newest MAX_COUNT ancestors, ordering it from oldest to newest, and
-          # taking the first one.
-          #
-          # If the branch contains up to MAX_COUNT ancestor commits after the
-          # most recent merge commit, all of those commits will be tested. If it
-          # contains more, only the most recent MAX_COUNT commits will be
-          # tested.
-          #
-          # In the command below, the ^@ suffix is used to refer to all parents
-          # of the merge commit as described in:
-          # https://git-scm.com/docs/git-rev-parse#_other_rev_parent_shorthand_notations
-          # and the ^ prefix is used to exclude these parents and all their
-          # ancestors from the rev-list output as described in:
-          # https://git-scm.com/docs/git-rev-list
-          MERGE_BASE=$(git rev-list -n1 --merges HEAD)
-          EXCLUDE_MERGE_BASE_ANCESTORS=
-          # MERGE_BASE can be empty due to limited fetch-depth
-          if test -n "$MERGE_BASE"; then
-            EXCLUDE_MERGE_BASE_ANCESTORS=^${MERGE_BASE}^@
-          fi
-          echo "TEST_BASE=$(git rev-list -n$((${{ env.MAX_COUNT }} + 1)) --reverse HEAD $EXCLUDE_MERGE_BASE_ANCESTORS | head -1)" >> "$GITHUB_ENV"
-      - run: |
-          sudo apt-get update
-          sudo apt-get install clang ccache build-essential cmake pkgconf python3-zmq libevent-dev libboost-dev libsqlite3-dev libdb++-dev systemtap-sdt-dev libzmq3-dev qtbase5-dev qttools5-dev qttools5-dev-tools qtwayland5 libqrencode-dev -y
-      - name: Compile and run tests
-        run: |
-          # Run tests on commits after the last merge commit and before the PR head commit
-          # Use clang++, because it is a bit faster and uses less memory than g++
-          git rebase --exec "echo Running test-one-commit on \$( git log -1 ) && CC=clang CXX=clang++ cmake -B build -DWERROR=ON -DWITH_ZMQ=ON -DBUILD_GUI=ON -DBUILD_BENCH=ON -DBUILD_FUZZ_BINARY=ON -DWITH_BDB=ON -DWITH_USDT=ON -DCMAKE_CXX_FLAGS='-Wno-error=unused-member-function' && cmake --build build -j $(nproc) && ctest --output-on-failure --stop-on-failure --test-dir build -j $(nproc) && ./build/test/functional/test_runner.py -j $(( $(nproc) * 2 )) --combinedlogslen=99999999" ${{ env.TEST_BASE }}
+  docker_cache:
+    name: "Build ${{ matrix.arch }} Docker image"
+    runs-on: ${{ matrix.runner }}
+    outputs:
+      cache_scope: ${{ steps.cache_timestamp.outputs.period }}
 
-  macos-native-arm64:
-    name: ${{ matrix.job-name }}
-    # Use any image to support the xcode-select below, but hardcode version to avoid silent upgrades (and breaks).
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Get cache validity period
+        id: cache_timestamp
+        run: echo "period=$((10#$(date +%V) / 4))" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+        with:
+          # See: https://github.com/moby/buildkit/issues/3969.
+          driver-opts: |
+            network=host
+
+      - name: Build container
+        uses: docker/build-push-action@v7
+        with:
+          file: ./ci/linux-debian.Dockerfile
+          cache-from: type=gha,scope=${{ runner.arch }}-${{ steps.cache_timestamp.outputs.period }}
+          cache-to: type=gha,scope=${{ runner.arch }}-${{ steps.cache_timestamp.outputs.period }},mode=min
+
+  x86_64-debian:
+    name: "x86_64: Linux (Debian stable)"
+    runs-on: ubuntu-latest
+    needs: docker_cache
+
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - env_vars: { WIDEMUL: 'int64',  RECOVERY: 'yes' }
+          - env_vars: { WIDEMUL: 'int64',                   ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes'}
+          - env_vars: { WIDEMUL: 'int128' }
+          - env_vars: { WIDEMUL: 'int128_struct',                                                                           ELLSWIFT: 'yes' }
+          - env_vars: { WIDEMUL: 'int128', RECOVERY: 'yes',              EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes' }
+          - env_vars: { WIDEMUL: 'int128',                  ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes',                  EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes'}
+          - env_vars: { WIDEMUL: 'int128', ASM: 'x86_64',                                                                   ELLSWIFT: 'yes' }
+          - env_vars: {                    RECOVERY: 'yes',              EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes',                  EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes'}
+          - env_vars: { CTIMETESTS: 'no',  RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes',                  EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CPPFLAGS: '-DVERIFY' }
+          - env_vars: { BUILD: 'distcheck', WITH_VALGRIND: 'no', CTIMETESTS: 'no', BENCH: 'no' }
+          - env_vars: { CPPFLAGS: '-DDETERMINISTIC' }
+          - env_vars: { CFLAGS: '-O0', CTIMETESTS: 'no' }
+          - env_vars: { CFLAGS: '-O1',     RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes' }
+          - env_vars: { ECMULTGENKB: 2, ECMULTWINDOW: 2 }
+          - env_vars: { ECMULTGENKB: 86, ECMULTWINDOW: 4 }
+        cc:
+          - 'gcc'
+          - 'clang'
+          - 'gcc-snapshot'
+          - 'clang-snapshot'
+
+    env:
+      CC: ${{ matrix.cc }}
+
+    steps:
+      - &CHECKOUT
+        name: Checkout
+        uses: actions/checkout@v5
+
+      - &CI_SCRIPT_IN_DOCKER
+        name: CI script
+        env: ${{ matrix.configuration.env_vars }}
+        uses: ./.github/actions/run-in-docker-action
+        with:
+          dockerfile: ./ci/linux-debian.Dockerfile
+          scope: ${{ runner.arch }}-${{ needs.docker_cache.outputs.cache_scope }}
+          command: ./ci/ci.sh
+
+      - &PRINT_LOGS
+        name: Print logs
+        uses: ./.github/actions/print-logs
+        if: ${{ !cancelled() }}
+
+  i686_debian:
+    name: "i686: Linux (Debian stable)"
+    runs-on: ubuntu-latest
+    needs: docker_cache
+
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - env_vars: {}
+        cc:
+          - 'i686-linux-gnu-gcc'
+          - 'clang --target=i686-pc-linux-gnu -isystem /usr/i686-linux-gnu/include'
+
+    env:
+      HOST: 'i686-linux-gnu'
+      ECDH: 'yes'
+      RECOVERY: 'yes'
+      EXTRAKEYS: 'yes'
+      SCHNORRSIG: 'yes'
+      MUSIG: 'yes'
+      ELLSWIFT: 'yes'
+      EXPERIMENTAL: 'yes'
+      ECDSA_S2C: 'yes'
+      RANGEPROOF: 'yes'
+      SURJECTIONPROOF: 'yes'
+      WHITELIST: 'yes'
+      GENERATOR: 'yes'
+      ECDSAADAPTOR: 'yes'
+      BPPP: 'yes'
+      SCHNORRSIG_HALFAGG: 'yes'
+      CC: ${{ matrix.cc }}
+
+    steps:
+      - *CHECKOUT
+      - *CI_SCRIPT_IN_DOCKER
+      - *PRINT_LOGS
+
+  s390x_debian:
+    name: "s390x (big-endian): Linux (Debian stable, QEMU)"
+    runs-on: ubuntu-latest
+    needs: docker_cache
+
+    strategy:
+      matrix:
+        configuration:
+          - env_vars: {}
+
+    env:
+      WRAPPER_CMD: 'qemu-s390x'
+      SECP256K1_TEST_ITERS: 16
+      HOST: 's390x-linux-gnu'
+      WITH_VALGRIND: 'no'
+      ECDH: 'yes'
+      RECOVERY: 'yes'
+      EXTRAKEYS: 'yes'
+      SCHNORRSIG: 'yes'
+      MUSIG: 'yes'
+      ELLSWIFT: 'yes'
+      EXPERIMENTAL: 'yes'
+      ECDSA_S2C: 'yes'
+      RANGEPROOF: 'yes'
+      SURJECTIONPROOF: 'yes'
+      WHITELIST: 'yes'
+      GENERATOR: 'yes'
+      ECDSAADAPTOR: 'yes'
+      BPPP: 'yes'
+      SCHNORRSIG_HALFAGG: 'yes'
+      CTIMETESTS: 'no'
+
+    steps:
+      - *CHECKOUT
+      - *CI_SCRIPT_IN_DOCKER
+      - *PRINT_LOGS
+
+  arm32_debian:
+    name: "ARM32: Linux (Debian stable, QEMU)"
+    runs-on: ubuntu-latest
+    needs: docker_cache
+
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - env_vars: {}
+          - env_vars: { EXPERIMENTAL: 'yes', ASM: 'arm32' }
+
+    env:
+      WRAPPER_CMD: 'qemu-arm'
+      SECP256K1_TEST_ITERS: 16
+      HOST: 'arm-linux-gnueabihf'
+      WITH_VALGRIND: 'no'
+      ECDH: 'yes'
+      RECOVERY: 'yes'
+      EXTRAKEYS: 'yes'
+      SCHNORRSIG: 'yes'
+      MUSIG: 'yes'
+      ELLSWIFT: 'yes'
+      EXPERIMENTAL: 'yes'
+      ECDSA_S2C: 'yes'
+      GENERATOR: 'yes'
+      RANGEPROOF: 'yes'
+      SURJECTIONPROOF: 'yes'
+      WHITELIST: 'yes'
+      ECDSAADAPTOR: 'yes'
+      BPPP: 'yes'
+      SCHNORRSIG_HALFAGG: 'yes'
+      CTIMETESTS: 'no'
+
+    steps:
+      - *CHECKOUT
+      - *CI_SCRIPT_IN_DOCKER
+      - *PRINT_LOGS
+
+  arm64-debian:
+    name: "arm64: Linux (Debian stable)"
+    runs-on: ubuntu-24.04-arm
+    needs: docker_cache
+
+    env:
+      SECP256K1_TEST_ITERS: 16
+      WITH_VALGRIND: 'no'
+      ECDH: 'yes'
+      RECOVERY: 'yes'
+      EXTRAKEYS: 'yes'
+      SCHNORRSIG: 'yes'
+      MUSIG: 'yes'
+      ELLSWIFT: 'yes'
+      EXPERIMENTAL: 'yes'
+      ECDSA_S2C: 'yes'
+      GENERATOR: 'yes'
+      RANGEPROOF: 'yes'
+      SURJECTIONPROOF: 'yes'
+      WHITELIST: 'yes'
+      ECDSAADAPTOR: 'yes'
+      BPPP: 'yes'
+      SCHNORRSIG_HALFAGG: 'yes'
+      CTIMETESTS: 'no'
+      CC: ${{ matrix.cc }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - env_vars: {}
+        cc:
+          - 'gcc'
+          - 'clang'
+          - 'gcc-snapshot'
+          - 'clang-snapshot'
+
+    steps:
+      - *CHECKOUT
+      - *CI_SCRIPT_IN_DOCKER
+      - *PRINT_LOGS
+
+  ppc64le_debian:
+    name: "ppc64le: Linux (Debian stable, QEMU)"
+    runs-on: ubuntu-latest
+    needs: docker_cache
+
+    strategy:
+      matrix:
+        configuration:
+          - env_vars: {}
+
+    env:
+      WRAPPER_CMD: 'qemu-ppc64le'
+      SECP256K1_TEST_ITERS: 16
+      HOST: 'powerpc64le-linux-gnu'
+      WITH_VALGRIND: 'no'
+      ECDH: 'yes'
+      RECOVERY: 'yes'
+      EXTRAKEYS: 'yes'
+      SCHNORRSIG: 'yes'
+      MUSIG: 'yes'
+      ELLSWIFT: 'yes'
+      EXPERIMENTAL: 'yes'
+      ECDSA_S2C: 'yes'
+      GENERATOR: 'yes'
+      RANGEPROOF: 'yes'
+      SURJECTIONPROOF: 'yes'
+      WHITELIST: 'yes'
+      ECDSAADAPTOR: 'yes'
+      BPPP: 'yes'
+      SCHNORRSIG_HALFAGG: 'yes'
+      CTIMETESTS: 'no'
+
+    steps:
+      - *CHECKOUT
+      - *CI_SCRIPT_IN_DOCKER
+      - *PRINT_LOGS
+
+  valgrind_debian:
+    name: "Valgrind ${{ matrix.configuration.binary_arch }} (memcheck)"
+    runs-on: ${{ matrix.configuration.runner }}
+    needs: docker_cache
+
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - runner: ubuntu-latest
+            binary_arch: x64
+            env_vars: { CC: 'clang',                                      ASM: 'auto' }
+          - runner: ubuntu-latest
+            binary_arch: i686
+            env_vars: { CC: 'i686-linux-gnu-gcc', HOST: 'i686-linux-gnu', ASM: 'auto' }
+          - runner: ubuntu-24.04-arm
+            binary_arch: arm64
+            env_vars: { CC: 'clang',                                      ASM: 'auto' }
+          - runner: ubuntu-latest
+            binary_arch: x64
+            env_vars: { CC: 'clang',                                      ASM: 'no', ECMULTGENKB: 2, ECMULTWINDOW: 2 }
+          - runner: ubuntu-latest
+            binary_arch: i686
+            env_vars: { CC: 'i686-linux-gnu-gcc', HOST: 'i686-linux-gnu', ASM: 'no', ECMULTGENKB: 2, ECMULTWINDOW: 2 }
+          - runner: ubuntu-24.04-arm
+            binary_arch: arm64
+            env_vars: { CC: 'clang',                                      ASM: 'no', ECMULTGENKB: 2, ECMULTWINDOW: 2 }
+
+    env:
+      # The `--error-exitcode` is required to make the test fail if valgrind found errors,
+      # otherwise it will return 0 (https://www.valgrind.org/docs/manual/manual-core.html).
+      WRAPPER_CMD: 'valgrind --error-exitcode=42'
+      ECDH: 'yes'
+      RECOVERY: 'yes'
+      EXTRAKEYS: 'yes'
+      SCHNORRSIG: 'yes'
+      MUSIG: 'yes'
+      ELLSWIFT: 'yes'
+      EXPERIMENTAL: 'yes'
+      ECDSA_S2C: 'yes'
+      GENERATOR: 'yes'
+      RANGEPROOF: 'yes'
+      SURJECTIONPROOF: 'yes'
+      WHITELIST: 'yes'
+      ECDSAADAPTOR: 'yes'
+      BPPP: 'yes'
+      SCHNORRSIG_HALFAGG: 'yes'
+      CTIMETESTS: 'no'
+      SECP256K1_TEST_ITERS: 2
+
+    steps:
+      - *CHECKOUT
+      - *CI_SCRIPT_IN_DOCKER
+      - *PRINT_LOGS
+
+  sanitizers_debian:
+    name: "UBSan, ASan, LSan"
+    runs-on: ubuntu-latest
+    needs: docker_cache
+
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - env_vars: { CC: 'clang',                                      ASM: 'auto' }
+          - env_vars: { CC: 'i686-linux-gnu-gcc', HOST: 'i686-linux-gnu', ASM: 'auto' }
+          - env_vars: { CC: 'clang',                                      ASM: 'no', ECMULTGENKB: 2, ECMULTWINDOW: 2 }
+          - env_vars: { CC: 'i686-linux-gnu-gcc', HOST: 'i686-linux-gnu', ASM: 'no', ECMULTGENKB: 2, ECMULTWINDOW: 2 }
+
+    env:
+      ECDH: 'yes'
+      RECOVERY: 'yes'
+      EXTRAKEYS: 'yes'
+      SCHNORRSIG: 'yes'
+      MUSIG: 'yes'
+      ELLSWIFT: 'yes'
+      EXPERIMENTAL: 'yes'
+      ECDSA_S2C: 'yes'
+      GENERATOR: 'yes'
+      RANGEPROOF: 'yes'
+      SURJECTIONPROOF: 'yes'
+      WHITELIST: 'yes'
+      ECDSAADAPTOR: 'yes'
+      BPPP: 'yes'
+      SCHNORRSIG_HALFAGG: 'yes'
+      CTIMETESTS: 'no'
+      CFLAGS: '-fsanitize=undefined,address -g'
+      UBSAN_OPTIONS: 'print_stacktrace=1:halt_on_error=1'
+      ASAN_OPTIONS: 'strict_string_checks=1:detect_stack_use_after_return=1:detect_leaks=1'
+      LSAN_OPTIONS: 'use_unaligned=1'
+      SECP256K1_TEST_ITERS: 32
+      SYMBOL_CHECK: 'no'
+
+    steps:
+      - *CHECKOUT
+      - *CI_SCRIPT_IN_DOCKER
+      - *PRINT_LOGS
+
+  msan_debian:
+    name: "MSan"
+    runs-on: ubuntu-latest
+    needs: docker_cache
+
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - env_vars:
+              CTIMETESTS: 'yes'
+              CFLAGS: '-fsanitize=memory -fsanitize-recover=memory -g'
+          - env_vars:
+              ECMULTGENKB: 2
+              ECMULTWINDOW: 2
+              CTIMETESTS: 'yes'
+              CFLAGS: '-fsanitize=memory -fsanitize-recover=memory -g -O3'
+          - env_vars:
+              # -fsanitize-memory-param-retval is clang's default, but our build system disables it
+              # when ctime_tests when enabled.
+              CFLAGS: '-fsanitize=memory -fsanitize-recover=memory -fsanitize-memory-param-retval -g'
+              CTIMETESTS: 'no'
+        cc:
+          - 'clang'
+          - 'clang-snapshot'
+
+    env:
+      ECDH: 'yes'
+      RECOVERY: 'yes'
+      EXTRAKEYS: 'yes'
+      SCHNORRSIG: 'yes'
+      MUSIG: 'yes'
+      ELLSWIFT: 'yes'
+      EXPERIMENTAL: 'yes'
+      ECDSA_S2C: 'yes'
+      GENERATOR: 'yes'
+      RANGEPROOF: 'yes'
+      SURJECTIONPROOF: 'yes'
+      WHITELIST: 'yes'
+      ECDSAADAPTOR: 'yes'
+      BPPP: 'yes'
+      SCHNORRSIG_HALFAGG: 'yes'
+      CC: ${{ matrix.cc }}
+      SECP256K1_TEST_ITERS: 32
+      ASM: 'no'
+      WITH_VALGRIND: 'no'
+      SYMBOL_CHECK: 'no'
+
+    steps:
+      - *CHECKOUT
+      - *CI_SCRIPT_IN_DOCKER
+      - *PRINT_LOGS
+
+  mingw_debian:
+    name: ${{ matrix.configuration.job_name }}
+    runs-on: ubuntu-latest
+    needs: docker_cache
+
+    env:
+      WRAPPER_CMD: 'wine'
+      WITH_VALGRIND: 'no'
+      ECDH: 'yes'
+      RECOVERY: 'yes'
+      EXTRAKEYS: 'yes'
+      SCHNORRSIG: 'yes'
+      MUSIG: 'yes'
+      ELLSWIFT: 'yes'
+      EXPERIMENTAL: 'yes'
+      ECDSA_S2C: 'yes'
+      GENERATOR: 'yes'
+      RANGEPROOF: 'yes'
+      SURJECTIONPROOF: 'yes'
+      WHITELIST: 'yes'
+      ECDSAADAPTOR: 'yes'
+      BPPP: 'yes'
+      SCHNORRSIG_HALFAGG: 'yes'
+      CTIMETESTS: 'no'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - job_name: 'x86_64 (mingw32-w64): Windows (Debian stable, Wine)'
+            env_vars:
+              HOST: 'x86_64-w64-mingw32'
+          - job_name: 'i686 (mingw32-w64): Windows (Debian stable, Wine)'
+            env_vars:
+              HOST: 'i686-w64-mingw32'
+
+    steps:
+      - *CHECKOUT
+      - *CI_SCRIPT_IN_DOCKER
+      - *PRINT_LOGS
+
+  x86_64-macos-native:
+    name: "x86_64: macOS Sequoia, Valgrind"
+    runs-on: macos-15-intel
+
+    env:
+      CC: 'clang'
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+      SYMBOL_CHECK: 'no'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        env_vars:
+          - { WIDEMUL: 'int64',  RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
+          - { WIDEMUL: 'int128_struct', ECMULTGENKB: 2, ECMULTWINDOW: 4 }
+          - { WIDEMUL: 'int128',                  ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CC: 'gcc' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes',           WRAPPER_CMD: 'valgrind --error-exitcode=42', SECP256K1_TEST_ITERS: 2 }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CC: 'gcc', WRAPPER_CMD: 'valgrind --error-exitcode=42', SECP256K1_TEST_ITERS: 2 }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CPPFLAGS: '-DVERIFY', CTIMETESTS: 'no' }
+          - BUILD: 'distcheck'
+
+    steps:
+      - *CHECKOUT
+
+      - name: Install Homebrew packages
+        run: |
+          brew install --quiet automake libtool gcc
+          ln -s $(brew --prefix gcc)/bin/gcc-?? /usr/local/bin/gcc
+
+      - name: Install and cache Valgrind
+        uses: ./.github/actions/install-homebrew-valgrind
+
+      - &CI_SCRIPT_ON_HOST
+        name: CI script
+        env: ${{ matrix.env_vars }}
+        run: ./ci/ci.sh
+
+      - &SYMBOL_CHECK_MACOS
+        name: Symbol check
+        env:
+          VIRTUAL_ENV: '${{ github.workspace }}/venv'
+        run: |
+          python3 --version
+          python3 -m venv $VIRTUAL_ENV
+          export PATH="$VIRTUAL_ENV/bin:$PATH"
+          python3 -m pip install lief
+          python3 ./tools/symbol-check.py .libs/libsecp256k1.dylib
+
+      - *PRINT_LOGS
+
+  arm64-macos-native:
+    name: "ARM64: macOS Sonoma"
     # See: https://github.com/actions/runner-images#available-images.
     runs-on: macos-14
 
-    # When a contributor maintains a fork of the repo, any pull request they make
-    # to their own fork, or to the main repository, will trigger two CI runs:
-    # one for the branch push and one for the pull request.
-    # This can be avoided by setting SKIP_BRANCH_PUSH=true as a custom env variable
-    # in Github repository settings.
-    if: ${{ vars.SKIP_BRANCH_PUSH != 'true' || github.event_name == 'pull_request' }}
-
-    timeout-minutes: 120
+    env:
+      CC: 'clang'
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+      WITH_VALGRIND: 'no'
+      CTIMETESTS: 'no'
+      SYMBOL_CHECK: 'no'
 
     strategy:
       fail-fast: false
       matrix:
-        job-type: [standard, fuzz]
-        include:
-          - job-type: standard
-            file-env: './ci/test/00_setup_env_mac_native.sh'
-            job-name: 'macOS 14 native, arm64, no depends, sqlite only, gui'
-          - job-type: fuzz
-            file-env: './ci/test/00_setup_env_mac_native_fuzz.sh'
-            job-name: 'macOS 14 native, arm64, fuzz'
-
-    env:
-      DANGER_RUN_CI_ON_HOST: 1
-      BASE_ROOT_DIR: ${{ github.workspace }}
+        env_vars:
+          - { WIDEMUL: 'int64',  RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
+          - { WIDEMUL: 'int128_struct', ECMULTGENKB: 2, ECMULTWINDOW: 4 }
+          - { WIDEMUL: 'int128',                  ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CC: 'gcc' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CPPFLAGS: '-DVERIFY' }
+          - BUILD: 'distcheck'
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Clang version
-        run: |
-          # Use the earliest Xcode supported by the version of macOS denoted in
-          # doc/release-notes-empty-template.md and providing at least the
-          # minimum clang version denoted in doc/dependencies.md.
-          # See: https://developer.apple.com/documentation/xcode-release-notes/xcode-15-release-notes
-          sudo xcode-select --switch /Applications/Xcode_15.0.app
-          clang --version
+      - *CHECKOUT
 
       - name: Install Homebrew packages
-        env:
-          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
         run: |
-          # A workaround for "The `brew link` step did not complete successfully" error.
-          brew install --quiet python@3 || brew link --overwrite python@3
-          brew install --quiet coreutils ninja pkgconf gnu-getopt ccache boost libevent zeromq qt@5 qrencode
+          brew install --quiet automake libtool gcc
+          ln -s $(brew --prefix gcc)/bin/gcc-?? /usr/local/bin/gcc
 
-      # ELEMENTS
-      - name: Override boost@1.85
-        run: |
-          brew install boost@1.85
-          brew link --force --overwrite boost@1.85
-          echo "LDFLAGS=-L/opt/homebrew/opt/boost@1.85/lib" >> "$GITHUB_ENV"
-          echo "CPPFLAGS=-I/opt/homebrew/opt/boost@1.85/include" >> "$GITHUB_ENV"
-
-      - name: Set Ccache directory
-        run: echo "CCACHE_DIR=${RUNNER_TEMP}/ccache_dir" >> "$GITHUB_ENV"
-
-      - name: Restore Ccache cache
-        id: ccache-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          key: ${{ github.job }}-${{ matrix.job-type }}-ccache-${{ github.run_id }}
-          restore-keys: ${{ github.job }}-${{ matrix.job-type }}-ccache-
-
-      - name: CI script
-        run: ./ci/test_run_all.sh
-        env:
-          FILE_ENV: ${{ matrix.file-env }}
-
-      - name: Save Ccache cache
-        uses: actions/cache/save@v4
-        if: github.event_name != 'pull_request' && steps.ccache-cache.outputs.cache-hit != 'true'
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          # https://github.com/actions/cache/blob/main/tips-and-workarounds.md#update-a-cache
-          key: ${{ github.job }}-${{ matrix.job-type }}-ccache-${{ github.run_id }}
+      - *CI_SCRIPT_ON_HOST
+      - *SYMBOL_CHECK_MACOS
+      - *PRINT_LOGS
 
   win64-native:
-    name: ${{ matrix.job-name }}
-    # Use latest image, but hardcode version to avoid silent upgrades (and breaks).
+    name: ${{ matrix.configuration.job_name }}
     # See: https://github.com/actions/runner-images#available-images.
     runs-on: windows-2022
 
-    if: ${{ vars.SKIP_BRANCH_PUSH != 'true' || github.event_name == 'pull_request' }}
-
-    env:
-      PYTHONUTF8: 1
-      TEST_RUNNER_TIMEOUT_FACTOR: 40
-
     strategy:
       fail-fast: false
       matrix:
-        job-type: [standard, fuzz]
-        include:
-          - job-type: standard
-            generate-options: '-DBUILD_GUI=ON -DWITH_BDB=ON -DWITH_ZMQ=ON -DBUILD_BENCH=ON -DWERROR=ON'
-            job-name: 'Win64 native, VS 2022'
-          - job-type: fuzz
-            generate-options: '-DVCPKG_MANIFEST_NO_DEFAULT_FEATURES=ON -DVCPKG_MANIFEST_FEATURES="sqlite" -DBUILD_GUI=OFF -DBUILD_FOR_FUZZING=ON -DWERROR=ON'
-            job-name: 'Win64 native fuzz, VS 2022'
+        configuration:
+          - job_name: 'x64 (MSVC): Windows (VS 2022, shared)'
+            cmake_options: '-A x64 -DBUILD_SHARED_LIBS=ON'
+            symbol_check: 'true'
+          - job_name: 'x64 (MSVC): Windows (VS 2022, static)'
+            cmake_options: '-A x64 -DBUILD_SHARED_LIBS=OFF'
+          - job_name: 'x64 (MSVC): Windows (VS 2022, int128_struct)'
+            cmake_options: '-A x64 -DSECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY=int128_struct'
+          - job_name: 'x64 (MSVC): Windows (VS 2022, int128_struct with __(u)mulh)'
+            cmake_options: '-A x64 -DSECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY=int128_struct'
+            cpp_flags: '/DSECP256K1_MSVC_MULH_TEST_OVERRIDE'
+          - job_name: 'x86 (MSVC): Windows (VS 2022)'
+            cmake_options: '-A Win32'
+          - job_name: 'x64 (clang-cl): Windows (VS 2022, shared)'
+            cmake_options: '-T ClangCL -DBUILD_SHARED_LIBS=ON'
+            symbol_check: 'true'
+          - job_name: 'x64 (clang-cl): Windows (VS 2022, static)'
+            cmake_options: '-T ClangCL -DBUILD_SHARED_LIBS=OFF'
+          - job_name: 'x64 (clang-cl): Windows (VS 2022, int128_struct)'
+            cmake_options: '-T ClangCL -DSECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY=int128_struct'
+          - job_name: 'x64 (clang-cl): Windows (VS 2022, int128_struct with __(u)mulh)'
+            cmake_options: '-T ClangCL -DSECP256K1_TEST_OVERRIDE_WIDE_MULTIPLY=int128_struct'
+            cpp_flags: '/DSECP256K1_MSVC_MULH_TEST_OVERRIDE'
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - *CHECKOUT
 
-      - name: Configure Developer Command Prompt for Microsoft Visual C++
-        # Using microsoft/setup-msbuild is not enough.
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Get tool information
-        run: |
-          cmake -version | Tee-Object -FilePath "cmake_version"
-          Write-Output "---"
-          msbuild -version | Tee-Object -FilePath "msbuild_version"
-          $env:VCToolsVersion | Tee-Object -FilePath "toolset_version"
-          py -3 --version
-          Write-Host "PowerShell version $($PSVersionTable.PSVersion.ToString())"
-
-      - name: Using vcpkg with MSBuild
-        run: |
-          Set-Location "$env:VCPKG_INSTALLATION_ROOT"
-          Add-Content -Path "triplets\x64-windows.cmake" -Value "set(VCPKG_BUILD_TYPE release)"
-          Add-Content -Path "triplets\x64-windows-static.cmake" -Value "set(VCPKG_BUILD_TYPE release)"
-
-      - name: vcpkg tools cache
-        uses: actions/cache@v4
-        with:
-          path: C:/vcpkg/downloads/tools
-          key: ${{ github.job }}-vcpkg-tools
-
-      - name: Restore vcpkg binary cache
-        uses: actions/cache/restore@v4
-        id: vcpkg-binary-cache
-        with:
-          path: ~/AppData/Local/vcpkg/archives
-          key: ${{ github.job }}-vcpkg-binary-${{ hashFiles('cmake_version', 'msbuild_version', 'toolset_version', 'vcpkg.json') }}
-
-      - name: Generate build system
-        run: |
-          cmake -B build --preset vs2022-static -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE="${{ github.workspace }}/build/bin" ${{ matrix.generate-options }}
-
-      - name: Save vcpkg binary cache
-        uses: actions/cache/save@v4
-        if: github.event_name != 'pull_request' && steps.vcpkg-binary-cache.outputs.cache-hit != 'true' && matrix.job-type == 'standard'
-        with:
-          path: ~/AppData/Local/vcpkg/archives
-          key: ${{ github.job }}-vcpkg-binary-${{ hashFiles('cmake_version', 'msbuild_version', 'toolset_version', 'vcpkg.json') }}
+      - name: Generate buildsystem
+        run: cmake -E env CFLAGS="/WX ${{ matrix.configuration.cpp_flags }}" cmake -B build -DSECP256K1_ENABLE_MODULE_RECOVERY=ON -DSECP256K1_BUILD_EXAMPLES=ON ${{ matrix.configuration.cmake_options }}
 
       - name: Build
-        working-directory: build
+        run: cmake --build build --config RelWithDebInfo -- /p:UseMultiToolTask=true /maxCpuCount
+
+      - name: Binaries info
+        # Use the bash shell included with Git for Windows.
+        shell: bash
         run: |
-          cmake --build . -j $env:NUMBER_OF_PROCESSORS --config Release
+          cd build/bin/RelWithDebInfo && file *tests.exe bench*.exe libsecp256k1-*.dll || true
 
-      - name: Run test suite
-        if: matrix.job-type == 'standard'
-        working-directory: build
+      - name: Symbol check
+        if: ${{ matrix.configuration.symbol_check }}
+        shell: bash
         run: |
-          ctest --output-on-failure --stop-on-failure -j $env:NUMBER_OF_PROCESSORS -C Release
+          py -3 --version
+          py -3 -m pip install lief
+          py -3 ./tools/symbol-check.py build/bin/RelWithDebInfo/libsecp256k1-*.dll
 
-      - name: Run functional tests
-        if: matrix.job-type == 'standard'
-        working-directory: build
-        env:
-          BITCOIND: '${{ github.workspace }}\build\bin\elementsd.exe'
-          BITCOINCLI: '${{ github.workspace }}\build\bin\elements-cli.exe'
-          BITCOINUTIL: '${{ github.workspace }}\build\bin\elements-util.exe'
-          BITCOINWALLET: '${{ github.workspace }}\build\bin\elements-wallet.exe'
-          TEST_RUNNER_EXTRA: ${{ github.event_name != 'pull_request' && '--extended' || '' }}
-        shell: cmd
-        run: py -3 test\functional\test_runner.py --jobs %NUMBER_OF_PROCESSORS% --ci --quiet --tmpdirprefix=%RUNNER_TEMP% --combinedlogslen=99999999 --timeout-factor=%TEST_RUNNER_TIMEOUT_FACTOR% %TEST_RUNNER_EXTRA%
-
-      - name: Clone corpora
-        if: matrix.job-type == 'fuzz'
+      - name: Check
         run: |
-          git clone --depth=1 https://github.com/ElementsProject/qa-assets "$env:RUNNER_TEMP\qa-assets"
-          Set-Location "$env:RUNNER_TEMP\qa-assets"
-          Write-Host "Using qa-assets repo from commit ..."
-          git log -1
+          ctest -C RelWithDebInfo --test-dir build -j ([int]$env:NUMBER_OF_PROCESSORS + 1)
+          build\bin\RelWithDebInfo\bench_ecmult.exe
+          build\bin\RelWithDebInfo\bench_internal.exe
+          build\bin\RelWithDebInfo\bench.exe
 
-      - name: Run fuzz tests
-        if: matrix.job-type == 'fuzz'
-        working-directory: build
-        env:
-          BITCOINFUZZ: '${{ github.workspace }}\build\bin\fuzz.exe'
-        shell: cmd
-        run: |
-          py -3 test\fuzz\test_runner.py --par %NUMBER_OF_PROCESSORS% --loglevel DEBUG %RUNNER_TEMP%\qa-assets\fuzz_corpora
+  win64-native-headers:
+    name: "x64 (MSVC): C++ (public headers)"
+    # See: https://github.com/actions/runner-images#available-images.
+    runs-on: windows-2022
 
-  asan-lsan-ubsan-integer-no-depends-usdt:
-    name: 'ASan + LSan + UBSan + integer, no depends, USDT'
-    runs-on: ubuntu-24.04 # has to match container in ci/test/00_setup_env_native_asan.sh for tracing tools
-    if: ${{ vars.SKIP_BRANCH_PUSH != 'true' || github.event_name == 'pull_request' }}
-    timeout-minutes: 120
-    env:
-      FILE_ENV: "./ci/test/00_setup_env_native_asan.sh"
-      DANGER_CI_ON_HOST_FOLDERS: 1
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - *CHECKOUT
 
-      - name: Set CI directories
+      - name: C++ (public headers)
+        shell: cmd
         run: |
-          echo "CCACHE_DIR=${{ runner.temp }}/ccache_dir" >> "$GITHUB_ENV"
-          echo "BASE_ROOT_DIR=${{ runner.temp }}" >> "$GITHUB_ENV"
-          echo "BASE_BUILD_DIR=${{ runner.temp }}/build-asan" >> "$GITHUB_ENV"
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cl.exe -c -WX -TP include/*.h
 
-      - name: Restore Ccache cache
-        id: ccache-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          key: ${{ github.job }}-ccache-${{ github.run_id }}
-          restore-keys: ${{ github.job }}-ccache-
+  cxx_fpermissive_debian:
+    name: "C++ -fpermissive (entire project)"
+    runs-on: ubuntu-latest
+    needs: docker_cache
 
-      - name: Enable bpfcc script
-        # In the image build step, no external environment variables are available,
-        # so any settings will need to be written to the settings env file:
-        run: sed -i "s|\${INSTALL_BCC_TRACING_TOOLS}|true|g" ./ci/test/00_setup_env_native_asan.sh
+    strategy:
+      matrix:
+        configuration:
+          - env_vars: {}
+
+    env:
+      CC: 'g++'
+      CFLAGS: '-fpermissive -g'
+      CPPFLAGS: '-DSECP256K1_CPLUSPLUS_TEST_OVERRIDE'
+      WERROR_CFLAGS:
+      ECDH: 'yes'
+      RECOVERY: 'yes'
+      EXTRAKEYS: 'yes'
+      SCHNORRSIG: 'yes'
+      MUSIG: 'yes'
+      ELLSWIFT: 'yes'
+      EXPERIMENTAL: 'yes'
+      ECDSA_S2C: 'yes'
+      GENERATOR: 'yes'
+      RANGEPROOF: 'yes'
+      SURJECTIONPROOF: 'yes'
+      WHITELIST: 'yes'
+      ECDSAADAPTOR: 'yes'
+      BPPP: 'yes'
+      SCHNORRSIG_HALFAGG: 'yes'
+
+    steps:
+      - *CHECKOUT
+      - *CI_SCRIPT_IN_DOCKER
+      - *PRINT_LOGS
+
+  cxx_headers_debian:
+    name: "C++ (public headers)"
+    runs-on: ubuntu-latest
+    needs: docker_cache
+
+    steps:
+      - *CHECKOUT
 
       - name: CI script
-        run: ./ci/test_run_all.sh
-
-      - name: Save Ccache cache
-        uses: actions/cache/save@v4
-        if: github.event_name != 'pull_request' && steps.ccache-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/run-in-docker-action
         with:
-          path: ${{ env.CCACHE_DIR }}
-          # https://github.com/actions/cache/blob/main/tips-and-workarounds.md#update-a-cache
-          key: ${{ github.job }}-ccache-${{ github.run_id }}
+          dockerfile: ./ci/linux-debian.Dockerfile
+          scope: ${{ runner.arch }}-${{ needs.docker_cache.outputs.cache_scope }}
+          command: |
+            g++ -Werror include/*.h
+            clang -Werror -x c++-header include/*.h
+
+  sage:
+    name: "SageMath prover"
+    runs-on: ubuntu-latest
+    container:
+      image: sagemath/sagemath:latest
+      options: --user root
+
+    steps:
+      - *CHECKOUT
+
+      - name: CI script
+        run: |
+          cd sage
+          sage prove_group_implementations.sage
+
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - *CHECKOUT
+
+      - run: ./autogen.sh && ./configure --enable-dev-mode && make distcheck
+
+      - name: Check installation with Autotools
+        env:
+          CI_INSTALL: ${{ runner.temp }}/${{ github.run_id }}${{ github.action }}/install
+        run: |
+          ./autogen.sh && ./configure --prefix=${{ env.CI_INSTALL }} && make clean && make install && ls -RlAh ${{ env.CI_INSTALL }}
+          gcc -o ecdsa examples/ecdsa.c $(PKG_CONFIG_PATH=${{ env.CI_INSTALL }}/lib/pkgconfig pkg-config --cflags --libs libsecp256k1) -Wl,-rpath,"${{ env.CI_INSTALL }}/lib" && ./ecdsa
+
+      - name: Check installation with CMake
+        env:
+          CI_BUILD: ${{ runner.temp }}/${{ github.run_id }}${{ github.action }}/build
+          CI_INSTALL: ${{ runner.temp }}/${{ github.run_id }}${{ github.action }}/install
+        run: |
+          cmake -B ${{ env.CI_BUILD }} -DCMAKE_INSTALL_PREFIX=${{ env.CI_INSTALL }} && cmake --build ${{ env.CI_BUILD }} && cmake --install ${{ env.CI_BUILD }} && ls -RlAh ${{ env.CI_INSTALL }}
+          gcc -o ecdsa examples/ecdsa.c -I ${{ env.CI_INSTALL }}/include -L ${{ env.CI_INSTALL }}/lib*/ -l secp256k1 -Wl,-rpath,"${{ env.CI_INSTALL }}/lib",-rpath,"${{ env.CI_INSTALL }}/lib64" && ./ecdsa

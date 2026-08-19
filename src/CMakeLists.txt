@@ -1,547 +1,267 @@
-# Copyright (c) 2023-present The Bitcoin Core developers
-# Distributed under the MIT software license, see the accompanying
-# file COPYING or https://opensource.org/license/mit/.
+add_library(secp256k1)
 
-include(AddWindowsResources)
+set_property(TARGET secp256k1 PROPERTY PUBLIC_HEADER
+  ${PROJECT_SOURCE_DIR}/include/secp256k1.h
+  ${PROJECT_SOURCE_DIR}/include/secp256k1_preallocated.h
+)
 
-configure_file(${PROJECT_SOURCE_DIR}/cmake/bitcoin-build-config.h.in bitcoin-build-config.h USE_SOURCE_PERMISSIONS @ONLY)
-include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
-
-#=============================
-# Subprojects
-#=============================
-# Subprojects include subdirectories that do or could have tests
-# and/or benchmark binaries, such as all subtrees and univalue.
-# These need to be included before CMAKE_*_OUTPUT_DIRECTORY variables
-# are set, so output locations of subproject tests and libraries are
-# not overridden.
-include(../cmake/crc32c.cmake)
-include(../cmake/leveldb.cmake)
-include(../cmake/minisketch.cmake)
-add_subdirectory(univalue)
-#=============================
-# secp256k1 subtree
-#=============================
-message("")
-message("Configuring secp256k1 subtree...")
-set(SECP256K1_ENABLE_MODULE_GENERATOR ON CACHE BOOL "" FORCE)
-set(SECP256K1_ENABLE_MODULE_RANGEPROOF ON CACHE BOOL "" FORCE)
-set(SECP256K1_ENABLE_MODULE_SURJECTION ON CACHE BOOL "" FORCE)
-set(SECP256K1_ENABLE_MODULE_WHITELIST ON CACHE BOOL "" FORCE)
-set(SECP256K1_DISABLE_SHARED ON CACHE BOOL "" FORCE)
-set(SECP256K1_ENABLE_MODULE_ECDH ON CACHE BOOL "" FORCE)
-set(SECP256K1_ENABLE_MODULE_RECOVERY ON CACHE BOOL "" FORCE)
-set(SECP256K1_ENABLE_MODULE_MUSIG OFF CACHE BOOL "" FORCE)
-set(SECP256K1_BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
-set(SECP256K1_BUILD_TESTS ${BUILD_TESTS} CACHE BOOL "" FORCE)
-set(SECP256K1_BUILD_EXHAUSTIVE_TESTS ${BUILD_TESTS} CACHE BOOL "" FORCE)
-if(NOT BUILD_TESTS)
-  # Always skip the ctime tests, if we are building no other tests.
-  # Otherwise, they are built if Valgrind is available. See SECP256K1_VALGRIND.
-  set(SECP256K1_BUILD_CTIME_TESTS ${BUILD_TESTS} CACHE BOOL "" FORCE)
-endif()
-set(SECP256K1_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-include(GetTargetInterface)
-# -fsanitize and related flags apply to both C++ and C,
-# so we can pass them down to libsecp256k1 as CFLAGS and LDFLAGS.
-get_target_interface(SECP256K1_APPEND_CFLAGS "" sanitize_interface COMPILE_OPTIONS)
-string(STRIP "${SECP256K1_APPEND_CFLAGS} ${APPEND_CPPFLAGS}" SECP256K1_APPEND_CFLAGS)
-string(STRIP "${SECP256K1_APPEND_CFLAGS} ${APPEND_CFLAGS}" SECP256K1_APPEND_CFLAGS)
-set(SECP256K1_APPEND_CFLAGS ${SECP256K1_APPEND_CFLAGS} CACHE STRING "" FORCE)
-get_target_interface(SECP256K1_APPEND_LDFLAGS "" sanitize_interface LINK_OPTIONS)
-string(STRIP "${SECP256K1_APPEND_LDFLAGS} ${APPEND_LDFLAGS}" SECP256K1_APPEND_LDFLAGS)
-set(SECP256K1_APPEND_LDFLAGS ${SECP256K1_APPEND_LDFLAGS} CACHE STRING "" FORCE)
-# We want to build libsecp256k1 with the most tested RelWithDebInfo configuration.
-enable_language(C)
-foreach(config IN LISTS CMAKE_BUILD_TYPE CMAKE_CONFIGURATION_TYPES)
-  if(config STREQUAL "")
-    continue()
+# Processing must be done in a topological sorting of the dependency graph
+# (dependent module first).
+if(SECP256K1_ENABLE_MODULE_SCHNORRSIG_HALFAGG)
+  if(DEFINED SECP256K1_ENABLE_MODULE_SCHNORRSIG AND NOT SECP256K1_ENABLE_MODULE_SCHNORRSIG)
+    message(FATAL_ERROR "Module dependency error: You have disabled the schnorrsig module explicitly, but it is required by the schnorrsig_halfagg module.")
   endif()
-  string(TOUPPER "${config}" config)
-  set(CMAKE_C_FLAGS_${config} "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
-endforeach()
-# If the CFLAGS environment variable is defined during building depends
-# and configuring this build system, its content might be duplicated.
-if(DEFINED ENV{CFLAGS})
-  deduplicate_flags(CMAKE_C_FLAGS)
-endif()
-set(CMAKE_EXPORT_COMPILE_COMMANDS OFF)
-add_subdirectory(secp256k1)
-set_target_properties(secp256k1 PROPERTIES
-  EXCLUDE_FROM_ALL TRUE
-)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-#=============================
-# Elements simplicity library
-#=============================
-enable_language(C)
-add_library(elementssimplicity STATIC EXCLUDE_FROM_ALL
-  simplicity/bitstream.c
-  simplicity/dag.c
-  simplicity/deserialize.c
-  simplicity/eval.c
-  simplicity/frame.c
-  simplicity/jets-secp256k1.c
-  simplicity/jets.c
-  simplicity/rsort.c
-  simplicity/sha256.c
-  simplicity/type.c
-  simplicity/typeInference.c
-  simplicity/elements/cmr.c
-  simplicity/elements/env.c
-  simplicity/elements/exec.c
-  simplicity/elements/elementsJets.c
-  simplicity/elements/ops.c
-  simplicity/elements/primitive.c
-  simplicity/elements/txEnv.c
-)
-target_include_directories(elementssimplicity
-  PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/simplicity/include
-  PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/simplicity
-)
-target_compile_definitions(elementssimplicity PRIVATE PRODUCTION)
-# Simplicity requires assertions; remove NDEBUG that cmake adds for optimized builds.
-target_compile_options(elementssimplicity PRIVATE -UNDEBUG)
-target_compile_options(elementssimplicity PRIVATE
-  $<$<CXX_COMPILER_ID:MSVC>:/std:c11>
-)
-target_link_libraries(elementssimplicity
-  PRIVATE
-    core_interface
-)
-
-# macOS Apple Clang is stricter than Linux GCC on this vendored code
-if(APPLE)
-  target_compile_options(elementssimplicity PRIVATE
-    -Wno-error=conditional-uninitialized
-    -Wno-error=implicit-fallthrough
-  )
+  set(SECP256K1_ENABLE_MODULE_SCHNORRSIG ON)
+  add_compile_definitions(ENABLE_MODULE_SCHNORRSIG_HALFAGG=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_schnorrsig_halfagg.h)
 endif()
 
-# Set top-level target output locations.
-if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
-endif()
-if(NOT CMAKE_LIBRARY_OUTPUT_DIRECTORY)
-  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
-endif()
-if(NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
-  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
-endif()
-
-add_custom_target(generate_build_info
-  BYPRODUCTS ${PROJECT_BINARY_DIR}/src/bitcoin-build-info.h
-  COMMAND ${CMAKE_COMMAND} -DBUILD_INFO_HEADER_PATH=${PROJECT_BINARY_DIR}/src/bitcoin-build-info.h -DSOURCE_DIR=${PROJECT_SOURCE_DIR} -P ${PROJECT_SOURCE_DIR}/cmake/script/GenerateBuildInfo.cmake
-  COMMENT "Generating bitcoin-build-info.h"
-  VERBATIM
-)
-add_library(bitcoin_clientversion STATIC EXCLUDE_FROM_ALL
-  clientversion.cpp
-)
-target_link_libraries(bitcoin_clientversion
-  PRIVATE
-    core_interface
-)
-add_dependencies(bitcoin_clientversion generate_build_info)
-
-add_subdirectory(crypto)
-add_subdirectory(util)
-if(WITH_MULTIPROCESS)
-  add_subdirectory(ipc)
-endif()
-add_library(bitcoin_consensus STATIC EXCLUDE_FROM_ALL
-  arith_uint256.cpp
-  asset.cpp
-  consensus/merkle.cpp
-  consensus/tx_check.cpp
-  hash.cpp
-  primitives/block.cpp
-  primitives/confidential.cpp
-  primitives/txwitness.cpp
-  primitives/transaction.cpp
-  primitives/bitcoin/block.cpp
-  primitives/bitcoin/merkleblock.cpp
-  primitives/bitcoin/transaction.cpp
-  pubkey.cpp
-  script/interpreter.cpp
-  script/script.cpp
-  script/script_error.cpp
-  uint256.cpp
-)
-target_link_libraries(bitcoin_consensus
-  PUBLIC
-    core_interface
-    bitcoin_crypto
-    elementssimplicity
-    secp256k1
-)
-
-if(WITH_ZMQ)
-  add_subdirectory(zmq)
-endif()
-
-# Home for common functionality shared by different executables and libraries.
-# Similar to `bitcoin_util` library, but higher-level.
-add_library(bitcoin_common STATIC EXCLUDE_FROM_ALL
-  addresstype.cpp
-  assetsdir.cpp
-  base58.cpp
-  bech32.cpp
-  blech32.cpp
-  blind.cpp
-  blindpsbt.cpp
-  block_proof.cpp
-  chain.cpp
-  chainparams.cpp
-  chainparamsbase.cpp
-  coins.cpp
-  common/args.cpp
-  common/bloom.cpp
-  common/config.cpp
-  common/init.cpp
-  common/interfaces.cpp
-  common/messages.cpp
-  common/netif.cpp
-  common/pcp.cpp
-  common/run_command.cpp
-  common/settings.cpp
-  common/signmessage.cpp
-  common/system.cpp
-  common/url.cpp
-  compressor.cpp
-  core_read.cpp
-  core_write.cpp
-  deploymentinfo.cpp
-  external_signer.cpp
-  init/common.cpp
-  issuance.cpp
-  kernel/chainparams.cpp
-  key.cpp
-  key_io.cpp
-  merkleblock.cpp
-  net_permissions.cpp
-  net_types.cpp
-  netaddress.cpp
-  netbase.cpp
-  outputtype.cpp
-  policy/feerate.cpp
-  policy/policy.cpp
-  pow.cpp
-  protocol.cpp
-  psbt.cpp
-  rpc/rawtransaction_util.cpp
-  rpc/request.cpp
-  rpc/util.cpp
-  scheduler.cpp
-  script/descriptor.cpp
-  script/pegins.cpp
-  script/miniscript.cpp
-  script/parsing.cpp
-  script/sign.cpp
-  script/signingprovider.cpp
-  script/solver.cpp
-)
-target_link_libraries(bitcoin_common
-  PUBLIC
-    core_interface
-    bitcoin_consensus
-    bitcoin_util
-    univalue
-    secp256k1
-    Boost::headers
-    $<TARGET_NAME_IF_EXISTS:USDT::headers>
-    $<$<PLATFORM_ID:Windows>:ws2_32>
-)
-
-include(InstallBinaryComponent)
-
-if(ENABLE_WALLET)
-  add_subdirectory(wallet)
-
-  if(BUILD_WALLET_TOOL)
-    add_executable(elements-wallet
-      bitcoin-wallet.cpp
-      init/bitcoin-wallet.cpp
-      wallet/wallettool.cpp
-    )
-    add_windows_resources(elements-wallet bitcoin-wallet-res.rc)
-    target_link_libraries(elements-wallet
-      core_interface
-      bitcoin_node
-      bitcoin_wallet
-      bitcoin_common
-      secp256k1
-    )
-    install_binary_component(elements-wallet HAS_MANPAGE)
+if(SECP256K1_ENABLE_MODULE_BPPP)
+  if(DEFINED SECP256K1_ENABLE_MODULE_GENERATOR AND NOT SECP256K1_ENABLE_MODULE_GENERATOR)
+    message(FATAL_ERROR "Module dependency error: You have disabled the generator module explicitly, but it is required by the bppp module.")
   endif()
+  set(SECP256K1_ENABLE_MODULE_GENERATOR ON)
+  add_compile_definitions(ENABLE_MODULE_BPPP=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_bppp.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_ECDSA_S2C)
+  add_compile_definitions(ENABLE_MODULE_ECDSA_S2C=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_ecdsa_s2c.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_ECDSA_ADAPTOR)
+  add_compile_definitions(ENABLE_MODULE_ECDSA_ADAPTOR=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_ecdsa_adaptor.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_WHITELIST)
+  if(DEFINED SECP256K1_ENABLE_MODULE_RANGEPROOF AND NOT SECP256K1_ENABLE_MODULE_RANGEPROOF)
+    message(FATAL_ERROR "Module dependency error: You have disabled the rangeproof module explicitly, but it is required by the whitelist module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_RANGEPROOF ON)
+  add_compile_definitions(ENABLE_MODULE_WHITELIST=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_whitelist.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_SURJECTIONPROOF)
+  if(DEFINED SECP256K1_ENABLE_MODULE_RANGEPROOF AND NOT SECP256K1_ENABLE_MODULE_RANGEPROOF)
+    message(FATAL_ERROR "Module dependency error: You have disabled the rangeproof module explicitly, but it is required by the surjectionproof module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_RANGEPROOF ON)
+  add_compile_definitions(ENABLE_MODULE_SURJECTIONPROOF=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_surjectionproof.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_RANGEPROOF)
+  if(DEFINED SECP256K1_ENABLE_MODULE_GENERATOR AND NOT SECP256K1_ENABLE_MODULE_GENERATOR)
+    message(FATAL_ERROR "Module dependency error: You have disabled the generator module explicitly, but it is required by the rangeproof module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_GENERATOR ON)
+  add_compile_definitions(ENABLE_MODULE_RANGEPROOF=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_rangeproof.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_GENERATOR)
+  add_compile_definitions(ENABLE_MODULE_GENERATOR=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_generator.h)
 endif()
 
 
-# P2P and RPC server functionality used by `bitcoind` and `bitcoin-qt` executables.
-add_library(bitcoin_node STATIC EXCLUDE_FROM_ALL
-  addrdb.cpp
-  addrman.cpp
-  banman.cpp
-  bip324.cpp
-  blockencodings.cpp
-  blockfilter.cpp
-  block_proof.cpp
-  confidential_validation.cpp
-  consensus/tx_verify.cpp
-  dynafed.cpp
-  dbwrapper.cpp
-  deploymentstatus.cpp
-  flatfile.cpp
-  headerssync.cpp
-  httprpc.cpp
-  httpserver.cpp
-  i2p.cpp
-  index/base.cpp
-  index/blockfilterindex.cpp
-  index/coinstatsindex.cpp
-  index/txindex.cpp
-  init.cpp
-  kernel/chain.cpp
-  kernel/checks.cpp
-  kernel/coinstats.cpp
-  mainchainrpc.cpp
-  kernel/context.cpp
-  kernel/cs_main.cpp
-  kernel/disconnected_transactions.cpp
-  kernel/mempool_removal_reason.cpp
-  mapport.cpp
-  net.cpp
-  net_processing.cpp
-  netgroup.cpp
-  node/abort.cpp
-  node/blockmanager_args.cpp
-  node/blockstorage.cpp
-  node/caches.cpp
-  node/chainstate.cpp
-  node/chainstatemanager_args.cpp
-  node/coin.cpp
-  node/coins_view_args.cpp
-  node/connection_types.cpp
-  node/context.cpp
-  node/database_args.cpp
-  node/eviction.cpp
-  node/interface_ui.cpp
-  node/interfaces.cpp
-  node/kernel_notifications.cpp
-  node/mempool_args.cpp
-  node/mempool_persist.cpp
-  node/mempool_persist_args.cpp
-  node/miner.cpp
-  node/mini_miner.cpp
-  node/minisketchwrapper.cpp
-  node/peerman_args.cpp
-  node/psbt.cpp
-  node/timeoffsets.cpp
-  node/transaction.cpp
-  node/txdownloadman_impl.cpp
-  node/txreconciliation.cpp
-  node/utxo_snapshot.cpp
-  node/warnings.cpp
-  noui.cpp
-  pegins.cpp
-  policy/ephemeral_policy.cpp
-  policy/fees.cpp
-  policy/fees_args.cpp
-  policy/packages.cpp
-  policy/rbf.cpp
-  policy/settings.cpp
-  policy/truc_policy.cpp
-  primitives/pak.cpp
-  rest.cpp
-  rpc/blockchain.cpp
-  rpc/external_signer.cpp
-  rpc/fees.cpp
-  rpc/mempool.cpp
-  rpc/mining.cpp
-  rpc/net.cpp
-  rpc/node.cpp
-  rpc/output_script.cpp
-  rpc/rawtransaction.cpp
-  rpc/server.cpp
-  rpc/server_util.cpp
-  rpc/signmessage.cpp
-  rpc/txoutproof.cpp
-  script/sigcache.cpp
-  signet.cpp
-  torcontrol.cpp
-  txdb.cpp
-  txmempool.cpp
-  txorphanage.cpp
-  txrequest.cpp
-  validation.cpp
-  validationinterface.cpp
-  versionbits.cpp
-  $<$<TARGET_EXISTS:bitcoin_wallet>:wallet/init.cpp>
-  $<$<NOT:$<TARGET_EXISTS:bitcoin_wallet>>:dummywallet.cpp>
-)
-target_link_libraries(bitcoin_node
-  PUBLIC
-    core_interface
-    bitcoin_common
-    bitcoin_util
-    $<TARGET_NAME_IF_EXISTS:bitcoin_zmq>
-    leveldb
-    minisketch
-    univalue
-    Boost::headers
-    elementssimplicity
-    $<TARGET_NAME_IF_EXISTS:libevent::libevent>
-    $<TARGET_NAME_IF_EXISTS:libevent::core>
-    $<TARGET_NAME_IF_EXISTS:libevent::extra>
-    $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
-    $<TARGET_NAME_IF_EXISTS:USDT::headers>
-    secp256k1
+if(SECP256K1_ENABLE_MODULE_ELLSWIFT)
+  add_compile_definitions(ENABLE_MODULE_ELLSWIFT=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_ellswift.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_MUSIG)
+  if(DEFINED SECP256K1_ENABLE_MODULE_SCHNORRSIG AND NOT SECP256K1_ENABLE_MODULE_SCHNORRSIG)
+    message(FATAL_ERROR "Module dependency error: You have disabled the schnorrsig module explicitly, but it is required by the musig module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_SCHNORRSIG ON)
+  add_compile_definitions(ENABLE_MODULE_MUSIG=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_musig.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_SCHNORRSIG)
+  if(DEFINED SECP256K1_ENABLE_MODULE_EXTRAKEYS AND NOT SECP256K1_ENABLE_MODULE_EXTRAKEYS)
+    message(FATAL_ERROR "Module dependency error: You have disabled the extrakeys module explicitly, but it is required by the schnorrsig module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_EXTRAKEYS ON)
+  add_compile_definitions(ENABLE_MODULE_SCHNORRSIG=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_schnorrsig.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_EXTRAKEYS)
+  add_compile_definitions(ENABLE_MODULE_EXTRAKEYS=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_extrakeys.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_RECOVERY)
+  add_compile_definitions(ENABLE_MODULE_RECOVERY=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_recovery.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_ECDH)
+  add_compile_definitions(ENABLE_MODULE_ECDH=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_ecdh.h)
+endif()
+
+add_library(secp256k1_precomputed OBJECT EXCLUDE_FROM_ALL
+  precomputed_ecmult.c
+  precomputed_ecmult_gen.c
 )
 
+# Add objects explicitly rather than linking to the object libs to keep them
+# from being exported.
+target_sources(secp256k1 PRIVATE secp256k1.c $<TARGET_OBJECTS:secp256k1_precomputed>)
 
-# Elements Core elementsd.
-if(BUILD_DAEMON)
-  add_executable(elementsd
-    bitcoind.cpp
-    init/bitcoind.cpp
-  )
-  add_windows_resources(elementsd bitcoind-res.rc)
-  target_link_libraries(elementsd
-    core_interface
-    bitcoin_node
-    $<TARGET_NAME_IF_EXISTS:bitcoin_wallet>
-    secp256k1
-  )
-  install_binary_component(elementsd HAS_MANPAGE)
-endif()
-if(WITH_MULTIPROCESS AND BUILD_DAEMON)
-  add_executable(elements-node
-    bitcoind.cpp
-    init/bitcoin-node.cpp
-  )
-  target_link_libraries(elements-node
-    core_interface
-    bitcoin_node
-    bitcoin_ipc
-    $<TARGET_NAME_IF_EXISTS:bitcoin_wallet>
-    secp256k1
-  )
-  install_binary_component(elements-node)
+if(NOT SECP256K1_ENABLE_API_VISIBILITY_ATTRIBUTES)
+  target_compile_definitions(secp256k1 PRIVATE SECP256K1_NO_API_VISIBILITY_ATTRIBUTES)
 endif()
 
-if(WITH_MULTIPROCESS AND BUILD_TESTS)
-    # bitcoin_ipc_test library target is defined here in src/CMakeLists.txt
-    # instead of src/test/CMakeLists.txt so capnp files in src/test/ are able to
-    # reference capnp files in src/ipc/capnp/ by relative path. The Cap'n Proto
-    # compiler only allows importing by relative path when the importing and
-    # imported files are underneath the same compilation source prefix, so the
-    # source prefix must be src/, not src/test/
-    add_library(bitcoin_ipc_test STATIC EXCLUDE_FROM_ALL
-      test/ipc_test.cpp
+# Create a helper lib that parent projects can use to link secp256k1 into a
+# static lib.
+add_library(secp256k1_objs INTERFACE)
+target_sources(secp256k1_objs INTERFACE $<TARGET_OBJECTS:secp256k1> $<TARGET_OBJECTS:secp256k1_precomputed>)
+
+add_library(secp256k1_asm INTERFACE)
+if(SECP256K1_ASM STREQUAL "arm32")
+  add_library(secp256k1_asm_arm OBJECT EXCLUDE_FROM_ALL)
+  target_sources(secp256k1_asm_arm PUBLIC
+    asm/field_10x26_arm.s
+  )
+  target_sources(secp256k1 PRIVATE $<TARGET_OBJECTS:secp256k1_asm_arm>)
+  target_sources(secp256k1_objs INTERFACE $<TARGET_OBJECTS:secp256k1_asm_arm>)
+  target_link_libraries(secp256k1_asm INTERFACE secp256k1_asm_arm)
+endif()
+
+if(WIN32)
+  # Define our export symbol only for shared libs.
+  set_target_properties(secp256k1 PROPERTIES DEFINE_SYMBOL SECP256K1_DLL_EXPORT)
+  target_compile_definitions(secp256k1 INTERFACE $<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:SECP256K1_STATIC>)
+endif()
+
+# Object libs don't know if they're being built for a shared or static lib.
+# Grab the PIC property from secp256k1 which knows.
+get_target_property(use_pic secp256k1 POSITION_INDEPENDENT_CODE)
+set_target_properties(secp256k1_precomputed PROPERTIES POSITION_INDEPENDENT_CODE ${use_pic})
+
+# Add the include path for parent projects so that they don't have to manually add it.
+target_include_directories(secp256k1 INTERFACE
+  $<BUILD_INTERFACE:$<$<NOT:$<BOOL:${PROJECT_IS_TOP_LEVEL}>>:${PROJECT_SOURCE_DIR}/include>>
+)
+set_target_properties(secp256k1_objs PROPERTIES
+  INTERFACE_COMPILE_DEFINITIONS "$<TARGET_PROPERTY:secp256k1,INTERFACE_COMPILE_DEFINITIONS>"
+  INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:secp256k1,INTERFACE_INCLUDE_DIRECTORIES>"
+)
+
+include(SetLibtoolAbiVersion)
+set_libtool_abi_version(secp256k1
+  ${${PROJECT_NAME}_LIB_VERSION_CURRENT}
+  ${${PROJECT_NAME}_LIB_VERSION_REVISION}
+  ${${PROJECT_NAME}_LIB_VERSION_AGE}
+)
+
+if(SECP256K1_BUILD_BENCHMARK)
+  add_executable(bench bench.c)
+  target_link_libraries(bench secp256k1)
+  add_executable(bench_internal bench_internal.c)
+  target_link_libraries(bench_internal secp256k1_precomputed secp256k1_asm)
+  add_executable(bench_ecmult bench_ecmult.c)
+  target_link_libraries(bench_ecmult secp256k1_precomputed secp256k1_asm)
+endif()
+
+if(SECP256K1_BUILD_TESTS)
+  include(CheckIncludeFile)
+  check_include_file(sys/types.h HAVE_SYS_TYPES_H)
+  check_include_file(sys/wait.h HAVE_SYS_WAIT_H)
+  check_include_file(unistd.h HAVE_UNISTD_H)
+
+  set(TEST_DEFINITIONS "")
+  if(HAVE_SYS_TYPES_H AND HAVE_SYS_WAIT_H AND HAVE_UNISTD_H)
+    list(APPEND TEST_DEFINITIONS SUPPORTS_CONCURRENCY=1)
+  endif()
+
+  function(add_executable_and_tests exe_name verify_definition)
+    add_executable(${exe_name} tests.c)
+    target_link_libraries(${exe_name} secp256k1_precomputed secp256k1_asm)
+    target_compile_definitions(${exe_name} PRIVATE ${verify_definition} ${TEST_DEFINITIONS})
+    include(DiscoverTests)
+    discover_tests(${exe_name}
+      DISCOVERY_ARGS        "--list_tests"
+      DISCOVERY_MATCH       "^\\t\\\\[ *[0-9]+\\\\] ([^ ].*)$"
+      TEST_NAME_REPLACEMENT "secp256k1.${exe_name}.\\\\1"
+      TEST_ARGS_REPLACEMENT "--target=\\\\1 --log=1"
+      PROPERTIES
+        LABELS "secp256k1_${exe_name}"
     )
-    target_capnp_sources(bitcoin_ipc_test ${PROJECT_SOURCE_DIR}
-      test/ipc_test.capnp
-    )
-    add_dependencies(bitcoin_ipc_test bitcoin_ipc_headers)
+  endfunction()
+
+  add_executable_and_tests(noverify_tests "")
+  if(NOT CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    add_executable_and_tests(tests VERIFY)
+  endif()
+  unset(TEST_DEFINITIONS)
 endif()
 
-
-add_library(bitcoin_cli STATIC EXCLUDE_FROM_ALL
-  compat/stdin.cpp
-  rpc/client.cpp
-)
-target_link_libraries(bitcoin_cli
-  PUBLIC
-    core_interface
-    univalue
-)
-
-
-# Elements Core RPC client
-if(BUILD_CLI)
-  add_executable(elements-cli bitcoin-cli.cpp)
-  add_windows_resources(elements-cli bitcoin-cli-res.rc)
-  target_link_libraries(elements-cli
-    core_interface
-    bitcoin_cli
-    bitcoin_common
-    bitcoin_util
-    libevent::core
-    libevent::extra
-  )
-  install_binary_component(elements-cli HAS_MANPAGE)
-endif()
-
-
-if(BUILD_TX)
-  add_executable(elements-tx bitcoin-tx.cpp)
-  add_windows_resources(elements-tx bitcoin-tx-res.rc)
-  target_link_libraries(elements-tx
-    core_interface
-    bitcoin_common
-    bitcoin_util
-    univalue
-    elementssimplicity
-  )
-  install_binary_component(elements-tx HAS_MANPAGE)
-endif()
-
-
-if(BUILD_UTIL)
-  add_executable(elements-util bitcoin-util.cpp)
-  add_windows_resources(elements-util bitcoin-util-res.rc)
-  target_link_libraries(elements-util
-    core_interface
-    bitcoin_common
-    bitcoin_util
-    elementssimplicity
-  )
-  install_binary_component(elements-util HAS_MANPAGE)
-endif()
-
-
-if(BUILD_GUI)
-  add_subdirectory(qt)
-endif()
-
-
-if(BUILD_KERNEL_LIB)
-  add_subdirectory(kernel)
-endif()
-
-if(BUILD_UTIL_CHAINSTATE)
-  add_executable(bitcoin-chainstate
-    bitcoin-chainstate.cpp
-  )
-  # TODO: The `SKIP_BUILD_RPATH` property setting can be deleted
-  #       in the future after reordering Guix script commands to
-  #       perform binary checks after the installation step.
-  # Relevant discussions:
-  # - https://github.com/hebasto/bitcoin/pull/236#issuecomment-2183120953
-  # - https://github.com/bitcoin/bitcoin/pull/30312#issuecomment-2191235833
-  set_target_properties(bitcoin-chainstate PROPERTIES
-    SKIP_BUILD_RPATH OFF
-  )
-  target_link_libraries(bitcoin-chainstate
-    PRIVATE
-      core_interface
-      bitcoinkernel
+if(SECP256K1_BUILD_EXHAUSTIVE_TESTS)
+  # Note: do not include secp256k1_precomputed in exhaustive_tests (it uses runtime-generated tables).
+  add_executable(exhaustive_tests tests_exhaustive.c)
+  target_link_libraries(exhaustive_tests secp256k1_asm)
+  target_compile_definitions(exhaustive_tests PRIVATE $<$<NOT:$<CONFIG:Coverage>>:VERIFY>)
+  add_test(NAME secp256k1.exhaustive_tests COMMAND exhaustive_tests)
+  set_tests_properties(secp256k1.exhaustive_tests PROPERTIES
+    LABELS secp256k1_exhaustive
   )
 endif()
 
-
-add_subdirectory(test/util)
-if(BUILD_BENCH)
-  add_subdirectory(bench)
+if(SECP256K1_BUILD_CTIME_TESTS)
+  add_executable(ctime_tests ctime_tests.c)
+  target_link_libraries(ctime_tests secp256k1)
 endif()
 
-if(BUILD_TESTS)
-  add_subdirectory(test)
-endif()
+if(SECP256K1_INSTALL)
+  include(GNUInstallDirs)
+  target_include_directories(secp256k1 INTERFACE
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  )
+  install(TARGETS secp256k1
+    EXPORT ${PROJECT_NAME}-targets
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  )
 
-if(BUILD_FUZZ_BINARY)
-  add_subdirectory(test/fuzz)
+  install(EXPORT ${PROJECT_NAME}-targets
+    FILE ${PROJECT_NAME}-targets.cmake
+    NAMESPACE ${PROJECT_NAME}::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+  )
+
+  include(CMakePackageConfigHelpers)
+  configure_package_config_file(
+    ${PROJECT_SOURCE_DIR}/cmake/config.cmake.in
+    ${PROJECT_NAME}-config.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    NO_SET_AND_CHECK_MACRO
+  )
+  write_basic_package_version_file(${PROJECT_NAME}-config-version.cmake
+    COMPATIBILITY SameMinorVersion
+  )
+
+  install(
+    FILES
+      ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
+      ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+  )
+
+  include(GeneratePkgConfigFile)
+  generate_pkg_config_file(${PROJECT_SOURCE_DIR}/libsecp256k1.pc.in)
+  install(
+    FILES
+      ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+  )
 endif()

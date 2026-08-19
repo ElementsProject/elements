@@ -1,28 +1,65 @@
-# Build subdirectories.
-/*build*
-!/build_msvc
+bench
+bench_bppp
+bench_ecmult
+bench_generator
+bench_rangeproof
+bench_internal
+bench_whitelist
+noverify_tests
+tests
+exhaustive_tests
+precompute_ecmult_gen
+precompute_ecmult
+ctime_tests
+ecdh_example
+ecdsa_example
+schnorr_example
+ellswift_example
+musig_example
+*.exe
+*.so
+*.a
+*.csv
+*.log
+*.trs
+*.sage.py
 
-*.pyc
+Makefile
+configure
+.libs/
+Makefile.in
+aclocal.m4
+autom4te.cache/
+config.log
+config.status
+conftest*
+*.tar.gz
+*.la
+libtool
+.deps/
+.dirstamp
+*.lo
+*.o
+*~
 
-# Only ignore unexpected patches
-*.patch
-!contrib/guix/patches/*.patch
-!depends/patches/**/*.patch
+coverage/
+coverage.html
+coverage.*.html
+*.gcda
+*.gcno
+*.gcov
 
+/autotools-aux/
+!/autotools-aux/m4/bitcoin_secp.m4
+
+libsecp256k1.pc
+contrib/gh-pr-create.sh
+
+### CMake
 /CMakeUserPresets.json
-# Merge script log
-/merge.log
+# CMake build directories.
+/*build*
 
-# Test cache
-/test/cache/
-/test/config.ini
-
-# Previous releases
-/releases
-
-#build tests
-test/lint/test_runner/target/
-
-/guix-build-*
-
-/ci/scratch/
+### Python
+__pycache__/
+*.py[oc]
