@@ -1,0 +1,61 @@
+name: Upstream Sync
+
+on:
+  schedule:
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    env:
+      UPSTREAM: "https://github.com/bitcoin-core/secp256k1.git"
+      BASE_BRANCH: "master"
+      UPSTREAM_REF: "upstream/master"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_PAT }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream ${{ env.UPSTREAM }}
+          git fetch upstream
+          gh repo set-default ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
+
+      - name: Run sync-upstream.sh
+        id: sync
+        run: |
+          OUTPUT=$(./contrib/sync-upstream.sh --switch "${{ env.BASE_BRANCH }}" "${{ env.UPSTREAM_REF }}" 2>&1) || { echo "$OUTPUT"; exit 1; }
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -qv "^No merge commits"; then
+            echo "newcommits=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping further workflow steps."
+          fi
+
+      - name: Push sync branch
+        id: push
+        if: steps.sync.outputs.newcommits == 'true'
+        run: |
+          if git push -u origin HEAD; then
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping further workflow steps."
+          fi
+
+      - name: Create pull request
+        if: steps.sync.outputs.newcommits == 'true' && steps.push.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
+        run: ./gh-pr-create.sh

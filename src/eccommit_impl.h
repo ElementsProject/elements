@@ -25,42 +25,42 @@ static int secp256k1_ec_commit_pubkey_serialize_const(secp256k1_ge *pubp, unsign
 }
 
 /* Compute an ec commitment tweak as hash(pubp, data). */
-static int secp256k1_ec_commit_tweak(unsigned char *tweak32, secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size)
+static int secp256k1_ec_commit_tweak(const secp256k1_hash_ctx *hash_ctx, unsigned char *tweak32, secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size)
 {
     unsigned char rbuf[33];
 
     if (!secp256k1_ec_commit_pubkey_serialize_const(pubp, rbuf)) {
         return 0;
     }
-    secp256k1_sha256_write(sha, rbuf, sizeof(rbuf));
-    secp256k1_sha256_write(sha, data, data_size);
-    secp256k1_sha256_finalize(sha, tweak32);
+    secp256k1_sha256_write(hash_ctx, sha, rbuf, sizeof(rbuf));
+    secp256k1_sha256_write(hash_ctx, sha, data, data_size);
+    secp256k1_sha256_finalize(hash_ctx, sha, tweak32);
     return 1;
 }
 
 /* Compute an ec commitment as pubp + hash(pubp, data)*G. */
-static int secp256k1_ec_commit(secp256k1_ge* commitp, const secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size) {
+static int secp256k1_ec_commit(const secp256k1_hash_ctx *hash_ctx, secp256k1_ge* commitp, const secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size) {
     unsigned char tweak[32];
 
     *commitp = *pubp;
-    return secp256k1_ec_commit_tweak(tweak, commitp, sha, data, data_size)
+    return secp256k1_ec_commit_tweak(hash_ctx, tweak, commitp, sha, data, data_size)
            && secp256k1_ec_pubkey_tweak_add_helper(commitp, tweak);
 }
 
 /* Compute the seckey of an ec commitment from the original secret key of the pubkey as seckey +
  * hash(pubp, data). */
-static int secp256k1_ec_commit_seckey(secp256k1_scalar* seckey, secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size) {
+static int secp256k1_ec_commit_seckey(const secp256k1_hash_ctx *hash_ctx, secp256k1_scalar* seckey, secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size) {
     unsigned char tweak[32];
-    return secp256k1_ec_commit_tweak(tweak, pubp, sha, data, data_size)
+    return secp256k1_ec_commit_tweak(hash_ctx, tweak, pubp, sha, data, data_size)
            && secp256k1_ec_seckey_tweak_add_helper(seckey, tweak);
 }
 
 /* Verify an ec commitment as pubp + hash(pubp, data)*G ?= commitment. */
-static int secp256k1_ec_commit_verify(const secp256k1_ge* commitp, const secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size) {
+static int secp256k1_ec_commit_verify(const secp256k1_hash_ctx *hash_ctx, const secp256k1_ge* commitp, const secp256k1_ge* pubp, secp256k1_sha256* sha, const unsigned char *data, size_t data_size) {
     secp256k1_gej pj;
     secp256k1_ge p;
 
-    if (!secp256k1_ec_commit(&p, pubp, sha, data, data_size)) {
+    if (!secp256k1_ec_commit(hash_ctx, &p, pubp, sha, data, data_size)) {
         return 0;
     }
 
