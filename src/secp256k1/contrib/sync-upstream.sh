@@ -3,138 +3,121 @@
 set -eou pipefail
 
 help() {
-    echo "$0 [-b <branch>] range [end]"
-    echo "    merges every merge commit present in upstream and missing in <branch> (default: master)."
-    echo "    If the optional [end] commit is provided, only merges up to [end]."
-    echo "    If the optional [-b branch] provided, then ."
-    echo
-    echo "$0 [-b <branch>] select <commit> ... <commit>"
-    echo "    merges every selected merge commit into <branch> (default: master)"
-    echo
-    echo "This tool creates a branch and a script that can be executed to create the"
-    echo "PR automatically. The script requires the github-cli tool (aka gh)."
-    echo ""
-    echo "Tip: \`git log --oneline upstream/master --merges\` shows merge commits."
-    exit 1
+cat <<EOT
+$0: Prepare a pull request that syncs a branch with upstream
+
+Usage:
+  $0 [--switch] <base-branch> <upstream-ref>
+
+This script creates a sync local branch pointing to <upstream-ref>. Moreover, it
+generates a helper script for opening a pull request (PR) merging the created
+local branch into <base-branch>.
+
+The synced upstream PRs are listed in the title and the description of the PR.
+(This relies on upstream merging PRs using merge commits with titles of the form
+"Merge <repo>#<prnum>: ...".)
+
+Arguments:
+  --switch:        Try to switch to the created sync branch
+  <base-branch>:   The branch to sync with upstream
+  <upstream-ref>:  The upstream ref to merge into <base-branch>
+
+Usage examples:
+  $0 --switch master upstream/master
+  $0 master abc1234
+
+To find candidate merge commits from <upstream-ref> (oldest first), use:
+  git log --oneline --topo-order --reverse --merges \$(git merge-base <upstream-ref> <base-branch>)..<upstream-ref>
+EOT
 }
 
-REMOTE=upstream
-REMOTE_BRANCH="$REMOTE/master"
-LOCAL_BRANCH="master"
-# Makes sure you have a remote "upstream" that is up-to-date
-setup() {
-    ret=0
-    git fetch "$REMOTE" &> /dev/null || ret="$?"
-    if [ ${ret} == 0 ]; then
-        return
-    fi
-    echo "Adding remote \"$REMOTE\" with URL git@github.com:bitcoin-core/secp256k1.git. Continue with y"
-    read -r yn
-    case $yn in
-        [Yy]* ) ;;
-        * ) exit 1;;
-    esac
-    git remote add "$REMOTE" git@github.com:bitcoin-core/secp256k1.git &> /dev/null
-    git fetch "$REMOTE" &> /dev/null
-}
-
-range() {
-    RANGESTART_COMMIT=$(git merge-base "$REMOTE_BRANCH" "$LOCAL_BRANCH")
-    RANGEEND_COMMIT=$(git rev-parse "$REMOTE_BRANCH")
-    if [ "$#" = 1 ]; then
-        RANGEEND_COMMIT=$1
-    fi
-
-    COMMITS=$(git --no-pager log --oneline --merges "$RANGESTART_COMMIT".."$RANGEEND_COMMIT")
-    COMMITS=$(echo "$COMMITS" | tac | awk '{ print $1 }' ORS=' ')
-    echo "Merging $COMMITS. Continue with y"
-    read -r yn
-    case $yn in
-        [Yy]* ) ;;
-        * ) exit 1;;
-    esac
-}
-
-# Process -b <branch> argument
-while getopts "b:" opt; do
-  case $opt in
-    b)
-      LOCAL_BRANCH=$OPTARG
-      ;;
-    \?)
-      echo "Invalid option: -$OPTARG" >&2
-      ;;
-  esac
-done
-
-# Shift off the processed options
-shift $((OPTIND -1))
-
-if [ "$#" -lt 1 ]; then
-    help
+### Parse arguments
+SWITCH=false
+if [ "$#" -ge 1 ] && [ "$1" = "--switch" ]; then
+    SWITCH=true
+    shift
 fi
+if [ "$#" -ne 2 ]; then
+    help
+    exit 1
+fi
+BASE_BRANCH="$1"
+UPSTREAM_REF="$2"
 
-case $1 in
-    range)
-        shift
-        setup
-        range "$@"
-        REPRODUCE_COMMAND="$0 -b $LOCAL_BRANCH range $RANGEEND_COMMIT"
-        ;;
-    select)
-        shift
-        setup
-        COMMITS=$*
-        REPRODUCE_COMMAND="$0 -b $LOCAL_BRANCH select $@"
-        ;;
-    help)
-        help
-        ;;
-    *)
-        help
-esac
-
+### Create PR metadata
 TITLE="Upstream PRs"
-BODY=""
-for COMMIT in $COMMITS
-do
-    PRNUM=$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge \(bitcoin-core\/secp256k1\)\?#\([0-9]*\).*'/'\2'/)
+RANGESTART_COMMIT=$(git merge-base "$UPSTREAM_REF" "$BASE_BRANCH")
+RANGEEND_COMMIT=$(git rev-parse "$UPSTREAM_REF")
+COMMITS=$(git --no-pager log --pretty=format:%H --topo-order --reverse --merges "$RANGESTART_COMMIT".."$RANGEEND_COMMIT")
+# If there are no commits, exit successfully
+if [ -z "$COMMITS" ]; then
+  echo "No merge commits in range ${RANGESTART_COMMIT}..${RANGEEND_COMMIT}" >&2
+  exit 0
+fi
+BODY="${GITHUB_ACTIONS+*Note: This PR has been created by a GitHub Actions workflow without human involvement.*
+
+}"
+BODY+="This PR syncs the following upstream PRs:"
+for COMMIT in $COMMITS; do
+    PRNUM=$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge .*#\([0-9]*\):.*'/'\1'/)
     TITLE="$TITLE $PRNUM,"
-    BODY=$(printf "%s\n%s" "$BODY" "$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge \(bitcoin-core\/secp256k1\)\?#\([0-9]*\)'/'[bitcoin-core\/secp256k1#\2]'/)")
+    BODY=$(printf "%s\n * %s" "$BODY" "$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge '//)")
 done
 # Remove trailing ","
 TITLE=${TITLE%?}
-BODY=$(printf "%s\n\n%s\n%s" "$BODY" "This PR can be recreated with \`$REPRODUCE_COMMAND\`." "Tip: Use \`git show --remerge-diff\` to show the changes manually added to the merge commit.")
+BODY+=$(cat <<'EOF'
 
+
+Usage hints:
+ * If this PR has merge conflicts, resolve these by switching to the PR branch and merging the base branch into it using `git merge <base-branch>`.
+ * To show the conflict resolution diff from an existing merge commit, use `git show --remerge-diff <merge-commit>`.
+ * In case you are recreating the PR branch locally, you can (during the conflict resolution state) replay this conflict resolution diff using `git read-tree --reset -u <merge-commit>`.
+   Be aware that this may discard your index as well as the uncommitted changes and untracked files in your worktree.
+EOF
+)
+
+### Create a sync branch locally.
+SYNC_BRANCH="sync-$(git rev-parse --short "$UPSTREAM_REF")"
+# This will error out if the branch already exists, which is what we want.
+git branch --no-track "$SYNC_BRANCH" "$UPSTREAM_REF"
+
+### Print the PR metadata
 echo "-----------------------------------"
 echo "$TITLE"
 echo "-----------------------------------"
 echo "$BODY"
 echo "-----------------------------------"
-# Create branch from PR commit and create PR
-git checkout "$LOCAL_BRANCH"
-git pull --autostash
-git checkout -b temp-merge-"$PRNUM"
 
-# Escape single quote
-# ' -> '\''
+### Generate the helper script for creating the PR
+FNAME="gh-pr-create.sh"
+# Escape single quote ' -> '\''
 quote() {
     local quoted=${1//\'/\'\\\'\'}
     printf "%s" "$quoted"
 }
 TITLE=$(quote "$TITLE")
 BODY=$(quote "$BODY")
-
-BASEDIR=$(dirname "$0")
-FNAME="$BASEDIR/gh-pr-create.sh"
 cat <<EOT > "$FNAME"
 #!/bin/sh
-gh pr create -t '$TITLE' -b '$BODY' --web
-# Remove temporary branch
-git checkout "$LOCAL_BRANCH"
-git branch -D temp-merge-"$PRNUM"
+TITLE='$TITLE'
+BODY='$BODY'
+SYNC_BRANCH='$SYNC_BRANCH'
+BASE_BRANCH='$BASE_BRANCH'
+
+gh pr create --base "\$BASE_BRANCH" --head "\$SYNC_BRANCH" --title "\$TITLE" --body "\$BODY" "\$@"
 EOT
 chmod +x "$FNAME"
-echo Run "$FNAME" after solving the merge conflicts
 
-git merge --no-edit -m "Merge commits '$COMMITS' into temp-merge-$PRNUM" $COMMITS
+echo "Successfully created local sync branch $SYNC_BRANCH starting at $UPSTREAM_REF."
+echo
+echo "You can now:"
+echo "  1. Optionally resolve merge conflicts by merging $BASE_BRANCH into $SYNC_BRANCH."
+echo "  2. Push $SYNC_BRANCH to some GitHub remote."
+echo "  3. Run ./$FNAME to create a pull request. (Tip: Pass --dry-run first.)"
+
+if [ "${SWITCH:-false}" = true ]; then
+    echo
+    echo "Trying to switch to the sync branch..."
+    echo
+    git switch "$SYNC_BRANCH"
+fi

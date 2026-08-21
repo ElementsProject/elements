@@ -5,6 +5,7 @@
  **********************************************************************/
 
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "../include/secp256k1_rangeproof.h"
 #include "util.h"
@@ -57,9 +58,12 @@ int main(void) {
 
     data.min_bits = 32;
     iters = data.min_bits*get_iters(32);
+    if (iters == 0) {
+        return EXIT_FAILURE;
+    }
 
     run_benchmark("rangeproof_verify_bit", bench_rangeproof, bench_rangeproof_setup, NULL, &data, 10, iters);
 
     secp256k1_context_destroy(data.ctx);
-    return 0;
+    return EXIT_SUCCESS;
 }

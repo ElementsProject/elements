@@ -4,6 +4,7 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "../include/secp256k1.h"
 
@@ -13,7 +14,6 @@
 #include "hash_impl.h"
 #include "int128_impl.h"
 #include "scalar_impl.h"
-#include "testrand_impl.h"
 
 #define MAX_N_KEYS 30
 
@@ -49,17 +49,21 @@ static void run_test(bench_data* data, int iters) {
     run_benchmark(str, bench_whitelist, bench_whitelist_setup, NULL, data, 100, iters);
 }
 
-static void random_scalar_order(secp256k1_scalar *num) {
-    do {
-        unsigned char b32[32];
-        int overflow = 0;
-        secp256k1_testrand256(b32);
-        secp256k1_scalar_set_b32(num, b32, &overflow);
-        if (overflow || secp256k1_scalar_is_zero(num)) {
-            continue;
-        }
-        break;
-    } while(1);
+static void generate_scalar(secp256k1_scalar *scalar, unsigned char *seckey, uint32_t num) {
+    secp256k1_sha256 sha256;
+    secp256k1_hash_ctx hash_ctx;
+    unsigned char c[13] = {'w','h','i','t','e','l','i','s','t', 0, 0, 0, 0};
+    int is_valid;
+    secp256k1_hash_ctx_init(&hash_ctx);
+    c[9] = num;
+    c[10] = num >> 8;
+    c[11] = num >> 16;
+    c[12] = num >> 24;
+    secp256k1_sha256_initialize(&sha256);
+    secp256k1_sha256_write(&hash_ctx, &sha256, c, sizeof(c));
+    secp256k1_sha256_finalize(&hash_ctx, &sha256, seckey);
+    is_valid = secp256k1_scalar_set_b32_seckey(scalar, seckey);
+    CHECK(is_valid);
 }
 
 int main(void) {
@@ -68,26 +72,26 @@ int main(void) {
     size_t n_keys = 30;
     secp256k1_scalar ssub;
     int iters = get_iters(5);
+    if (iters == 0) {
+        return EXIT_FAILURE;
+    }
 
     data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
 
     /* Start with subkey */
-    random_scalar_order(&ssub);
-    secp256k1_scalar_get_b32(data.csub, &ssub);
+    generate_scalar(&ssub, data.csub, 0);
     CHECK(secp256k1_ec_seckey_verify(data.ctx, data.csub) == 1);
     CHECK(secp256k1_ec_pubkey_create(data.ctx, &data.sub_pubkey, data.csub) == 1);
     /* Then offline and online whitelist keys */
     for (i = 0; i < n_keys; i++) {
         secp256k1_scalar son, soff;
 
-        /* Create two keys */
-        random_scalar_order(&son);
-        secp256k1_scalar_get_b32(data.online_seckey[i], &son);
+        /* Create two keys using different counter values to ensure different keys */
+        generate_scalar(&son, data.online_seckey[i], i + 1);
         CHECK(secp256k1_ec_seckey_verify(data.ctx, data.online_seckey[i]) == 1);
         CHECK(secp256k1_ec_pubkey_create(data.ctx, &data.online_pubkeys[i], data.online_seckey[i]) == 1);
 
-        random_scalar_order(&soff);
-        secp256k1_scalar_get_b32(data.summed_seckey[i], &soff);
+        generate_scalar(&soff, data.summed_seckey[i], i + 1 + n_keys);
         CHECK(secp256k1_ec_seckey_verify(data.ctx, data.summed_seckey[i]) == 1);
         CHECK(secp256k1_ec_pubkey_create(data.ctx, &data.offline_pubkeys[i], data.summed_seckey[i]) == 1);
 
@@ -104,5 +108,5 @@ int main(void) {
     }
 
     secp256k1_context_destroy(data.ctx);
-    return(0);
+    return EXIT_SUCCESS;
 }
