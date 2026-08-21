@@ -15,7 +15,7 @@
 #include "../../scalar.h"
 #include "../../hash.h"
 
-SECP256K1_INLINE static void secp256k1_surjection_genmessage(unsigned char *msg32, const secp256k1_generator *ephemeral_input_tags, size_t n_input_tags, const secp256k1_generator *ephemeral_output_tag) {
+SECP256K1_INLINE static void secp256k1_surjection_genmessage(const secp256k1_hash_ctx *hash_ctx, unsigned char *msg32, const secp256k1_generator *ephemeral_input_tags, size_t n_input_tags, const secp256k1_generator *ephemeral_output_tag) {
     /* compute message */
     size_t i;
     unsigned char pk_ser[33];
@@ -26,38 +26,61 @@ SECP256K1_INLINE static void secp256k1_surjection_genmessage(unsigned char *msg3
     for (i = 0; i < n_input_tags; i++) {
         pk_ser[0] = 2 + (ephemeral_input_tags[i].data[63] & 1);
         memcpy(&pk_ser[1], &ephemeral_input_tags[i].data[0], 32);
-        secp256k1_sha256_write(&sha256_en, pk_ser, pk_len);
+        secp256k1_sha256_write(hash_ctx, &sha256_en, pk_ser, pk_len);
     }
     pk_ser[0] = 2 + (ephemeral_output_tag->data[63] & 1);
     memcpy(&pk_ser[1], &ephemeral_output_tag->data[0], 32);
-    secp256k1_sha256_write(&sha256_en, pk_ser, pk_len);
-    secp256k1_sha256_finalize(&sha256_en, msg32);
+    secp256k1_sha256_write(hash_ctx, &sha256_en, pk_ser, pk_len);
+    secp256k1_sha256_finalize(hash_ctx, &sha256_en, msg32);
+    secp256k1_sha256_clear(&sha256_en);
 }
 
-SECP256K1_INLINE static int secp256k1_surjection_genrand(secp256k1_scalar *s, size_t ns, const secp256k1_scalar *blinding_key) {
+/* Derive the ring's s-values, one of which is used as the signing nonce, from a
+ * seed that hashes the passed-in arguments. See the call site for how these
+ * correspond to the proof inputs. */
+SECP256K1_INLINE static int secp256k1_surjection_genrand(const secp256k1_hash_ctx *hash_ctx, secp256k1_scalar *s, size_t ns, size_t n_inputs, const unsigned char *used_inputs, const unsigned char *msg32, size_t input_index, const unsigned char *input_blinding_key, const unsigned char *output_blinding_key) {
     size_t i;
-    unsigned char sec_input[36];
+    size_t used_inputs_len;
+    unsigned char n_inputs_ser[4];
+    unsigned char index_ser[4];
+    unsigned char counter[4];
+    unsigned char seed[32];
+    unsigned char out[32];
     secp256k1_sha256 sha256_en;
 
+    used_inputs_len = (n_inputs + 7) / 8;
+    secp256k1_write_be32(n_inputs_ser, (uint32_t)n_inputs);
+    secp256k1_write_be32(index_ser, (uint32_t)input_index);
+
+    /* Hash the arguments into the seed. */
+    secp256k1_sha256_initialize(&sha256_en);
+    secp256k1_sha256_write(hash_ctx, &sha256_en, n_inputs_ser, 4);
+    secp256k1_sha256_write(hash_ctx, &sha256_en, used_inputs, used_inputs_len);
+    secp256k1_sha256_write(hash_ctx, &sha256_en, msg32, 32);
+    secp256k1_sha256_write(hash_ctx, &sha256_en, index_ser, 4);
+    secp256k1_sha256_write(hash_ctx, &sha256_en, input_blinding_key, 32);
+    secp256k1_sha256_write(hash_ctx, &sha256_en, output_blinding_key, 32);
+    secp256k1_sha256_finalize(hash_ctx, &sha256_en, seed);
+    secp256k1_sha256_clear(&sha256_en);
+
     /* compute s values */
-    secp256k1_scalar_get_b32(&sec_input[4], blinding_key);
     for (i = 0; i < ns; i++) {
         int overflow = 0;
-        sec_input[0] = i;
-        sec_input[1] = i >> 8;
-        sec_input[2] = i >> 16;
-        sec_input[3] = i >> 24;
-
+        secp256k1_write_be32(counter, (uint32_t)i);
         secp256k1_sha256_initialize(&sha256_en);
-        secp256k1_sha256_write(&sha256_en, sec_input, 36);
-        secp256k1_sha256_finalize(&sha256_en, sec_input);
-        secp256k1_scalar_set_b32(&s[i], sec_input, &overflow);
+        secp256k1_sha256_write(hash_ctx, &sha256_en, counter, 4);
+        secp256k1_sha256_write(hash_ctx, &sha256_en, seed, 32);
+        secp256k1_sha256_finalize(hash_ctx, &sha256_en, out);
+        secp256k1_sha256_clear(&sha256_en);
+        secp256k1_scalar_set_b32(&s[i], out, &overflow);
         if (overflow == 1) {
-            memset(sec_input, 0, 32);
+            secp256k1_memclear_explicit(out, sizeof(out));
+            secp256k1_memclear_explicit(seed, sizeof(seed));
             return 0;
         }
     }
-    memset(sec_input, 0, 32);
+    secp256k1_memclear_explicit(out, sizeof(out));
+    secp256k1_memclear_explicit(seed, sizeof(seed));
     return 1;
 }
 
@@ -82,8 +105,12 @@ SECP256K1_INLINE static int secp256k1_surjection_compute_public_keys(secp256k1_g
             j++;
         }
     }
+#ifdef VERIFY
     /* Caller needs to ensure that the number of set bits in used_tags (which we counted in j) equals n_pubkeys. */
     VERIFY_CHECK(j == n_pubkeys);
+#else
+    (void)n_pubkeys;
+#endif
     return 1;
 }
 

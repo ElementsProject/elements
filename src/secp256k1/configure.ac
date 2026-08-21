@@ -19,8 +19,8 @@ define(_LIB_VERSION_AGE, 0)
 
 AC_INIT([libsecp256k1],m4_join([.], _PKG_VERSION_MAJOR, _PKG_VERSION_MINOR, _PKG_VERSION_PATCH)m4_if(_PKG_VERSION_IS_RELEASE, [true], [], [-dev]),[https://github.com/bitcoin-core/secp256k1/issues],[libsecp256k1],[https://github.com/bitcoin-core/secp256k1])
 
-AC_CONFIG_AUX_DIR([build-aux])
-AC_CONFIG_MACRO_DIR([build-aux/m4])
+AC_CONFIG_AUX_DIR([autotools-aux])
+AC_CONFIG_MACRO_DIR([autotools-aux/m4])
 AC_CANONICAL_HOST
 
 # Require Automake 1.11.2 for AM_PROG_AR
@@ -111,7 +111,8 @@ AC_DEFUN([SECP_TRY_APPEND_DEFAULT_CFLAGS], [
       SECP_TRY_APPEND_CFLAGS([-Wcast-align=strict], $1) # GCC >= 8.0
       SECP_TRY_APPEND_CFLAGS([-Wconditional-uninitialized], $1) # Clang >= 3.0 only
       SECP_TRY_APPEND_CFLAGS([-Wreserved-identifier], $1) # Clang >= 13.0 only
-      SECP_TRY_APPEND_CFLAGS([-fvisibility=hidden], $1) # GCC >= 4.0
+      SECP_TRY_APPEND_CFLAGS([-Wtrailing-whitespace=any], $1) # GCC >= 15.0
+      SECP_TRY_APPEND_CFLAGS([-Wleading-whitespace=spaces], $1) # GCC >= 15.0
 
       CFLAGS="$SECP_TRY_APPEND_DEFAULT_CFLAGS_saved_CFLAGS"
     fi
@@ -145,7 +146,7 @@ AC_ARG_ENABLE(benchmark,
     [SECP_SET_DEFAULT([enable_benchmark], [yes], [yes])])
 
 AC_ARG_ENABLE(coverage,
-    AS_HELP_STRING([--enable-coverage],[enable compiler flags to support kcov coverage analysis [default=no]]), [],
+    AS_HELP_STRING([--enable-coverage],[enable coverage analysis support [default=no]]), [],
     [SECP_SET_DEFAULT([enable_coverage], [no], [no])])
 
 AC_ARG_ENABLE(tests,
@@ -168,23 +169,33 @@ AC_ARG_ENABLE(examples,
     AS_HELP_STRING([--enable-examples],[compile the examples [default=no]]), [],
     [SECP_SET_DEFAULT([enable_examples], [no], [yes])])
 
-AC_ARG_ENABLE(module_bppp,
-    AS_HELP_STRING([--enable-module-bppp],[enable Bulletproofs++ module (experimental)]),
-    [],
-    [SECP_SET_DEFAULT([enable_module_bppp], [no], [yes])])
-
 AC_ARG_ENABLE(module_ecdh,
     AS_HELP_STRING([--enable-module-ecdh],[enable ECDH module [default=yes]]), [],
     [SECP_SET_DEFAULT([enable_module_ecdh], [yes], [yes])])
 
-AC_ARG_ENABLE(module_musig,
-    AS_HELP_STRING([--enable-module-musig],[enable MuSig module (experimental)]),
-    [],
-    [SECP_SET_DEFAULT([enable_module_musig], [no], [yes])])
-
 AC_ARG_ENABLE(module_recovery,
     AS_HELP_STRING([--enable-module-recovery],[enable ECDSA pubkey recovery module [default=no]]), [],
     [SECP_SET_DEFAULT([enable_module_recovery], [no], [yes])])
+
+AC_ARG_ENABLE(module_extrakeys,
+    AS_HELP_STRING([--enable-module-extrakeys],[enable extrakeys module [default=yes]]), [],
+    [SECP_SET_DEFAULT([enable_module_extrakeys], [yes], [yes])])
+
+AC_ARG_ENABLE(module_schnorrsig,
+    AS_HELP_STRING([--enable-module-schnorrsig],[enable schnorrsig module [default=yes]]), [],
+    [SECP_SET_DEFAULT([enable_module_schnorrsig], [yes], [yes])])
+
+AC_ARG_ENABLE(module_musig,
+    AS_HELP_STRING([--enable-module-musig],[enable MuSig2 module [default=yes]]), [],
+    [SECP_SET_DEFAULT([enable_module_musig], [yes], [yes])])
+
+AC_ARG_ENABLE(module_schnorrsig_halfagg,
+    AS_HELP_STRING([--enable-module-schnorrsig-halfagg],[enable schnorrsig half-aggregation module (experimental) [default=no]]), [],
+    [SECP_SET_DEFAULT([enable_module_schnorrsig_halfagg], [no], [yes])])
+
+AC_ARG_ENABLE(module_ellswift,
+    AS_HELP_STRING([--enable-module-ellswift],[enable ElligatorSwift module [default=yes]]), [],
+    [SECP_SET_DEFAULT([enable_module_ellswift], [yes], [yes])])
 
 AC_ARG_ENABLE(module_generator,
     AS_HELP_STRING([--enable-module-generator],[enable NUMS generator module [default=no]]),
@@ -196,27 +207,29 @@ AC_ARG_ENABLE(module_rangeproof,
     [],
     [SECP_SET_DEFAULT([enable_module_rangeproof], [no], [yes])])
 
+AC_ARG_ENABLE(module_surjectionproof,
+    AS_HELP_STRING([--enable-module-surjectionproof],[enable surjection proof module [default=no]]),
+    [],
+    [SECP_SET_DEFAULT([enable_module_surjectionproof], [no], [yes])])
+AC_ARG_ENABLE(reduced_surjection_proof_size,
+    AS_HELP_STRING([--enable-reduced-surjection-proof-size],[use reduced surjection proof size (disabling parsing and verification) [default=no]]),
+    [],
+    [SECP_SET_DEFAULT([enable_reduced_surjection_proof_size], [no], [no])])
+
 AC_ARG_ENABLE(module_whitelist,
     AS_HELP_STRING([--enable-module-whitelist],[enable key whitelisting module [default=no]]),
     [],
     [SECP_SET_DEFAULT([enable_module_whitelist], [no], [yes])])
 
-AC_ARG_ENABLE(module_extrakeys,
-    AS_HELP_STRING([--enable-module-extrakeys],[enable extrakeys module [default=yes]]), [],
-    [SECP_SET_DEFAULT([enable_module_extrakeys], [yes], [yes])])
-
-AC_ARG_ENABLE(module_schnorrsig,
-    AS_HELP_STRING([--enable-module-schnorrsig],[enable schnorrsig module [default=yes]]), [],
-    [SECP_SET_DEFAULT([enable_module_schnorrsig], [yes], [yes])])
-
-AC_ARG_ENABLE(module_ellswift,
-    AS_HELP_STRING([--enable-module-ellswift],[enable ElligatorSwift module [default=yes]]), [],
-    [SECP_SET_DEFAULT([enable_module_ellswift], [yes], [yes])])
-
 AC_ARG_ENABLE(module_ecdsa_s2c,
     AS_HELP_STRING([--enable-module-ecdsa-s2c],[enable ECDSA sign-to-contract module [default=no]]),
     [],
     [SECP_SET_DEFAULT([enable_module_ecdsa_s2c], [no], [yes])])
+
+AC_ARG_ENABLE(module_bppp,
+    AS_HELP_STRING([--enable-module-bppp],[enable Bulletproofs++ module (experimental)]),
+    [],
+    [SECP_SET_DEFAULT([enable_module_bppp], [no], [yes])])
 
 AC_ARG_ENABLE(module_ecdsa-adaptor,
     AS_HELP_STRING([--enable-module-ecdsa-adaptor],[enable ECDSA adaptor module [default=no]]),
@@ -227,16 +240,6 @@ AC_ARG_ENABLE(external_default_callbacks,
     AS_HELP_STRING([--enable-external-default-callbacks],[enable external default callback functions [default=no]]), [],
     [SECP_SET_DEFAULT([enable_external_default_callbacks], [no], [no])])
 
-AC_ARG_ENABLE(module_surjectionproof,
-    AS_HELP_STRING([--enable-module-surjectionproof],[enable surjection proof module [default=no]]),
-    [],
-    [SECP_SET_DEFAULT([enable_module_surjectionproof], [no], [yes])])
-
-AC_ARG_ENABLE(reduced_surjection_proof_size,
-    AS_HELP_STRING([--enable-reduced-surjection-proof-size],[use reduced surjection proof size (disabling parsing and verification) [default=no]]),
-    [],
-    [SECP_SET_DEFAULT([use_reduced_surjection_proof_size], [no], [no])])
-
 # Test-only override of the (autodetected by the C code) "widemul" setting.
 # Legal values are:
 #  * int64 (for [u]int64_t),
@@ -246,25 +249,24 @@ AC_ARG_ENABLE(reduced_surjection_proof_size,
 AC_ARG_WITH([test-override-wide-multiply], [] ,[set_widemul=$withval], [set_widemul=auto])
 
 AC_ARG_WITH([asm], [AS_HELP_STRING([--with-asm=x86_64|arm32|no|auto],
-[assembly optimizations to use (experimental: arm32) [default=auto]])],[req_asm=$withval], [req_asm=auto])
+[assembly to use (experimental: arm32) [default=auto]])],[req_asm=$withval], [req_asm=auto])
 
-AC_ARG_WITH([ecmult-window], [AS_HELP_STRING([--with-ecmult-window=SIZE|auto],
+AC_ARG_WITH([ecmult-window], [AS_HELP_STRING([--with-ecmult-window=SIZE],
 [window size for ecmult precomputation for verification, specified as integer in range [2..24].]
 [Larger values result in possibly better performance at the cost of an exponentially larger precomputed table.]
 [The table will store 2^(SIZE-1) * 64 bytes of data but can be larger in memory due to platform-specific padding and alignment.]
 [A window size larger than 15 will require you delete the prebuilt precomputed_ecmult.c file so that it can be rebuilt.]
 [For very large window sizes, use "make -j 1" to reduce memory use during compilation.]
-["auto" is a reasonable setting for desktop machines (currently 15). [default=auto]]
+[The default value is a reasonable setting for desktop machines (currently 15). [default=15]]
 )],
-[req_ecmult_window=$withval], [req_ecmult_window=auto])
+[set_ecmult_window=$withval], [set_ecmult_window=15])
 
-AC_ARG_WITH([ecmult-gen-precision], [AS_HELP_STRING([--with-ecmult-gen-precision=2|4|8|auto],
-[Precision bits to tune the precomputed table size for signing.]
-[The size of the table is 32kB for 2 bits, 64kB for 4 bits, 512kB for 8 bits of precision.]
-[A larger table size usually results in possible faster signing.]
-["auto" is a reasonable setting for desktop machines (currently 4). [default=auto]]
+AC_ARG_WITH([ecmult-gen-kb], [AS_HELP_STRING([--with-ecmult-gen-kb=2|22|86],
+[The size of the precomputed table for signing in multiples of 1024 bytes (on typical platforms).]
+[Larger values result in possibly better signing/keygeneration performance at the cost of a larger table.]
+[The default value is a reasonable setting for desktop machines (currently 86). [default=86]]
 )],
-[req_ecmult_gen_precision=$withval], [req_ecmult_gen_precision=auto])
+[set_ecmult_gen_kb=$withval], [set_ecmult_gen_kb=86])
 
 AC_ARG_WITH([valgrind], [AS_HELP_STRING([--with-valgrind=yes|no|auto],
 [Build with extra checks for running inside Valgrind [default=auto]]
@@ -291,6 +293,20 @@ fi
 
 if test x"$enable_ctime_tests" = x"auto"; then
     enable_ctime_tests=$enable_valgrind
+fi
+
+print_msan_notice=no
+if test x"$enable_ctime_tests" = x"yes"; then
+  SECP_MSAN_CHECK
+  # MSan on Clang >=16 reports uninitialized memory in function parameters and return values, even if
+  # the uninitialized variable is never actually "used". This is called "eager" checking, and it's
+  # sounds like good idea for normal use of MSan. However, it yields many false positives in the
+  # ctime_tests because many return values depend on secret (i.e., "uninitialized") values, and
+  # we're only interested in detecting branches (which count as "uses") on secret data.
+  if test x"$msan_enabled" = x"yes"; then
+    SECP_TRY_APPEND_CFLAGS([-fno-sanitize-memory-param-retval], SECP_CFLAGS)
+    print_msan_notice=yes
+  fi
 fi
 
 if test x"$enable_coverage" = x"yes"; then
@@ -336,24 +352,24 @@ else
   x86_64)
     SECP_X86_64_ASM_CHECK
     if test x"$has_x86_64_asm" != x"yes"; then
-      AC_MSG_ERROR([x86_64 assembly optimization requested but not available])
+      AC_MSG_ERROR([x86_64 assembly requested but not available])
     fi
     ;;
   arm32)
     SECP_ARM32_ASM_CHECK
     if test x"$has_arm32_asm" != x"yes"; then
-      AC_MSG_ERROR([ARM32 assembly optimization requested but not available])
+      AC_MSG_ERROR([ARM32 assembly requested but not available])
     fi
     ;;
   no)
     ;;
   *)
-    AC_MSG_ERROR([invalid assembly optimization selection])
+    AC_MSG_ERROR([invalid assembly selection])
     ;;
   esac
 fi
 
-# Select assembly optimization
+# Select assembly
 enable_external_asm=no
 
 case $set_asm in
@@ -366,7 +382,7 @@ arm32)
 no)
   ;;
 *)
-  AC_MSG_ERROR([invalid assembly optimizations])
+  AC_MSG_ERROR([invalid assembly selection])
   ;;
 esac
 
@@ -393,14 +409,7 @@ auto)
   ;;
 esac
 
-# Set ecmult window size
-if test x"$req_ecmult_window" = x"auto"; then
-  set_ecmult_window=15
-else
-  set_ecmult_window=$req_ecmult_window
-fi
-
-error_window_size=['window size for ecmult precomputation not an integer in range [2..24] or "auto"']
+error_window_size=['window size for ecmult precomputation not an integer in range [2..24]']
 case $set_ecmult_window in
 ''|*[[!0-9]]*)
   # no valid integer
@@ -415,19 +424,18 @@ case $set_ecmult_window in
   ;;
 esac
 
-# Set ecmult gen precision
-if test x"$req_ecmult_gen_precision" = x"auto"; then
-  set_ecmult_gen_precision=4
-else
-  set_ecmult_gen_precision=$req_ecmult_gen_precision
-fi
-
-case $set_ecmult_gen_precision in
-2|4|8)
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DECMULT_GEN_PREC_BITS=$set_ecmult_gen_precision"
+case $set_ecmult_gen_kb in
+2)
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DCOMB_BLOCKS=2 -DCOMB_TEETH=5"
+  ;;
+22)
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DCOMB_BLOCKS=11 -DCOMB_TEETH=6"
+  ;;
+86)
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DCOMB_BLOCKS=43 -DCOMB_TEETH=6"
   ;;
 *)
-  AC_MSG_ERROR(['ecmult gen precision not 2, 4, 8 or "auto"'])
+  AC_MSG_ERROR(['ecmult gen table size not 2, 22 or 86'])
   ;;
 esac
 
@@ -444,40 +452,53 @@ SECP_CFLAGS="$SECP_CFLAGS $WERROR_CFLAGS"
 ### Handle module options
 ###
 
-# Besides testing whether modules are enabled, the following code also enables
-# module dependencies. The order of the tests matters: the dependency must be
-# tested first.
-
-if test x"$enable_module_ecdh" = x"yes"; then
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDH=1"
-fi
-
-if test x"$enable_module_musig" = x"yes"; then
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_MUSIG=1"
+# Processing must be done in a reverse topological sorting of the dependency graph
+# (dependent module first).
+if test x"$enable_module_schnorrsig_halfagg" = x"yes"; then
+  if test x"$enable_module_schnorrsig" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the schnorrsig module explicitly, but it is required by the schnorrsig_halfagg module.])
+  fi
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_SCHNORRSIG_HALFAGG=1"
   enable_module_schnorrsig=yes
 fi
 
-if test x"$enable_module_recovery" = x"yes"; then
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_RECOVERY=1"
+if test x"$enable_module_bppp" = x"yes"; then
+  if test x"$enable_module_generator" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the generator module explicitly, but it is required by the bppp module.])
+  fi
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_BPPP=1"
+  enable_module_generator=yes
+fi
+
+if test x"$enable_module_ecdsa_s2c" = x"yes"; then
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDSA_S2C=1"
+fi
+
+if test x"$enable_module_ecdsa_adaptor" = x"yes"; then
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDSA_ADAPTOR=1"
 fi
 
 if test x"$enable_module_whitelist" = x"yes"; then
+  if test x"$enable_module_rangeproof" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the rangeproof module explicitly, but it is required by the whitelist module.])
+  fi
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_WHITELIST=1"
   enable_module_rangeproof=yes
 fi
 
 if test x"$enable_module_surjectionproof" = x"yes"; then
+  if test x"$enable_module_rangeproof" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the rangeproof module explicitly, but it is required by the surjectionproof module.])
+  fi
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_SURJECTIONPROOF=1"
   enable_module_rangeproof=yes
 fi
 
 if test x"$enable_module_rangeproof" = x"yes"; then
+  if test x"$enable_module_generator" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the generator module explicitly, but it is required by the rangeproof module.])
+  fi
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_RANGEPROOF=1"
-  enable_module_generator=yes
-fi
-
-if test x"$enable_module_bppp" = x"yes"; then
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_BPPP=1"
   enable_module_generator=yes
 fi
 
@@ -485,53 +506,66 @@ if test x"$enable_module_generator" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_GENERATOR=1"
 fi
 
-if test x"$enable_module_schnorrsig" = x"yes"; then
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_SCHNORRSIG=1"
-  enable_module_extrakeys=yes
-fi
-
 if test x"$enable_module_ellswift" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ELLSWIFT=1"
 fi
 
-# Test if extrakeys is set after the schnorrsig module to allow the schnorrsig
-# module to set enable_module_extrakeys=yes
+if test x"$enable_module_musig" = x"yes"; then
+  if test x"$enable_module_schnorrsig" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the schnorrsig module explicitly, but it is required by the musig module.])
+  fi
+  enable_module_schnorrsig=yes
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_MUSIG=1"
+fi
+
+if test x"$enable_module_schnorrsig" = x"yes"; then
+  if test x"$enable_module_extrakeys" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the extrakeys module explicitly, but it is required by the schnorrsig module.])
+  fi
+  enable_module_extrakeys=yes
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_SCHNORRSIG=1"
+fi
+
 if test x"$enable_module_extrakeys" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_EXTRAKEYS=1"
 fi
 
-if test x"$enable_module_ecdsa_s2c" = x"yes"; then
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDSA_S2C=1"
+if test x"$enable_module_recovery" = x"yes"; then
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_RECOVERY=1"
+fi
+
+if test x"$enable_module_ecdh" = x"yes"; then
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDH=1"
 fi
 
 if test x"$enable_external_default_callbacks" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DUSE_EXTERNAL_DEFAULT_CALLBACKS=1"
 fi
 
-if test x"$use_reduced_surjection_proof_size" = x"yes"; then
+if test x"$enable_reduced_surjection_proof_size" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DUSE_REDUCED_SURJECTION_PROOF_SIZE=1"
-fi
-
-if test x"$enable_module_ecdsa_adaptor" = x"yes"; then
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDSA_ADAPTOR=1"
 fi
 
 ###
 ### Check for --enable-experimental if necessary
 ###
 
-if test x"$enable_experimental" = x"yes"; then
-  AC_MSG_NOTICE([******])
-  AC_MSG_NOTICE([WARNING: experimental build])
-  AC_MSG_NOTICE([Experimental features do not have stable APIs or properties, and may not be safe for production use.])
-  AC_MSG_NOTICE([******])
-else
+if test x"$enable_experimental" = x"no"; then
   # The order of the following tests matters. If the user enables a dependent
   # module (which automatically enables the module dependencies) we want to
   # print an error for the dependent module, not the module dependency. Hence,
   # we first test dependent modules.
+  if test x"$enable_module_schnorrsig_halfagg" = x"yes"; then
+    AC_MSG_ERROR([Schnorrsig Half-Aggregation module is experimental. Use --enable-experimental to allow.])
+  fi
   if test x"$enable_module_bppp" = x"yes"; then
     AC_MSG_ERROR([Bulletproofs++ module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_ecdsa_adaptor" = x"yes"; then
+    AC_MSG_ERROR([ecdsa adaptor signatures module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_ecdsa_s2c" = x"yes"; then
+    AC_MSG_ERROR([ECDSA sign-to-contract module module is experimental. Use --enable-experimental to allow.])
   fi
   if test x"$enable_module_whitelist" = x"yes"; then
     AC_MSG_ERROR([Key whitelisting module is experimental. Use --enable-experimental to allow.])
@@ -545,18 +579,17 @@ else
   if test x"$enable_module_generator" = x"yes"; then
     AC_MSG_ERROR([NUMS generator module is experimental. Use --enable-experimental to allow.])
   fi
-  if test x"$enable_module_musig" = x"yes"; then
-    AC_MSG_ERROR([MuSig module is experimental. Use --enable-experimental to allow.])
-  fi
-  if test x"$enable_module_ecdsa_s2c" = x"yes"; then
-    AC_MSG_ERROR([ECDSA sign-to-contract module module is experimental. Use --enable-experimental to allow.])
-  fi
-  if test x"$enable_module_ecdsa_adaptor" = x"yes"; then
-    AC_MSG_ERROR([ecdsa adaptor signatures module is experimental. Use --enable-experimental to allow.])
-  fi
   if test x"$set_asm" = x"arm32"; then
-    AC_MSG_ERROR([ARM32 assembly optimization is experimental. Use --enable-experimental to allow.])
+    AC_MSG_ERROR([ARM32 assembly is experimental. Use --enable-experimental to allow.])
   fi
+fi
+
+# Check for concurrency support (tests only)
+if test "x$enable_tests" != x"no"; then
+  AC_CHECK_HEADERS([sys/types.h sys/wait.h unistd.h])
+  AS_IF([test "x$ac_cv_header_sys_types_h" = xyes && test "x$ac_cv_header_sys_wait_h" = xyes &&
+         test "x$ac_cv_header_unistd_h" = xyes], [TEST_DEFINES="-DSUPPORTS_CONCURRENCY=1"], TEST_DEFINES="")
+  AC_SUBST(TEST_DEFINES)
 fi
 
 ###
@@ -572,19 +605,20 @@ AM_CONDITIONAL([USE_CTIME_TESTS], [test x"$enable_ctime_tests" = x"yes"])
 AM_CONDITIONAL([USE_EXHAUSTIVE_TESTS], [test x"$enable_exhaustive_tests" != x"no"])
 AM_CONDITIONAL([USE_EXAMPLES], [test x"$enable_examples" != x"no"])
 AM_CONDITIONAL([USE_BENCHMARK], [test x"$enable_benchmark" = x"yes"])
-AM_CONDITIONAL([ENABLE_MODULE_BPPP], [test x"$enable_module_bppp" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDH], [test x"$enable_module_ecdh" = x"yes"])
-AM_CONDITIONAL([ENABLE_MODULE_MUSIG], [test x"$enable_module_musig" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_RECOVERY], [test x"$enable_module_recovery" = x"yes"])
-AM_CONDITIONAL([ENABLE_MODULE_GENERATOR], [test x"$enable_module_generator" = x"yes"])
-AM_CONDITIONAL([ENABLE_MODULE_RANGEPROOF], [test x"$enable_module_rangeproof" = x"yes"])
-AM_CONDITIONAL([ENABLE_MODULE_WHITELIST], [test x"$enable_module_whitelist" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_EXTRAKEYS], [test x"$enable_module_extrakeys" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_SCHNORRSIG], [test x"$enable_module_schnorrsig" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_MUSIG], [test x"$enable_module_musig" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ELLSWIFT], [test x"$enable_module_ellswift" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_GENERATOR], [test x"$enable_module_generator" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_RANGEPROOF], [test x"$enable_module_rangeproof" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_SURJECTIONPROOF], [test x"$enable_module_surjectionproof" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_WHITELIST], [test x"$enable_module_whitelist" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_S2C], [test x"$enable_module_ecdsa_s2c" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_ADAPTOR], [test x"$enable_module_ecdsa_adaptor" = x"yes"])
-AM_CONDITIONAL([ENABLE_MODULE_SURJECTIONPROOF], [test x"$enable_module_surjectionproof" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_BPPP], [test x"$enable_module_bppp" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_SCHNORRSIG_HALFAGG], [test x"$enable_module_schnorrsig_halfagg" = x"yes"])
 AM_CONDITIONAL([USE_REDUCED_SURJECTION_PROOF_SIZE], [test x"$use_reduced_surjection_proof_size" = x"yes"])
 AM_CONDITIONAL([USE_EXTERNAL_ASM], [test x"$enable_external_asm" = x"yes"])
 AM_CONDITIONAL([USE_ASM_ARM], [test x"$set_asm" = x"arm32"])
@@ -595,11 +629,16 @@ AC_SUBST(LIB_VERSION_AGE, _LIB_VERSION_AGE)
 
 AC_OUTPUT
 
+# The order in which all modules are listed here should be considered the
+# canonical order. This order (or, when appropriate, its reserve) should be used
+# everywhere we list or process modules, i.e., here and in other build system
+# files and docs.
 echo
 echo "Build Options:"
 echo "  with external callbacks = $enable_external_default_callbacks"
 echo "  with benchmarks         = $enable_benchmark"
 echo "  with tests              = $enable_tests"
+echo "  with exhaustive tests   = $enable_exhaustive_tests"
 echo "  with ctime tests        = $enable_ctime_tests"
 echo "  with coverage           = $enable_coverage"
 echo "  with examples           = $enable_examples"
@@ -607,22 +646,27 @@ echo "  module ecdh             = $enable_module_ecdh"
 echo "  module recovery         = $enable_module_recovery"
 echo "  module extrakeys        = $enable_module_extrakeys"
 echo "  module schnorrsig       = $enable_module_schnorrsig"
+echo "  module musig            = $enable_module_musig"
 echo "  module ellswift         = $enable_module_ellswift"
+# libsecp256k1-zkp modules, in the order they were added to the libsecp256k1-zkp
 echo "  module generator        = $enable_module_generator"
 echo "  module rangeproof       = $enable_module_rangeproof"
 echo "  module surjectionproof  = $enable_module_surjectionproof"
+if test x"$enable_module_surjectionproof" = x"yes" && test x"$enable_reduced_surjection_proof_size" = x"yes"; then
+echo "    reduced proof size    = $enable_reduced_surjection_proof_size"
+fi
 echo "  module whitelist        = $enable_module_whitelist"
-echo "  module musig            = $enable_module_musig"
 echo "  module ecdsa-s2c        = $enable_module_ecdsa_s2c"
 echo "  module ecdsa-adaptor    = $enable_module_ecdsa_adaptor"
 echo "  module bppp             = $enable_module_bppp"
+echo "  module schnorrsig-halfagg = $enable_module_schnorrsig_halfagg"
 echo
 echo "  asm                     = $set_asm"
 echo "  ecmult window size      = $set_ecmult_window"
-echo "  ecmult gen prec. bits   = $set_ecmult_gen_precision"
+echo "  ecmult gen table size   = $set_ecmult_gen_kb KiB"
 # Hide test-only options unless they're used.
 if test x"$set_widemul" != xauto; then
-echo "  wide multiplication     = $set_widemul"
+echo "  wide multiplication       = $set_widemul"
 fi
 echo
 echo "  valgrind                = $enable_valgrind"
@@ -631,3 +675,17 @@ echo "  CPPFLAGS                = $CPPFLAGS"
 echo "  SECP_CFLAGS             = $SECP_CFLAGS"
 echo "  CFLAGS                  = $CFLAGS"
 echo "  LDFLAGS                 = $LDFLAGS"
+
+if test x"$print_msan_notice" = x"yes"; then
+  echo
+  echo "Note:"
+  echo "  MemorySanitizer detected, tried to add -fno-sanitize-memory-param-retval to SECP_CFLAGS"
+  echo "  to avoid false positives in ctime_tests. Pass --disable-ctime-tests to avoid this."
+fi
+
+if test x"$enable_experimental" = x"yes"; then
+  echo
+  echo "WARNING: Experimental build"
+  echo "  Experimental features do not have stable APIs or properties, and may not be safe for"
+  echo "  production use."
+fi
