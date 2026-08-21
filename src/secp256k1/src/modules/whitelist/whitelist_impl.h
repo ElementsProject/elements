@@ -61,8 +61,9 @@ static int secp256k1_whitelist_compute_tweaked_privkey(const secp256k1_context* 
     }
     if (ret) {
         secp256k1_gej pkeyj;
-        secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &pkeyj, skey);
+        secp256k1_ecmult_gen_gej(&ctx->ecmult_gen_ctx, &pkeyj, skey);
         ret = secp256k1_whitelist_hash_pubkey(hash_ctx, &tweak, &pkeyj);
+        secp256k1_gej_clear(&pkeyj);
     }
     if (ret) {
         secp256k1_scalar sonline;

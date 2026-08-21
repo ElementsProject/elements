@@ -129,9 +129,8 @@ int secp256k1_borromean_sign(const secp256k1_hash_ctx *hash_ctx, const secp256k1
     count = 0;
     for (i = 0; i < nrings; i++) {
         VERIFY_CHECK(INT_MAX - count > rsizes[i]);
-        secp256k1_ecmult_gen(ecmult_gen_ctx, &rgej, &k[i]);
-        secp256k1_ge_set_gej(&rge, &rgej);
-        if (secp256k1_gej_is_infinity(&rgej)) {
+        secp256k1_ecmult_gen_ge(ecmult_gen_ctx, &rge, &k[i]);
+        if (secp256k1_ge_is_infinity(&rge)) {
             return 0;
         }
         secp256k1_eckey_pubkey_serialize33(&rge, tmp);
