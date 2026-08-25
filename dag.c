@@ -116,6 +116,7 @@ sha256_midstate simplicity_computeWordCMR(const bitstring* value, size_t n) {
      case 0: i = getBit(value, 0); break;
      case 1: i = 2 + ((1U * getBit(value, 0) << 1) | getBit(value, 1)); break;
      case 2: i = 6 + ((1U * getBit(value, 0) << 3) | (1U * getBit(value, 1) << 2) | (1U * getBit(value, 2) << 1) | getBit(value, 3)); break;
+     default: SIMPLICITY_UNREACHABLE;
     }
     memcpy(stack_ptr, &word_cmr[i], sizeof(uint32_t[8]));
   } else {
@@ -174,7 +175,7 @@ void simplicity_computeCommitmentMerkleRoot(dag_node* dag, const uint_fast32_t i
    case PAIR:
     memcpy(block + j, dag[dag[i].child[1]].cmr.s, sizeof(uint32_t[8]));
     j = 0;
-    /*@fallthrough@*/
+    SIMPLICITY_FALLTHROUGH;
    case DISCONNECT: /* Only the first child is used in the CMR. */
    case INJL:
    case INJR:
@@ -182,6 +183,7 @@ void simplicity_computeCommitmentMerkleRoot(dag_node* dag, const uint_fast32_t i
    case DROP:
     memcpy(block + j, dag[dag[i].child[0]].cmr.s, sizeof(uint32_t[8]));
     simplicity_sha256_compression(dag[i].cmr.s, block);
+    SIMPLICITY_FALLTHROUGH;
    case IDEN:
    case UNIT:
    case WITNESS:
@@ -224,13 +226,14 @@ static void computeIdentityHashRoots(sha256_midstate* ihr, const dag_node* dag, 
      case DISCONNECT:
       memcpy(block + j, ihr[dag[i].child[1]].s, sizeof(uint32_t[8]));
       j = 0;
-      /*@fallthrough@*/
+      SIMPLICITY_FALLTHROUGH;
      case INJL:
      case INJR:
      case TAKE:
      case DROP:
       memcpy(block + j, ihr[dag[i].child[0]].s, sizeof(uint32_t[8]));
       simplicity_sha256_compression(ihr[i].s, block);
+      SIMPLICITY_FALLTHROUGH;
      case IDEN:
      case UNIT:
      case HIDDEN:
@@ -420,6 +423,7 @@ simplicity_err simplicity_verifyCanonicalOrder(dag_node* dag, const uint_fast32_
         continue;
       }
       if (bottom == child) bottom++;
+      SIMPLICITY_FALLTHROUGH;
      case IDEN:
      case UNIT:
      case WITNESS:
@@ -444,6 +448,7 @@ simplicity_err simplicity_verifyCanonicalOrder(dag_node* dag, const uint_fast32_
         continue;
       }
       if (bottom == child) bottom++;
+      SIMPLICITY_FALLTHROUGH;
      case INJL:
      case INJR:
      case TAKE:

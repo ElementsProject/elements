@@ -462,7 +462,7 @@ static simplicity_err runTCO(evalState state, call* stack, const dag_node* dag, 
       skip(state.activeWriteFrame, pad( INJR == dag[pc].tag
                                  , type_dag[INJ_B(dag, type_dag, pc)].bitSize
                                  , type_dag[INJ_C(dag, type_dag, pc)].bitSize));
-      /*@fallthrough@*/
+      SIMPLICITY_FALLTHROUGH;
      case TAKE:
       simplicity_debug_assert(calling);
       /* TAIL_CALL(dag[pc].child[0], SAME_TCO); */
@@ -496,7 +496,7 @@ static simplicity_err runTCO(evalState state, call* stack, const dag_node* dag, 
       } else {
         writeValue(state.activeWriteFrame, &dag[pc].compactValue, dag[pc].targetType, type_dag);
       }
-      /*@fallthrough@*/
+      SIMPLICITY_FALLTHROUGH;
      case UNIT:
       simplicity_debug_assert(calling);
       if (get_tco_flag(&stack[pc])) {
