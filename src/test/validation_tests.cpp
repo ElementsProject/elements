@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <bitcoin-build-config.h> // IWYU pragma: keep
 #include <chainparams.h>
 #include <consensus/amount.h>
 #include <consensus/merkle.h>
@@ -362,6 +363,30 @@ BOOST_AUTO_TEST_CASE(block_malleation)
         }
         BOOST_CHECK(is_mutated(block, /*check_witness_root=*/true));
     }
+}
+
+// ELEMENTS: the offline (chainstate-less) SIGHASH_RANGEPROOF gating used by
+// elements-tx must treat liquidv1 as known-active even though dynafed there is
+// height-activated rather than ALWAYS_ACTIVE.
+BOOST_AUTO_TEST_CASE(sighash_rangeproof_by_params_test)
+{
+    // liquidv1: dynafed is height-activated (nStartTime = 1000000), NOT the
+    // ALWAYS_ACTIVE sentinel, but must be treated as active by params.
+    const auto liquidv1 = CreateChainParams(*m_node.args, ChainType::LIQUID1);
+    BOOST_CHECK(liquidv1->GetConsensus().vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime
+                != Consensus::BIP9Deployment::ALWAYS_ACTIVE);
+    BOOST_CHECK(liquidv1->SighashRangeproofActiveByParams());
+
+    // liquidv1test: overrides dynafed to ALWAYS_ACTIVE, so it is active by params
+    // via the ALWAYS_ACTIVE branch (independent of the liquidv1 chain-type check).
+    const auto liquidv1test = CreateChainParams(*m_node.args, ChainType::LIQUID1TEST);
+    BOOST_CHECK_EQUAL(liquidv1test->GetConsensus().vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime,
+                      Consensus::BIP9Deployment::ALWAYS_ACTIVE);
+    BOOST_CHECK(liquidv1test->SighashRangeproofActiveByParams());
+
+    // regtest: dynafed never active by default; must be inactive by params.
+    const auto regtest = CreateChainParams(*m_node.args, ChainType::REGTEST);
+    BOOST_CHECK(!regtest->SighashRangeproofActiveByParams());
 }
 
 BOOST_AUTO_TEST_SUITE_END()

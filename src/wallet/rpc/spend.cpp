@@ -1050,7 +1050,11 @@ RPCHelpMan signrawtransactionwithwallet()
     LOCK(pwallet->cs_wallet);
     EnsureWalletIsUnlocked(*pwallet);
 
-    int nHashType = ParseSighashString(request.params[2]);
+    // ELEMENTS: when no sighash is specified, default to committing to
+    // rangeproofs if SIGHASH_RANGEPROOF is active at the current tip.
+    int nHashType = request.params[2].isNull()
+        ? DefaultSighashType(pwallet->chain().isSighashRangeproofActive())
+        : ParseSighashString(request.params[2]);
 
     CMutableTransaction mtx;
     if (!DecodeHexTx(mtx, request.params[0].get_str())) {
@@ -1755,7 +1759,11 @@ RPCHelpMan walletprocesspsbt()
     }
 
     // Get the sighash type
-    int nHashType = ParseSighashString(request.params[2]);
+    // ELEMENTS: when no sighash is specified, default to committing to
+    // rangeproofs if SIGHASH_RANGEPROOF is active at the current tip.
+    int nHashType = request.params[2].isNull()
+        ? DefaultSighashType(pwallet->chain().isSighashRangeproofActive())
+        : ParseSighashString(request.params[2]);
 
     // Don't sign, just fill data.
     bool bip32derivs = request.params[3].isNull() ? true : request.params[3].get_bool();

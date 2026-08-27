@@ -11,6 +11,7 @@
 #include <consensus/amount.h>
 #include <consensus/validation.h>
 #include <core_io.h>
+#include <deploymentstatus.h>
 #include <index/txindex.h>
 #include <key_io.h>
 #include <logging.h>
@@ -891,8 +892,10 @@ static RPCHelpMan signrawtransactionwithkey()
     ParsePrevouts(request.params[2], &keystore, coins);
 
     UniValue result(UniValue::VOBJ);
-    auto tip = WITH_LOCK(::cs_main, return chainman.ActiveChain().Tip());
-    SignTransaction(mtx, &keystore, coins, request.params[3], result, tip);
+    const auto [tip, sighash_rangeproof_active] = WITH_LOCK(::cs_main, return std::make_pair(
+        chainman.ActiveChain().Tip(),
+        DeploymentActiveAfter(chainman.ActiveChain().Tip(), chainman, Consensus::DEPLOYMENT_DYNA_FED)));
+    SignTransaction(mtx, &keystore, coins, request.params[3], result, tip, sighash_rangeproof_active);
     return result;
 },
     };
@@ -3300,7 +3303,16 @@ RPCHelpMan descriptorprocesspsbt()
         EvalDescriptorStringOrObject(descs[i], provider, /*expand_priv=*/true);
     }
 
-    int sighash_type = ParseSighashString(request.params[2]);
+    // ELEMENTS: when no sighash is specified, default to committing to
+    // rangeproofs if SIGHASH_RANGEPROOF is active at the current tip.
+    int sighash_type;
+    if (request.params[2].isNull()) {
+        ChainstateManager& chainman = EnsureAnyChainman(request.context);
+        const bool sighash_rangeproof_active = WITH_LOCK(::cs_main, return DeploymentActiveAfter(chainman.ActiveChain().Tip(), chainman, Consensus::DEPLOYMENT_DYNA_FED));
+        sighash_type = DefaultSighashType(sighash_rangeproof_active);
+    } else {
+        sighash_type = ParseSighashString(request.params[2]);
+    }
     bool bip32derivs = request.params[3].isNull() ? true : request.params[3].get_bool();
     bool finalize = request.params[4].isNull() ? true : request.params[4].get_bool();
 

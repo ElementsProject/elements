@@ -5,6 +5,7 @@
 #include <bitcoin-build-config.h> // IWYU pragma: keep
 
 #include <asset.h>
+#include <chainparams.h>
 #include <chainparamsbase.h>
 #include <clientversion.h>
 #include <coins.h>
@@ -21,6 +22,7 @@
 #include <script/sign.h>
 #include <script/signingprovider.h>
 #include <univalue.h>
+#include <util/chaintype.h>
 #include <util/exception.h>
 #include <util/fs.h>
 #include <util/moneystr.h>
@@ -615,7 +617,16 @@ static std::vector<unsigned char> ParseHexUV(const UniValue& v, const std::strin
 
 static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
 {
-    int nHashType = SIGHASH_ALL;
+    // ELEMENTS: bitcoin-tx has no chainstate, so we cannot check live dynafed
+    // activation. Gate the default on chain parameters instead: commit to
+    // rangeproofs by default on chains where dynafed (which enables
+    // SCRIPT_SIGHASH_RANGEPROOF) is known to be active. Otherwise use the
+    // historical SIGHASH_ALL default so offline-built txs stay standard and valid.
+    // See CChainParams::SighashRangeproofActiveByParams() for the liquidv1 nuance.
+    int nHashType = DefaultSighashType(Params().SighashRangeproofActiveByParams());
+    // DefaultSighashType may return SIGHASH_DEFAULT (0); for the legacy tool path
+    // treat that as SIGHASH_ALL.
+    if (nHashType == SIGHASH_DEFAULT) nHashType = SIGHASH_ALL;
 
     if (flagStr.size() > 0)
         if (!findSighashFlags(nHashType, flagStr))
