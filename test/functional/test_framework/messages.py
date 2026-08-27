@@ -986,8 +986,14 @@ class CTransaction:
     def is_valid(self):
         self.calc_sha256()
         for tout in self.vout:
-            if tout.nValue < 0 or tout.nValue > 21000000 * COIN:
-                return False
+            value = tout.nValue
+            # ELEMENTS: nValue is a CTxOutValue. Only explicit (unblinded)
+            # amounts can be range-checked here; confidential outputs are
+            # validated via rangeproofs elsewhere, not by this sanity check.
+            if value.vchCommitment[0] == 1:
+                amount = value.getAmount()
+                if amount < 0 or amount > 21000000 * COIN:
+                    return False
         return True
 
     # Calculate the transaction weight using witness and non-witness
