@@ -163,6 +163,13 @@ public:
     //! Check if transaction is RBF opt in.
     virtual RBFTransactionState isRBFOptIn(const CTransaction& tx) = 0;
 
+    //! ELEMENTS: Check whether SIGHASH_RANGEPROOF is active for signing at the
+    //! current chain tip (i.e. dynafed, which enables SCRIPT_SIGHASH_RANGEPROOF,
+    //! is active). Used to decide the default pre-Taproot sighash so that we only
+    //! commit to output rangeproofs when doing so yields standard, valid
+    //! signatures.
+    virtual bool isSighashRangeproofActive() = 0;
+
     //! Check if transaction is in mempool.
     virtual bool isInMempool(const uint256& txid) = 0;
 

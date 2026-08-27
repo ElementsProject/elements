@@ -36,6 +36,15 @@ MutableTransactionSignatureCreator::MutableTransactionSignatureCreator(const CMu
 {
 }
 
+int DefaultSighashType(bool sighash_rangeproof_active)
+{
+    // When SIGHASH_RANGEPROOF is active for the chain, default to committing to
+    // rangeproofs for pre-Taproot inputs. The 0x40 bit is stripped for Taproot
+    // signing (see CreateSchnorrSig), so this is a safe universal default.
+    // Otherwise fall back to SIGHASH_DEFAULT (== SIGHASH_ALL for pre-Taproot).
+    return sighash_rangeproof_active ? SIGHASH_ALL_WITH_RANGEPROOF : SIGHASH_DEFAULT;
+}
+
 bool MutableTransactionSignatureCreator::CreateSig(const SigningProvider& provider, std::vector<unsigned char>& vchSig, const CKeyID& address, const CScript& scriptCode, SigVersion sigversion, unsigned int flags) const
 {
     assert(sigversion == SigVersion::BASE || sigversion == SigVersion::WITNESS_V0);
@@ -83,12 +92,16 @@ bool MutableTransactionSignatureCreator::CreateSchnorrSig(const SigningProvider&
         execdata.m_tapleaf_hash_init = true;
         execdata.m_tapleaf_hash = *leaf_hash;
     }
+    // ELEMENTS: SIGHASH_RANGEPROOF is a pre-Taproot-only flag; the BIP341-style
+    // sighash always commits to rangeproofs and rejects the 0x40 bit. Strip it so
+    // that a universal default of SIGHASH_ALL_WITH_RANGEPROOF still produces valid
+    // Taproot signatures.
+    const int taproot_hashtype = nHashType & ~SIGHASH_RANGEPROOF;
     uint256 hash;
-    if (!SignatureHashSchnorr(hash, execdata, *txTo, nIn, nHashType, sigversion, *m_txdata, MissingDataBehavior::FAIL)) return false;
+    if (!SignatureHashSchnorr(hash, execdata, *txTo, nIn, taproot_hashtype, sigversion, *m_txdata, MissingDataBehavior::FAIL)) return false;
     sig.resize(64);
-    // Use uint256{} as aux_rnd for now.
     if (!key.SignSchnorr(hash, sig, merkle_root, {})) return false;
-    if (nHashType) sig.push_back(nHashType);
+    if (taproot_hashtype) sig.push_back(taproot_hashtype);
     return true;
 }
 
@@ -702,7 +715,7 @@ bool SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, 
         }
 
         ScriptError serror = SCRIPT_ERR_OK;
-        if (!VerifyScript(txin.scriptSig, prevPubKey, &inWitness.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount, txdata, MissingDataBehavior::FAIL), &serror)) {
+        if (!sigdata.complete && !VerifyScript(txin.scriptSig, prevPubKey, &inWitness.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount, txdata, MissingDataBehavior::FAIL), &serror)) {
             if (serror == SCRIPT_ERR_INVALID_STACK_OPERATION) {
                 // Unable to sign input and verification failed (possible attempt to partially sign).
                 input_errors[i] = Untranslated("Unable to sign input, invalid stack size (possibly missing key)");

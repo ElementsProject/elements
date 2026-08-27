@@ -37,6 +37,15 @@ enum
     // ELEMENTS:
     // A flag that means the rangeproofs should be included in the sighash.
     SIGHASH_RANGEPROOF = 0x40,
+
+    // ELEMENTS:
+    // The default sighash used by wallets/tools when signing pre-Taproot
+    // (BASE/WITNESS_V0) inputs on chains where SIGHASH_RANGEPROOF is active.
+    // This commits to the output rangeproofs, closing the pre-Taproot
+    // rangeproof (witness) malleability gap. Note this must only be used once
+    // dynafed (which enables SCRIPT_SIGHASH_RANGEPROOF) is active for the target
+    // chain; otherwise the resulting signatures are non-standard and invalid.
+    SIGHASH_ALL_WITH_RANGEPROOF = SIGHASH_ALL | SIGHASH_RANGEPROOF,
 };
 
 /** Script verification flags.

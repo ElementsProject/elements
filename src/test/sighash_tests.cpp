@@ -7,6 +7,7 @@
 #include <hash.h>
 #include <script/interpreter.h>
 #include <script/script.h>
+#include <script/sign.h>
 #include <serialize.h>
 #include <streams.h>
 #include <test/data/sighash.json.h>
@@ -297,4 +298,20 @@ BOOST_AUTO_TEST_CASE(sighash_caching)
     }
 }
 
+// ELEMENTS: verify the default sighash selection helper.
+BOOST_AUTO_TEST_CASE(sighash_default_type)
+{
+    // The named constant sets both the ALL and RANGEPROOF bits.
+    BOOST_CHECK_EQUAL(SIGHASH_ALL_WITH_RANGEPROOF, SIGHASH_ALL | SIGHASH_RANGEPROOF);
+    BOOST_CHECK(SIGHASH_ALL_WITH_RANGEPROOF & SIGHASH_RANGEPROOF);
+
+    // When rangeproof signing is not active, fall back to SIGHASH_DEFAULT
+    // (== SIGHASH_ALL for pre-Taproot); do not set the rangeproof bit.
+    BOOST_CHECK_EQUAL(DefaultSighashType(/*sighash_rangeproof_active=*/false), SIGHASH_DEFAULT);
+    BOOST_CHECK((DefaultSighashType(false) & SIGHASH_RANGEPROOF) == 0);
+
+    // When active, default to committing to rangeproofs.
+    BOOST_CHECK_EQUAL(DefaultSighashType(/*sighash_rangeproof_active=*/true), SIGHASH_ALL_WITH_RANGEPROOF);
+    BOOST_CHECK((DefaultSighashType(true) & SIGHASH_RANGEPROOF) == SIGHASH_RANGEPROOF);
+}
 BOOST_AUTO_TEST_SUITE_END()

@@ -572,6 +572,14 @@ public:
         LOCK(m_node.mempool->cs);
         return IsRBFOptIn(tx, *m_node.mempool);
     }
+    bool isSighashRangeproofActive() override
+    {
+        // Mirror the mempool standardness check in MemPoolAccept: dynafed being
+        // active after the current tip enables SCRIPT_SIGHASH_RANGEPROOF, which
+        // is what makes SIGHASH_RANGEPROOF signatures standard and valid.
+        LOCK(::cs_main);
+        return DeploymentActiveAfter(chainman().ActiveChain().Tip(), Params().GetConsensus(), Consensus::DEPLOYMENT_DYNA_FED);
+    }
     bool isInMempool(const uint256& txid) override
     {
         if (!m_node.mempool) return false;

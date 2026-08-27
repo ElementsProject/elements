@@ -11,6 +11,7 @@
 #include <consensus/amount.h>
 #include <consensus/validation.h>
 #include <core_io.h>
+#include <deploymentstatus.h>
 #include <index/txindex.h>
 #include <key_io.h>
 #include <merkleblock.h>
@@ -988,7 +989,10 @@ static RPCHelpMan signrawtransactionwithkey()
     ParsePrevouts(request.params[2], &keystore, coins);
 
     UniValue result(UniValue::VOBJ);
-    SignTransaction(mtx, &keystore, coins, request.params[3], result, chainman.ActiveChain().Tip());
+    const auto [tip, sighash_rangeproof_active] = WITH_LOCK(::cs_main, return std::make_pair(
+        chainman.ActiveChain().Tip(),
+        DeploymentActiveAfter(chainman.ActiveChain().Tip(), Params().GetConsensus(), Consensus::DEPLOYMENT_DYNA_FED)));
+    SignTransaction(mtx, &keystore, coins, request.params[3], result, tip, sighash_rangeproof_active);
     return result;
 },
     };
