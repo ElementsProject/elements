@@ -82,9 +82,12 @@ static void secp256k1_dleq_challenge(const secp256k1_hash_ctx *hash_ctx, secp256
 static void secp256k1_dleq_pair(const secp256k1_ecmult_gen_context *ecmult_gen_ctx, secp256k1_ge *p, const secp256k1_scalar *sk, const secp256k1_ge *gen2) {
     secp256k1_gej pj[2];
 
-    secp256k1_ecmult_gen(ecmult_gen_ctx, &pj[0], sk);
+    secp256k1_ecmult_gen_gej(ecmult_gen_ctx, &pj[0], sk);
     secp256k1_ecmult_const(&pj[1], gen2, sk);
     secp256k1_ge_set_all_gej(p, pj, 2);
+
+    secp256k1_gej_clear(&pj[0]);
+    secp256k1_gej_clear(&pj[1]);
 }
 
 /* Generates a proof that the discrete logarithm of P1 to the secp256k1 base G is the
