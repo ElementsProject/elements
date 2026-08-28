@@ -78,6 +78,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 enable_language(C)
 add_library(elementssimplicity STATIC EXCLUDE_FROM_ALL
   simplicity/bitstream.c
+  simplicity/cmr.c
   simplicity/dag.c
   simplicity/deserialize.c
   simplicity/eval.c
