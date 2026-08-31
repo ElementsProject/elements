@@ -1,7 +1,10 @@
-#include <simplicity/elements/cmr.h>
+#ifndef SIMPLICITY_CMR_H
+#define SIMPLICITY_CMR_H
 
-#include "../cmr.h"
-#include "primitive.h"
+#include <stdbool.h>
+#include <stddef.h>
+#include <simplicity/errorCodes.h>
+#include "deserialize.h"
 
 /* Deserialize a Simplicity 'program' and compute its CMR.
  *
@@ -16,7 +19,6 @@
  *               unsigned char cmr[32]
  *               unsigned char program[program_len]
  */
-bool simplicity_elements_computeCmr( simplicity_err* error, unsigned char* cmr
-                                   , const unsigned char* program, size_t program_len) {
-  return simplicity_computeCmr(error, cmr, simplicity_elements_decodeJet, program, program_len);
-}
+extern bool simplicity_computeCmr( simplicity_err* error, unsigned char* cmr, simplicity_callback_decodeJet decodeJet
+                                 , const unsigned char* program, size_t program_len);
+#endif

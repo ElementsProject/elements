@@ -1,4 +1,4 @@
-#include <simplicity/elements/cmr.h>
+#include <simplicity/bitcoin/cmr.h>
 
 #include "../cmr.h"
 #include "primitive.h"
@@ -16,7 +16,7 @@
  *               unsigned char cmr[32]
  *               unsigned char program[program_len]
  */
-bool simplicity_elements_computeCmr( simplicity_err* error, unsigned char* cmr
+bool simplicity_bitcoin_computeCmr( simplicity_err* error, unsigned char* cmr
                                    , const unsigned char* program, size_t program_len) {
-  return simplicity_computeCmr(error, cmr, simplicity_elements_decodeJet, program, program_len);
+  return simplicity_computeCmr(error, cmr, simplicity_bitcoin_decodeJet, program, program_len);
 }
