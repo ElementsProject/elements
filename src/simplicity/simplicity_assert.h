@@ -34,4 +34,18 @@
 #  define SIMPLICITY_UNREACHABLE assert(NULL == "SIMPLICITY_UNCREACHABLE was reached")
 #endif
 
+/* Defines a FALLTHROUGH macro to annotate intentional switch fallthroughs, silencing -Wimplicit-fallthrough
+ * warnings on compilers that support the 'fallthrough' attribute.
+ * No-op on compilers (e.g. MSVC) that don't support it.
+ */
+#if defined(__has_attribute)
+#  if __has_attribute(fallthrough)
+#    define SIMPLICITY_FALLTHROUGH __attribute__((fallthrough))
+#  endif
+#endif
+
+#ifndef SIMPLICITY_FALLTHROUGH
+#  define SIMPLICITY_FALLTHROUGH ((void)0)
+#endif
+
 #endif /* SIMPLICITY_SIMPLICITY_ASSERT_H */
