@@ -112,6 +112,7 @@ BASE_SCRIPTS = [
     'rpc_tweakfedpeg.py --legacy-wallet',
     'feature_issuance.py --legacy-wallet',
     'feature_confidential_transactions.py --legacy-wallet',
+    'feature_rangeproof_cache.py',
     'feature_default_asset_name.py --legacy-wallet',
     'feature_assetsdir.py --legacy-wallet',
     'feature_initial_reissuance_token.py --legacy-wallet',
