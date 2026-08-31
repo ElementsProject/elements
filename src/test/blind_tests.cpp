@@ -15,6 +15,8 @@
 #include <boost/test/unit_test.hpp>
 
 #include <secp256k1.h>
+#include <secp256k1_generator.h>
+#include <secp256k1_rangeproof.h>
 
 // For elements serialization rules
 struct ElementsSetup : public TestingSetup {
@@ -371,5 +373,77 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(BlindTransaction(t_input_blinds, t_input_asset_blinds, t_input_assets, t_input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == 2);
         BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
     }
+}
+
+// The rangeproof verification cache entry must bind everything
+// secp256k1_rangeproof_verify binds: the proof, the value commitment, the
+// asset generator, and the scriptPubKey (the proof's extra commitment).
+// Regression test: a (proof, commitment) pair verified under one script must
+// not be accepted under another via a cache hit, and the min_value==0 guard
+// for spendable outputs must not be skipped on cache hits.
+BOOST_AUTO_TEST_CASE(rangeproof_cache_binding_test)
+{
+    // May already be initialized by a previous test case in this suite.
+    BOOST_CHECK(InitRangeproofCache(DEFAULT_VALIDATION_CACHE_BYTES / 4));
+
+    secp256k1_context* ctx = secp256k1_blind_context;
+    BOOST_REQUIRE(ctx != nullptr);
+
+    unsigned char asset32[32] = {0}; asset32[31] = 0x01;
+    unsigned char blind[32] = {0}; blind[31] = 0x02;
+    unsigned char nonce[32] = {0}; nonce[31] = 0x03;
+
+    secp256k1_generator gen;
+    BOOST_REQUIRE(secp256k1_generator_generate(ctx, &gen, asset32) == 1);
+
+    const uint64_t value = 1000;
+    secp256k1_pedersen_commitment commit;
+    BOOST_REQUIRE(secp256k1_pedersen_commit(ctx, &commit, blind, value, &gen) == 1);
+
+    unsigned char commit_ser[33], gen_ser[33];
+    secp256k1_pedersen_commitment_serialize(ctx, commit_ser, &commit);
+    secp256k1_generator_serialize(ctx, gen_ser, &gen);
+    std::vector<unsigned char> vCommit(commit_ser, commit_ser + 33);
+    std::vector<unsigned char> vAsset(gen_ser, gen_ser + 33);
+
+    CScript scriptA; scriptA << OP_TRUE;        // spendable
+    CScript scriptB; scriptB << OP_RETURN << 1; // different script
+    CScript scriptUnsp; scriptUnsp << OP_RETURN; // unspendable
+
+    // Honest proof (min_value=1) with extra commitment scriptA.
+    std::vector<unsigned char> proof(5134);
+    size_t plen = proof.size();
+    BOOST_REQUIRE(secp256k1_rangeproof_sign(ctx, proof.data(), &plen, /*min_value=*/1,
+        &commit, blind, nonce, /*exp=*/0, /*min_bits=*/52, value,
+        /*message=*/nullptr, /*msg_len=*/0, scriptA.data(), scriptA.size(), &gen) == 1);
+    proof.resize(plen);
+
+    CachingRangeProofChecker checker(/*storeIn=*/true);
+    BOOST_CHECK(checker.VerifyRangeProof(proof, vCommit, vAsset, scriptA, ctx));
+    // After the first call cached (proof, commitment) under scriptA, the same
+    // pair must still be rejected under a different script.
+    BOOST_CHECK(!checker.VerifyRangeProof(proof, vCommit, vAsset, scriptB, ctx));
+
+    // Same for the asset generator, which is the proof's verification tag:
+    // the cached pair must not validate under a different generator either.
+    unsigned char asset32b[32] = {0}; asset32b[31] = 0x09;
+    secp256k1_generator gen2;
+    BOOST_REQUIRE(secp256k1_generator_generate(ctx, &gen2, asset32b) == 1);
+    unsigned char gen2_ser[33];
+    secp256k1_generator_serialize(ctx, gen2_ser, &gen2);
+    std::vector<unsigned char> vAsset2(gen2_ser, gen2_ser + 33);
+    BOOST_CHECK(!checker.VerifyRangeProof(proof, vCommit, vAsset2, scriptA, ctx));
+
+    // min_value=0 proof, valid only for unspendable scripts.
+    std::vector<unsigned char> proof0(5134);
+    size_t plen0 = proof0.size();
+    BOOST_REQUIRE(secp256k1_rangeproof_sign(ctx, proof0.data(), &plen0, /*min_value=*/0,
+        &commit, blind, nonce, /*exp=*/0, /*min_bits=*/52, value,
+        /*message=*/nullptr, /*msg_len=*/0, scriptUnsp.data(), scriptUnsp.size(), &gen) == 1);
+    proof0.resize(plen0);
+
+    BOOST_CHECK(checker.VerifyRangeProof(proof0, vCommit, vAsset, scriptUnsp, ctx));
+    // The anti-zero-token guard must not be bypassable via a cache hit.
+    BOOST_CHECK(!checker.VerifyRangeProof(proof0, vCommit, vAsset, scriptA, ctx));
 }
 BOOST_AUTO_TEST_SUITE_END()
