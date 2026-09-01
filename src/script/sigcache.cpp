@@ -55,9 +55,9 @@ void SignatureCache::ComputeEntrySchnorr(uint256& entry, const uint256& hash, Sp
 }
 
 // ELEMENTS:
-void SignatureCache::ComputeEntryRangeProof(uint256& entry, const std::vector<unsigned char>& proof, const std::vector<unsigned char>& commitment) const {
+void SignatureCache::ComputeEntryRangeProof(uint256& entry, const std::vector<unsigned char>& proof, const std::vector<unsigned char>& commitment, const std::vector<unsigned char>& asset_commitment, const CScript& scriptPubKey) const {
     CSHA256 hasher = m_salted_hasher_range_proof;
-    hasher.Write(proof.data(), proof.size()).Write(commitment.data(), commitment.size()).Finalize(entry.begin());
+    hasher.Write(proof.data(), proof.size()).Write(commitment.data(), commitment.size()).Write(asset_commitment.data(), asset_commitment.size()).Write(scriptPubKey.data(), scriptPubKey.size()).Finalize(entry.begin());
 }
 void SignatureCache::ComputeEntrySurjectionProof(uint256& entry, const uint256 &hash, const std::vector<unsigned char>& proof, const std::vector<unsigned char>& commitment) const {
     CSHA256 hasher = m_salted_hasher_surjection_proof;
@@ -131,7 +131,7 @@ bool InitSurjectionproofCache(size_t max_size_bytes)
 bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchValueCommitment, const std::vector<unsigned char>& vchAssetCommitment, const CScript& scriptPubKey, const secp256k1_context* secp256k1_ctx_verify_amounts) const
 {
     uint256 entry;
-    rangeProofCache.ComputeEntryRangeProof(entry, vchRangeProof, vchValueCommitment);
+    rangeProofCache.ComputeEntryRangeProof(entry, vchRangeProof, vchValueCommitment, vchAssetCommitment, scriptPubKey);
 
     if (rangeProofCache.Get(entry, !store)) {
         return true;

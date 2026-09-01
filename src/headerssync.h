@@ -25,6 +25,15 @@ struct CompressedHeader {
     uint32_t nTime{0};
     uint32_t nBits{0};
     uint32_t nNonce{0};
+    // ELEMENTS: fields needed to faithfully reconstruct signed/dynafed
+    // headers. These participate in the header's identity (block_height,
+    // dynafed params, proof challenge) or are required for downstream
+    // validation (proof solution, signblock witness), so they must be retained
+    // across the headers-sync presync/redownload path.
+    uint32_t block_height{0};
+    CProof proof;
+    DynaFedParams m_dynafed_params;
+    CScriptWitness m_signblock_witness;
 
     CompressedHeader()
     {
@@ -38,6 +47,10 @@ struct CompressedHeader {
         nTime = header.nTime;
         nBits = header.nBits;
         nNonce = header.nNonce;
+        block_height = header.block_height;
+        proof = header.proof;
+        m_dynafed_params = header.m_dynafed_params;
+        m_signblock_witness = header.m_signblock_witness;
     }
 
     CBlockHeader GetFullHeader(const uint256& hash_prev_block) {
@@ -46,8 +59,12 @@ struct CompressedHeader {
         ret.hashPrevBlock = hash_prev_block;
         ret.hashMerkleRoot = hashMerkleRoot;
         ret.nTime = nTime;
+        ret.block_height = block_height;
         ret.nBits = nBits;
         ret.nNonce = nNonce;
+        ret.proof = proof;
+        ret.m_dynafed_params = m_dynafed_params;
+        ret.m_signblock_witness = m_signblock_witness;
         return ret;
     };
 };

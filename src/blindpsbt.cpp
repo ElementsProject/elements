@@ -52,10 +52,17 @@ bool CreateAssetSurjectionProof(std::vector<unsigned char>& output_proof, const 
     }
     // Using the input chosen, build proof
     ret = secp256k1_surjectionproof_generate(secp256k1_blind_context, &proof, &ephemeral_input_tags[0], ephemeral_input_tags.size(), &output_asset_tag, input_index, input_asset_blinders[input_index].begin(), output_asset_blinder.begin());
-    assert(ret == 1);
+    if (ret != 1) {
+        // Attacker-selected tags/generators without a known discrete-log
+        // relationship cause generation to fail; this must be a recoverable
+        // PSET error, not a process abort.
+        return false;
+    }
     // Double-check answer
     ret = secp256k1_surjectionproof_verify(secp256k1_blind_context, &proof, &ephemeral_input_tags[0], ephemeral_input_tags.size(), &output_asset_tag);
-    assert(ret == 1);
+    if (ret != 1) {
+        return false;
+    }
 
     // Serialize into output witness structure
     size_t output_len = secp256k1_surjectionproof_serialized_size(secp256k1_blind_context, &proof);
@@ -189,7 +196,11 @@ bool CreateBlindAssetProof(std::vector<unsigned char>& assetproof, const CAsset&
 
 bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
 {
-    if (conf_value.IsNull() || conf_asset.IsNull()) {
+    // The value and asset must be genuine commitments (33-byte, PrefixA/B)
+    // before their buffers are handed to libsecp256k1, which consumes exactly
+    // 33 serialized bytes. An explicit 9-byte value (or a null field) must not
+    // reach the parser, which would otherwise read out of bounds.
+    if (!conf_value.IsCommitment() || !conf_asset.IsCommitment()) {
         return false;
     }
 
@@ -208,7 +219,11 @@ bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, 
     if (secp256k1_rangeproof_verify(secp256k1_blind_context, &min_value, &max_value, &value_commit, proof.data(), proof.size(), /* extra_commit */ nullptr, /* extra_commit_len */ 0, &gen) == 0) {
         return false;
     }
-    return min_value == (uint64_t)value;
+    // A range-membership proof is only meaningful as an equality proof if the
+    // proven interval collapses to the claimed amount. Comparing solely the
+    // lower bound would accept a proof whose committed value is larger than
+    // the displayed amount. Require both bounds to equal `value`.
+    return min_value == (uint64_t)value && max_value == (uint64_t)value;
 }
 
 BlindProofResult VerifyBlindProofs(const PSBTOutput& o) {
@@ -500,6 +515,14 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
         // Check this is our output to blind
         if (output.m_blinder_index == std::nullopt || our_input_data.count(*output.m_blinder_index) == 0) continue;
 
+        // PSET v0 does not require an output amount (it is only enforced for
+        // m_psbt_version >= 2), so a crafted v0 PSET can reach the blinding
+        // loop with output.amount == nullopt. Dereferencing it is undefined
+        // behaviour. Refuse to blind such an output.
+        if (output.amount == std::nullopt) {
+            return BlindingStatus::INVALID_BLINDER;
+        }
+
         // Things we are going to stuff into the PSBTOutput if everything is successful
         CConfidentialValue value_commitment;
         CConfidentialAsset asset_commitment;
@@ -555,6 +578,13 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
         CreateValueCommitment(value_commitment, value_commit, value_blinder, asset_generator, *output.amount);
 
         // Generate rangproof nonce
+        if (!output.m_blinding_pubkey.IsFullyValid()) {
+            // An attacker-controlled (off-curve) blinding pubkey would otherwise
+            // reach CKey::ECDH, whose only validation is an assert on the peer
+            // key, aborting the process. The non-PSET path (blind.cpp) requires
+            // IsFullyValid() before ECDH; mirror it here.
+            return BlindingStatus::INVALID_BLINDER;
+        }
         uint256 nonce = GenerateRangeproofECDHKey(ecdh_key, output.m_blinding_pubkey);
 
         // Generate rangeproof

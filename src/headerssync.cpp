@@ -19,9 +19,15 @@ constexpr size_t HEADER_COMMITMENT_PERIOD{624};
 //! received and validated against commitments.
 constexpr size_t REDOWNLOAD_BUFFER_SIZE{14827}; // 14827/624 = ~23.8 commitments
 
-// Our memory analysis assumes 48 bytes for a CompressedHeader (so we should
-// re-calculate parameters if we compress further)
-static_assert(sizeof(CompressedHeader) == 48);
+// NOTE (ELEMENTS): The upstream Bitcoin memory analysis assumed 48 bytes for
+// a CompressedHeader, which holds only the PoW fields. Elements must retain
+// the identity/proof fields (block_height, proof, dynafed params, signblock
+// witness) so that signed/dynafed headers can be reconstructed faithfully, so
+// CompressedHeader is now larger than 48 bytes. The redownload buffer is
+// bounded by REDOWNLOAD_BUFFER_SIZE headers per peer, so the per-peer memory
+// cost is REDOWNLOAD_BUFFER_SIZE * sizeof(CompressedHeader); this remains
+// small but should be reconsidered if REDOWNLOAD_BUFFER_SIZE is ever raised.
+static_assert(sizeof(CompressedHeader) <= 512);
 
 HeadersSyncState::HeadersSyncState(NodeId id, const Consensus::Params& consensus_params,
         const CBlockIndex* chain_start, const arith_uint256& minimum_required_work) :

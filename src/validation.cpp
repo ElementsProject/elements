@@ -4845,7 +4845,10 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, BlockValidatio
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "time-too-old", "block's timestamp is too early");
 
     // Check height in header against prev
-    if (g_con_blockheightinheader && (uint32_t)nHeight != block.block_height) {
+    // Dynafed headers always serialize block_height as part of their identity
+    // (see CBlockHeader::Serialize), so the height must be validated even when
+    // the legacy -con_blockheightinheader option is disabled.
+    if ((g_con_blockheightinheader || !block.m_dynafed_params.IsNull()) && (uint32_t)nHeight != block.block_height) {
         LogPrintf("ERROR: %s: block height in header is incorrect (got %d, expected %d)\n", __func__, block.block_height, nHeight);
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "bad-header-height");
     }
