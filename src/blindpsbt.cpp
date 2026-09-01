@@ -201,7 +201,11 @@ bool CreateBlindAssetProof(std::vector<unsigned char>& assetproof, const CAsset&
 
 bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, const std::vector<unsigned char>& proof, const CConfidentialAsset& conf_asset)
 {
-    if (conf_value.IsNull() || conf_asset.IsNull()) {
+    // The value and asset must be genuine commitments (33-byte, PrefixA/B)
+    // before their buffers are handed to libsecp256k1, which consumes exactly
+    // 33 serialized bytes. An explicit 9-byte value (or a null field) must not
+    // reach the parser, which would otherwise read out of bounds.
+    if (!conf_value.IsCommitment() || !conf_asset.IsCommitment()) {
         return false;
     }
 
