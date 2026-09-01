@@ -518,6 +518,14 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
         // Check this is our output to blind
         if (output.m_blinder_index == std::nullopt || our_input_data.count(*output.m_blinder_index) == 0) continue;
 
+        // PSET v0 does not require an output amount (it is only enforced for
+        // m_psbt_version >= 2), so a crafted v0 PSET can reach the blinding
+        // loop with output.amount == nullopt. Dereferencing it is undefined
+        // behaviour. Refuse to blind such an output.
+        if (output.amount == std::nullopt) {
+            return BlindingStatus::INVALID_BLINDER;
+        }
+
         // Things we are going to stuff into the PSBTOutput if everything is successful
         CConfidentialValue value_commitment;
         CConfidentialAsset asset_commitment;
