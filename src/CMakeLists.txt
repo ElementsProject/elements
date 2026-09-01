@@ -115,7 +115,7 @@ target_link_libraries(elementssimplicity
 )
 
 # macOS Apple Clang is stricter than Linux GCC on this vendored code
-if(APPLE)
+if(CMAKE_C_COMPILER_ID MATCHES "Clang")
   target_compile_options(elementssimplicity PRIVATE
     -Wno-error=conditional-uninitialized
     -Wno-error=implicit-fallthrough
