@@ -208,3 +208,13 @@ bool IsPAKValidTx(const CTransaction& tx, const CPAKList& paklist, const uint256
     }
     return true;
 }
+
+bool HasConfidentialPegoutOutput(const CTransaction& tx, const uint256& parent_gen_hash)
+{
+    for (const auto& txout : tx.vout) {
+        if (txout.scriptPubKey.IsPegoutScript(parent_gen_hash) && !txout.nAsset.IsExplicit()) {
+            return true;
+        }
+    }
+    return false;
+}
