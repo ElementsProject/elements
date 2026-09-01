@@ -30,6 +30,10 @@ std::string GetBlindingStatusError(const BlindingStatus& status)
         return "Unable to create an asset surjection proof";
     case BlindingStatus::NO_BLIND_OUTPUTS:
         return "Transaction has blind inputs belonging to this blinder but does not have outputs to blind";
+    case BlindingStatus::RANGEPROOF_UNABLE:
+        return "Unable to create a value rangeproof for an output";
+    case BlindingStatus::INVALID_AMOUNT:
+        return "Zero-valued output to a spendable script cannot be blinded";
     }
     assert(false);
 }
@@ -497,6 +501,12 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
             continue;
         }
 
+        // A rangeproof over a spendable script uses min_value = 1, so a zero
+        // amount cannot be proven. Reject.
+        if (*output.amount == 0 && !output.script->IsUnspendable()) {
+            return BlindingStatus::INVALID_AMOUNT;
+        }
+
         // Check this is our output to blind
         if (output.m_blinder_index == std::nullopt || our_input_data.count(*output.m_blinder_index) == 0) continue;
 
@@ -559,12 +569,16 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
 
         // Generate rangeproof
         bool rangeresult = CreateValueRangeProof(rangeproof, value_blinder, nonce, *output.amount, *output.script, value_commit, asset_generator, asset, asset_blinder);
-        assert(rangeresult);
+        if (!rangeresult) {
+            return BlindingStatus::RANGEPROOF_UNABLE;
+        }
 
         // Create explicit value rangeproof
         std::vector<unsigned char> blind_value_proof;
         rangeresult = CreateBlindValueProof(blind_value_proof, value_blinder, *output.amount, value_commit, asset_generator);
-        assert(rangeresult);
+        if (!rangeresult) {
+            return BlindingStatus::RANGEPROOF_UNABLE;
+        }
 
         // Create surjection proof for this output
         if (!CreateAssetSurjectionProof(asp, fixed_input_tags, ephemeral_input_tags, input_asset_blinders, asset_blinder, asset_generator, asset)) {
