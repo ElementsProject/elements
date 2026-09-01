@@ -14,6 +14,7 @@ from test_framework.util import (
     get_datadir_path,
     rpc_port,
     p2p_port,
+    tor_port,
     assert_equal,
 )
 from test_framework import util
@@ -164,10 +165,15 @@ class PeginSubsidyTest(BitcoinTestFramework):
                     "-addresstype=legacy",  # To make sure bitcoind gives back p2pkh no matter version
                     "-fallbackfee=0.0002",
                     "-deprecatedrpc=create_bdb",
+                    # bitcoind reads bitcoin.conf, not the elements.conf the test framework
+                    # writes with bind=127.0.0.1, so the framework's collision-avoiding auto
+                    # -bind is skipped. Without an explicit -bind, bitcoind binds P2P on
+                    # 0.0.0.0:port and 127.0.0.1:port+1 (for incoming Tor connections), and
+                    # port+1 == p2p_port(1) collides with the first sidechain node. Bind
+                    # explicitly to avoid the port+1 default.
+                    "-bind=127.0.0.1:%s" % p2p_port(0),
+                    "-bind=127.0.0.1:%s=onion" % tor_port(0),
                 ]
-            )
-            self.expected_stderr = (
-                f"Error: Unable to bind to 127.0.0.1:{p2p_port(1)} on this computer. Elements Core is probably already running."
             )
         else:
             extra_args.extend(
@@ -179,7 +185,6 @@ class PeginSubsidyTest(BitcoinTestFramework):
                     "-dustrelayfee=0.00003000",  # use the Bitcoin default dust relay fee rate for the parent nodes
                 ]
             )
-            self.expected_stderr = ""
 
         self.add_nodes(1, [extra_args], chain=[parent_chain], binary=parent_binary)
         self.start_node(0)
@@ -963,15 +968,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
 
         # dust error
         # restart node1 with no min peg-in amount
-        try:
-            self.stop_node(1, expected_stderr=self.expected_stderr)  # when running with bitcoind as parent node this stderr can occur
-        except AssertionError as e:
-            if str(e) != f"Unexpected stderr  != {self.expected_stderr}":
-                raise
-            sidechain.stdout.close()
-            sidechain.stderr.close()
-            sidechain.wait_until_stopped()
-
+        self.stop_node(1)
         self.start_node(1, extra_args=sidechain.extra_args + ["-peginminamount=0"])
         self.stop_node(2)
         self.start_node(2, extra_args=sidechain2.extra_args + ["-peginminamount=0"])
@@ -1034,14 +1031,7 @@ class PeginSubsidyTest(BitcoinTestFramework):
 
         # Manually stop sidechains first, then the parent chain.
         self.stop_node(2)
-        try:
-            self.stop_node(1, expected_stderr=self.expected_stderr)  # when running with bitcoind as parent node this stderr can occur
-        except AssertionError as e:
-            if str(e) != f"Unexpected stderr  != {self.expected_stderr}":
-                raise
-            sidechain.stdout.close()
-            sidechain.stderr.close()
-            sidechain.wait_until_stopped()
+        self.stop_node(1)
         self.stop_node(0)
 
 
