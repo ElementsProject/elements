@@ -4,6 +4,7 @@
 #include <issuance.h>
 #include <pegins.h>
 #include <script/sigcache.h>
+#include <random.h>
 #include <blind.h>
 
 namespace {
@@ -15,6 +16,11 @@ public:
         assert(secp256k1_ctx_verify_amounts == nullptr);
         secp256k1_ctx_verify_amounts = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
         assert(secp256k1_ctx_verify_amounts != nullptr);
+        // Pass in a random blinding seed to the secp256k1 context (side-channel hardening).
+        unsigned char seed[32];
+        GetStrongRandBytes(seed);
+        assert(secp256k1_context_randomize(secp256k1_ctx_verify_amounts, seed));
+
     }
     ~CSecp256k1Init() {
         assert(secp256k1_ctx_verify_amounts != nullptr);
