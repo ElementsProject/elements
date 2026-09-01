@@ -52,10 +52,17 @@ bool CreateAssetSurjectionProof(std::vector<unsigned char>& output_proof, const 
     }
     // Using the input chosen, build proof
     ret = secp256k1_surjectionproof_generate(secp256k1_blind_context, &proof, &ephemeral_input_tags[0], ephemeral_input_tags.size(), &output_asset_tag, input_index, input_asset_blinders[input_index].begin(), output_asset_blinder.begin());
-    assert(ret == 1);
+    if (ret != 1) {
+        // Attacker-selected tags/generators without a known discrete-log
+        // relationship cause generation to fail; this must be a recoverable
+        // PSET error, not a process abort.
+        return false;
+    }
     // Double-check answer
     ret = secp256k1_surjectionproof_verify(secp256k1_blind_context, &proof, &ephemeral_input_tags[0], ephemeral_input_tags.size(), &output_asset_tag);
-    assert(ret == 1);
+    if (ret != 1) {
+        return false;
+    }
 
     // Serialize into output witness structure
     size_t output_len = secp256k1_surjectionproof_serialized_size(secp256k1_blind_context, &proof);
