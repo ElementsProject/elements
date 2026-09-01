@@ -220,7 +220,11 @@ bool VerifyBlindValueProof(CAmount value, const CConfidentialValue& conf_value, 
     if (secp256k1_rangeproof_verify(secp256k1_blind_context, &min_value, &max_value, &value_commit, proof.data(), proof.size(), /* extra_commit */ nullptr, /* extra_commit_len */ 0, &gen) == 0) {
         return false;
     }
-    return min_value == (uint64_t)value;
+    // A range-membership proof is only meaningful as an equality proof if the
+    // proven interval collapses to the claimed amount. Comparing solely the
+    // lower bound would accept a proof whose committed value is larger than
+    // the displayed amount. Require both bounds to equal `value`.
+    return min_value == (uint64_t)value && max_value == (uint64_t)value;
 }
 
 BlindProofResult VerifyBlindProofs(const PSBTOutput& o) {
