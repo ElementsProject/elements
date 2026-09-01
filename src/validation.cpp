@@ -118,6 +118,27 @@ const std::vector<std::string> CHECKLEVEL_DOC {
  * */
 static constexpr int PRUNE_LOCK_BUFFER{10};
 
+namespace {
+
+/**
+ * Generation state belongs to the daemon process rather than a datadir or a
+ * ChainstateManager instance. The function-local static ensures that retries
+ * which reconstruct the chain manager in one process retain the same startup
+ * identifier and monotonically increasing revision.
+ */
+struct ProcessNodeGeneration {
+    const uint256 startup_id{GetRandHash()};
+    uint64_t chainstate_revision GUARDED_BY(::cs_main){0};
+};
+
+ProcessNodeGeneration& GetProcessNodeGeneration()
+{
+    static ProcessNodeGeneration generation;
+    return generation;
+}
+
+} // namespace
+
 TRACEPOINT_SEMAPHORE(validation, block_connected);
 TRACEPOINT_SEMAPHORE(utxocache, flush);
 TRACEPOINT_SEMAPHORE(mempool, replaced);
@@ -3588,6 +3609,7 @@ bool Chainstate::DisconnectTip(BlockValidationState& state, DisconnectedBlockTra
     }
 
     m_chain.SetTip(*pindexDelete->pprev);
+    m_chainman.NotifyChainstateMutation(*this);
 
     UpdateTip(pindexDelete->pprev);
     // Let wallets know transactions went from 1-confirmed to
@@ -3730,6 +3752,7 @@ bool Chainstate::ConnectTip(BlockValidationState& state, CBlockIndex* pindexNew,
     }
     // Update m_chain & related variables.
     m_chain.SetTip(*pindexNew);
+    m_chainman.NotifyChainstateMutation(*this);
     UpdateTip(pindexNew);
 
     const auto time_6{SteadyClock::now()};
@@ -6311,6 +6334,45 @@ std::vector<Chainstate*> ChainstateManager::GetAll()
     return out;
 }
 
+void ChainstateManager::AdvanceChainstateRevision()
+{
+    AssertLockHeld(::cs_main);
+    ProcessNodeGeneration& generation{GetProcessNodeGeneration()};
+    // Fail-stop rather than wrap because reuse would break ABA detection.
+    Assert(generation.chainstate_revision != std::numeric_limits<uint64_t>::max());
+    ++generation.chainstate_revision;
+}
+
+void ChainstateManager::NotifyChainstateMutation(const Chainstate& chainstate)
+{
+    AssertLockHeld(::cs_main);
+    if (&chainstate == m_active_chainstate) {
+        AdvanceChainstateRevision();
+    }
+}
+
+void ChainstateManager::SetActiveChainstate(Chainstate* chainstate)
+{
+    AssertLockHeld(::cs_main);
+    if (chainstate != nullptr && chainstate != m_active_chainstate) {
+        AdvanceChainstateRevision();
+    }
+    m_active_chainstate = chainstate;
+}
+
+NodeGenerationSnapshot ChainstateManager::GetNodeGeneration() const
+{
+    AssertLockHeld(::cs_main);
+    const CBlockIndex& tip{*Assert(Assert(m_active_chainstate)->m_chain.Tip())};
+    const ProcessNodeGeneration& generation{GetProcessNodeGeneration()};
+    return {
+        generation.startup_id,
+        generation.chainstate_revision,
+        tip.nHeight,
+        tip.GetBlockHash(),
+    };
+}
+
 Chainstate& ChainstateManager::InitializeChainstate(CTxMemPool* mempool)
 {
     AssertLockHeld(::cs_main);
@@ -6318,7 +6380,7 @@ Chainstate& ChainstateManager::InitializeChainstate(CTxMemPool* mempool)
     assert(!m_active_chainstate);
 
     m_ibd_chainstate = std::make_unique<Chainstate>(mempool, m_blockman, *this);
-    m_active_chainstate = m_ibd_chainstate.get();
+    SetActiveChainstate(m_ibd_chainstate.get());
     return *m_active_chainstate;
 }
 
@@ -6503,7 +6565,7 @@ util::Result<CBlockIndex*> ChainstateManager::ActivateSnapshot(
     Assert(!m_snapshot_chainstate->m_mempool);
     m_snapshot_chainstate->m_mempool = m_active_chainstate->m_mempool;
     m_active_chainstate->m_mempool = nullptr;
-    m_active_chainstate = m_snapshot_chainstate.get();
+    SetActiveChainstate(m_snapshot_chainstate.get());
     m_blockman.m_snapshot_height = this->GetSnapshotBaseHeight();
 
     LogPrintf("[snapshot] successfully activated snapshot %s\n", base_blockhash.ToString());
@@ -6797,7 +6859,7 @@ SnapshotCompletionResult ChainstateManager::MaybeCompleteSnapshotValidation()
         LogError("[snapshot] !!! %s\n", user_error.original);
         LogError("[snapshot] deleting snapshot, reverting to validated chain, and stopping node\n");
 
-        m_active_chainstate = m_ibd_chainstate.get();
+        SetActiveChainstate(m_ibd_chainstate.get());
         m_snapshot_chainstate->m_disabled = true;
         assert(!this->IsUsable(m_snapshot_chainstate.get()));
         assert(this->IsUsable(m_ibd_chainstate.get()));
@@ -6937,9 +6999,9 @@ void ChainstateManager::MaybeRebalanceCaches()
 
 void ChainstateManager::ResetChainstates()
 {
+    SetActiveChainstate(nullptr);
     m_ibd_chainstate.reset();
     m_snapshot_chainstate.reset();
-    m_active_chainstate = nullptr;
 }
 
 /**
@@ -6962,6 +7024,10 @@ ChainstateManager::ChainstateManager(const util::SignalInterrupt& interrupt, Opt
       m_blockman{interrupt, std::move(blockman_options)},
       m_validation_cache{m_options.script_execution_cache_bytes, m_options.signature_cache_bytes}
 {
+    // The daemon constructs kernel::Context (which calls RandomInit) before it
+    // constructs the chain manager. Force the process generation here, before
+    // RPC warmup can finish. GetRandHash itself also obtains strong randomness.
+    (void)GetProcessNodeGeneration();
 }
 
 ChainstateManager::~ChainstateManager()
@@ -7001,7 +7067,7 @@ Chainstate& ChainstateManager::ActivateExistingSnapshot(uint256 base_blockhash)
     Assert(!m_snapshot_chainstate->m_mempool);
     m_snapshot_chainstate->m_mempool = m_active_chainstate->m_mempool;
     m_active_chainstate->m_mempool = nullptr;
-    m_active_chainstate = m_snapshot_chainstate.get();
+    SetActiveChainstate(m_snapshot_chainstate.get());
     return *m_snapshot_chainstate;
 }
 
@@ -7073,7 +7139,7 @@ bool ChainstateManager::DeleteSnapshotChainstate()
                   fs::PathToString(snapshot_datadir));
         return false;
     }
-    m_active_chainstate = m_ibd_chainstate.get();
+    SetActiveChainstate(m_ibd_chainstate.get());
     m_active_chainstate->m_mempool = m_snapshot_chainstate->m_mempool;
     m_snapshot_chainstate.reset();
     return true;
