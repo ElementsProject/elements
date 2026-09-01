@@ -1104,6 +1104,13 @@ bool AppInitParameterInteraction(const ArgsManager& args)
         return InitError(Untranslated("peertimeout must be a positive integer."));
     }
 
+    if (chainparams.GetConsensus().has_parent_chain && !chainparams.GetConsensus().ParentChainHasPow()) {
+        LogPrintf("This chain is configured with a signed-blocks parent chain. "
+                    "Peg-ins referencing a parent block that has activated dynamic "
+                    "federations will be rejected: such headers cannot be "
+                    "authenticated. See doc/ for details.\n");
+    }
+
     // Sanity check argument for min fee for including tx in block
     // TODO: Harmonize which arguments need sanity checking and where that happens
     if (args.IsArgSet("-blockmintxfee")) {
