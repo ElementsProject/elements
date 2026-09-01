@@ -573,6 +573,13 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
         CreateValueCommitment(value_commitment, value_commit, value_blinder, asset_generator, *output.amount);
 
         // Generate rangproof nonce
+        if (!output.m_blinding_pubkey.IsFullyValid()) {
+            // An attacker-controlled (off-curve) blinding pubkey would otherwise
+            // reach CKey::ECDH, whose only validation is an assert on the peer
+            // key, aborting the process. The non-PSET path (blind.cpp) requires
+            // IsFullyValid() before ECDH; mirror it here.
+            return BlindingStatus::INVALID_BLINDER;
+        }
         uint256 nonce = GenerateRangeproofECDHKey(ecdh_key, output.m_blinding_pubkey);
 
         // Generate rangeproof
