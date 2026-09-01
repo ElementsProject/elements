@@ -28,6 +28,8 @@ enum class BlindingStatus
     INVALID_BLINDER,
     ASP_UNABLE,
     NO_BLIND_OUTPUTS,
+    RANGEPROOF_UNABLE,
+    INVALID_AMOUNT,
 };
 
 enum class BlindProofResult {

@@ -546,7 +546,9 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
 
                 // Generate rangeproof, no script committed for issuances
                 bool rangeresult = GenerateRangeproof((nPseudo ? txinwit.vchInflationKeysRangeproof : txinwit.vchIssuanceAmountRangeproof), value_blindptrs, nonce, amount, CScript(), value_commit, asset_gen, asset, asset_blindptrs);
-                assert(rangeresult);
+                if (!rangeresult) {
+                    return -1;
+                }
 
                 // Successfully blinded this issuance
                 num_blinded++;
@@ -621,9 +623,13 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
 
             // Generate rangeproof
             bool rangeresult = GenerateRangeproof(txoutwit.vchRangeproof, value_blindptrs, nonce, amount, out.scriptPubKey, value_commit, asset_gen, asset, asset_blindptrs);
-            assert(rangeresult);
+            if (!rangeresult) {
+                return -1;
+            }
 
-            // Create surjection proof for this output
+            // Failed surjection proof is a foreseeable condition
+            // (no suitable input asset to prove against) and is reported to the
+            // caller via the returned count. See naive_blinding_test.
             if (!SurjectOutput(txoutwit, surjection_targets, target_asset_generators, target_asset_blinders, asset_blindptrs, asset_gen, asset)) {
                 continue;
             }

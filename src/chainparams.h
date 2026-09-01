@@ -162,6 +162,9 @@ public:
     PeginSubsidy GetPeginSubsidy() const { return pegin_subsidy; }
     PeginMinimum GetPeginMinimum() const { return pegin_minimum; }
 
+    // ELEMENTS: Elements adds classes with their own members so the base pointer needs a virtual destructor.
+    virtual ~CChainParams() = default;
+
 protected:
     CChainParams() {}
 
