@@ -130,6 +130,8 @@ bilingual_str PSBTErrorString(PSBTError err)
             return Untranslated("Wallet does not have necessary blinding key");
         case PSBTError::MISSING_SIDECHANNEL_DATA:
             return Untranslated("A rangeproof did not encode necessary blinding data");
+        case PSBTError::MISSING_EXPLICIT_OUTPUT_DATA:
+            return Untranslated("Explicit output data is missing for a blinded output");
         // no default case, so the compiler can warn about missing cases
     }
     assert(false);

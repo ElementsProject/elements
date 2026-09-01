@@ -2475,6 +2475,13 @@ std::optional<PSBTError> CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bo
                 }
 
                 if (o.script && IsMine(*o.script)) {
+                    // A counterparty blinding our receive output can
+                    // omit them, disabling both, and we would sign a commitment
+                    // to whatever value they chose. Our own blinder always
+                    // preserves these fields, so requiring them is safe.
+                    if (o.amount == std::nullopt || o.m_asset.IsNull()) {
+                        return PSBTError::MISSING_EXPLICIT_OUTPUT_DATA;
+                    }
                     CKey blinding_key;
                     if ((blinding_key = GetBlindingKey(&*o.script)).IsValid()) {
                         CAmount value;
@@ -2485,14 +2492,15 @@ std::optional<PSBTError> CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bo
                         CConfidentialNonce nonce;
                         nonce.vchCommitment.insert(nonce.vchCommitment.end(), o.m_ecdh_pubkey.begin(), o.m_ecdh_pubkey.end());
                         if (UnblindConfidentialPair(blinding_key, o.m_value_commitment, o.m_asset_commitment, nonce, *o.script, o.m_value_rangeproof, value, value_factor, asset, asset_factor)) {
-                            // These assertions are cryptographically impossible to trigger, as we
-                            // checked the proofs above, and then `UnblindConfidentialPair` checks
-                            // the extracted value/asset against the commitments.
-                            if (o.amount) {
-                                assert(*o.amount == value);
+                            // The explicit fields are required above, so
+                            // VerifyBlindProofs has checked both proofs and
+                            // these should not differ. Return rather than
+                            // assert: the inputs originate off-host.
+                            if (*o.amount != value) {
+                                return PSBTError::INVALID_VALUE_PROOF;
                             }
-                            if (!o.m_asset.IsNull()) {
-                                assert(CAsset(o.m_asset) == asset);
+                            if (CAsset(o.m_asset) != asset) {
+                                return PSBTError::INVALID_ASSET_PROOF;
                             }
                         } else {
                             return PSBTError::MISSING_SIDECHANNEL_DATA;
