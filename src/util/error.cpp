@@ -49,6 +49,8 @@ bilingual_str TransactionErrorString(const TransactionError err)
             return Untranslated("Wallet does not have necessary blinding key");
         case TransactionError::MISSING_SIDECHANNEL_DATA:
             return Untranslated("A rangeproof did not encode necessary blinding data");
+        case TransactionError::MISSING_EXPLICIT_OUTPUT_DATA:
+            return Untranslated("Explicit output data is missing for a blinded output");
         // no default case, so the compiler can warn about missing cases
     }
     assert(false);

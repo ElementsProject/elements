@@ -717,6 +717,9 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
 
     // And now do PAK checks. Filtered by next blocks' enforced list
     if (chainparams.GetEnforcePak()) {
+        if (HasConfidentialPegoutOutput(tx, chainparams.ParentGenesisBlockHash())) {
+            return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "confidential-pegout-asset");
+        }
         if (!IsPAKValidTx(tx, GetActivePAKList(m_active_chainstate.m_chain.Tip(), chainparams.GetConsensus()), chainparams.ParentGenesisBlockHash(), chainparams.GetConsensus().pegged_asset)) {
             return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "invalid-pegout-proof");
         }
