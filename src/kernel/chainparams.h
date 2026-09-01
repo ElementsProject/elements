@@ -228,6 +228,9 @@ public:
     static std::unique_ptr<const CChainParams> TestNet();
     static std::unique_ptr<const CChainParams> TestNet4();
 
+    // ELEMENTS: Elements adds classes with their own members so the base pointer needs a virtual destructor.
+    virtual ~CChainParams() = default;
+
 protected:
     CChainParams() = default;
 

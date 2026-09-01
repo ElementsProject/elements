@@ -551,40 +551,55 @@ bool DecomposePeginWitness(const CScriptWitness& witness, CAmount& value, CAsset
     const auto& stack = witness.stack;
 
     if (stack.size() != 6) return false;
+    if (stack[1].size() != 32) return false; // asset
+    if (stack[2].size() != 32) return false; // parent genesis hash
 
-    DataStream stream{stack[0]};
-    stream >> value;
+    CAmount tmp_value{0};
+    CAsset tmp_asset;
+    uint256 tmp_genesis_hash;
+    CScript tmp_claim_script;
+    std::variant<std::monostate, Sidechain::Bitcoin::CTransactionRef, CTransactionRef> tmp_tx;
+    std::variant<std::monostate, Sidechain::Bitcoin::CMerkleBlock, CMerkleBlock> tmp_merkle_block;
 
-    CAsset tmp_asset(stack[1]);
+    try {
+        DataStream stream{stack[0]};
+        stream >> tmp_value;
+
+        tmp_asset = CAsset(stack[1]);
+        tmp_genesis_hash = uint256(stack[2]);
+        tmp_claim_script = CScript(stack[3].begin(), stack[3].end());
+
+        DataStream ss_tx(stack[4]);
+        if (Params().GetConsensus().ParentChainHasPow()) {
+            Sidechain::Bitcoin::CTransactionRef btc_tx;
+            ss_tx >> TX_WITH_WITNESS(btc_tx);
+            tmp_tx = btc_tx;
+        } else {
+            CTransactionRef elem_tx;
+            ss_tx >> TX_WITH_WITNESS(elem_tx);
+            tmp_tx = elem_tx;
+        }
+
+        DataStream ss_proof(stack[5]);
+        if (Params().GetConsensus().ParentChainHasPow()) {
+            Sidechain::Bitcoin::CMerkleBlock tx_proof;
+            ss_proof >> TX_WITH_WITNESS(tx_proof);
+            tmp_merkle_block = tx_proof;
+        } else {
+            CMerkleBlock tx_proof;
+            ss_proof >> TX_WITH_WITNESS(tx_proof);
+            tmp_merkle_block = tx_proof;
+        }
+    } catch (const std::exception&) {
+        // Malformed encoding. Report failure rather than propagating
+        return false;
+    }
+
+    value = tmp_value;
     asset = tmp_asset;
-
-    uint256 gh(stack[2]);
-    genesis_hash = gh;
-
-    CScript s(stack[3].begin(), stack[3].end());
-    claim_script = s;
-
-    DataStream ss_tx(stack[4]);
-    if (Params().GetConsensus().ParentChainHasPow()) {
-        Sidechain::Bitcoin::CTransactionRef btc_tx;
-        ss_tx >> TX_WITH_WITNESS(btc_tx);
-        tx = btc_tx;
-    } else {
-        CTransactionRef elem_tx;
-        ss_tx >> TX_WITH_WITNESS(elem_tx);
-        tx = elem_tx;
-    }
-
-    DataStream ss_proof(stack[5]);
-    if (Params().GetConsensus().ParentChainHasPow()) {
-        Sidechain::Bitcoin::CMerkleBlock tx_proof;
-        ss_proof >> TX_WITH_WITNESS(tx_proof);
-        merkle_block = tx_proof;
-    } else {
-        CMerkleBlock tx_proof;
-        ss_proof >> TX_WITH_WITNESS(tx_proof);
-        merkle_block = tx_proof;
-    }
-
+    genesis_hash = tmp_genesis_hash;
+    claim_script = tmp_claim_script;
+    tx = std::move(tmp_tx);
+    merkle_block = std::move(tmp_merkle_block);
     return true;
 }
