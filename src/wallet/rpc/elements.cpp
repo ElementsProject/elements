@@ -16,6 +16,7 @@
 #include <rpc/server.h>
 #include <rpc/server_util.h>
 #include <rpc/util.h>
+#include <random.h>
 #include <script/generic.hpp>
 #include <script/pegins.h>
 #include <secp256k1.h>
@@ -44,6 +45,11 @@ class CSecp256k1Init {
 public:
     CSecp256k1Init() {
         secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
+        CHECK_NONFATAL(secp256k1_ctx != nullptr);
+        // Pass in a random blinding seed to the secp256k1 context (side-channel hardening).
+        unsigned char seed[32];
+        GetStrongRandBytes(seed);
+        CHECK_NONFATAL(secp256k1_context_randomize(secp256k1_ctx, seed));
     }
     ~CSecp256k1Init() {
         secp256k1_context_destroy(secp256k1_ctx);
