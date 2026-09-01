@@ -14,6 +14,10 @@ bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consens
     }
     std::map<uint256, uint32_t> vote_tally;
     assert(next_height >= consensus.dynamic_epoch_length);
+    // Require at least four-fifths of the epoch's votes. (epoch_length*4)/5
+    // floor-divides, under-approximating the 80% threshold for epoch lengths
+    // not divisible by 5; N - N/5 is the overflow-safe ceiling of N*4/5.
+    const uint32_t threshold = consensus.dynamic_epoch_length - consensus.dynamic_epoch_length / 5;
     for (int32_t height = next_height - 1; height >= (int32_t)(next_height - consensus.dynamic_epoch_length); --height) {
         const CBlockIndex* p_epoch_walk = pindexPrev->GetAncestor(height);
         assert(p_epoch_walk);
@@ -25,8 +29,7 @@ bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consens
         const uint256 proposal_root = proposal.CalculateRoot();
         vote_tally[proposal_root]++;
         // Short-circuit once 4/5 threshold is reached
-        if (!proposal_root.IsNull() && vote_tally[proposal_root] >=
-                (consensus.dynamic_epoch_length*4)/5) {
+        if (!proposal_root.IsNull() && vote_tally[proposal_root] >= threshold) {
             winning_entry = proposal;
             return true;
         }
