@@ -39,6 +39,7 @@ enum class TransactionError {
     INVALID_ASSET_PROOF,
     MISSING_BLINDING_KEY,
     MISSING_SIDECHANNEL_DATA,
+    MISSING_EXPLICIT_OUTPUT_DATA,
 };
 
 bilingual_str TransactionErrorString(const TransactionError error);

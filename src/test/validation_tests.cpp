@@ -145,4 +145,28 @@ BOOST_AUTO_TEST_CASE(test_assumeutxo)
     BOOST_CHECK_EQUAL(out210.nChainTx, 200U);
 }
 
+// ELEMENTS: the offline (chainstate-less) SIGHASH_RANGEPROOF gating used by
+// elements-tx must treat liquidv1 as known-active even though dynafed there is
+// height-activated rather than ALWAYS_ACTIVE.
+BOOST_AUTO_TEST_CASE(sighash_rangeproof_by_params_test)
+{
+    // liquidv1: dynafed is height-activated (nStartTime = 1000000), NOT the
+    // ALWAYS_ACTIVE sentinel, but must be treated as active by params.
+    const auto liquidv1 = CreateChainParams(*m_node.args, CBaseChainParams::LIQUID1);
+    BOOST_CHECK(liquidv1->GetConsensus().vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime
+                != Consensus::BIP9Deployment::ALWAYS_ACTIVE);
+    BOOST_CHECK(liquidv1->SighashRangeproofActiveByParams());
+
+    // liquidv1test: overrides dynafed to ALWAYS_ACTIVE, so it is active by params
+    // via the ALWAYS_ACTIVE branch (independent of the liquidv1 chain-name check).
+    const auto liquidv1test = CreateChainParams(*m_node.args, CBaseChainParams::LIQUID1TEST);
+    BOOST_CHECK_EQUAL(liquidv1test->GetConsensus().vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime,
+                      Consensus::BIP9Deployment::ALWAYS_ACTIVE);
+    BOOST_CHECK(liquidv1test->SighashRangeproofActiveByParams());
+
+    // regtest: dynafed never active by default; must be inactive by params.
+    const auto regtest = CreateChainParams(*m_node.args, CBaseChainParams::REGTEST);
+    BOOST_CHECK(!regtest->SighashRangeproofActiveByParams());
+}
+
 BOOST_AUTO_TEST_SUITE_END()

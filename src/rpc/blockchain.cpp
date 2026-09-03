@@ -30,6 +30,7 @@
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
+#include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <rpc/server.h>
 #include <rpc/server_util.h>
@@ -3106,6 +3107,7 @@ static RPCHelpMan getsidechaininfo()
                         {RPCResult::Type::ARR, "current_fedpegscripts", "The currently-enforced fedpegscripts in hex. Peg-ins for any entries on this list are honored by consensus and policy. Newest first. Two total entries are possible",
                             {{RPCResult::Type::STR_HEX, "", "active fedpegscript"}}},
                         {RPCResult::Type::STR_HEX, "pegged_asset", "Pegged asset type"},
+                        {RPCResult::Type::STR_HEX, "fee_asset", "The asset used for transaction fees and relay policy"},
                         {RPCResult::Type::STR, "min_peg_diff", "The minimum difficulty parent chain header target. Peg-in headers that have less work will be rejected as an anti-Dos measure"},
                         {RPCResult::Type::STR_HEX, "parent_blockhash", "The parent genesis blockhash as source of pegged-in funds"},
                         {RPCResult::Type::BOOL, "parent_chain_has_pow", "Whether parent chain has pow or signed blocks"},
@@ -3147,6 +3149,7 @@ static RPCHelpMan getsidechaininfo()
     obj.pushKV("current_fedpeg_programs", fedpeg_prog_entries);
     obj.pushKV("current_fedpegscripts", fedpeg_entries);
     obj.pushKV("pegged_asset", consensus.pegged_asset.GetHex());
+    obj.pushKV("fee_asset", policyAsset.GetHex());
     obj.pushKV("min_peg_diff", consensus.parentChainPowLimit.GetHex());
     obj.pushKV("parent_blockhash", parent_blockhash.GetHex());
     obj.pushKV("parent_chain_has_pow", consensus.ParentChainHasPow());

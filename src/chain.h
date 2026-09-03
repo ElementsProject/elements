@@ -332,7 +332,10 @@ public:
             block.hashPrevBlock = pprev->GetBlockHash();
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime = nTime;
-        if (g_con_blockheightinheader) {
+        // Dynafed headers always serialize block_height as part of their
+        // identity (see CBlockHeader::Serialize), so it must be reconstructed
+        // regardless of the legacy -con_blockheightinheader option.
+        if (g_con_blockheightinheader || is_dynafed_block()) {
             block.block_height = nHeight;
         }
         block.nBits = nBits;
@@ -542,7 +545,10 @@ public:
         block.hashPrevBlock = hashPrev;
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime = nTime;
-        if (g_con_blockheightinheader) {
+        // Dynafed headers always serialize block_height as part of their
+        // identity (see CBlockHeader::Serialize), so it must be reconstructed
+        // regardless of the legacy -con_blockheightinheader option.
+        if (g_con_blockheightinheader || is_dynafed_block()) {
             block.block_height = nHeight;
         }
         block.nBits = nBits;

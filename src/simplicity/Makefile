@@ -1,5 +1,5 @@
-CORE_OBJS := bitstream.o dag.o deserialize.o eval.o frame.o jets.o jets-secp256k1.o rsort.o sha256.o type.o typeInference.o
-BITCOIN_OBJS := bitcoin/env.o bitcoin/ops.o bitcoin/bitcoinJets.o bitcoin/primitive.o bitcoin/txEnv.o
+CORE_OBJS := bitstream.o cmr.o dag.o deserialize.o eval.o frame.o jets.o jets-secp256k1.o rsort.o sha256.o type.o typeInference.o
+BITCOIN_OBJS := bitcoin/env.o bitcoin/exec.o bitcoin/ops.o bitcoin/bitcoinJets.o bitcoin/primitive.o bitcoin/cmr.o bitcoin/txEnv.o
 ELEMENTS_OBJS := elements/env.o elements/exec.o elements/ops.o elements/elementsJets.o elements/primitive.o elements/cmr.o elements/txEnv.o
 TEST_OBJS := test.o ctx8Pruned.o ctx8Unpruned.o hashBlock.o regression4.o schnorr0.o schnorr6.o typeSkipTest.o elements/checkSigHashAllTx1.o
 

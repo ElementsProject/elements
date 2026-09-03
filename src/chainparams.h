@@ -135,6 +135,21 @@ public:
     bool MineBlocksOnDemand() const { return consensus.fPowNoRetargeting; }
     /** Return the network string */
     std::string NetworkIDString() const { return strNetworkID; }
+    /**
+     * ELEMENTS: Whether SIGHASH_RANGEPROOF can be assumed active for this chain
+     * from the chain parameters alone (i.e. without inspecting the current tip).
+     * Used by offline tooling such as elements-tx that has no chainstate to
+     * decide the default sighash. This is true when dynafed (which enables
+     * SCRIPT_SIGHASH_RANGEPROOF) is configured ALWAYS_ACTIVE (e.g. elementsregtest
+     * with dynafed enabled, or liquidv1test), or on liquidv1 where dynafed is
+     * height-activated (nStartTime is a block height, not the ALWAYS_ACTIVE
+     * sentinel) but is long since active on the live chain.
+     */
+    bool SighashRangeproofActiveByParams() const
+    {
+        return consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime == Consensus::BIP9Deployment::ALWAYS_ACTIVE
+            || NetworkIDString() == CBaseChainParams::LIQUID1;
+    }
     /** Return the list of hostnames to look up for DNS seeds */
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
@@ -161,6 +176,9 @@ public:
     bool GetCreateDiscountCT() const { return create_discount_ct; }
     PeginSubsidy GetPeginSubsidy() const { return pegin_subsidy; }
     PeginMinimum GetPeginMinimum() const { return pegin_minimum; }
+
+    // ELEMENTS: Elements adds classes with their own members so the base pointer needs a virtual destructor.
+    virtual ~CChainParams() = default;
 
 protected:
     CChainParams() {}

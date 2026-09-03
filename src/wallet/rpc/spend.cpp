@@ -929,7 +929,11 @@ RPCHelpMan signrawtransactionwithwallet()
     // Parse the prevtxs array
     ParsePrevouts(request.params[1], nullptr, coins);
 
-    int nHashType = ParseSighashString(request.params[2]);
+    // ELEMENTS: when no sighash is specified, default to committing to
+    // rangeproofs if SIGHASH_RANGEPROOF is active at the current tip.
+    int nHashType = request.params[2].isNull()
+        ? DefaultSighashType(pwallet->chain().isSighashRangeproofActive())
+        : ParseSighashString(request.params[2]);
 
     // Script verification errors
     std::map<int, bilingual_str> input_errors;
@@ -1405,7 +1409,11 @@ RPCHelpMan walletprocesspsbt()
     }
 
     // Get the sighash type
-    int nHashType = ParseSighashString(request.params[2]);
+    // ELEMENTS: when no sighash is specified, default to committing to
+    // rangeproofs if SIGHASH_RANGEPROOF is active at the current tip.
+    int nHashType = request.params[2].isNull()
+        ? DefaultSighashType(pwallet->chain().isSighashRangeproofActive())
+        : ParseSighashString(request.params[2]);
 
     // Don't sign, just fill data.
     bool bip32derivs = request.params[3].isNull() ? true : request.params[3].get_bool();

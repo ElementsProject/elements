@@ -2831,6 +2831,9 @@ int SigHashCache::CacheIndex(int32_t hash_type) const noexcept
 {
     // Note that we do not distinguish between BASE and WITNESS_V0 to determine the cache index,
     // because no input can simultaneously use both.
+    // ELEMENTS: SIGHASH_RANGEPROOF changes the preimage (segwit v0 appends hashRangeproofs; the
+    // legacy serializer appends each output's rangeproof and surjectionproof), so it must be a
+    // dimension of the cache key.
     return 8 * !!(hash_type & SIGHASH_RANGEPROOF) +                       // bit 3
            3 * !!(hash_type & SIGHASH_ANYONECANPAY) +                    // bit 2
            2 * ((hash_type & 0x1f) == SIGHASH_SINGLE) +                  // bit 1

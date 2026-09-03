@@ -105,4 +105,18 @@ bool IsSegWitOutput(const SigningProvider& provider, const CScript& script);
 /** Sign the CMutableTransaction */
 bool SignTransaction(CMutableTransaction& mtx, const SigningProvider* provider, const std::map<COutPoint, Coin>& coins, int sighash, const uint256& hash_genesis_block, std::map<int, bilingual_str>& input_errors);
 
+/**
+ * ELEMENTS: Return the default sighash type to use when the caller did not
+ * specify one. When SIGHASH_RANGEPROOF is active for the target chain, the
+ * default commits to output rangeproofs (SIGHASH_ALL_WITH_RANGEPROOF for
+ * pre-Taproot inputs); otherwise the historical default (SIGHASH_DEFAULT, which
+ * is equivalent to SIGHASH_ALL for pre-Taproot) is used so that signatures stay
+ * standard and valid on chains where dynafed is not active.
+ *
+ * Note: for Taproot inputs the sighash byte's rangeproof bit is ignored (the
+ * BIP341-style sighash always commits to rangeproofs), so this default is only
+ * meaningful for BASE/WITNESS_V0 signing.
+ */
+int DefaultSighashType(bool sighash_rangeproof_active);
+
 #endif // BITCOIN_SCRIPT_SIGN_H

@@ -68,4 +68,6 @@ bool IsPAKValidOutput(const CTxOut& txout, const CPAKList& paklist, const uint25
 
 bool IsPAKValidTx(const CTransaction& tx, const CPAKList& paklist, const uint256& parent_gen_hash, const CAsset& peg_asset);
 
+bool HasConfidentialPegoutOutput(const CTransaction& tx, const uint256& parent_gen_hash);
+
 #endif // BITCOIN_PRIMITIVES_PAK_H
