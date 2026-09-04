@@ -10,6 +10,7 @@ from test_framework.util import (
     get_datadir_path,
     rpc_port,
     p2p_port,
+    tor_port,
     assert_raises_rpc_error,
     assert_equal,
     find_vout_for_address,
@@ -81,7 +82,16 @@ class FedPegTest(BitcoinTestFramework):
                     "-keypool=1",
                     "-listenonion=0",
                     "-addresstype=legacy", # To make sure bitcoind gives back p2pkh no matter version
-                    "-fallbackfee=0.0002"
+                    "-fallbackfee=0.0002",
+                    "-deprecatedrpc=create_bdb", # Required to create legacy (BDB) wallets on newer bitcoind
+                    # bitcoind reads bitcoin.conf, not the elements.conf the test framework
+                    # writes with bind=127.0.0.1, so the framework's collision-avoiding auto
+                    # -bind is skipped. Without an explicit -bind, bitcoind binds P2P on
+                    # 0.0.0.0:port and 127.0.0.1:port+1 (for incoming Tor connections), and
+                    # port+1 collides with the next node's port. Bind explicitly to avoid
+                    # the port+1 default.
+                    "-bind=127.0.0.1:%s" % p2p_port(n),
+                    "-bind=127.0.0.1:%s=onion" % tor_port(n),
                 ])
             else:
                 extra_args.extend([
@@ -197,8 +207,11 @@ class FedPegTest(BitcoinTestFramework):
         WSH_OP_TRUE = self.nodes[0].decodescript("51")["segwit"]["hex"]
         # We just randomize the keys a bit to get another valid fedpegscript
         tweaked = sidechain.tweakfedpegscript("f00dbabe")
-        assert sidechain.getaddressinfo(tweaked['p2wsh'])['iswitness']
-        assert not sidechain.getaddressinfo(tweaked['p2shwsh'])['iswitness']
+        # tweakfedpegscript returns parent-chain-encoded addresses, so decode them
+        # with the parent node when the parent is bitcoin (bcrt prefix, not ert).
+        # addr_node = parent if self.options.parent_bitcoin else sidechain
+        assert parent.getaddressinfo(tweaked['p2wsh'])['iswitness']
+        assert not parent.getaddressinfo(tweaked['p2shwsh'])['iswitness']
         new_fedpegscript = tweaked["script"]
         if self.options.post_transition:
             print("Running test post-transition")
@@ -223,7 +236,7 @@ class FedPegTest(BitcoinTestFramework):
         assert_equal(sidechain.decodescript(addrs["claim_script"])["type"], "witness_v0_keyhash")
         current_fedpegscript = sidechain.getsidechaininfo()["current_fedpegscripts"][0]
         tweaked = sidechain.tweakfedpegscript(addrs["claim_script"], current_fedpegscript)
-        if sidechain.getaddressinfo(addr)['iswitness']:
+        if parent.getaddressinfo(addr)['iswitness']:
             assert_equal(tweaked['p2wsh'], addr)
         else:
             assert_equal(tweaked['p2shwsh'], addr)
