@@ -4,6 +4,7 @@
 
 #include <arith_uint256.h>
 #include <blind.h>
+#include <blindpsbt.h>
 #include <coins.h>
 #include <uint256.h>
 #include <validation.h>
@@ -367,5 +368,76 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(BlindTransaction(t_input_blinds, t_input_asset_blinds, t_input_assets, t_input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == 2);
         BOOST_CHECK(!VerifyAmounts(inputs, CTransaction(txtemp), nullptr, false));
     }
+}
+BOOST_AUTO_TEST_CASE(rangeproof_zero_value_spendable_script)
+{
+    // A rangeproof over a spendable script uses min_value = 1
+    // (`min_value = scriptPubKey.IsUnspendable() ? 0 : 1`), and
+    // secp256k1_rangeproof_sign returns 0 when min_value > value. A zero-valued
+    // output to a spendable script therefore has no valid rangeproof, and the
+    // creation helpers must report that rather than assert on it.
+
+    const CAsset asset(GetRandHash());
+    const uint256 asset_blinder = GetRandHash();
+    const uint256 value_blinder = GetRandHash();
+    const uint256 nonce = GetRandHash();
+
+    const CScript spendable = CScript() << OP_TRUE;
+    const CScript unspendable = CScript() << OP_RETURN;
+    BOOST_CHECK(!spendable.IsUnspendable());
+    BOOST_CHECK(unspendable.IsUnspendable());
+
+    // Asset generator, shared by every case below
+    CConfidentialAsset conf_asset;
+    secp256k1_generator asset_gen;
+    CreateAssetCommitment(conf_asset, asset_gen, asset, asset_blinder);
+
+    // Commitments to 0 and to 1 under that generator
+    CConfidentialValue conf_value_zero, conf_value_one;
+    secp256k1_pedersen_commitment value_commit_zero, value_commit_one;
+    CreateValueCommitment(conf_value_zero, value_commit_zero, value_blinder, asset_gen, 0);
+    CreateValueCommitment(conf_value_one, value_commit_one, value_blinder, asset_gen, 1);
+
+    std::vector<unsigned char> rangeproof;
+
+    // Zero to a spendable script is unprovable. Before the fix, the caller at
+    // blindpsbt.cpp:562 turns this false into assert(rangeresult) -> SIGABRT.
+    BOOST_CHECK(!CreateValueRangeProof(rangeproof, value_blinder, nonce, 0, spendable,
+                                       value_commit_zero, asset_gen, asset, asset_blinder));
+
+    // Zero to an unspendable script gives min_value = 0 and must keep working:
+    // this is the fee / issuance / OP_RETURN shape.
+    BOOST_CHECK(CreateValueRangeProof(rangeproof, value_blinder, nonce, 0, unspendable,
+                                      value_commit_zero, asset_gen, asset, asset_blinder));
+
+    // The ordinary case is unaffected.
+    BOOST_CHECK(CreateValueRangeProof(rangeproof, value_blinder, nonce, 1, spendable,
+                                      value_commit_one, asset_gen, asset, asset_blinder));
+
+    // Confirm the boundary is min_value and not something incidental, mirroring
+    // the rangeproof_info check in naive_blinding_test.
+    {
+        secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+        int exp = 0;
+        int mantissa = 0;
+        uint64_t min_value = 0;
+        uint64_t max_value = 0;
+        BOOST_CHECK(secp256k1_rangeproof_info(ctx, &exp, &mantissa, &min_value, &max_value,
+                                              rangeproof.data(), rangeproof.size()) == 1);
+        BOOST_CHECK_EQUAL(min_value, 1ULL);
+        secp256k1_context_destroy(ctx);
+    }
+
+    std::vector<unsigned char*> value_blindptrs;
+    std::vector<const unsigned char*> asset_blindptrs;
+    value_blindptrs.push_back(const_cast<unsigned char*>(value_blinder.begin()));
+    asset_blindptrs.push_back(asset_blinder.begin());
+
+    BOOST_CHECK(!GenerateRangeproof(rangeproof, value_blindptrs, nonce, 0, spendable,
+                                    value_commit_zero, asset_gen, asset, asset_blindptrs));
+    BOOST_CHECK(GenerateRangeproof(rangeproof, value_blindptrs, nonce, 0, unspendable,
+                                   value_commit_zero, asset_gen, asset, asset_blindptrs));
+    BOOST_CHECK(GenerateRangeproof(rangeproof, value_blindptrs, nonce, 1, spendable,
+                                   value_commit_one, asset_gen, asset, asset_blindptrs));
 }
 BOOST_AUTO_TEST_SUITE_END()

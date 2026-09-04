@@ -868,12 +868,21 @@ void PartiallySignedTransaction::SetupFromTx(const CMutableTransaction& tx)
             }
         }
         // Peg-in things
-        if (txin.m_is_pegin) {
+        if (txin.m_is_pegin && i < tx.witness.vtxinwit.size()) {
             CAmount peg_in_value;
             CAsset asset;
-            if (DecomposePeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, peg_in_value, asset, input.m_peg_in_genesis_hash, input.m_peg_in_claim_script, input.m_peg_in_tx, input.m_peg_in_txout_proof)) {
+            uint256 genesis_hash;
+            CScript claim_script;
+            std::variant<std::monostate, Sidechain::Bitcoin::CTransactionRef, CTransactionRef> peg_in_tx;
+            std::variant<std::monostate, Sidechain::Bitcoin::CMerkleBlock, CMerkleBlock> txout_proof;
+            if (DecomposePeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, peg_in_value, asset,
+                                    genesis_hash, claim_script, peg_in_tx, txout_proof)
+                && asset == Params().GetConsensus().pegged_asset) {
                 input.m_peg_in_value = peg_in_value;
-                assert(asset == Params().GetConsensus().pegged_asset);
+                input.m_peg_in_genesis_hash = genesis_hash;
+                input.m_peg_in_claim_script = claim_script;
+                input.m_peg_in_tx = peg_in_tx;
+                input.m_peg_in_txout_proof = txout_proof;
             }
         }
     }

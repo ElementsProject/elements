@@ -554,39 +554,63 @@ bool DecomposePeginWitness(const CScriptWitness& witness, CAmount& value, CAsset
 
     if (stack.size() != 6) return false;
 
-    CDataStream stream(stack[0], SER_NETWORK, PROTOCOL_VERSION);
-    stream >> value;
+    // Fixed-width fields must be size-checked before construction: the
+    // base_blob vector constructor asserts on a length mismatch
+    // (uint256.cpp:15), and an assert is not catchable by the try below.
+    // CAsset delegates to the same constructor.
+    if (stack[1].size() != 32) return false; // asset
+    if (stack[2].size() != 32) return false; // parent genesis hash
 
-    CAsset tmp_asset(stack[1]);
+    // Decompose into locals so a failure part-way through cannot leave the
+    // caller's out-parameters partially populated.
+    CAmount tmp_value{0};
+    CAsset tmp_asset;
+    uint256 tmp_genesis_hash;
+    CScript tmp_claim_script;
+    std::variant<std::monostate, Sidechain::Bitcoin::CTransactionRef, CTransactionRef> tmp_tx;
+    std::variant<std::monostate, Sidechain::Bitcoin::CMerkleBlock, CMerkleBlock> tmp_merkle_block;
+
+    try {
+        CDataStream stream(stack[0], SER_NETWORK, PROTOCOL_VERSION);
+        stream >> tmp_value;
+
+        tmp_asset = CAsset(stack[1]);
+        tmp_genesis_hash = uint256(stack[2]);
+        tmp_claim_script = CScript(stack[3].begin(), stack[3].end());
+
+        CDataStream ss_tx(stack[4], SER_NETWORK, PROTOCOL_VERSION);
+        if (Params().GetConsensus().ParentChainHasPow()) {
+            Sidechain::Bitcoin::CTransactionRef btc_tx;
+            ss_tx >> btc_tx;
+            tmp_tx = btc_tx;
+        } else {
+            CTransactionRef elem_tx;
+            ss_tx >> elem_tx;
+            tmp_tx = elem_tx;
+        }
+
+        CDataStream ss_proof(stack[5], SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+        if (Params().GetConsensus().ParentChainHasPow()) {
+            Sidechain::Bitcoin::CMerkleBlock tx_proof;
+            ss_proof >> tx_proof;
+            tmp_merkle_block = tx_proof;
+        } else {
+            CMerkleBlock tx_proof;
+            ss_proof >> tx_proof;
+            tmp_merkle_block = tx_proof;
+        }
+    } catch (const std::exception&) {
+        // Malformed encoding. Report failure rather than propagating, so that
+        // the bool return means what the signature implies. Callers such as
+        // PartiallySignedTransaction::SetupFromTx have no exception handling.
+        return false;
+    }
+
+    value = tmp_value;
     asset = tmp_asset;
-
-    uint256 gh(stack[2]);
-    genesis_hash = gh;
-
-    CScript s(stack[3].begin(), stack[3].end());
-    claim_script = s;
-
-    CDataStream ss_tx(stack[4], SER_NETWORK, PROTOCOL_VERSION);
-    if (Params().GetConsensus().ParentChainHasPow()) {
-        Sidechain::Bitcoin::CTransactionRef btc_tx;
-        ss_tx >> btc_tx;
-        tx = btc_tx;
-    } else {
-        CTransactionRef elem_tx;
-        ss_tx >> elem_tx;
-        tx = elem_tx;
-    }
-
-    CDataStream ss_proof(stack[5], SER_NETWORK, PROTOCOL_VERSION);
-    if (Params().GetConsensus().ParentChainHasPow()) {
-        Sidechain::Bitcoin::CMerkleBlock tx_proof;
-        ss_proof >> tx_proof;
-        merkle_block = tx_proof;
-    } else {
-        CMerkleBlock tx_proof;
-        ss_proof >> tx_proof;
-        merkle_block = tx_proof;
-    }
-
+    genesis_hash = tmp_genesis_hash;
+    claim_script = tmp_claim_script;
+    tx = std::move(tmp_tx);
+    merkle_block = std::move(tmp_merkle_block);
     return true;
 }

@@ -139,6 +139,9 @@ public:
     bool GetAcceptDiscountCT() const { return accept_discount_ct; }
     bool GetCreateDiscountCT() const { return create_discount_ct; }
 
+    // ELEMENTS: Elements adds classes with their own members so the base pointer needs a virtual destructor.
+    virtual ~CChainParams() = default;
+
 protected:
     CChainParams() {}
 

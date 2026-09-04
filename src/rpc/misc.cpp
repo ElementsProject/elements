@@ -839,6 +839,24 @@ static RPCHelpMan getindexinfo()
 //
 // ELEMENTS CALLS
 
+static bool FedpegScriptPubkeysAreValid(const CScript& script)
+{
+    const bool is_liquidv1_watchman = MatchLiquidWatchman(script);
+    bool liquid_op_else_found = false;
+    CScript::const_iterator pc = script.begin();
+    opcodetype opcode;
+    std::vector<unsigned char> vch;
+    while (script.GetOp(pc, opcode, vch)) {
+        if (is_liquidv1_watchman && opcode == OP_ELSE) {
+            liquid_op_else_found = true;
+        }
+        if (vch.size() == 33 && !liquid_op_else_found && !CPubKey(vch).IsFullyValid()) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static RPCHelpMan tweakfedpegscript()
 {
     return RPCHelpMan{"tweakfedpegscript",
@@ -868,6 +886,10 @@ static RPCHelpMan tweakfedpegscript()
         if (IsHex(request.params[1].get_str())) {
             std::vector<unsigned char> fedpeg_byte = ParseHex(request.params[1].get_str());
             fedpegscript = CScript(fedpeg_byte.begin(), fedpeg_byte.end());
+            if (!FedpegScriptPubkeysAreValid(fedpegscript)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                    "fedpegscript contains a 33-byte push that is not a valid compressed public key");
+            }
         } else {
             throw JSONRPCError(RPC_TYPE_ERROR, "fedpegscript must be a hex string");
         }
