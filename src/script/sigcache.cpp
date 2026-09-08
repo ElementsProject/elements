@@ -9,6 +9,7 @@
 #include <random.h>
 #include <uint256.h>
 #include <util/system.h>
+#include <hash.h>
 
 #include <cuckoocache.h>
 
@@ -26,23 +27,23 @@ namespace {
 class CSignatureCache
 {
 private:
-     //! Entries are SHA256(nonce || 'E' or 'S' || 31 zero bytes || signature hash || public key || signature):
+    //! Salted SHA256 midstates, domain-separated by signature or proof type.
     CSHA256 m_salted_hasher_ecdsa;
     CSHA256 m_salted_hasher_schnorr;
-    CSHA256 m_salted_hasher_range_proof;
-    CSHA256 m_salted_hasher_surjection_proof;
+    CHashWriter m_salted_hasher_range_proof;
+    CHashWriter m_salted_hasher_surjection_proof;
     typedef CuckooCache::cache<uint256, SignatureCacheHasher> map_type;
     map_type setValid;
     std::shared_mutex cs_sigcache;
 
 public:
-    CSignatureCache()
+    CSignatureCache():
+        m_salted_hasher_range_proof(SER_GETHASH,0),
+        m_salted_hasher_surjection_proof(SER_GETHASH,0)
     {
         uint256 nonce = GetRandHash();
-        // We want the nonce to be 64 bytes long to force the hasher to process
-        // this chunk, which makes later hash computations more efficient. We
-        // just write our 32-byte entropy, and then pad with 'E' for ECDSA and
-        // 'S' for Schnorr (followed by 0 bytes).
+        // Use 64-byte, type-specific salted midstates so later hash computations
+        // can start after the first SHA256 chunk.
         static constexpr unsigned char PADDING_ECDSA[32] = {'E'};
         static constexpr unsigned char PADDING_SCHNORR[32] = {'S'};
         static constexpr unsigned char PADDING_RANGE_PROOF[32] = {'r'};
@@ -51,10 +52,8 @@ public:
         m_salted_hasher_ecdsa.Write(PADDING_ECDSA, 32);
         m_salted_hasher_schnorr.Write(nonce.begin(), 32);
         m_salted_hasher_schnorr.Write(PADDING_SCHNORR, 32);
-        m_salted_hasher_range_proof.Write(nonce.begin(), 32);
-        m_salted_hasher_range_proof.Write(PADDING_RANGE_PROOF, 32);
-        m_salted_hasher_surjection_proof.Write(nonce.begin(), 32);
-        m_salted_hasher_surjection_proof.Write(PADDING_SURJECTION_PROOF, 32);
+        m_salted_hasher_range_proof << nonce << PADDING_RANGE_PROOF;
+        m_salted_hasher_surjection_proof << nonce << PADDING_SURJECTION_PROOF;
     }
 
     void
@@ -72,13 +71,39 @@ public:
     }
 
     // ELEMENTS:
-    void ComputeEntryRangeProof(uint256& entry, const std::vector<unsigned char>& proof, const std::vector<unsigned char>& commitment, const std::vector<unsigned char>& asset_commitment, const CScript& scriptPubKey) {
-        CSHA256 hasher = m_salted_hasher_range_proof;
-        hasher.Write(proof.data(), proof.size()).Write(commitment.data(), commitment.size()).Write(asset_commitment.data(), asset_commitment.size()).Write(scriptPubKey.data(), scriptPubKey.size()).Finalize(entry.begin());
+    void ComputeEntryRangeProof(uint256& entry,
+                                const std::vector<unsigned char>& proof,
+                                const std::vector<unsigned char>& commitment,
+                                const std::vector<unsigned char>& asset_commitment,
+                                const CScript& script_pub_key) const
+    {
+        CHashWriter hasher = m_salted_hasher_range_proof;
+        // We commit to both commitments and the scriptPubKey because these are
+        // committed to by the rangeproof itself; a change in any of them would
+        // invalidate the proof. Since these are exactly the arguments to
+        // CachingRangeProofChecker::VerifyRangeProof (below), there is no
+        // additional data that could affect the rangeproof's validity.
+        // Serialization length-prefixes every field, including the variable-length
+        // proof and script, so distinct argument tuples cannot share an encoding.
+        hasher << proof << commitment << asset_commitment << script_pub_key;
+        entry = hasher.GetSHA256();
     }
-    void ComputeEntrySurjectionProof(uint256& entry, const uint256 &hash, const std::vector<unsigned char>& proof, const std::vector<unsigned char>& commitment) {
-        CSHA256 hasher = m_salted_hasher_surjection_proof;
-        hasher.Write(hash.begin(), 32).Write(proof.data(), proof.size()).Write(commitment.data(), commitment.size()).Finalize(entry.begin());
+    void ComputeEntrySurjectionProof(uint256& entry, const uint256 &hash, const std::vector<unsigned char>& proof, const std::vector<unsigned char>& commitment, const std::vector<secp256k1_generator>& vTags) const {
+        CHashWriter hasher = m_salted_hasher_surjection_proof;
+        // We hash all arguments passed to CachingSurjectionProofChecker::VerifySurjectionProof,
+        // to ensure that any change in the way that the verification function is called will
+        // trigger a cache miss and explicit verification. However, we note that the `wtxid`
+        // (hash) commits to all the other data such that we could technically hash only it.
+        // We retain the other data as a defense against future refactorings.
+        //
+        // Serialize vTags as a flat byte vector (each secp256k1_generator is 64 bytes).
+        std::vector<unsigned char> vTagsBytes;
+        vTagsBytes.reserve(vTags.size() * 64);
+        for (const auto& tag : vTags) {
+            vTagsBytes.insert(vTagsBytes.end(), std::begin(tag.data), std::end(tag.data));
+        }
+        hasher << hash << proof << commitment << vTagsBytes;
+        entry = hasher.GetSHA256();
     }
 
     bool
@@ -175,6 +200,11 @@ void InitSurjectionproofCache()
 
 bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchValueCommitment, const std::vector<unsigned char>& vchAssetCommitment, const CScript& scriptPubKey, const secp256k1_context* secp256k1_ctx_verify_amounts) const
 {
+    // ELEMENTS: NOTE FOR FUTURE EDITORS: every argument to this function that
+    // carries data (i.e. everything except the secp256k1 context, which is
+    // stateless) MUST be included in ComputeEntryRangeProof. Omitting any
+    // argument risks returning a cached positive result for a proof that was
+    // verified with different inputs.
     uint256 entry;
     rangeProofCache.ComputeEntryRangeProof(entry, vchRangeProof, vchValueCommitment, vchAssetCommitment, scriptPubKey);
 
@@ -227,7 +257,7 @@ bool CachingSurjectionProofChecker::VerifySurjectionProof(secp256k1_surjectionpr
     // wtxid commits to all data including surj targets
     // we need to specify the proof and output asset point to be unique
     uint256 entry;
-    surjectionProofCache.ComputeEntrySurjectionProof(entry, wtxid, vchproof, std::vector<unsigned char>(std::begin(gen.data), std::end(gen.data)));
+    surjectionProofCache.ComputeEntrySurjectionProof(entry, wtxid, vchproof, std::vector<unsigned char>(std::begin(gen.data), std::end(gen.data)), vTags);
 
     if (surjectionProofCache.Get(entry, !store)) {
         return true;
@@ -242,6 +272,25 @@ bool CachingSurjectionProofChecker::VerifySurjectionProof(secp256k1_surjectionpr
     }
 
     return true;
+}
+
+// Test-only hooks (see sigcache.h). Forward to the anonymous-namespace caches.
+void TestComputeEntryRangeProof(uint256& entry,
+                                const std::vector<unsigned char>& proof,
+                                const std::vector<unsigned char>& commitment,
+                                const std::vector<unsigned char>& asset_commitment,
+                                const CScript& script_pub_key)
+{
+    rangeProofCache.ComputeEntryRangeProof(entry, proof, commitment, asset_commitment, script_pub_key);
+}
+
+void TestComputeEntrySurjectionProof(uint256& entry,
+                                     const uint256& hash,
+                                     const std::vector<unsigned char>& proof,
+                                     const std::vector<unsigned char>& commitment,
+                                     const std::vector<secp256k1_generator>& vTags)
+{
+    surjectionProofCache.ComputeEntrySurjectionProof(entry, hash, proof, commitment, vTags);
 }
 
 // END ELEMENTS
