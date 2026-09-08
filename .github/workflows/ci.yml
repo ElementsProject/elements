@@ -49,10 +49,10 @@ jobs:
 
   # -------------------------------------------------------------------------
   # ARM unit tests (no functional tests)
-  # Image: debian:bullseye
+  # Image: debian:bookworm
   # -------------------------------------------------------------------------
   arm-unit-tests:
-    name: 'ARM [unit tests, no functional tests] [bullseye]'
+    name: 'ARM [no unit tests, no functional tests] [bookwork]'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:

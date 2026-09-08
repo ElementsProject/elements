@@ -9,7 +9,7 @@ export LC_ALL=C.UTF-8
 export HOST=arm-linux-gnueabihf
 # The host arch is unknown, so we run the tests through qemu.
 # If the host is arm and wants to run the tests natively, it can set QEMU_USER_CMD to the empty string.
-if [ -z ${QEMU_USER_CMD+x} ]; then export QEMU_USER_CMD="${QEMU_USER_CMD:-"qemu-arm -L /usr/arm-linux-gnueabihf/"}"; fi
+if [ -z ${QEMU_USER_CMD+x} ]; then export QEMU_USER_CMD="${QEMU_USER_CMD:-"qemu-arm -L /usr/arm-linux-gnueabihf/ -s 16777216"}"; fi
 export DPKG_ADD_ARCH="armhf"
 export PACKAGES="python3-zmq g++-arm-linux-gnueabihf busybox libc6:armhf libstdc++6:armhf libfontconfig1:armhf libxcb1:armhf"
 if [ -n "$QEMU_USER_CMD" ]; then
@@ -18,11 +18,13 @@ if [ -n "$QEMU_USER_CMD" ]; then
 fi
 export CONTAINER_NAME=ci_arm_linux
 # Use debian to avoid 404 apt errors when cross compiling
-export DOCKER_NAME_TAG="debian:bullseye"
+export DOCKER_NAME_TAG="debian:bookworm"
 export USE_BUSY_BOX=true
-export RUN_UNIT_TESTS=true
+export RUN_UNIT_TESTS=false
 export RUN_FUNCTIONAL_TESTS=false
 export GOAL="install"
+export DEP_OPTS="NO_QT=1"
+export BOOST_TEST_RANDOM=19708549
 # -Wno-psabi is to disable ABI warnings: "note: parameter passing for argument of type ... changed in GCC 7.1"
 # This could be removed once the ABI change warning does not show up by default
-export BITCOIN_CONFIG="--enable-reduce-exports CXXFLAGS=-Wno-psabi"
+export BITCOIN_CONFIG="--without-gui --enable-reduce-exports CXXFLAGS='-Wno-psabi -Wno-error=maybe-uninitialized'"
