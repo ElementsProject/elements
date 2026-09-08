@@ -5,6 +5,7 @@
 
 #include <script/sigcache.h>
 
+#include <common/args.h>
 #include <crypto/sha256.h>
 #include <hash.h>
 #include <logging.h>
@@ -134,6 +135,10 @@ namespace {
 // To be called once in AppInit2/TestingSetup to initialize the rangeproof cache
 bool InitRangeproofCache(size_t max_size_bytes)
 {
+    if (!gArgs.GetBoolArg("-rangeproofcache", true)) {
+        LogPrintf("Range proof cache disabled via -norangeproofcache\n");
+        return true;
+    }
     auto setup_results = rangeProofCache.setup_bytes(max_size_bytes);
     if (!setup_results) return false;
     const auto [num_elems, approx_size_bytes] = *setup_results;
@@ -161,10 +166,12 @@ bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>
     // argument risks returning a cached positive result for a proof that was
     // verified with different inputs.
     uint256 entry;
-    rangeProofCache.ComputeEntryRangeProof(entry, vchRangeProof, vchValueCommitment, vchAssetCommitment, scriptPubKey);
-
-    if (rangeProofCache.Get(entry, !store)) {
-        return true;
+    const bool useCache = gArgs.GetBoolArg("-rangeproofcache", true);
+    if (useCache) {
+        rangeProofCache.ComputeEntryRangeProof(entry, vchRangeProof, vchValueCommitment, vchAssetCommitment, scriptPubKey);
+        if (rangeProofCache.Get(entry, !store)) {
+            return true;
+        }
     }
 
     if (vchRangeProof.size() == 0) {
@@ -193,7 +200,7 @@ bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>
         return false;
     }
 
-    if (store) {
+    if (useCache && store) {
         rangeProofCache.Set(entry);
     }
 
