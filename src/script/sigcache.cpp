@@ -179,6 +179,10 @@ bool CachingTransactionSignatureChecker::VerifySchnorrSignature(Span<const unsig
 // To be called once in AppInit2/TestingSetup to initialize the rangeproof cache
 void InitRangeproofCache()
 {
+    if (!gArgs.GetBoolArg("-rangeproofcache", true)) {
+        LogPrintf("Range proof cache disabled via -norangeproofcache\n");
+        return;
+    }
     // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
     // setup_bytes creates the minimum possible cache (2 elements).
     size_t nMaxCacheSize = std::min(std::max((int64_t)0, gArgs.GetIntArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE) / 4), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
@@ -206,10 +210,12 @@ bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>
     // argument risks returning a cached positive result for a proof that was
     // verified with different inputs.
     uint256 entry;
-    rangeProofCache.ComputeEntryRangeProof(entry, vchRangeProof, vchValueCommitment, vchAssetCommitment, scriptPubKey);
-
-    if (rangeProofCache.Get(entry, !store)) {
-        return true;
+    const bool useCache = gArgs.GetBoolArg("-rangeproofcache", true);
+    if (useCache) {
+        rangeProofCache.ComputeEntryRangeProof(entry, vchRangeProof, vchValueCommitment, vchAssetCommitment, scriptPubKey);
+        if (rangeProofCache.Get(entry, !store)) {
+            return true;
+        }
     }
 
     if (vchRangeProof.size() == 0) {
@@ -238,7 +244,7 @@ bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>
         return false;
     }
 
-    if (store) {
+    if (useCache && store) {
         rangeProofCache.Set(entry);
     }
 
