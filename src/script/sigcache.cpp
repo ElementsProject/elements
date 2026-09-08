@@ -74,7 +74,9 @@ public:
     // ELEMENTS:
     void ComputeEntryRangeProof(uint256& entry, const std::vector<unsigned char>& proof, const std::vector<unsigned char>& commitment, const std::vector<unsigned char>& asset_commitment, const CScript& scriptPubKey) {
         CSHA256 hasher = m_salted_hasher_range_proof;
-        hasher.Write(proof.data(), proof.size()).Write(commitment.data(), commitment.size()).Write(asset_commitment.data(), asset_commitment.size()).Write(scriptPubKey.data(), scriptPubKey.size()).Finalize(entry.begin());
+        // Commit to field lengths first: without them, distinct (proof, commitment, asset_commitment, scriptPubKey) tuples that concatenate to the same byte stream collide to one cache key. The key is process-local (salted per start, never serialized or compared across nodes), so the array's native byte order is fine.
+        const uint64_t lengths[4] = {proof.size(), commitment.size(), asset_commitment.size(), scriptPubKey.size()};
+        hasher.Write(reinterpret_cast<const unsigned char*>(lengths), sizeof(lengths)).Write(proof.data(), proof.size()).Write(commitment.data(), commitment.size()).Write(asset_commitment.data(), asset_commitment.size()).Write(scriptPubKey.data(), scriptPubKey.size()).Finalize(entry.begin());
     }
     void ComputeEntrySurjectionProof(uint256& entry, const uint256 &hash, const std::vector<unsigned char>& proof, const std::vector<unsigned char>& commitment) {
         CSHA256 hasher = m_salted_hasher_surjection_proof;

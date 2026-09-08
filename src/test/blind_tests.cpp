@@ -6,6 +6,7 @@
 #include <blind.h>
 #include <blindpsbt.h>
 #include <coins.h>
+#include <script/sigcache.h>
 #include <uint256.h>
 #include <validation.h>
 
@@ -439,5 +440,80 @@ BOOST_AUTO_TEST_CASE(rangeproof_zero_value_spendable_script)
                                    value_commit_zero, asset_gen, asset, asset_blindptrs));
     BOOST_CHECK(GenerateRangeproof(rangeproof, value_blindptrs, nonce, 1, spendable,
                                    value_commit_one, asset_gen, asset, asset_blindptrs));
+}
+BOOST_AUTO_TEST_CASE(rangeproof_cache_key_field_boundary)
+{
+    // Regression test for the rangeproof cache-key ambiguity (Bug B).
+    //
+    // ComputeEntryRangeProof hashes (proof || value_commitment ||
+    // asset_commitment || scriptPubKey) into the cache key. The two commitments
+    // are 33 bytes each, but proof and scriptPubKey are variable length and sit
+    // at opposite ends of the stream, so the proof/script boundary can be shifted
+    // without changing the concatenated bytes. Two different tuples then hash to
+    // the same key. Since a cache hit returns true WITHOUT verifying, a node that
+    // has cached one valid proof would accept a bogus tuple whose byte stream is
+    // identical but whose (proof, script) split differs.
+    //
+    // The "primer" is a genuine rangeproof over a 69-byte OP_RETURN script
+    // 6a 43 || C1(33) || X(33) || 6a. The "attack" tuple shifts the boundary 68
+    // bytes: its proof is (primer_proof || value_commit || asset_commit || 6a 43)
+    // and its script is the single trailing 6a. That attack proof is not valid
+    // for the 1-byte script, so it must be rejected. Before the fix it collides
+    // with the primer's cache entry and is wrongly accepted.
+
+    const CAsset asset(GetRandHash());
+    const uint256 asset_blinder = GetRandHash();
+    const uint256 value_blinder = GetRandHash();
+    const uint256 nonce = GetRandHash();
+
+    CConfidentialAsset conf_asset;
+    secp256k1_generator asset_gen;
+    CreateAssetCommitment(conf_asset, asset_gen, asset, asset_blinder);
+
+    CConfidentialValue conf_value;
+    secp256k1_pedersen_commitment value_commit;
+    CreateValueCommitment(conf_value, value_commit, value_blinder.begin(), asset_gen, 1000);
+
+    const std::vector<unsigned char> VC = conf_value.vchCommitment; // 33 bytes
+    const std::vector<unsigned char> AC = conf_asset.vchCommitment; // 33 bytes
+    BOOST_REQUIRE_EQUAL(VC.size(), 33U);
+    BOOST_REQUIRE_EQUAL(AC.size(), 33U);
+
+    // Primer script: 6a 43 || C1(33) || X(33) || 6a (unspendable OP_RETURN).
+    std::vector<unsigned char> C1(33, 0x11); C1[0] = 0x12;
+    std::vector<unsigned char> X(33, 0x13); X[0] = 0x14;
+    std::vector<unsigned char> s0{0x6a, 0x43};
+    s0.insert(s0.end(), C1.begin(), C1.end());
+    s0.insert(s0.end(), X.begin(), X.end());
+    s0.push_back(0x6a);
+    const CScript S0(s0.begin(), s0.end());
+    BOOST_REQUIRE(S0.IsUnspendable());
+
+    std::vector<unsigned char> P0;
+    BOOST_REQUIRE(CreateValueRangeProof(P0, value_blinder, nonce, 1000, S0, value_commit, asset_gen, asset, asset_blinder));
+
+    secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+
+    // Primer: a genuine proof, stored into the cache (store = true).
+    BOOST_CHECK(CachingRangeProofChecker(true).VerifyRangeProof(P0, VC, AC, S0, ctx));
+
+    // Attack: shift the proof/script boundary 68 bytes right. The concatenation
+    // (P1 || C1 || X || 6a) is byte-for-byte identical to (P0 || VC || AC || S0),
+    // so the un-delimited key collides with the primer's entry.
+    std::vector<unsigned char> P1 = P0;
+    P1.insert(P1.end(), VC.begin(), VC.end());
+    P1.insert(P1.end(), AC.begin(), AC.end());
+    P1.push_back(0x6a); P1.push_back(0x43);
+    const std::vector<unsigned char>& VC2 = C1;
+    const std::vector<unsigned char>& AC2 = X;
+    std::vector<unsigned char> s1{0x6a};
+    const CScript S1(s1.begin(), s1.end());
+
+    // The attack proof is not a valid rangeproof for S1. With the fix it is a
+    // cache miss and real verification rejects it; before the fix it is a cache
+    // hit and wrongly accepted. This assertion fails on the unfixed code.
+    BOOST_CHECK(!CachingRangeProofChecker(true).VerifyRangeProof(P1, VC2, AC2, S1, ctx));
+
+    secp256k1_context_destroy(ctx);
 }
 BOOST_AUTO_TEST_SUITE_END()
