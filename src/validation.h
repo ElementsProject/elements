@@ -57,6 +57,15 @@ class DisconnectedBlockTransactions;
 struct PrecomputedTransactionData;
 struct LockPoints;
 struct AssumeutxoData;
+
+/** Process and active-chain generation fields returned by getnodegeneration. */
+struct NodeGenerationSnapshot {
+    uint256 startup_id;
+    uint64_t chainstate_revision;
+    int blocks;
+    uint256 bestblockhash;
+};
+
 namespace node {
 class SnapshotMetadata;
 } // namespace node
@@ -959,6 +968,15 @@ private:
         return cs && !cs->m_disabled;
     }
 
+    /** Advance the process-local active-chain revision without allowing wraparound. */
+    void AdvanceChainstateRevision() EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
+
+    /** Record a successful chain mutation if it affected the active chainstate. */
+    void NotifyChainstateMutation(const Chainstate& chainstate) EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
+
+    /** Replace the active chainstate and record the newly exposed state. */
+    void SetActiveChainstate(Chainstate* chainstate) EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
+
     //! A queue for script verifications that have to be performed by worker threads.
     CCheckQueue<CCheck> m_script_check_queue;
 
@@ -1124,6 +1142,9 @@ public:
     CChain& ActiveChain() const EXCLUSIVE_LOCKS_REQUIRED(GetMutex()) { return ActiveChainstate().m_chain; }
     int ActiveHeight() const EXCLUSIVE_LOCKS_REQUIRED(GetMutex()) { return ActiveChain().Height(); }
     CBlockIndex* ActiveTip() const EXCLUSIVE_LOCKS_REQUIRED(GetMutex()) { return ActiveChain().Tip(); }
+
+    /** Atomically snapshot the process generation and active chain tip. */
+    NodeGenerationSnapshot GetNodeGeneration() const EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
 
     //! The state of a background sync (for net processing)
     bool BackgroundSyncInProgress() const EXCLUSIVE_LOCKS_REQUIRED(GetMutex()) {

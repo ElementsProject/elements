@@ -44,6 +44,9 @@ UniValue blockheaderToJSON(const CBlockIndex& tip, const CBlockIndex& blockindex
 /** Used by getblockstats to get feerates at different percentiles by weight  */
 void CalculatePercentilesByWeight(CAmount result[NUM_GETBLOCKSTATS_PERCENTILES], std::vector<std::pair<CAmount, int64_t>>& scores, int64_t total_weight);
 
+/** Serialize an atomic node-generation snapshot without narrowing its unsigned revision. */
+UniValue NodeGenerationToJSON(const NodeGenerationSnapshot& generation);
+
 /**
  * Test-only helper to create UTXO snapshots given a chainstate and a file handle.
  * @return a UniValue map containing metadata about the snapshot.
