@@ -68,6 +68,16 @@ if [[ $DOCKER_NAME_TAG == *centos* ]] || [[ $DOCKER_NAME_TAG == *rocky* ]]; then
   ${CI_RETRY_EXE} CI_EXEC dnf -y install epel-release
   ${CI_RETRY_EXE} CI_EXEC dnf -y --allowerasing install "$DOCKER_PACKAGES" "$PACKAGES"
 elif [ "$CI_USE_APT_INSTALL" != "no" ]; then
+  if [[ $DOCKER_NAME_TAG == *bullseye* ]]; then
+    # Debian 11 (bullseye) reached end of LTS on 2026-08-31
+    # Remove this block once the image is bumped to bookworm in
+    # ci/test/00_setup_env_*.sh.
+    echo "bullseye is EOL: pinning apt to the image's snapshot.debian.org timestamp"
+    CI_EXEC "sed -i -e 's|^# deb |deb |' -e '/deb\.debian\.org/d' /etc/apt/sources.list"
+    CI_EXEC "grep -q snapshot.debian.org /etc/apt/sources.list || printf '%s\n' 'deb http://archive.debian.org/debian bullseye main' 'deb http://archive.debian.org/debian bullseye-updates main' > /etc/apt/sources.list"
+    CI_EXEC 'printf "%s\n" "Acquire::Check-Valid-Until \"false\";" "Acquire::Retries \"5\";" > /etc/apt/apt.conf.d/10bullseye-eol'
+    CI_EXEC cat /etc/apt/sources.list
+  fi
   ${CI_RETRY_EXE} CI_EXEC apt-get update
   ${CI_RETRY_EXE} CI_EXEC apt-get install --no-install-recommends --no-upgrade -y "$PACKAGES" "$DOCKER_PACKAGES"
   if [ -n "$PIP_PACKAGES" ]; then
