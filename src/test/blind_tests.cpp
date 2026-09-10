@@ -444,4 +444,63 @@ BOOST_AUTO_TEST_CASE(rangeproof_zero_value_spendable_script)
     BOOST_CHECK(GenerateRangeproof(rangeproof, value_blindptrs, nonce, 1, spendable,
                                    value_commit_one, asset_gen, asset, asset_blindptrs));
 }
+BOOST_AUTO_TEST_CASE(rangeproof_cache_key_field_boundary)
+{
+    // Regression test for the rangeproof cache-key ambiguity.
+    // proof and scriptPubKey are variable-length fields at opposite ends of the
+    // key stream. Without field lengths, their boundary can be shifted while
+    // leaving the bytes fed to SHA-256 unchanged.
+    const CAsset asset(GetRandHash());
+    const uint256 asset_blinder = GetRandHash();
+    const uint256 value_blinder = GetRandHash();
+    const uint256 nonce = GetRandHash();
+
+    CConfidentialAsset conf_asset;
+    secp256k1_generator asset_gen;
+    CreateAssetCommitment(conf_asset, asset_gen, asset, asset_blinder);
+
+    CConfidentialValue conf_value;
+    secp256k1_pedersen_commitment value_commit;
+    CreateValueCommitment(conf_value, value_commit, value_blinder.begin(), asset_gen, 1000);
+
+    const std::vector<unsigned char> VC = conf_value.vchCommitment;
+    const std::vector<unsigned char> AC = conf_asset.vchCommitment;
+    BOOST_REQUIRE_EQUAL(VC.size(), 33U);
+    BOOST_REQUIRE_EQUAL(AC.size(), 33U);
+
+    // Primer script: 6a 43 || C1(33) || X(33) || 6a (69 bytes total).
+    std::vector<unsigned char> C1(33, 0x11); C1[0] = 0x12;
+    std::vector<unsigned char> X(33, 0x13); X[0] = 0x14;
+    std::vector<unsigned char> s0{0x6a, 0x43};
+    s0.insert(s0.end(), C1.begin(), C1.end());
+    s0.insert(s0.end(), X.begin(), X.end());
+    s0.push_back(0x6a);
+    const CScript S0(s0.begin(), s0.end());
+    BOOST_REQUIRE(S0.IsUnspendable());
+
+    std::vector<unsigned char> P0;
+    BOOST_REQUIRE(CreateValueRangeProof(P0, value_blinder, nonce, 1000, S0, value_commit, asset_gen, asset, asset_blinder));
+
+    secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+
+    // Prime the cache with a genuinely valid proof.
+    BOOST_CHECK(CachingRangeProofChecker(true).VerifyRangeProof(P0, VC, AC, S0, ctx));
+
+    // Re-split the identical byte stream: the proof absorbs VC, AC and 6a43,
+    // while the script shrinks to one byte. The proof is invalid for S1.
+    std::vector<unsigned char> P1 = P0;
+    P1.insert(P1.end(), VC.begin(), VC.end());
+    P1.insert(P1.end(), AC.begin(), AC.end());
+    P1.push_back(0x6a); P1.push_back(0x43);
+    const std::vector<unsigned char>& VC2 = C1;
+    const std::vector<unsigned char>& AC2 = X;
+    std::vector<unsigned char> s1{0x6a};
+    const CScript S1(s1.begin(), s1.end());
+
+    // With field lengths this is a cache miss and real verification rejects it.
+    // On the vulnerable implementation the undelimited key collides with P0.
+    BOOST_CHECK(!CachingRangeProofChecker(true).VerifyRangeProof(P1, VC2, AC2, S1, ctx));
+
+    secp256k1_context_destroy(ctx);
+}
 BOOST_AUTO_TEST_SUITE_END()
