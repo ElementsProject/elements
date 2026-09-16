@@ -9,6 +9,7 @@
 #include <consensus/amount.h>
 #include <crypto/sha256.h>
 #include <cuckoocache.h>
+#include <hash.h>
 #include <script/interpreter.h>
 #include <random.h>
 #include <span.h>
@@ -43,11 +44,11 @@ static_assert(DEFAULT_VALIDATION_CACHE_BYTES == DEFAULT_SIGNATURE_CACHE_BYTES + 
 class SignatureCache
 {
 private:
-    //! Entries are SHA256(nonce || 'E' or 'S' || 31 zero bytes || signature hash || public key || signature):
+    //! Salted SHA256 midstates, domain-separated by signature or proof type.
     CSHA256 m_salted_hasher_ecdsa;
     CSHA256 m_salted_hasher_schnorr;
-    CSHA256 m_salted_hasher_range_proof;
-    CSHA256 m_salted_hasher_surjection_proof;
+    HashWriter m_salted_hasher_range_proof;
+    HashWriter m_salted_hasher_surjection_proof;
     typedef CuckooCache::cache<uint256, SignatureCacheHasher> map_type;
     map_type setValid;
     std::shared_mutex cs_sigcache;
@@ -56,10 +57,8 @@ public:
     SignatureCache()
     {
         uint256 nonce = GetRandHash();
-        // We want the nonce to be 64 bytes long to force the hasher to process
-        // this chunk, which makes later hash computations more efficient. We
-        // just write our 32-byte entropy, and then pad with 'E' for ECDSA and
-        // 'S' for Schnorr (followed by 0 bytes).
+        // Use 64-byte, type-specific salted midstates so later hash computations
+        // can start after the first SHA256 chunk.
         static constexpr unsigned char PADDING_ECDSA[32] = {'E'};
         static constexpr unsigned char PADDING_SCHNORR[32] = {'S'};
         static constexpr unsigned char PADDING_RANGE_PROOF[32] = {'r'};
@@ -68,10 +67,8 @@ public:
         m_salted_hasher_ecdsa.Write(PADDING_ECDSA, 32);
         m_salted_hasher_schnorr.Write(nonce.begin(), 32);
         m_salted_hasher_schnorr.Write(PADDING_SCHNORR, 32);
-        m_salted_hasher_range_proof.Write(nonce.begin(), 32);
-        m_salted_hasher_range_proof.Write(PADDING_RANGE_PROOF, 32);
-        m_salted_hasher_surjection_proof.Write(nonce.begin(), 32);
-        m_salted_hasher_surjection_proof.Write(PADDING_SURJECTION_PROOF, 32);
+        m_salted_hasher_range_proof << nonce << PADDING_RANGE_PROOF;
+        m_salted_hasher_surjection_proof << nonce << PADDING_SURJECTION_PROOF;
     }
 
     SignatureCache(size_t max_size_bytes);
@@ -84,9 +81,13 @@ public:
     void ComputeEntrySchnorr(uint256& entry, const uint256 &hash, Span<const unsigned char> sig, const XOnlyPubKey& pubkey) const;
 
     // ELEMENTS:
-    void ComputeEntryRangeProof(uint256& entry, const std::vector<unsigned char>& proof, const std::vector<unsigned char>& commitment, const std::vector<unsigned char>& asset_commitment, const CScript& scriptPubKey) const;
+    void ComputeEntryRangeProof(uint256& entry,
+                                const std::vector<unsigned char>& proof,
+                                const std::vector<unsigned char>& commitment,
+                                const std::vector<unsigned char>& asset_commitment,
+                                const CScript& script_pub_key) const;
 
-    void ComputeEntrySurjectionProof(uint256& entry, const uint256 &hash, const std::vector<unsigned char>& proof, const std::vector<unsigned char>& commitment) const;
+    void ComputeEntrySurjectionProof(uint256& entry, const uint256 &hash, const std::vector<unsigned char>& proof, const std::vector<unsigned char>& commitment, const std::vector<secp256k1_generator>& vTags) const;
 
     bool Get(const uint256& entry, const bool erase);
 
@@ -144,6 +145,20 @@ public:
 
 [[nodiscard]] bool InitRangeproofCache(size_t max_size_bytes);
 [[nodiscard]] bool InitSurjectionproofCache(size_t max_size_bytes);
+
+// Test-only hooks: expose the (anonymous-namespace) cache-entry computation so
+// unit tests can verify collision-resistance and domain separation. These are
+// NOT part of the consensus/validation API and are only used by unit tests.
+void TestComputeEntryRangeProof(uint256& entry,
+                                const std::vector<unsigned char>& proof,
+                                const std::vector<unsigned char>& commitment,
+                                const std::vector<unsigned char>& asset_commitment,
+                                const CScript& script_pub_key);
+void TestComputeEntrySurjectionProof(uint256& entry,
+                                     const uint256& hash,
+                                     const std::vector<unsigned char>& proof,
+                                     const std::vector<unsigned char>& commitment,
+                                     const std::vector<secp256k1_generator>& vTags);
 
 // END ELEMENTS
 //
