@@ -35,7 +35,7 @@ class Secp256k1Ctx
 public:
     Secp256k1Ctx() {
         assert(secp256k1_ctx_validation == nullptr);
-        secp256k1_ctx_validation = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
+        secp256k1_ctx_validation = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
         assert(secp256k1_ctx_validation != nullptr);
     }
 
