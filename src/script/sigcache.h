@@ -70,6 +70,20 @@ public:
 void InitRangeproofCache();
 void InitSurjectionproofCache();
 
+// Test-only hooks: expose the (anonymous-namespace) cache-entry computation so
+// unit tests can verify collision-resistance and domain separation. These are
+// NOT part of the consensus/validation API and are only used by unit tests.
+void TestComputeEntryRangeProof(uint256& entry,
+                                const std::vector<unsigned char>& proof,
+                                const std::vector<unsigned char>& commitment,
+                                const std::vector<unsigned char>& asset_commitment,
+                                const CScript& script_pub_key);
+void TestComputeEntrySurjectionProof(uint256& entry,
+                                     const uint256& hash,
+                                     const std::vector<unsigned char>& proof,
+                                     const std::vector<unsigned char>& commitment,
+                                     const std::vector<secp256k1_generator>& vTags);
+
 // END ELEMENTS
 //
 
