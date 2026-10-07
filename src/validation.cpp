@@ -803,7 +803,10 @@ private:
                     params.push_back(txid.GetHex());
                     params.push_back(2);
                     params.push_back(blockhash.GetHex());
-                    UniValue result = CallMainChainRPC("getrawtransaction", params);
+                    // This call is made while holding cs_main and mempool.cs
+                    // during mempool acceptance, so use the bounded validation
+                    // timeout rather than the full -mainchainrpctimeout.
+                    UniValue result = CallMainChainRPC("getrawtransaction", params, GetValidationRPCTimeout(gArgs));
                     if (result["error"].isStr()) {
                         return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "pegin-subsidy-mainchain-error", result["error"]["message"].get_str());
                     } else {

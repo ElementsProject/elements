@@ -14,6 +14,8 @@
 #include <event2/buffer.h>
 #include <event2/keyvalq_struct.h>
 
+#include <algorithm>
+
 /** Reply structure for request_done to fill in */
 struct HTTPReply
 {
@@ -77,7 +79,7 @@ static void http_error_cb(enum evhttp_request_error err, void *ctx)
 }
 #endif
 
-UniValue CallMainChainRPC(const std::string& strMethod, const UniValue& params)
+UniValue CallMainChainRPC(const std::string& strMethod, const UniValue& params, int timeout)
 {
     std::string host = gArgs.GetArg("-mainchainrpchost", DEFAULT_RPCCONNECT);
     int port = gArgs.GetIntArg("-mainchainrpcport", BaseParams().MainchainRPCPort());
@@ -87,7 +89,10 @@ UniValue CallMainChainRPC(const std::string& strMethod, const UniValue& params)
 
     // Synchronously look up hostname
     raii_evhttp_connection evcon = obtain_evhttp_connection_base(base.get(), host, port);
-    evhttp_connection_set_timeout(evcon.get(), gArgs.GetIntArg("-mainchainrpctimeout", DEFAULT_HTTP_CLIENT_TIMEOUT));
+    if (timeout < 0) {
+        timeout = gArgs.GetIntArg("-mainchainrpctimeout", DEFAULT_HTTP_CLIENT_TIMEOUT);
+    }
+    evhttp_connection_set_timeout(evcon.get(), timeout);
 
     HTTPReply response;
     raii_evhttp_request req = obtain_evhttp_request(http_request_done, (void*)&response);
@@ -150,13 +155,22 @@ UniValue CallMainChainRPC(const std::string& strMethod, const UniValue& params)
     return reply;
 }
 
+int GetValidationRPCTimeout(const ArgsManager& argsman)
+{
+    const int64_t timeout = argsman.GetIntArg("-mainchainrpctimeout", DEFAULT_HTTP_CLIENT_TIMEOUT);
+    return static_cast<int>(std::clamp<int64_t>(timeout, 1, MAX_VALIDATION_RPC_TIMEOUT));
+}
+
 bool IsConfirmedBitcoinBlock(const uint256& hash, const int nMinConfirmationDepth, const int nbTxs)
 {
     LogPrintf("Checking for confirmed bitcoin block with hash %s, mindepth %d, nbtxs %d\n", hash.ToString().c_str(), nMinConfirmationDepth, nbTxs);
     try {
         UniValue params(UniValue::VARR);
         params.push_back(hash.GetHex());
-        UniValue reply = CallMainChainRPC("getblockheader", params);
+        // This call is made while holding cs_main during block connection
+        // and mempool acceptance, and failure is simply retried later, so a
+        // bounded timeout is used instead of the full -mainchainrpctimeout.
+        UniValue reply = CallMainChainRPC("getblockheader", params, GetValidationRPCTimeout(gArgs));
         const UniValue& errval = reply.find_value("error");
         if (!errval.isNull()) {
             LogPrintf("WARNING: Got error reply from bitcoind getblockheader: %s\n", errval.write());
