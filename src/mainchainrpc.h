@@ -20,11 +20,11 @@ class ArgsManager;
 static const bool DEFAULT_NAMED=false;
 static const char DEFAULT_RPCCONNECT[] = "127.0.0.1";
 static const int DEFAULT_HTTP_CLIENT_TIMEOUT=900;
-// Hard cap (in seconds) on the timeout of mainchain RPC calls made while
-// validating peg-ins. These calls are issued synchronously while cs_main is
-// held, so the cap bounds how long an unresponsive mainchain daemon can
-// stall block connection and mempool acceptance.
-static const int MAX_VALIDATION_RPC_TIMEOUT=30;
+/** Hard cap (in seconds) on the timeout of mainchain RPC calls made while
+ * validating peg-ins. These calls are issued synchronously while cs_main is
+ * held, so the cap bounds how long an unresponsive mainchain daemon can
+ * stall block connection and mempool acceptance. */
+static constexpr int MAX_VALIDATION_RPC_TIMEOUT{30};
 
 //
 // Exception thrown on connection error.  This error is used to determine
@@ -44,11 +44,11 @@ public:
 // (or DEFAULT_HTTP_CLIENT_TIMEOUT if unset) is used.
 UniValue CallMainChainRPC(const std::string& strMethod, const UniValue& params, int timeout = -1);
 
-// Returns the timeout to use for mainchain RPC calls made while validating
-// peg-ins: the value of -mainchainrpctimeout clamped into the range
-// [1, MAX_VALIDATION_RPC_TIMEOUT]. Note that a -mainchainrpctimeout of 0
-// does not disable the timeout (libevent substitutes its own internal
-// defaults), so it is clamped like any other out-of-range value.
+/** Returns the timeout to use for mainchain RPC calls made while validating
+ * peg-ins: min(-mainchainrpctimeout, MAX_VALIDATION_RPC_TIMEOUT). A
+ * -mainchainrpctimeout of 0 (or a negative value) never disabled the timeout
+ * (libevent substitutes its own internal defaults), so it is treated as "no
+ * explicit limit" and yields MAX_VALIDATION_RPC_TIMEOUT. */
 int GetValidationRPCTimeout(const ArgsManager& argsman);
 
 // Verify if the block with given hash has at least the specified minimum number

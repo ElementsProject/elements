@@ -158,7 +158,11 @@ UniValue CallMainChainRPC(const std::string& strMethod, const UniValue& params, 
 int GetValidationRPCTimeout(const ArgsManager& argsman)
 {
     const int64_t timeout = argsman.GetIntArg("-mainchainrpctimeout", DEFAULT_HTTP_CLIENT_TIMEOUT);
-    return static_cast<int>(std::clamp<int64_t>(timeout, 1, MAX_VALIDATION_RPC_TIMEOUT));
+    // 0 (or a negative value) never disabled the timeout: libevent substitutes
+    // its own internal defaults instead. Treat it as "no explicit limit" and
+    // use the cap rather than a 1s timeout.
+    if (timeout <= 0) return MAX_VALIDATION_RPC_TIMEOUT;
+    return static_cast<int>(std::min<int64_t>(timeout, MAX_VALIDATION_RPC_TIMEOUT));
 }
 
 bool IsConfirmedBitcoinBlock(const uint256& hash, const int nMinConfirmationDepth, const int nbTxs)

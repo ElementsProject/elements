@@ -31,10 +31,13 @@ BOOST_AUTO_TEST_CASE(validation_rpc_timeout)
     argsman.ForceSetArg("-mainchainrpctimeout", strprintf("%d", MAX_VALIDATION_RPC_TIMEOUT));
     BOOST_CHECK_EQUAL(GetValidationRPCTimeout(argsman), MAX_VALIDATION_RPC_TIMEOUT);
 
-    // 0 does not mean "no timeout" (libevent substitutes its own internal
-    // defaults for 0), so it is clamped to the lower bound instead
+    // 0 never meant "no timeout" (libevent substitutes its own internal
+    // defaults for 0), so it is treated as "no explicit limit" and capped,
+    // not turned into a 1s timeout. Same for negative values.
     argsman.ForceSetArg("-mainchainrpctimeout", "0");
-    BOOST_CHECK_EQUAL(GetValidationRPCTimeout(argsman), 1);
+    BOOST_CHECK_EQUAL(GetValidationRPCTimeout(argsman), MAX_VALIDATION_RPC_TIMEOUT);
+    argsman.ForceSetArg("-mainchainrpctimeout", "-5");
+    BOOST_CHECK_EQUAL(GetValidationRPCTimeout(argsman), MAX_VALIDATION_RPC_TIMEOUT);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
