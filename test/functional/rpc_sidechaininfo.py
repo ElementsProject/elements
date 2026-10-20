@@ -5,9 +5,21 @@
 """Test the getsidechaininfo fee-asset contract."""
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import BITCOIN_ASSET, assert_equal, assert_is_hash_string
+from test_framework.util import BITCOIN_ASSET, assert_equal
 
 
+DEFAULT_INFO = {
+    "fedpegscript": "51",
+    "current_fedpeg_programs": ["a91472c44f957fc011d97e3406667dca5b1c930c402687"],
+    "current_fedpegscripts": ["51"],
+    "pegged_asset": BITCOIN_ASSET,
+    "fee_asset": BITCOIN_ASSET,
+    "min_peg_diff": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "parent_blockhash": "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206",
+    "parent_chain_has_pow": True,
+    "enforce_pak": False,
+    "pegin_confirmation_depth": 8,
+}
 OVERRIDE_FEE_ASSET = "11" * 32
 
 
@@ -24,14 +36,11 @@ class SidechainInfoTest(BitcoinTestFramework):
         default_info = self.nodes[0].getsidechaininfo()
         override_info = self.nodes[1].getsidechaininfo()
 
-        for info in [default_info, override_info]:
-            assert_is_hash_string(info["pegged_asset"])
-            assert_is_hash_string(info["fee_asset"])
-            assert_equal(info["pegged_asset"], BITCOIN_ASSET)
+        assert_equal(default_info, DEFAULT_INFO)
 
-        assert_equal(default_info["fee_asset"], default_info["pegged_asset"])
-        assert_equal(override_info["fee_asset"], OVERRIDE_FEE_ASSET)
-        assert_equal(override_info["pegged_asset"], default_info["pegged_asset"])
+        updated_info = default_info
+        updated_info.update({"fee_asset": OVERRIDE_FEE_ASSET})
+        assert_equal(override_info, updated_info)
 
 
 if __name__ == "__main__":
