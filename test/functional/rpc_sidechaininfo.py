@@ -4,6 +4,8 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the getsidechaininfo fee-asset contract."""
 
+from decimal import Decimal
+
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import BITCOIN_ASSET, assert_equal
 
@@ -14,6 +16,9 @@ DEFAULT_INFO = {
     "current_fedpegscripts": ["51"],
     "pegged_asset": BITCOIN_ASSET,
     "fee_asset": BITCOIN_ASSET,
+    "genesis_subsidy": Decimal("50.00000000"),
+    "subsidy_asset": BITCOIN_ASSET,
+    "subsidy_halving_interval": 150,
     "min_peg_diff": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
     "parent_blockhash": "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206",
     "parent_chain_has_pow": True,

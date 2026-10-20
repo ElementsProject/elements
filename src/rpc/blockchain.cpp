@@ -3684,6 +3684,9 @@ static RPCHelpMan getsidechaininfo()
                             {{RPCResult::Type::STR_HEX, "", "active fedpegscript"}}},
                         {RPCResult::Type::STR_HEX, "pegged_asset", "Pegged asset type"},
                         {RPCResult::Type::STR_HEX, "fee_asset", "The asset used for transaction fees and relay policy"},
+                        {RPCResult::Type::STR_AMOUNT, "genesis_subsidy", "The block subsidy at genesis, before any halving"},
+                        {RPCResult::Type::STR_HEX, "subsidy_asset", "The asset in which the block subsidy is paid"},
+                        {RPCResult::Type::NUM, "subsidy_halving_interval", "The number of blocks between block subsidy halvings"},
                         {RPCResult::Type::STR, "min_peg_diff", "The minimum difficulty parent chain header target. Peg-in headers that have less work will be rejected as an anti-Dos measure"},
                         {RPCResult::Type::STR_HEX, "parent_blockhash", "The parent genesis blockhash as source of pegged-in funds"},
                         {RPCResult::Type::BOOL, "parent_chain_has_pow", "Whether parent chain has pow or signed blocks"},
@@ -3726,6 +3729,9 @@ static RPCHelpMan getsidechaininfo()
     obj.pushKV("current_fedpegscripts", fedpeg_entries);
     obj.pushKV("pegged_asset", consensus.pegged_asset.GetHex());
     obj.pushKV("fee_asset", policyAsset.GetHex());
+    obj.pushKV("genesis_subsidy", ValueFromAmount(consensus.genesis_subsidy));
+    obj.pushKV("subsidy_asset", consensus.subsidy_asset.GetHex());
+    obj.pushKV("subsidy_halving_interval", consensus.nSubsidyHalvingInterval);
     obj.pushKV("min_peg_diff", consensus.parentChainPowLimit.GetHex());
     obj.pushKV("parent_blockhash", parent_blockhash.GetHex());
     obj.pushKV("parent_chain_has_pow", consensus.ParentChainHasPow());
