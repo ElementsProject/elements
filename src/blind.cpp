@@ -22,6 +22,12 @@ public:
         secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
         assert(ctx != nullptr);
 
+        // Pass in a random blinding seed to the secp256k1 context (side-channel hardening,
+        // matching the randomization of secp256k1_context_sign in key.cpp).
+        unsigned char randseed[32];
+        GetStrongRandBytes(randseed);
+        assert(secp256k1_context_randomize(ctx, randseed) == 1);
+
         secp256k1_blind_context = ctx;
     }
 
