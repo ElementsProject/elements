@@ -205,6 +205,11 @@ Result CreateRateBumpTransaction(CWallet& wallet, const uint256& txid, const CCo
             errors.emplace_back(Untranslated(strprintf("%s:%u is already spent", txin.prevout.hash.GetHex(), txin.prevout.n)));
             return Result::MISC_ERROR;
         }
+        // ELEMENTS: the input value is summed below, which needs explicit amounts.
+        if (!coin.out.nValue.IsExplicit() || !coin.out.nAsset.IsExplicit()) {
+            errors.push_back(Untranslated("bumpfee can only be called on an unblinded transaction"));
+            return Result::WALLET_ERROR;
+        }
         PreselectedInput& preset_txin = new_coin_control.Select(txin.prevout);
         if (!wallet.IsMine(txin.prevout)) {
             preset_txin.SetTxOut(coin.out);
