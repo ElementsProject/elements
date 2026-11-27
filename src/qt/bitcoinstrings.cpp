@@ -40,6 +40,12 @@ QT_TRANSLATE_NOOP("bitcoin-core", ""
 "upgrading to support pre-split keypool. Please use version %i or no version "
 "specified."),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
+"Change output could not be blinded as there are no blinded inputs and no "
+"other blinded outputs."),
+QT_TRANSLATE_NOOP("bitcoin-core", ""
+"Could not locate mainchain RPC credentials. No authentication cookie could "
+"be found, and no mainchainrpcpassword is set in the configuration file (%s)"),
+QT_TRANSLATE_NOOP("bitcoin-core", ""
 "Disk space for %s may not accommodate the block files. Approximately %u GB "
 "of data will be stored in this directory."),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
@@ -132,9 +138,6 @@ QT_TRANSLATE_NOOP("bitcoin-core", ""
 "No wallet file format provided. To use createfromdump, -format=<format> must "
 "be provided."),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
-"Option '-upnp' is set but UPnP support was dropped in version 29.0. Consider "
-"using '-natpmp' instead."),
-QT_TRANSLATE_NOOP("bitcoin-core", ""
 "Outbound connections restricted to CJDNS (-onlynet=cjdns) but -"
 "cjdnsreachable is not provided"),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
@@ -213,6 +216,9 @@ QT_TRANSLATE_NOOP("bitcoin-core", ""
 "Total length of network version string (%i) exceeds maximum length (%i). "
 "Reduce the number or size of uacomments."),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
+"Transaction output could not be blinded as there are no blinded inputs and "
+"no other blinded outputs."),
+QT_TRANSLATE_NOOP("bitcoin-core", ""
 "Transaction requires one destination of non-0 value, a non-0 feerate, or a "
 "pre-selected input"),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
@@ -242,15 +248,6 @@ QT_TRANSLATE_NOOP("bitcoin-core", ""
 QT_TRANSLATE_NOOP("bitcoin-core", ""
 "Unsupported chainstate database format found. Please restart with -reindex-"
 "chainstate. This will rebuild the chainstate database."),
-QT_TRANSLATE_NOOP("bitcoin-core", ""
-"Wallet created successfully. The legacy wallet type is being deprecated and "
-"support for creating and opening legacy wallets will be removed in the "
-"future."),
-QT_TRANSLATE_NOOP("bitcoin-core", ""
-"Wallet loaded successfully. The legacy wallet type is being deprecated and "
-"support for creating and opening legacy wallets will be removed in the "
-"future. Legacy wallets can be migrated to a descriptor wallet with "
-"migratewallet."),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
 "Warning: Dumpfile wallet format \"%s\" does not match command line specified "
 "format \"%s\"."),
@@ -285,6 +282,7 @@ QT_TRANSLATE_NOOP("bitcoin-core", "%s is set very high!"),
 QT_TRANSLATE_NOOP("bitcoin-core", "-maxmempool must be at least %d MB"),
 QT_TRANSLATE_NOOP("bitcoin-core", "A fatal internal error occurred, see debug.log for details: "),
 QT_TRANSLATE_NOOP("bitcoin-core", "Assumeutxo data not found for the given blockhash '%s'."),
+QT_TRANSLATE_NOOP("bitcoin-core", "Awaiting mainchain RPC warmup"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Block verification was interrupted"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Cannot obtain a lock on directory %s. %s is probably already running."),
 QT_TRANSLATE_NOOP("bitcoin-core", "Cannot resolve -%s address: '%s'"),
@@ -383,10 +381,12 @@ QT_TRANSLATE_NOOP("bitcoin-core", "Missing amount"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Missing solving data for estimating transaction size"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Need to specify a port with -whitebind: '%s'"),
 QT_TRANSLATE_NOOP("bitcoin-core", "No addresses available"),
+QT_TRANSLATE_NOOP("bitcoin-core", "No asset provided for recipient"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Not enough file descriptors available. %d available, %d required."),
 QT_TRANSLATE_NOOP("bitcoin-core", "Not found pre-selected input %s"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Not solvable pre-selected input %s"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Only direction was set, no permissions: '%s'"),
+QT_TRANSLATE_NOOP("bitcoin-core", "Peg-in input has invalid proof."),
 QT_TRANSLATE_NOOP("bitcoin-core", "Prune cannot be configured with a negative value."),
 QT_TRANSLATE_NOOP("bitcoin-core", "Prune mode is incompatible with -txindex."),
 QT_TRANSLATE_NOOP("bitcoin-core", "Pruning blockstore…"),
@@ -397,7 +397,6 @@ QT_TRANSLATE_NOOP("bitcoin-core", "SQLiteDatabase: Failed to execute statement t
 QT_TRANSLATE_NOOP("bitcoin-core", "SQLiteDatabase: Failed to prepare statement to verify database: %s"),
 QT_TRANSLATE_NOOP("bitcoin-core", "SQLiteDatabase: Failed to read database verification error: %s"),
 QT_TRANSLATE_NOOP("bitcoin-core", "SQLiteDatabase: Unexpected application id. Expected %u, got %u"),
-QT_TRANSLATE_NOOP("bitcoin-core", "Section [%s] is not recognized."),
 QT_TRANSLATE_NOOP("bitcoin-core", "Settings file could not be read"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Settings file could not be written"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Signer did not echo address"),
@@ -426,11 +425,14 @@ QT_TRANSLATE_NOOP("bitcoin-core", "Transaction %s does not belong to this wallet
 QT_TRANSLATE_NOOP("bitcoin-core", "Transaction amount too small"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Transaction amounts must not be negative"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Transaction change output index out of range"),
+QT_TRANSLATE_NOOP("bitcoin-core", "Transaction is missing an output for input asset %s"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Transaction must have at least one recipient"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Transaction needs a change address, but we can't generate it."),
 QT_TRANSLATE_NOOP("bitcoin-core", "Transaction too large"),
+QT_TRANSLATE_NOOP("bitcoin-core", "Unable to allocate memory for -maxsigcachesize: '%s' MiB"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Unable to bind to %s on this computer (bind returned error %s)"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Unable to bind to %s on this computer. %s is probably already running."),
+QT_TRANSLATE_NOOP("bitcoin-core", "Unable to blind the transaction properly. This should not happen."),
 QT_TRANSLATE_NOOP("bitcoin-core", "Unable to create the PID file '%s': %s"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Unable to find UTXO for external input"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Unable to generate initial keys"),
@@ -448,6 +450,7 @@ QT_TRANSLATE_NOOP("bitcoin-core", "Unrecognised option \"%s\" provided in -test=
 QT_TRANSLATE_NOOP("bitcoin-core", "Unsupported global logging level %s=%s. Valid values: %s."),
 QT_TRANSLATE_NOOP("bitcoin-core", "Unsupported logging category %s=%s."),
 QT_TRANSLATE_NOOP("bitcoin-core", "User Agent comment (%s) contains unsafe characters."),
+QT_TRANSLATE_NOOP("bitcoin-core", "Value or asset is not explicit for pre-selected input %s"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Verifying blocks…"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Verifying wallet(s)…"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Wallet file creation failed: %s"),

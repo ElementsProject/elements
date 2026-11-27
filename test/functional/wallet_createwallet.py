@@ -161,7 +161,7 @@ class CreateWalletTest(BitcoinTestFramework):
             assert_equal(walletinfo['keypoolsize_hd_internal'], keys)
         # Allow empty passphrase, but there should be a warning
         resp = self.nodes[0].createwallet(wallet_name='w7', disable_private_keys=False, blank=False, passphrase='')
-        assert_equal(resp["warnings"], [EMPTY_PASSPHRASE_MSG] if self.options.descriptors else [EMPTY_PASSPHRASE_MSG, LEGACY_WALLET_MSG])
+        assert_equal(resp["warnings"], [EMPTY_PASSPHRASE_MSG])
 
         w7 = node.get_wallet_rpc('w7')
         assert_raises_rpc_error(-15, 'Error: running with an unencrypted wallet, but walletpassphrase was called.', w7.walletpassphrase, '', 60)
@@ -174,19 +174,6 @@ class CreateWalletTest(BitcoinTestFramework):
 
         self.log.info('Using a passphrase with private keys disabled returns error')
         assert_raises_rpc_error(-4, 'Passphrase provided but private keys are disabled. A passphrase is only used to encrypt private keys, so cannot be used for wallets with private keys disabled.', self.nodes[0].createwallet, wallet_name='w9', disable_private_keys=True, passphrase='thisisapassphrase')
-
-        if self.is_bdb_compiled():
-            self.log.info("Test legacy wallet deprecation")
-            result = self.nodes[0].createwallet(wallet_name="legacy_w0", descriptors=False, passphrase=None)
-            assert_equal(result, {
-                "name": "legacy_w0",
-                "warnings": [LEGACY_WALLET_MSG],
-            })
-            result = self.nodes[0].createwallet(wallet_name="legacy_w1", descriptors=False, passphrase="")
-            assert_equal(result, {
-                "name": "legacy_w1",
-                "warnings": [EMPTY_PASSPHRASE_MSG, LEGACY_WALLET_MSG],
-            })
 
         self.log.info("Check that the version number is being logged correctly")
         with node.assert_debug_log(expected_msgs=[], unexpected_msgs=["Last client version = ", "Wallet file version = "]):
